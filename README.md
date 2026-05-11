@@ -19,7 +19,7 @@ After analysis you download three files:
 - `verdict.pdf` — the three-pass AI analysis
 - `manifest.json` — cryptographic hashes of both files, timestamp, model version, and a permanent Arweave link
 
-**The document is never uploaded anywhere.** Only the manifest — containing SHA-256 hashes of both files — is published to Arweave via Irys. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
+**The document is not stored on the blockchain or anywhere permanently.** It is processed server-side for AI analysis and then discarded. Only the manifest — containing SHA-256 hashes of both files — is published to Arweave via Irys. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
 
 ---
 
