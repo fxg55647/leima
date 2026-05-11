@@ -131,8 +131,9 @@ def build_manifest(
     input_hash: str,
     verdict_hash: str,
     irys_tx: str | None = None,
+    email_meta: dict | None = None,
 ) -> dict:
-    return {
+    manifest = {
         "version": "1",
         "timestamp": timestamp,
         "model": model,
@@ -140,6 +141,9 @@ def build_manifest(
         "verdict_pdf": {"sha256": verdict_hash},
         "irys": {"tx_id": irys_tx, "url": f"{IRYS_GATEWAY}/{irys_tx}" if irys_tx else None},
     }
+    if email_meta:
+        manifest["email_meta"] = email_meta
+    return manifest
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -169,11 +173,15 @@ async def fetch_emails(
         for num in (nums[0].split() or [])[-50:]:
             _, data = imap.fetch(num, "(RFC822)")
             msg = email_lib.message_from_bytes(data[0][1])
+            body = _get_body(msg)
             messages.append({
                 "subject": _decode_header_value(msg["Subject"]) or "(no subject)",
                 "date": msg["Date"] or "",
                 "from": _decode_header_value(msg["From"]),
-                "body": _get_body(msg),
+                "to": _decode_header_value(msg.get("To") or ""),
+                "message_id": (msg.get("Message-ID") or "").strip(),
+                "has_dkim": "DKIM-Signature" in msg,
+                "body": body,
             })
         imap.logout()
     except Exception as e:
@@ -292,6 +300,7 @@ async def ask(
     pdf_file: UploadFile = File(None),
 ):
     contents = []
+    email_meta = None
 
     if active_tab == "pdf":
         if not (pdf_file and pdf_file.filename):
@@ -313,7 +322,21 @@ async def ask(
             return HTMLResponse('<div class="error">No email selected.</div>')
         msg = msgs[int(email_idx)]
         body = msg["body"]
-        input_bytes = _text_to_input_pdf(f"From: {msg['from']}\nSubject: {msg['subject']}\nDate: {msg['date']}\n\n{body}")
+        body_hash = sha256(body.encode())
+        email_meta = {
+            "message_id": msg["message_id"],
+            "from": msg["from"],
+            "to": msg["to"],
+            "date": msg["date"],
+            "has_dkim": msg["has_dkim"],
+            "body_sha256": body_hash,
+        }
+        input_bytes = _text_to_input_pdf(
+            f"From: {msg['from']}\nTo: {msg['to']}\nSubject: {msg['subject']}\n"
+            f"Date: {msg['date']}\nMessage-ID: {msg['message_id']}\n"
+            f"DKIM: {'yes' if msg['has_dkim'] else 'no'}\n"
+            f"Body SHA-256: {body_hash}\n\n{body}"
+        )
         input_label = f"email: {msg['subject'][:40]}"
         contents.append(f"Email from: {msg['from']}\nSubject: {msg['subject']}\nDate: {msg['date']}\n\n{body}")
 
@@ -337,6 +360,7 @@ async def ask(
         input_label=input_label,
         input_hash=input_hash,
         verdict_hash=verdict_hash,
+        email_meta=email_meta if active_tab == "email" else None,
     )
 
     session_id = str(uuid.uuid4())[:12]
