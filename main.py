@@ -34,7 +34,7 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL = "gemini-2.5-flash-lite"
 
-_ECONOMIC_SCOPE = """You ONLY analyse documents related to economic activity. Accepted topics:
+_ECONOMIC_SCOPE = """You ONLY analyse documents related to economic activity or scientific/research work. Accepted topics:
 - Employment: contracts, salary, dismissals, warnings, references
 - Entrepreneurship: invoices, business agreements, company ownership
 - Job seeking: applications, offers, rejections
@@ -46,9 +46,10 @@ _ECONOMIC_SCOPE = """You ONLY analyse documents related to economic activity. Ac
 - Real estate: rental agreements, purchase contracts
 - Education: employer-funded training, professional certifications
 - Any contract or agreement with financial or legal consequences
+- Scientific & research: academic papers, research reports, study findings, journal articles, grant applications, data analyses, clinical trials, experiment results
 
-If the document is NOT related to any of the above, respond with exactly:
-REJECTED: This document does not relate to economic activity and cannot be stamped."""
+If the document is clearly unrelated to any of the above categories, respond with exactly:
+REJECTED: This document does not relate to economic activity or scientific work and cannot be stamped."""
 
 PASS_PROMPTS = [
     f"""You are a document analyst for Stampd, a legal evidence tool.
