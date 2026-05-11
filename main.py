@@ -230,6 +230,28 @@ async def preview_email(request: Request, session_id: str, idx: int):
     )
 
 
+@app.get("/download/{session_id}/source.pdf")
+async def download_source(session_id: str):
+    entry = store.get(session_id)
+    if not entry:
+        return Response(status_code=404)
+    return Response(
+        content=entry["source"],
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=source.pdf"},
+    )
+
+
+@app.get("/files/{session_id}", response_class=HTMLResponse)
+async def files(request: Request, session_id: str):
+    if session_id not in store:
+        return Response(status_code=404)
+    return templates.TemplateResponse(
+        "partials/files.html",
+        {"request": request, "session_id": session_id},
+    )
+
+
 @app.get("/download/{session_id}/verdict.pdf")
 async def download_verdict(session_id: str):
     entry = store.get(session_id)
@@ -391,7 +413,7 @@ async def ask(
     )
 
     session_id = str(uuid.uuid4())[:12]
-    store[session_id] = {"pdf": verdict_pdf, "manifest": manifest}
+    store[session_id] = {"pdf": verdict_pdf, "manifest": manifest, "source": input_bytes}
 
     return templates.TemplateResponse(
         "partials/answer.html",

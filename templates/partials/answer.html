@@ -16,29 +16,19 @@
       <span class="hash-label">Verdict PDF SHA-256</span>
       <code class="hash-value">{{ verdict_hash }}</code>
     </div>
-    <div class="hash-row">
-      <span class="hash-label">Arweave TX</span>
-      <code class="hash-value pending">— not yet uploaded</code>
-    </div>
   </div>
 
   <div class="download-row">
-    <a class="download-btn" href="/download/{{ session_id }}/verdict.pdf" download>
-      ⬇ verdict.pdf
-    </a>
-    <a class="download-btn secondary" href="/download/{{ session_id }}/manifest.json" download>
-      ⬇ manifest.json
-    </a>
-    <button class="stamp-btn"
-      hx-post="/stamp/{{ session_id }}"
-      hx-target="#stamp-result-{{ session_id }}"
+    <button class="generate-btn"
+      hx-get="/files/{{ session_id }}"
+      hx-target="#files-{{ session_id }}"
       hx-swap="innerHTML"
-      hx-indicator="#stamp-result-{{ session_id }}">
-      ⬆ Stamp to Arweave
+      hx-on::after-request="this.remove()">
+      ⬇ Generate files
     </button>
   </div>
 
-  <div id="stamp-result-{{ session_id }}" class="stamp-result"></div>
+  <div id="files-{{ session_id }}"></div>
 
 </div>
 
@@ -83,49 +73,24 @@
     color: #0d6efd;
     word-break: break-all;
   }
-  .hash-value.pending { color: #adb5bd; font-style: italic; }
 
   .download-row {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
   }
-  .download-btn {
-    display: inline-block;
+
+  .generate-btn {
     background: #0d6efd;
     color: #fff;
     border: none;
     border-radius: 6px;
-    padding: 0.45rem 1rem;
-    font-size: 0.875rem;
-    font-family: "Segoe UI", system-ui, sans-serif;
-    font-weight: 500;
-    text-decoration: none;
-    transition: background 0.15s;
-  }
-  .download-btn:hover { background: #0b5ed7; }
-  .download-btn.secondary {
-    background: #fff;
-    color: #198754;
-    border: 1px solid #198754;
-  }
-  .download-btn.secondary:hover { background: #f0fff4; }
-
-  .stamp-btn {
-    background: #dc3545;
-    background-image: linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(0,0,0,0.1));
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 0.45rem 1rem;
+    padding: 0.45rem 1.1rem;
     font-size: 0.875rem;
     font-family: "Segoe UI", system-ui, sans-serif;
     font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.15s;
+    transition: background 0.15s;
   }
-  .stamp-btn:hover { background-color: #b02a37; }
-
-  .stamp-result { margin-top: 0.75rem; font-size: 0.85rem; }
-  .stamp-error { color: #dc3545; }
+  .generate-btn:hover { background: #0b5ed7; }
 </style>
