@@ -14,8 +14,15 @@ from fastapi.staticfiles import StaticFiles
 from google import genai
 from google.genai import types
 from fpdf import FPDF
+from irys_sdk import Builder
+from irys_sdk.bundle.tags import from_dict as tags_from_dict
 
 load_dotenv()
+
+IRYS_PRIVATE_KEY = os.getenv("IRYS_PRIVATE_KEY")
+IRYS_NETWORK = os.getenv("IRYS_NETWORK", "mainnet")
+IRYS_RPC_URL = os.getenv("IRYS_RPC_URL")
+IRYS_GATEWAY = "https://devnet.irys.xyz" if IRYS_NETWORK == "devnet" else "https://gateway.irys.xyz"
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -123,7 +130,7 @@ def build_manifest(
     input_label: str,
     input_hash: str,
     verdict_hash: str,
-    arweave_tx: str | None = None,
+    irys_tx: str | None = None,
 ) -> dict:
     return {
         "version": "1",
@@ -131,7 +138,7 @@ def build_manifest(
         "model": model,
         "input": {"label": input_label, "sha256": input_hash},
         "verdict_pdf": {"sha256": verdict_hash},
-        "arweave": {"tx_id": arweave_tx, "url": f"https://arweave.net/{arweave_tx}" if arweave_tx else None},
+        "irys": {"tx_id": irys_tx, "url": f"{IRYS_GATEWAY}/{irys_tx}" if irys_tx else None},
     }
 
 
@@ -216,6 +223,53 @@ async def download_manifest(session_id: str):
         content=json.dumps(entry["manifest"], indent=2, ensure_ascii=False),
         media_type="application/json",
         headers={"Content-Disposition": "attachment; filename=manifest.json"},
+    )
+
+
+def _irys_upload(data: bytes, content_type: str, tags: dict) -> str:
+    builder = Builder("ethereum").wallet(IRYS_PRIVATE_KEY).network(IRYS_NETWORK)
+    if IRYS_RPC_URL:
+        builder = builder.rpc_url(IRYS_RPC_URL)
+    uploader = builder.build()
+    all_tags = {"Content-Type": content_type, "App-Name": "Stampd", **tags}
+    result = uploader.upload(bytearray(data), tags_from_dict(all_tags))
+    return result["id"]
+
+
+@app.post("/stamp/{session_id}", response_class=HTMLResponse)
+async def stamp(request: Request, session_id: str):
+    entry = store.get(session_id)
+    if not entry:
+        return Response(status_code=404)
+
+    try:
+        verdict_tx = _irys_upload(
+            entry["pdf"],
+            "application/pdf",
+            {"Stampd-Type": "verdict"},
+        )
+
+        entry["manifest"]["irys"]["tx_id"] = verdict_tx
+        entry["manifest"]["irys"]["url"] = f"{IRYS_GATEWAY}/{verdict_tx}"
+
+        manifest_bytes = json.dumps(entry["manifest"], indent=2, ensure_ascii=False).encode()
+        manifest_tx = _irys_upload(
+            manifest_bytes,
+            "application/json",
+            {"Stampd-Type": "manifest", "Stampd-Verdict-TX": verdict_tx},
+        )
+    except Exception as e:
+        return HTMLResponse(f'<p class="stamp-error">Upload failed: {e}</p>')
+
+    return templates.TemplateResponse(
+        "partials/stamp_result.html",
+        {
+            "request": request,
+            "verdict_tx": verdict_tx,
+            "manifest_tx": manifest_tx,
+            "verdict_url": f"{IRYS_GATEWAY}/{verdict_tx}",
+            "manifest_url": f"{IRYS_GATEWAY}/{manifest_tx}",
+        },
     )
 
 

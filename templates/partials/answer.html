@@ -29,7 +29,16 @@
     <a class="download-btn secondary" href="/download/{{ session_id }}/manifest.json" download>
       ⬇ manifest.json
     </a>
+    <button class="stamp-btn"
+      hx-post="/stamp/{{ session_id }}"
+      hx-target="#stamp-result-{{ session_id }}"
+      hx-swap="innerHTML"
+      hx-indicator="#stamp-result-{{ session_id }}">
+      ⬆ Stamp to Arweave
+    </button>
   </div>
+
+  <div id="stamp-result-{{ session_id }}" class="stamp-result"></div>
 
 </div>
 
@@ -101,4 +110,22 @@
     border: 1px solid #198754;
   }
   .download-btn.secondary:hover { background: #f0fff4; }
+
+  .stamp-btn {
+    background: #dc3545;
+    background-image: linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(0,0,0,0.1));
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem 1rem;
+    font-size: 0.875rem;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+  .stamp-btn:hover { background-color: #b02a37; }
+
+  .stamp-result { margin-top: 0.75rem; font-size: 0.85rem; }
+  .stamp-error { color: #dc3545; }
 </style>
