@@ -7,6 +7,7 @@ import email as email_lib
 from email.header import decode_header as _decode_header
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
@@ -169,6 +170,11 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+@app.get("/validate", response_class=HTMLResponse)
+async def validate_page(request: Request):
+    return templates.TemplateResponse("validate.html", {"request": request})
+
+
 @app.post("/fetch-emails", response_class=HTMLResponse)
 async def fetch_emails(
     request: Request,
@@ -285,6 +291,72 @@ async def download_manifest(session_id: str):
         content=json.dumps(entry["manifest"], indent=2, ensure_ascii=False),
         media_type="application/json",
         headers={"Content-Disposition": "attachment; filename=manifest.json"},
+    )
+
+
+@app.post("/validate", response_class=HTMLResponse)
+async def validate(
+    request: Request,
+    source_file: UploadFile = File(...),
+    verdict_file: UploadFile = File(...),
+    manifest_file: UploadFile = File(...),
+):
+    source_bytes = await source_file.read()
+    verdict_bytes = await verdict_file.read()
+    manifest_bytes = await manifest_file.read()
+
+    try:
+        manifest = json.loads(manifest_bytes)
+    except Exception:
+        return HTMLResponse('<p class="error">manifest.json is not valid JSON.</p>')
+
+    results = []
+
+    # 1. Source hash
+    source_actual = sha256(source_bytes)
+    source_expected = manifest.get("input", {}).get("sha256", "")
+    results.append({
+        "label": "Source PDF hash",
+        "ok": source_actual == source_expected,
+        "expected": source_expected,
+        "actual": source_actual,
+    })
+
+    # 2. Verdict hash
+    verdict_actual = sha256(verdict_bytes)
+    verdict_expected = manifest.get("verdict_pdf", {}).get("sha256", "")
+    results.append({
+        "label": "Verdict PDF hash",
+        "ok": verdict_actual == verdict_expected,
+        "expected": verdict_expected,
+        "actual": verdict_actual,
+    })
+
+    # 3. Arweave manifest integrity
+    arweave = manifest.get("arweave", {})
+    tx_id = arweave.get("tx_id")
+    arweave_check = {"label": "Arweave manifest", "ok": False, "expected": "", "actual": ""}
+    if not tx_id:
+        arweave_check["actual"] = "No arweave.tx_id in manifest"
+    else:
+        try:
+            resp = http_requests.get(f"{IRYS_GATEWAY}/{tx_id}", timeout=15)
+            resp.raise_for_status()
+            arweave_manifest = resp.json()
+            base_manifest = {k: v for k, v in manifest.items() if k != "arweave"}
+            arweave_check["ok"] = arweave_manifest == base_manifest
+            if not arweave_check["ok"]:
+                arweave_check["actual"] = "Arweave content does not match local manifest"
+            else:
+                arweave_check["actual"] = f"Verified at {IRYS_GATEWAY}/{tx_id}"
+        except Exception as e:
+            arweave_check["actual"] = f"Fetch failed: {e}"
+    results.append(arweave_check)
+
+    all_ok = all(r["ok"] for r in results)
+    return templates.TemplateResponse(
+        "partials/validation_result.html",
+        {"request": request, "results": results, "all_ok": all_ok},
     )
 
 

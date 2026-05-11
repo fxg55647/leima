@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stampd – Validate</title>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: #f8f9fa;
+      color: #212529;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid #dc3545;
+    }
+
+    header img { height: 72px; width: auto; display: block; }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: #212529; letter-spacing: 0.02em; }
+    header p { color: #6c757d; font-size: 0.8rem; margin-top: 0.1rem; }
+
+    .back-btn {
+      margin-left: auto;
+      background: #fff;
+      color: #6c757d;
+      border: 1.5px solid #dee2e6;
+      border-radius: 6px;
+      padding: 0.4rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      font-family: inherit;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .back-btn:hover { border-color: #adb5bd; color: #212529; }
+
+    .card {
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 680px;
+      box-shadow: 0 5px 10px -2.5px rgba(0,0,0,.15);
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      color: #212529;
+    }
+
+    .upload-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .upload-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .upload-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #495057;
+      width: 100px;
+      flex-shrink: 0;
+    }
+
+    .file-input-btn {
+      display: inline-block;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 0.4rem 0.875rem;
+      font-size: 0.85rem;
+      font-family: inherit;
+      color: #495057;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-input-btn:hover { border-color: #adb5bd; background: #f1f3f5; }
+    .file-input-btn.has-file { border-color: #0d6efd; color: #0d6efd; background: #e8f0fe; }
+
+    input[type="file"] { display: none; }
+
+    button[type="submit"] {
+      background: #dc3545;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.625rem 1.5rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button[type="submit"]:hover { background: #b02a37; }
+    button[type="submit"]:disabled { background: #6c757d; cursor: not-allowed; }
+
+    .htmx-indicator { display: none; color: #6c757d; font-size: 0.875rem; margin-top: 1rem; }
+    .htmx-request .htmx-indicator { display: block; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #dee2e6;
+      border-top-color: #dc3545;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #result { margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <header>
+    <img src="/static/logo.png" alt="Stampd">
+    <div>
+      <h1>Stampd</h1>
+      <p>Validate a stamped document</p>
+    </div>
+    <a href="/" class="back-btn">← Back</a>
+  </header>
+
+  <form
+    hx-post="/validate"
+    hx-target="#result"
+    hx-swap="innerHTML"
+    hx-encoding="multipart/form-data"
+    hx-indicator="#form-wrap"
+    id="val-form"
+  >
+    <div id="form-wrap">
+      <p class="card-title">Upload all three files to verify integrity</p>
+
+      <div class="upload-grid">
+        <div class="upload-row">
+          <span class="upload-label">source.pdf</span>
+          <label class="file-input-btn" id="label-source" for="input-source">Choose file…</label>
+          <input type="file" id="input-source" name="source_file" accept="application/pdf"
+            onchange="setLabel(this, 'label-source')">
+        </div>
+        <div class="upload-row">
+          <span class="upload-label">verdict.pdf</span>
+          <label class="file-input-btn" id="label-verdict" for="input-verdict">Choose file…</label>
+          <input type="file" id="input-verdict" name="verdict_file" accept="application/pdf"
+            onchange="setLabel(this, 'label-verdict')">
+        </div>
+        <div class="upload-row">
+          <span class="upload-label">manifest.json</span>
+          <label class="file-input-btn" id="label-manifest" for="input-manifest">Choose file…</label>
+          <input type="file" id="input-manifest" name="manifest_file" accept="application/json"
+            onchange="setLabel(this, 'label-manifest')">
+        </div>
+      </div>
+
+      <button type="submit">Validate</button>
+
+      <div class="htmx-indicator">
+        <span class="spinner"></span>Verifying…
+      </div>
+    </div>
+  </form>
+
+  <div id="result"></div>
+</div>
+
+<script>
+  function setLabel(input, labelId) {
+    const label = document.getElementById(labelId);
+    if (input.files[0]) {
+      label.textContent = input.files[0].name;
+      label.classList.add('has-file');
+    }
+  }
+</script>
+
+</body>
+</html>
