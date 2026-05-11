@@ -237,7 +237,7 @@ async def preview_email(request: Request, session_id: str, idx: int):
 @app.get("/download/{session_id}/source.pdf")
 async def download_source(session_id: str):
     entry = store.get(session_id)
-    if not entry:
+    if not entry or not entry.get("source"):
         return Response(status_code=404)
     return Response(
         content=entry["source"],
@@ -333,7 +333,7 @@ async def validate(
     })
 
     # 3. Arweave manifest integrity
-    arweave = manifest.get("arweave", {})
+    arweave = manifest.get("arweave") or manifest.get("irys") or {}
     tx_id = arweave.get("tx_id")
     arweave_check = {"label": "Arweave manifest", "ok": False, "expected": "", "actual": ""}
     if not tx_id:
