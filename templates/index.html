@@ -162,12 +162,23 @@
       box-shadow: 0 0 0 3px rgba(13,110,253,.15);
     }
 
-    .url-or {
+    .url-toggle-row {
       text-align: center;
-      font-size: 0.75rem;
-      color: #adb5bd;
-      margin: 0.5rem 0;
+      margin-top: 0.6rem;
+      margin-bottom: 0.25rem;
     }
+    .url-toggle-btn {
+      background: none;
+      border: none;
+      color: #6c757d;
+      font-size: 0.8rem;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .url-toggle-btn:hover { color: #0d6efd; }
     .url-input {
       width: 100%;
       background: #fff;
@@ -185,7 +196,13 @@
       border-color: #86b7fe;
       box-shadow: 0 0 0 3px rgba(13,110,253,.15);
     }
-    .url-hint { font-size: 0.72rem; color: #adb5bd; margin-bottom: 0.5rem; }
+    .url-hint-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .url-hint { font-size: 0.72rem; color: #adb5bd; }
 
     .question-label {
       display: flex;
@@ -432,17 +449,25 @@
       </div>
 
       <div id="tab-pdf" class="tab-panel active">
-        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
-          <div class="drop-zone-icon">📄</div>
-          <div id="drop-label">Click or drop a PDF here</div>
-          <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf"
-            onchange="onFileSelect(this)">
+        <div id="drop-zone-wrap">
+          <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
+            <div class="drop-zone-icon">📄</div>
+            <div id="drop-label">Click or drop a PDF here</div>
+            <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf"
+              onchange="onFileSelect(this)">
+          </div>
+          <div class="url-toggle-row">
+            <button type="button" class="url-toggle-btn" onclick="showUrlInput()">Use URL instead</button>
+          </div>
         </div>
-        <div class="url-or">or</div>
-        <input type="url" name="pdf_url" id="pdf-url" class="url-input"
-          placeholder="https://example.com/document.pdf"
-          oninput="onUrlInput(this)">
-        <div class="url-hint">Max 10 MB</div>
+        <div id="url-input-wrap" style="display:none;">
+          <input type="url" name="pdf_url" id="pdf-url" class="url-input"
+            placeholder="https://example.com/document.pdf">
+          <div class="url-hint-row">
+            <span class="url-hint">Max 10 MB</span>
+            <button type="button" class="url-toggle-btn" onclick="showDropZone()">Use file instead</button>
+          </div>
+        </div>
       </div>
 
       <div id="tab-text" class="tab-panel">
@@ -518,15 +543,31 @@
     return false;
   }
 
+  function showUrlInput() {
+    document.getElementById('drop-zone-wrap').style.display = 'none';
+    document.getElementById('url-input-wrap').style.display = 'block';
+    document.getElementById('pdf-input').value = '';
+    const zone = document.getElementById('drop-zone');
+    zone.classList.remove('has-file');
+    document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
+    document.getElementById('pdf-url').focus();
+  }
+
+  function showDropZone() {
+    document.getElementById('url-input-wrap').style.display = 'none';
+    document.getElementById('drop-zone-wrap').style.display = 'block';
+    document.getElementById('pdf-url').value = '';
+  }
+
   function clearTab(tab) {
     if (tab === 'pdf') {
       document.getElementById('pdf-input').value = '';
       document.getElementById('pdf-url').value = '';
       const zone = document.getElementById('drop-zone');
       zone.classList.remove('has-file');
-      zone.style.opacity = '';
-      zone.style.pointerEvents = '';
       document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
+      document.getElementById('drop-zone-wrap').style.display = 'block';
+      document.getElementById('url-input-wrap').style.display = 'none';
     } else if (tab === 'text') {
       document.querySelector('[name="text_input"]').value = '';
     } else if (tab === 'email') {
@@ -557,20 +598,6 @@
     document.getElementById('tab-' + newTab).classList.add('active');
     btn.classList.add('active');
     document.getElementById('active-tab').value = newTab;
-  }
-
-  function onUrlInput(input) {
-    const zone = document.getElementById('drop-zone');
-    if (input.value.trim()) {
-      zone.style.opacity = '0.4';
-      zone.style.pointerEvents = 'none';
-      document.getElementById('pdf-input').value = '';
-      zone.classList.remove('has-file');
-      document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
-    } else {
-      zone.style.opacity = '';
-      zone.style.pointerEvents = '';
-    }
   }
 
   function onFileSelect(input) {
