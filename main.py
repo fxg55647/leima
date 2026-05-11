@@ -150,7 +150,6 @@ def build_manifest(
     input_label: str,
     input_hash: str,
     verdict_hash: str,
-    irys_tx: str | None = None,
     email_meta: dict | None = None,
 ) -> dict:
     manifest = {
@@ -159,7 +158,6 @@ def build_manifest(
         "model": model,
         "input": {"label": input_label, "sha256": input_hash},
         "verdict_pdf": {"sha256": verdict_hash},
-        "irys": {"tx_id": irys_tx, "url": f"{IRYS_GATEWAY}/{irys_tx}" if irys_tx else None},
     }
     if email_meta:
         manifest["email_meta"] = email_meta
@@ -242,13 +240,27 @@ async def download_source(session_id: str):
     )
 
 
-@app.get("/files/{session_id}", response_class=HTMLResponse)
+@app.post("/files/{session_id}", response_class=HTMLResponse)
 async def files(request: Request, session_id: str):
-    if session_id not in store:
+    entry = store.get(session_id)
+    if not entry:
         return Response(status_code=404)
+
+    base_manifest = entry["manifest"]
+    manifest_bytes = json.dumps(base_manifest, indent=2, ensure_ascii=False).encode()
+
+    try:
+        irys_tx = _irys_upload(manifest_bytes, "application/json", {"Stampd-Type": "manifest"})
+    except Exception as e:
+        return HTMLResponse(f'<p class="error">Irys upload failed: {e}</p>')
+
+    irys_url = f"{IRYS_GATEWAY}/{irys_tx}"
+    download_manifest = {**base_manifest, "arweave": {"tx_id": irys_tx, "url": irys_url}}
+    entry["manifest"] = download_manifest
+
     return templates.TemplateResponse(
         "partials/files.html",
-        {"request": request, "session_id": session_id},
+        {"request": request, "session_id": session_id, "irys_tx": irys_tx, "irys_url": irys_url},
     )
 
 
@@ -286,41 +298,6 @@ def _irys_upload(data: bytes, content_type: str, tags: dict) -> str:
     return result["id"]
 
 
-@app.post("/stamp/{session_id}", response_class=HTMLResponse)
-async def stamp(request: Request, session_id: str):
-    entry = store.get(session_id)
-    if not entry:
-        return Response(status_code=404)
-
-    try:
-        verdict_tx = _irys_upload(
-            entry["pdf"],
-            "application/pdf",
-            {"Stampd-Type": "verdict"},
-        )
-
-        entry["manifest"]["irys"]["tx_id"] = verdict_tx
-        entry["manifest"]["irys"]["url"] = f"{IRYS_GATEWAY}/{verdict_tx}"
-
-        manifest_bytes = json.dumps(entry["manifest"], indent=2, ensure_ascii=False).encode()
-        manifest_tx = _irys_upload(
-            manifest_bytes,
-            "application/json",
-            {"Stampd-Type": "manifest", "Stampd-Verdict-TX": verdict_tx},
-        )
-    except Exception as e:
-        return HTMLResponse(f'<p class="stamp-error">Upload failed: {e}</p>')
-
-    return templates.TemplateResponse(
-        "partials/stamp_result.html",
-        {
-            "request": request,
-            "verdict_tx": verdict_tx,
-            "manifest_tx": manifest_tx,
-            "verdict_url": f"{IRYS_GATEWAY}/{verdict_tx}",
-            "manifest_url": f"{IRYS_GATEWAY}/{manifest_tx}",
-        },
-    )
 
 
 def _text_to_input_pdf(text: str) -> bytes:
