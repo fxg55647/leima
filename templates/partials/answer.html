@@ -5,7 +5,12 @@
     <span class="meta-label">🕐 {{ timestamp }}</span>
   </div>
 
-  <div class="answer-text">{{ answer }}</div>
+  {% for label, text in passes %}
+  <div class="pass-block">
+    <div class="pass-label">{{ label }}</div>
+    <div class="answer-text">{{ text }}</div>
+  </div>
+  {% endfor %}
 
   <div class="hash-block">
     <div class="hash-row">
@@ -40,6 +45,16 @@
     flex-wrap: wrap;
   }
   .meta-label { font-size: 0.8rem; color: #6c757d; }
+
+  .pass-block { margin-bottom: 1.25rem; }
+  .pass-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #adb5bd;
+    margin-bottom: 0.35rem;
+  }
 
   .answer-text {
     line-height: 1.7;

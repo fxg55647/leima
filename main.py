@@ -34,9 +34,7 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL = "gemini-2.5-flash-lite"
 
-SYSTEM_PROMPT = """You are a document analyst for Stampd, a legal evidence tool.
-
-You ONLY analyse documents related to economic activity. Accepted topics:
+_ECONOMIC_SCOPE = """You ONLY analyse documents related to economic activity. Accepted topics:
 - Employment: contracts, salary, dismissals, warnings, references
 - Entrepreneurship: invoices, business agreements, company ownership
 - Job seeking: applications, offers, rejections
@@ -49,10 +47,31 @@ You ONLY analyse documents related to economic activity. Accepted topics:
 - Education: employer-funded training, professional certifications
 - Any contract or agreement with financial or legal consequences
 
-If the document or email is NOT related to any of the above, respond with exactly:
-REJECTED: This document does not relate to economic activity and cannot be stamped.
+If the document is NOT related to any of the above, respond with exactly:
+REJECTED: This document does not relate to economic activity and cannot be stamped."""
 
-Otherwise, answer the user's question thoroughly and objectively based solely on the document content."""
+PASS_PROMPTS = [
+    f"""You are a document analyst for Stampd, a legal evidence tool.
+{_ECONOMIC_SCOPE}
+
+Otherwise: identify ONLY what in the document supports the claim, and under which assumptions. Be specific. Quote directly from the document using quotation marks. Do not consider contradictions or gaps.""",
+
+    f"""You are a document analyst for Stampd, a legal evidence tool.
+{_ECONOMIC_SCOPE}
+
+Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.""",
+
+    f"""You are a document analyst for Stampd, a legal evidence tool.
+{_ECONOMIC_SCOPE}
+
+Otherwise: identify where reasonable disagreement about the claim could arise from this document. Consider definitions, time bounds, missing evidence, and interpretive choices. Do not evaluate support or opposition — only map the epistemic boundaries and sources of uncertainty.""",
+]
+
+PASS_LABELS = [
+    "Support Analysis",
+    "Refutation & Gap Analysis",
+    "Ambiguity & Scope Audit",
+]
 
 # In-memory store: session_id → {pdf: bytes, manifest: dict}
 store: dict[str, dict] = {}
@@ -117,7 +136,7 @@ def _safe(text: str) -> str:
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
-def build_verdict_pdf(question: str, answer: str, timestamp: str, input_hash: str) -> bytes:
+def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str) -> bytes:
     pdf = FPDF()
     pdf.add_page()
 
@@ -134,15 +153,16 @@ def build_verdict_pdf(question: str, answer: str, timestamp: str, input_hash: st
 
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "Question:", ln=True)
+    pdf.cell(0, 7, "Claim:", ln=True)
     pdf.set_font("Helvetica", size=11)
     pdf.multi_cell(0, 6, _safe(question))
-    pdf.ln(4)
 
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "Answer:", ln=True)
-    pdf.set_font("Helvetica", size=11)
-    pdf.multi_cell(0, 6, _safe(answer))
+    for label, text in passes:
+        pdf.ln(6)
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 7, _safe(label), ln=True)
+        pdf.set_font("Helvetica", size=11)
+        pdf.multi_cell(0, 6, _safe(text))
 
     return bytes(pdf.output())
 
@@ -488,20 +508,22 @@ async def ask(
 
     contents.append(question)
 
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=contents,
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
-    )
-    answer = response.text
-
-    if answer.startswith("REJECTED:"):
-        return HTMLResponse(f'<div class="error">{answer}</div>')
+    passes = []
+    for i, (prompt, label) in enumerate(zip(PASS_PROMPTS, PASS_LABELS)):
+        resp = client.models.generate_content(
+            model=MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(system_instruction=prompt),
+        )
+        text = resp.text
+        if text.startswith("REJECTED:"):
+            return HTMLResponse(f'<div class="error">{text}</div>')
+        passes.append((label, text))
 
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     input_hash = sha256(input_bytes)
 
-    verdict_pdf = build_verdict_pdf(question, answer, timestamp, input_hash)
+    verdict_pdf = build_verdict_pdf(question, passes, timestamp, input_hash)
     verdict_hash = sha256(verdict_pdf)
 
     manifest = build_manifest(
@@ -520,7 +542,7 @@ async def ask(
         "partials/answer.html",
         {
             "request": request,
-            "answer": answer,
+            "passes": passes,
             "filename": input_label,
             "input_hash": input_hash,
             "verdict_hash": verdict_hash,
