@@ -3,9 +3,11 @@ import hashlib
 import uuid
 import json
 import imaplib
+import ipaddress
 import email as email_lib
 from email.header import decode_header as _decode_header
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
@@ -372,6 +374,49 @@ def _irys_upload(data: bytes, content_type: str, tags: dict) -> str:
 
 
 
+PDF_URL_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def _fetch_pdf_from_url(url: str) -> tuple[bytes, str]:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("Only http/https URLs are allowed")
+
+    try:
+        host = parsed.hostname
+        addr = ipaddress.ip_address(host)
+        if addr.is_private or addr.is_loopback or addr.is_link_local:
+            raise ValueError("Private/internal addresses are not allowed")
+    except ValueError as e:
+        if "Private" in str(e) or "internal" in str(e) or "loopback" in str(e):
+            raise
+        pass  # hostname is not an IP — OK
+
+    head = http_requests.head(url, timeout=10, allow_redirects=True)
+    content_length = head.headers.get("Content-Length")
+    if content_length and int(content_length) > PDF_URL_MAX_BYTES:
+        raise ValueError(f"File too large (max {PDF_URL_MAX_BYTES // 1024 // 1024} MB)")
+
+    resp = http_requests.get(url, timeout=30, allow_redirects=True, stream=True)
+    resp.raise_for_status()
+
+    content_type = resp.headers.get("Content-Type", "")
+    if "pdf" not in content_type and not url.lower().endswith(".pdf"):
+        raise ValueError(f"URL does not point to a PDF (Content-Type: {content_type})")
+
+    chunks = []
+    total = 0
+    for chunk in resp.iter_content(chunk_size=65536):
+        total += len(chunk)
+        if total > PDF_URL_MAX_BYTES:
+            raise ValueError(f"File too large (max {PDF_URL_MAX_BYTES // 1024 // 1024} MB)")
+        chunks.append(chunk)
+
+    data = b"".join(chunks)
+    label = parsed.path.split("/")[-1] or parsed.netloc
+    return data, label
+
+
 def _text_to_input_pdf(text: str) -> bytes:
     p = FPDF()
     p.add_page()
@@ -389,15 +434,22 @@ async def ask(
     email_session_id: str = Form(""),
     email_idx: str = Form(""),
     pdf_file: UploadFile = File(None),
+    pdf_url: str = Form(""),
 ):
     contents = []
     email_meta = None
 
     if active_tab == "pdf":
-        if not (pdf_file and pdf_file.filename):
-            return HTMLResponse('<div class="error">Please upload a PDF file.</div>')
-        input_bytes = await pdf_file.read()
-        input_label = pdf_file.filename
+        if pdf_url.strip():
+            try:
+                input_bytes, input_label = _fetch_pdf_from_url(pdf_url.strip())
+            except Exception as e:
+                return HTMLResponse(f'<div class="error">URL error: {e}</div>')
+        elif pdf_file and pdf_file.filename:
+            input_bytes = await pdf_file.read()
+            input_label = pdf_file.filename
+        else:
+            return HTMLResponse('<div class="error">Please upload a PDF or enter a URL.</div>')
         contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
 
     elif active_tab == "text":

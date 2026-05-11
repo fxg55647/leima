@@ -162,6 +162,31 @@
       box-shadow: 0 0 0 3px rgba(13,110,253,.15);
     }
 
+    .url-or {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #adb5bd;
+      margin: 0.5rem 0;
+    }
+    .url-input {
+      width: 100%;
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      color: #212529;
+      padding: 0.5rem 0.875rem;
+      font-family: inherit;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      margin-bottom: 0.25rem;
+    }
+    .url-input:focus {
+      border-color: #86b7fe;
+      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+    }
+    .url-hint { font-size: 0.72rem; color: #adb5bd; margin-bottom: 0.5rem; }
+
     .question-label {
       display: flex;
       flex-direction: column;
@@ -393,6 +418,11 @@
           <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf"
             onchange="onFileSelect(this)">
         </div>
+        <div class="url-or">or</div>
+        <input type="url" name="pdf_url" id="pdf-url" class="url-input"
+          placeholder="https://example.com/document.pdf"
+          oninput="onUrlInput(this)">
+        <div class="url-hint">Max 10 MB</div>
       </div>
 
       <div id="tab-text" class="tab-panel">
@@ -471,7 +501,11 @@
   function clearTab(tab) {
     if (tab === 'pdf') {
       document.getElementById('pdf-input').value = '';
-      document.getElementById('drop-zone').classList.remove('has-file');
+      document.getElementById('pdf-url').value = '';
+      const zone = document.getElementById('drop-zone');
+      zone.classList.remove('has-file');
+      zone.style.opacity = '';
+      zone.style.pointerEvents = '';
       document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
     } else if (tab === 'text') {
       document.querySelector('[name="text_input"]').value = '';
@@ -503,6 +537,20 @@
     document.getElementById('tab-' + newTab).classList.add('active');
     btn.classList.add('active');
     document.getElementById('active-tab').value = newTab;
+  }
+
+  function onUrlInput(input) {
+    const zone = document.getElementById('drop-zone');
+    if (input.value.trim()) {
+      zone.style.opacity = '0.4';
+      zone.style.pointerEvents = 'none';
+      document.getElementById('pdf-input').value = '';
+      zone.classList.remove('has-file');
+      document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
+    } else {
+      zone.style.opacity = '';
+      zone.style.pointerEvents = '';
+    }
   }
 
   function onFileSelect(input) {
