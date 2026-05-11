@@ -31,6 +31,26 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL = "gemini-2.5-flash-lite"
 
+SYSTEM_PROMPT = """You are a document analyst for Stampd, a legal evidence tool.
+
+You ONLY analyse documents related to economic activity. Accepted topics:
+- Employment: contracts, salary, dismissals, warnings, references
+- Entrepreneurship: invoices, business agreements, company ownership
+- Job seeking: applications, offers, rejections
+- Loans & debt: loan agreements, payment plans, debt collection
+- Insurance: work-related or business insurance policies
+- Social benefits: unemployment, sick pay, Kela decisions
+- Taxation: tax cards, tax decisions, advance tax
+- Investments & ownership: shares, shareholder agreements
+- Real estate: rental agreements, purchase contracts
+- Education: employer-funded training, professional certifications
+- Any contract or agreement with financial or legal consequences
+
+If the document or email is NOT related to any of the above, respond with exactly:
+REJECTED: This document does not relate to economic activity and cannot be stamped.
+
+Otherwise, answer the user's question thoroughly and objectively based solely on the document content."""
+
 # In-memory store: session_id → {pdf: bytes, manifest: dict}
 store: dict[str, dict] = {}
 # Email sessions: session_id → list of email dicts
@@ -345,8 +365,15 @@ async def ask(
 
     contents.append(question)
 
-    response = client.models.generate_content(model=MODEL, contents=contents)
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+    )
     answer = response.text
+
+    if answer.startswith("REJECTED:"):
+        return HTMLResponse(f'<div class="error">{answer}</div>')
 
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     input_hash = sha256(input_bytes)
