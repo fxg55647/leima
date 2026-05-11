@@ -62,16 +62,12 @@ Otherwise: identify ONLY what in the document supports the claim, and under whic
 
 Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.""",
 
-    f"""You are a document analyst for Stampd, a legal evidence tool.
-{_ECONOMIC_SCOPE}
-
-Otherwise: identify where reasonable disagreement about the claim could arise from this document. Consider definitions, time bounds, missing evidence, and interpretive choices. Do not evaluate support or opposition — only map the epistemic boundaries and sources of uncertainty.""",
 ]
 
 PASS_LABELS = [
     "Support Analysis",
     "Refutation & Gap Analysis",
-    "Ambiguity & Scope Audit",
+    "Synthesis & Verdict",
 ]
 
 # In-memory store: session_id → {pdf: bytes, manifest: dict}
@@ -521,6 +517,40 @@ async def ask(
             return HTMLResponse(f'<div class="error">{text}</div>')
         passes.append((label, text))
 
+    synthesis_prompt = f"""You are the final judge for Stampd, a legal evidence tool.
+
+The claim being evaluated: "{question}"
+
+Two independent analysts have reviewed the document:
+
+SUPPORT ANALYST:
+{passes[0][1]}
+
+REFUTATION ANALYST:
+{passes[1][1]}
+
+Your task: compare the two analyses objectively. Which side had stronger arguments and better evidence from the document? Consider the quality of quotes, the directness of the evidence, and the logical strength of each case.
+
+Start your response with exactly one line in this format:
+VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
+
+Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct."""
+
+    synth_resp = client.models.generate_content(
+        model=MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(system_instruction=synthesis_prompt),
+    )
+    synth_text = synth_resp.text.strip()
+    if synth_text.startswith("VERDICT:"):
+        first_line, _, rest = synth_text.partition("\n")
+        summary_verdict = first_line.removeprefix("VERDICT:").strip()
+        synthesis_body = rest.strip()
+    else:
+        summary_verdict = synth_text.split(".")[0].strip() + "."
+        synthesis_body = synth_text
+    passes.append((PASS_LABELS[2], synthesis_body))
+
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     input_hash = sha256(input_bytes)
 
@@ -544,6 +574,8 @@ async def ask(
         {
             "request": request,
             "passes": passes,
+            "question": question,
+            "summary_verdict": summary_verdict,
             "filename": input_label,
             "input_hash": input_hash,
             "verdict_hash": verdict_hash,
