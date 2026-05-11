@@ -382,6 +382,26 @@
     .fetch-error { color: #dc3545; font-size: 0.85rem; margin-top: 0.5rem; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 520px) {
+      body { padding: 0.75rem 0.5rem; }
+
+      .card { padding: 1.1rem; margin: 4px 0; }
+
+      header { flex-wrap: wrap; row-gap: 0.4rem; }
+      header img { height: 52px; }
+      .validate-btn { margin-left: auto; }
+
+      .question-row { flex-direction: column; }
+      .question-row input[type="text"] { width: 100%; }
+      button[type="submit"] { width: 100%; justify-content: center; }
+
+      .field-row { flex-direction: column; gap: 0; }
+
+      .email-split { flex-direction: column; height: auto; }
+      .email-list { width: 100%; border-right: none; border-bottom: 1px solid #dee2e6; max-height: 160px; }
+      .email-preview-pane { max-height: 200px; }
+    }
   </style>
 </head>
 <body>

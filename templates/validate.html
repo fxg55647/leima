@@ -138,6 +138,18 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     #result { margin-top: 1.5rem; }
+
+    @media (max-width: 520px) {
+      body { padding: 0.75rem 0.5rem; }
+      .card { padding: 1.1rem; }
+      header { flex-wrap: wrap; row-gap: 0.4rem; }
+      header img { height: 52px; }
+      .back-btn { margin-left: auto; }
+      .upload-row { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+      .upload-label { width: auto; }
+      .file-input-btn { width: 100%; }
+      button[type="submit"] { width: 100%; }
+    }
   </style>
 </head>
 <body>
