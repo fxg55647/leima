@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stampd</title>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: #f8f9fa;
+      color: #212529;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid #dc3545;
+    }
+
+    .validate-btn {
+      margin-left: auto;
+      background: #fff;
+      color: #dc3545;
+      border: 1.5px solid #dc3545;
+      border-radius: 6px;
+      padding: 0.4rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      font-family: inherit;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    .validate-btn:hover {
+      background: #dc3545;
+      color: #fff;
+    }
+
+    header img {
+      height: 72px;
+      width: auto;
+      display: block;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #212529;
+      letter-spacing: 0.02em;
+    }
+
+    header p {
+      color: #6c757d;
+      font-size: 0.8rem;
+      margin-top: 0.1rem;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 680px;
+      margin: 10px;
+      box-shadow: 0 5px 10px -2.5px rgba(0,0,0,.15);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid #dee2e6;
+      padding-bottom: 0;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #6c757d;
+      padding: 0.4rem 0.875rem 0.6rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-family: inherit;
+      font-weight: 500;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover { color: #212529; }
+
+    .tab-btn.active {
+      color: #0d6efd;
+      border-bottom-color: #0d6efd;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .drop-zone {
+      border: 2px dashed #dee2e6;
+      border-radius: 6px;
+      padding: 2rem;
+      text-align: center;
+      color: #adb5bd;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 1rem;
+      background: #f8f9fa;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #adb5bd;
+      background: #f1f3f5;
+      color: #6c757d;
+    }
+
+    .drop-zone.has-file {
+      border-color: #0d6efd;
+      background: #e8f0fe;
+      color: #0d6efd;
+    }
+
+    .drop-zone input[type="file"] { display: none; }
+
+    .drop-zone-icon {
+      font-size: 1.75rem;
+      margin-bottom: 0.4rem;
+    }
+
+    textarea {
+      width: 100%;
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      color: #212529;
+      padding: 0.625rem 0.875rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      resize: vertical;
+      min-height: 140px;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    textarea:focus {
+      border-color: #86b7fe;
+      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+    }
+
+    .question-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .question-row input[type="text"] {
+      flex: 1;
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      color: #212529;
+      padding: 0.625rem 0.875rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .question-row input[type="text"]:focus {
+      border-color: #86b7fe;
+      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+    }
+
+    .question-row input[type="text"]::placeholder,
+    textarea::placeholder { color: #adb5bd; }
+
+    button[type="submit"] {
+      background: #0d6efd;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    button[type="submit"]:hover { background: #0b5ed7; }
+    button[type="submit"]:disabled { background: #6c757d; cursor: not-allowed; }
+
+    #answer-area {
+      margin-top: 1.5rem;
+      width: 100%;
+      max-width: 680px;
+    }
+
+    .htmx-indicator {
+      display: none;
+      text-align: center;
+      color: #6c757d;
+      padding: 1.25rem;
+      font-size: 0.875rem;
+    }
+
+    .htmx-request .htmx-indicator { display: block; }
+    .htmx-request #submit-btn { background: #6c757d; cursor: not-allowed; }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #dee2e6;
+      border-top-color: #dc3545;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      margin-bottom: 0.875rem;
+    }
+
+    .field-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #495057;
+    }
+
+    .field-input {
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      color: #212529;
+      padding: 0.625rem 0.875rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .field-input:focus {
+      border-color: #86b7fe;
+      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+    }
+
+    .field-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .field-row .field-group { flex: 1; }
+
+    .fetch-btn {
+      background: #fff;
+      color: #0d6efd;
+      border: 1.5px solid #0d6efd;
+      border-radius: 6px;
+      padding: 0.45rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      margin-bottom: 1rem;
+    }
+    .fetch-btn:hover { background: #0d6efd; color: #fff; }
+
+    .email-split {
+      display: flex;
+      gap: 0;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      overflow: hidden;
+      height: 300px;
+      margin-top: 0.5rem;
+    }
+
+    .email-list {
+      width: 40%;
+      border-right: 1px solid #dee2e6;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .email-item {
+      padding: 0.6rem 0.875rem;
+      border-bottom: 1px solid #f1f3f5;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .email-item:hover { background: #f8f9fa; }
+    .email-item.active { background: #e8f0fe; border-left: 3px solid #0d6efd; }
+
+    .email-item-subject {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #212529;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .email-item-date {
+      font-size: 0.72rem;
+      color: #adb5bd;
+      margin-top: 0.15rem;
+    }
+
+    .email-preview-pane {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.875rem;
+      font-size: 0.85rem;
+      color: #212529;
+    }
+
+    .fetch-error { color: #dc3545; font-size: 0.85rem; margin-top: 0.5rem; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <header>
+    <img src="/static/logo.png" alt="Stampd">
+    <div>
+      <h1>Stampd</h1>
+      <p>Ask your document</p>
+    </div>
+    <a href="/validate" class="validate-btn">Validate</a>
+  </header>
+  <form
+    hx-post="/ask"
+    hx-target="#answer-area"
+    hx-swap="innerHTML"
+    hx-encoding="multipart/form-data"
+    hx-indicator="#form-wrap"
+    id="main-form"
+  >
+    <div id="form-wrap">
+      <input type="hidden" name="active_tab" id="active-tab" value="pdf">
+
+      <div class="tabs">
+        <button type="button" class="tab-btn active" onclick="switchTab('pdf', this)">PDF</button>
+        <button type="button" class="tab-btn" onclick="switchTab('text', this)">Text</button>
+        <button type="button" class="tab-btn" onclick="switchTab('email', this)">Email</button>
+      </div>
+
+      <div id="tab-pdf" class="tab-panel active">
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
+          <div class="drop-zone-icon">📄</div>
+          <div id="drop-label">Click or drop a PDF here</div>
+          <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf"
+            onchange="onFileSelect(this)">
+        </div>
+      </div>
+
+      <div id="tab-text" class="tab-panel">
+        <textarea name="text_input" placeholder="Paste document text here..."></textarea>
+      </div>
+
+      <input type="hidden" name="email_session_id" id="email-session-id" value="">
+      <input type="hidden" name="email_idx" id="email-idx" value="">
+
+      <div id="tab-email" class="tab-panel">
+        <div class="field-group">
+          <label class="field-label">Your email</label>
+          <input type="email" name="email_user" id="email-user" class="field-input" placeholder="you@example.com">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Password</label>
+          <input type="password" name="email_password" id="email-password" class="field-input" placeholder="••••••••">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Sender email</label>
+          <input type="email" name="email_sender" id="email-sender" class="field-input" placeholder="sender@example.com">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">Start date</label>
+            <input type="date" name="email_start" id="email-start" class="field-input">
+          </div>
+          <div class="field-group">
+            <label class="field-label">End date</label>
+            <input type="date" name="email_end" id="email-end" class="field-input">
+          </div>
+        </div>
+        <button type="button" class="fetch-btn"
+          hx-post="/fetch-emails"
+          hx-target="#email-fetch-results"
+          hx-swap="innerHTML"
+          hx-include="#tab-email">
+          Fetch emails
+        </button>
+        <div id="email-fetch-results"></div>
+      </div>
+
+      <div class="question-row">
+        <input type="text" name="question" placeholder="Ask something about the document..." required>
+        <button type="submit" id="submit-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Ask
+        </button>
+      </div>
+
+      <div class="htmx-indicator">
+        <span class="spinner"></span>Analysing...
+      </div>
+    </div>
+  </form>
+</div>
+
+<div id="answer-area"></div>
+
+<script>
+  function tabHasContent(tab) {
+    if (tab === 'pdf') return document.getElementById('pdf-input').files.length > 0;
+    if (tab === 'text') return document.querySelector('[name="text_input"]').value.trim() !== '';
+    if (tab === 'email') {
+      return ['email_user','email_password','email_sender','email_start','email_end']
+        .some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
+    }
+    return false;
+  }
+
+  function clearTab(tab) {
+    if (tab === 'pdf') {
+      document.getElementById('pdf-input').value = '';
+      document.getElementById('drop-zone').classList.remove('has-file');
+      document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
+    } else if (tab === 'text') {
+      document.querySelector('[name="text_input"]').value = '';
+    } else if (tab === 'email') {
+      ['email-user','email-password','email-sender','email-start','email-end']
+        .forEach(id => document.getElementById(id).value = '');
+      document.getElementById('email-fetch-results').innerHTML = '';
+      document.getElementById('email-session-id').value = '';
+      document.getElementById('email-idx').value = '';
+    }
+  }
+
+  function selectEmail(el, idx, sessionId) {
+    document.querySelectorAll('.email-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('email-session-id').value = sessionId;
+    document.getElementById('email-idx').value = idx;
+  }
+
+  function switchTab(newTab, btn) {
+    const current = document.getElementById('active-tab').value;
+    if (current === newTab) return;
+    if (tabHasContent(current) && !confirm('Unsaved data will be lost. Continue?')) return;
+    clearTab(current);
+    document.querySelector('[name="question"]').value = '';
+    document.getElementById('answer-area').innerHTML = '';
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + newTab).classList.add('active');
+    btn.classList.add('active');
+    document.getElementById('active-tab').value = newTab;
+  }
+
+  function onFileSelect(input) {
+    const zone = document.getElementById('drop-zone');
+    const label = document.getElementById('drop-label');
+    if (input.files[0]) {
+      label.textContent = input.files[0].name;
+      zone.classList.add('has-file');
+    }
+  }
+
+  const dropZone = document.getElementById('drop-zone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') {
+      const input = document.getElementById('pdf-input');
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      onFileSelect(input);
+    }
+  });
+</script>
+
+</body>
+</html>

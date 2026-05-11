@@ -1,0 +1,23 @@
+<div class="email-split">
+  <div class="email-list">
+    {% for msg in messages %}
+    <div class="email-item{% if loop.first %} active{% endif %}"
+         id="email-item-{{ loop.index0 }}"
+         hx-get="/preview-email/{{ session_id }}/{{ loop.index0 }}"
+         hx-target="#email-preview-pane"
+         hx-swap="innerHTML"
+         {% if loop.first %}hx-trigger="load, click"{% else %}hx-trigger="click"{% endif %}
+         onclick="selectEmail(this, {{ loop.index0 }}, '{{ session_id }}')">
+      <div class="email-item-subject">{{ msg.subject }}</div>
+      <div class="email-item-date">{{ msg.date[:25] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="email-preview-pane" id="email-preview-pane">
+  </div>
+</div>
+<script>
+  // Pre-select first email
+  document.getElementById('email-session-id').value = '{{ session_id }}';
+  document.getElementById('email-idx').value = '0';
+</script>

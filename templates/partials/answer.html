@@ -1,0 +1,104 @@
+<div class="card" style="margin-top: 0;">
+
+  <div class="meta-row">
+    <span class="meta-label">📄 {{ filename }}</span>
+    <span class="meta-label">🕐 {{ timestamp }}</span>
+  </div>
+
+  <div class="answer-text">{{ answer }}</div>
+
+  <div class="hash-block">
+    <div class="hash-row">
+      <span class="hash-label">Input SHA-256</span>
+      <code class="hash-value">{{ input_hash }}</code>
+    </div>
+    <div class="hash-row">
+      <span class="hash-label">Verdict PDF SHA-256</span>
+      <code class="hash-value">{{ verdict_hash }}</code>
+    </div>
+    <div class="hash-row">
+      <span class="hash-label">Arweave TX</span>
+      <code class="hash-value pending">— not yet uploaded</code>
+    </div>
+  </div>
+
+  <div class="download-row">
+    <a class="download-btn" href="/download/{{ session_id }}/verdict.pdf" download>
+      ⬇ verdict.pdf
+    </a>
+    <a class="download-btn secondary" href="/download/{{ session_id }}/manifest.json" download>
+      ⬇ manifest.json
+    </a>
+  </div>
+
+</div>
+
+<style>
+  .meta-row {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .meta-label { font-size: 0.8rem; color: #6c757d; }
+
+  .answer-text {
+    line-height: 1.7;
+    white-space: pre-wrap;
+    color: #212529;
+    font-size: 0.95rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .hash-block {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 0.875rem 1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .hash-row { display: flex; flex-direction: column; gap: 0.15rem; }
+  .hash-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #adb5bd;
+    font-weight: 600;
+  }
+  .hash-value {
+    font-family: "Segoe UI Mono", "Courier New", monospace;
+    font-size: 0.78rem;
+    color: #0d6efd;
+    word-break: break-all;
+  }
+  .hash-value.pending { color: #adb5bd; font-style: italic; }
+
+  .download-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .download-btn {
+    display: inline-block;
+    background: #0d6efd;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem 1rem;
+    font-size: 0.875rem;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .download-btn:hover { background: #0b5ed7; }
+  .download-btn.secondary {
+    background: #fff;
+    color: #198754;
+    border: 1px solid #198754;
+  }
+  .download-btn.secondary:hover { background: #f0fff4; }
+</style>
