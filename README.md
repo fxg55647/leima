@@ -2,26 +2,36 @@
 
 **AI verdicts on documents — cryptographically sealed on Arweave.**
 
-Stampd lets you make a claim about a document and get an AI-generated verdict that is permanently stored on the blockchain. The result is independently verifiable by anyone, at any time, without trusting Stampd itself.
+Stampd lets you make a claim about a document and get an AI-generated verdict that is permanently and independently verifiable. The document itself never leaves your machine — only a cryptographic fingerprint is published.
 
 ---
 
 ## What it does
 
-You provide a document and a claim. Stampd runs three independent AI passes:
+You provide a document and a claim. Stampd runs three AI passes:
 
 1. **Support Analysis** — what in the document supports the claim, and under which assumptions
 2. **Refutation & Gap Analysis** — what contradicts the claim, or fails to support it
-3. **Ambiguity & Scope Audit** — where reasonable disagreement could arise; definitions, time bounds, missing evidence
-
-The verdict is not a binary judgment. Disagreement is treated as signal, not failure.
+3. **Synthesis & Verdict** — compares both sides and delivers an honest judgment
 
 After analysis you download three files:
 - `source.pdf` — the input document (or a PDF rendering of it)
 - `verdict.pdf` — the three-pass AI analysis
 - `manifest.json` — cryptographic hashes of both files, timestamp, model version, and a permanent Arweave link
 
-The manifest is uploaded to Arweave via Irys. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
+**The document is never uploaded anywhere.** Only the manifest — containing SHA-256 hashes of both files — is published to Arweave via Irys. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
+
+---
+
+## How the proof works
+
+```
+source.pdf  ──sha256──►  input.sha256  ──┐
+                                          ├──► manifest.json ──► Arweave (permanent)
+verdict.pdf ──sha256──►  verdict.sha256 ──┘
+```
+
+The Arweave transaction ID in `manifest.json` points to the manifest itself. A validator fetches it from Arweave and compares it to the local copy — if they match, and the file hashes check out, the verdict is proven authentic and unmodified.
 
 ---
 
@@ -32,8 +42,9 @@ The manifest is uploaded to Arweave via Irys. Anyone who later holds all three f
 - Preserving the state of a document before a dispute arises
 - Extracting evidence from emails (sender, Message-ID, DKIM status, body hash all recorded)
 - Poor man's notary, due diligence tool, or patent-style prior art record
+- AI research agents that need a citable, tamper-proof record of a source supporting a claim
 
-Stampd only accepts documents related to economic activity: employment, contracts, loans, taxation, insurance, investments, real estate, business agreements, and social benefits.
+Stampd accepts documents related to economic activity (contracts, employment, loans, taxation, insurance, investments, real estate) and scientific or research work (papers, reports, study findings, clinical trials, grant applications).
 
 ---
 
@@ -45,6 +56,41 @@ Stampd only accepts documents related to economic activity: employment, contract
 | PDF URL | Fetched server-side, max 10 MB, SSRF-protected |
 | Text paste | Converted to PDF for hashing |
 | Email (IMAP) | Fetches via IMAP; records Message-ID, DKIM presence, body hash |
+
+---
+
+## API
+
+Agents and automated pipelines can call Stampd directly without the UI:
+
+```
+POST /api/stamp
+Content-Type: application/json
+
+{
+  "claim": "The agreed salary is €3,500 per month",
+  "source_type": "pdf_url",   // "pdf_url" | "pdf_base64" | "text"
+  "source": "https://example.com/contract.pdf"
+}
+```
+
+Response:
+```json
+{
+  "verdict": "The document strongly supports the claim.",
+  "passes": [
+    { "label": "Support Analysis", "text": "..." },
+    { "label": "Refutation & Gap Analysis", "text": "..." },
+    { "label": "Synthesis & Verdict", "text": "..." }
+  ],
+  "input_hash": "sha256:...",
+  "verdict_hash": "sha256:...",
+  "timestamp": "2026-05-12 10:00:00 UTC",
+  "model": "gemini-2.5-flash-lite",
+  "arweave": { "tx_id": "...", "url": "https://gateway.irys.xyz/..." },
+  "manifest": { ... }
+}
+```
 
 ---
 
