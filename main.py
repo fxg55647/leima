@@ -11,7 +11,9 @@ from urllib.parse import urlparse
 from dotenv import load_dotenv
 import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
-from fastapi.responses import HTMLResponse, Response
+import base64
+from fastapi.responses import HTMLResponse, JSONResponse, Response
+from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from google import genai
@@ -442,6 +444,80 @@ def _text_to_input_pdf(text: str) -> bytes:
     return bytes(p.output())
 
 
+def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str, email_meta: dict | None = None) -> dict:
+    passes = []
+    for prompt, label in zip(PASS_PROMPTS, PASS_LABELS):
+        resp = client.models.generate_content(
+            model=MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(system_instruction=prompt),
+        )
+        text = resp.text
+        if text.startswith("REJECTED:"):
+            raise ValueError(text)
+        passes.append((label, text))
+
+    synthesis_prompt = f"""You are the final judge for Stampd, a legal evidence tool.
+
+The claim being evaluated: "{question}"
+
+Two independent analysts have reviewed the document:
+
+SUPPORT ANALYST:
+{passes[0][1]}
+
+REFUTATION ANALYST:
+{passes[1][1]}
+
+Your task: compare the two analyses objectively. Which side had stronger arguments and better evidence from the document? Consider the quality of quotes, the directness of the evidence, and the logical strength of each case.
+
+Start your response with exactly one line in this format:
+VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
+
+Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct."""
+
+    synth_resp = client.models.generate_content(
+        model=MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(system_instruction=synthesis_prompt),
+    )
+    synth_text = synth_resp.text.strip()
+    if synth_text.startswith("VERDICT:"):
+        first_line, _, rest = synth_text.partition("\n")
+        summary_verdict = first_line.removeprefix("VERDICT:").strip()
+        synthesis_body = rest.strip()
+    else:
+        summary_verdict = synth_text.split(".")[0].strip() + "."
+        synthesis_body = synth_text
+    passes.append((PASS_LABELS[2], synthesis_body))
+
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    input_hash = sha256(input_bytes)
+    verdict_pdf = build_verdict_pdf(question, passes, timestamp, input_hash)
+    verdict_hash = sha256(verdict_pdf)
+    manifest = build_manifest(
+        timestamp=timestamp,
+        model=MODEL,
+        input_label=input_label,
+        input_hash=input_hash,
+        verdict_hash=verdict_hash,
+        email_meta=email_meta,
+    )
+    session_id = str(uuid.uuid4())[:12]
+    store[session_id] = {"pdf": verdict_pdf, "manifest": manifest, "source": input_bytes}
+    return {
+        "passes": passes,
+        "summary_verdict": summary_verdict,
+        "timestamp": timestamp,
+        "input_hash": input_hash,
+        "verdict_pdf": verdict_pdf,
+        "verdict_hash": verdict_hash,
+        "manifest": manifest,
+        "session_id": session_id,
+        "input_label": input_label,
+    }
+
+
 @app.post("/ask", response_class=HTMLResponse)
 async def ask(
     request: Request,
@@ -505,81 +581,84 @@ async def ask(
 
     contents.append(question)
 
-    passes = []
-    for i, (prompt, label) in enumerate(zip(PASS_PROMPTS, PASS_LABELS)):
-        resp = client.models.generate_content(
-            model=MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(system_instruction=prompt),
-        )
-        text = resp.text
-        if text.startswith("REJECTED:"):
-            return HTMLResponse(f'<div class="error">{text}</div>')
-        passes.append((label, text))
-
-    synthesis_prompt = f"""You are the final judge for Stampd, a legal evidence tool.
-
-The claim being evaluated: "{question}"
-
-Two independent analysts have reviewed the document:
-
-SUPPORT ANALYST:
-{passes[0][1]}
-
-REFUTATION ANALYST:
-{passes[1][1]}
-
-Your task: compare the two analyses objectively. Which side had stronger arguments and better evidence from the document? Consider the quality of quotes, the directness of the evidence, and the logical strength of each case.
-
-Start your response with exactly one line in this format:
-VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
-
-Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct."""
-
-    synth_resp = client.models.generate_content(
-        model=MODEL,
-        contents=contents,
-        config=types.GenerateContentConfig(system_instruction=synthesis_prompt),
-    )
-    synth_text = synth_resp.text.strip()
-    if synth_text.startswith("VERDICT:"):
-        first_line, _, rest = synth_text.partition("\n")
-        summary_verdict = first_line.removeprefix("VERDICT:").strip()
-        synthesis_body = rest.strip()
-    else:
-        summary_verdict = synth_text.split(".")[0].strip() + "."
-        synthesis_body = synth_text
-    passes.append((PASS_LABELS[2], synthesis_body))
-
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-    input_hash = sha256(input_bytes)
-
-    verdict_pdf = build_verdict_pdf(question, passes, timestamp, input_hash)
-    verdict_hash = sha256(verdict_pdf)
-
-    manifest = build_manifest(
-        timestamp=timestamp,
-        model=MODEL,
-        input_label=input_label,
-        input_hash=input_hash,
-        verdict_hash=verdict_hash,
-        email_meta=email_meta if active_tab == "email" else None,
-    )
-
-    session_id = str(uuid.uuid4())[:12]
-    store[session_id] = {"pdf": verdict_pdf, "manifest": manifest, "source": input_bytes}
+    try:
+        result = _run_analysis(question, contents, input_bytes, input_label, email_meta)
+    except ValueError as e:
+        return HTMLResponse(f'<div class="error">{e}</div>')
 
     return templates.TemplateResponse(
         "partials/answer.html",
         {
             "request": request,
-            "passes": passes,
+            "passes": result["passes"],
             "question": question,
-            "summary_verdict": summary_verdict,
-            "filename": input_label,
-            "input_hash": input_hash,
-            "verdict_hash": verdict_hash,
-            "session_id": session_id,
-            "timestamp": timestamp,
+            "summary_verdict": result["summary_verdict"],
+            "filename": result["input_label"],
+            "input_hash": result["input_hash"],
+            "verdict_hash": result["verdict_hash"],
+            "session_id": result["session_id"],
+            "timestamp": result["timestamp"],
         },
     )
+
+
+class StampRequest(BaseModel):
+    claim: str
+    source_type: str  # "pdf_base64" | "pdf_url" | "text"
+    source: str       # base64-encoded PDF, URL, or plain text
+
+
+@app.post("/api/stamp")
+async def api_stamp(body: StampRequest):
+    claim = body.claim.strip()
+    if not claim:
+        return JSONResponse({"error": "claim is required"}, status_code=400)
+
+    contents = []
+    try:
+        if body.source_type == "pdf_base64":
+            input_bytes = base64.b64decode(body.source)
+            input_label = "api-upload.pdf"
+            contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
+        elif body.source_type == "pdf_url":
+            input_bytes, input_label = _fetch_pdf_from_url(body.source.strip())
+            contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
+        elif body.source_type == "text":
+            if not body.source.strip():
+                return JSONResponse({"error": "source is empty"}, status_code=400)
+            input_bytes = _text_to_input_pdf(body.source)
+            input_label = "api-text"
+            contents.append(f"Document content:\n{body.source}")
+        else:
+            return JSONResponse({"error": "source_type must be pdf_base64, pdf_url, or text"}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    contents.append(claim)
+
+    try:
+        result = _run_analysis(claim, contents, input_bytes, input_label)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+    manifest = result["manifest"]
+    manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode()
+    try:
+        tx_id = _irys_upload(manifest_bytes, "application/json", {"Stampd-Type": "manifest"})
+    except Exception as e:
+        return JSONResponse({"error": f"Arweave upload failed: {e}"}, status_code=502)
+
+    irys_url = f"{IRYS_GATEWAY}/{tx_id}"
+    full_manifest = {**manifest, "arweave": {"tx_id": tx_id, "url": irys_url}}
+    store[result["session_id"]]["manifest"] = full_manifest
+
+    return JSONResponse({
+        "verdict": result["summary_verdict"],
+        "passes": [{"label": label, "text": text} for label, text in result["passes"]],
+        "input_hash": result["input_hash"],
+        "verdict_hash": result["verdict_hash"],
+        "timestamp": result["timestamp"],
+        "model": MODEL,
+        "arweave": {"tx_id": tx_id, "url": irys_url},
+        "manifest": full_manifest,
+    })
