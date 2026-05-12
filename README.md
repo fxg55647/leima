@@ -165,6 +165,9 @@ Stampd instances will be able to monitor each other via the Render API: each ins
 
 One residual trust assumption remains: Render, as the hosting provider, could in principle silently replace the running code without updating the git repository. This is a real but low-credibility threat — it would require the hosting provider to actively conspire against users, which is a different category of risk than ordinary software vulnerabilities.
 
+**Planned: privacy-committed AI providers**
+A future option will allow switching to AI providers that operate under strict, publicly auditable privacy commitments — where documents are contractually guaranteed not to be used for training or retained after the request. The stamping and verification layer remains identical; only the AI backend changes. This preserves the trust model while reducing reliance on Google's standard API terms.
+
 ---
 
 ## Stack
