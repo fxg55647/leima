@@ -40,7 +40,7 @@ Otherwise, proceed with the analysis."""
 
 _EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
 
-_LANGUAGE = """Respond in the same language as the claim. Direct quotes from the document must be reproduced verbatim in their original language — do not translate them."""
+_LANGUAGE = """Respond in the same language as the claim. Direct quotes from the document must be reproduced verbatim in their original language — do not translate them. Do not use markdown formatting — no bold, no headers, no bullet symbols, plain text only."""
 
 PASS_PROMPTS = [
     f"""You are a document analyst for Stampd, a legal evidence tool.
