@@ -13,7 +13,7 @@
   {% for label, text in passes %}
   <div class="pass-block">
     <div class="pass-label">{{ label }}</div>
-    <div class="answer-text">{{ text }}</div>
+    <div class="answer-text" data-md="{{ text | e }}"></div>
   </div>
   {% endfor %}
 
@@ -82,11 +82,14 @@
 
   .answer-text {
     line-height: 1.7;
-    white-space: pre-wrap;
     color: #212529;
     font-size: 0.95rem;
     margin-bottom: 1.25rem;
   }
+  .answer-text p { margin: 0 0 0.6em; }
+  .answer-text ul, .answer-text ol { margin: 0 0 0.6em 1.25em; }
+  .answer-text li { margin-bottom: 0.2em; }
+  .answer-text strong { font-weight: 700; }
 
   .hash-block {
     background: #f8f9fa;
@@ -133,3 +136,9 @@
   }
   .generate-btn:hover { background: #0b5ed7; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  document.querySelectorAll('.answer-text[data-md]').forEach(el => {
+    el.innerHTML = marked.parse(el.dataset.md);
+  });
+</script>
