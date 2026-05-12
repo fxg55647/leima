@@ -2,16 +2,18 @@
 
 **AI verdicts on documents — cryptographically sealed on Arweave.**
 
-Stampd lets you make a claim about a document and get an AI-generated verdict that is permanently and independently verifiable. The document is processed server-side for analysis but is not stored anywhere — only a cryptographic fingerprint is published to the blockchain.
+Due diligence, notarisation, and source verification have always been expensive — not because they are technically complex, but because they require a trusted human to read, judge, and attest. That constraint is gone. AI can read any document with consistent attention, and a blockchain can seal the result permanently. Together they make it possible, for the first time, to produce credible, tamper-proof verdicts on documents for cents rather than hundreds of euros — available to anyone, not just those with legal budgets.
+
+Stampd is built on this insight. You provide a document and a claim. Stampd analyses it, seals the verdict cryptographically, and publishes a permanent record to Arweave. The document is processed server-side and discarded — only a cryptographic fingerprint goes to the blockchain. The result is independently verifiable by anyone, without trusting Stampd itself.
 
 ---
 
 ## Contents
 
-- [Why this matters](#why-this-matters)
 - [What it does](#what-it-does)
 - [How the proof works](#how-the-proof-works)
 - [Use cases](#use-cases)
+- [Why this matters](#why-this-matters)
 - [Document sources](#document-sources)
 - [API](#api)
 - [Trust model](#trust-model)
@@ -19,20 +21,6 @@ Stampd lets you make a claim about a document and get an AI-generated verdict th
 - [Setup](#setup)
 - [Validation](#validation)
 - [Deployment](#deployment)
-
----
-
-## Why this matters
-
-AI is the first witness that cannot be bribed, biased, or exhausted. But raw AI output is not evidence — it can be regenerated, altered, or denied. Stampd changes this by sealing the analysis cryptographically the moment it is made, tied to the exact document it analysed, stored permanently on Arweave before anyone knew there would be a dispute.
-
-For centuries, verifying a claim against a document required a human: expensive, partial, and available only to those who could afford one. A notary confirms existence, not meaning. A lawyer is a party. This created a world where thorough verification was a luxury — where citation checks were skipped, where disputes were settled by whoever had better representation rather than better evidence.
-
-AI changes the economics entirely. Thousands of source references checked overnight, for cents per claim. Documents analysed with the same attention regardless of who owns them or what is at stake. Sensitive materials examined by a witness that cannot be pressured, does not remember, and does not gossip.
-
-Stampd is the infrastructure that makes this testimony permanent and verifiable. The verdict is not just an AI output — it is a sealed record: this document, this claim, this analysis, this moment. Anyone can verify it independently, without trusting Stampd itself.
-
-This is not a better expert. It is a new category of witness, and a new foundation for how claims against documents can be proven.
 
 ---
 
@@ -89,6 +77,20 @@ The Arweave transaction ID in `manifest.json` points to the manifest itself. A v
 - Verifying that a cited source actually says what a paper claims it says
 
 Stampd accepts documents related to economic activity (contracts, employment, loans, taxation, insurance, investments, real estate) and scientific or research work (papers, reports, study findings, clinical trials, grant applications).
+
+---
+
+## Why this matters
+
+AI is the first witness that cannot be bribed, biased, or exhausted. But raw AI output is not evidence — it can be regenerated, altered, or denied. Stampd changes this by sealing the analysis cryptographically the moment it is made, tied to the exact document it analysed, stored permanently on Arweave before anyone knew there would be a dispute.
+
+For centuries, verifying a claim against a document required a human: expensive, partial, and available only to those who could afford one. A notary confirms existence, not meaning. A lawyer is a party. This created a world where thorough verification was a luxury — where citation checks were skipped, where disputes were settled by whoever had better representation rather than better evidence.
+
+AI changes the economics entirely. Thousands of source references checked overnight, for cents per claim. Documents analysed with the same attention regardless of who owns them or what is at stake. Sensitive materials examined by a witness that cannot be pressured, does not remember, and does not gossip.
+
+Stampd is the infrastructure that makes this testimony permanent and verifiable. The verdict is not just an AI output — it is a sealed record: this document, this claim, this analysis, this moment. Anyone can verify it independently, without trusting Stampd itself.
+
+This is not a better expert. It is a new category of witness, and a new foundation for how claims against documents can be proven.
 
 ---
 
