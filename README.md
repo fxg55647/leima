@@ -2,7 +2,7 @@
 
 **AI verdicts on documents — cryptographically sealed on Arweave.**
 
-Stampd lets you make a claim about a document and get an AI-generated verdict that is permanently and independently verifiable. The document itself never leaves your machine — only a cryptographic fingerprint is published.
+Stampd lets you make a claim about a document and get an AI-generated verdict that is permanently and independently verifiable. The document is processed server-side for analysis but is not stored anywhere — only a cryptographic fingerprint is published to the blockchain.
 
 ---
 
@@ -41,12 +41,22 @@ The Arweave transaction ID in `manifest.json` points to the manifest itself. A v
 
 ## Use cases
 
+**Legal & contractual**
 - Proving what a contract said on a specific date
 - Verifying claims against employment documents, loan agreements, or invoices
 - Preserving the state of a document before a dispute arises
 - Extracting evidence from emails (sender, Message-ID, DKIM status, body hash all recorded)
-- Poor man's notary, due diligence tool, or patent-style prior art record
+
+**Due diligence**
+- Codebase reviews: stamp a claim like "this repository contains no hardcoded credentials" against a specific commit snapshot, creating a dated record that partially mitigates liability
+- Tax and financial documents: verify that a specific figure appears in a tax decision or financial statement before acting on it
+- Vendor contracts and SLAs: lock in what was agreed before a relationship begins
+- Insurance policies: record what was covered on a specific date before filing a claim
+
+**Research & prior art**
+- Recording the existence of an idea or finding on a specific date — stronger timestamping than email or a notebook entry
 - AI research agents that need a citable, tamper-proof record of a source supporting a claim
+- Verifying that a cited source actually says what a paper claims it says
 
 Stampd accepts documents related to economic activity (contracts, employment, loans, taxation, insurance, investments, real estate) and scientific or research work (papers, reports, study findings, clinical trials, grant applications).
 
