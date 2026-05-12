@@ -35,9 +35,11 @@ _SCOPE = """You ONLY analyse documents related to economic activity or scientifi
 - Education: employer-funded training, professional certifications
 - Any contract or agreement with financial or legal consequences
 - Scientific & research: academic papers, research reports, study findings, journal articles, grant applications, data analyses, clinical trials, experiment results
+- Encyclopedic & reference: Wikipedia articles, historical records, factual reference material, news articles, official publications
+- Any document where a factual claim can be verified against the source
 
-If the document is clearly unrelated to any of the above categories, respond with exactly:
-REJECTED: This document does not relate to economic activity or scientific work and cannot be stamped."""
+If the document is clearly not factual in nature and contains no verifiable claims (e.g. fiction, entertainment, spam), respond with exactly:
+REJECTED: This document does not contain verifiable factual claims and cannot be stamped."""
 
 _EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
 
