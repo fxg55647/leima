@@ -34,6 +34,8 @@ You provide a document and a claim. Stampd runs three independent AI passes:
 
 The first two passes are stateless and adversarial by design: each sees only the document and the claim, not the other's output. This prevents the model from unconsciously anchoring on its first impression. The third pass acts as an honest judge comparing two independent cases rather than summarising its own reasoning.
 
+The analysis logic lives in a single auditable file — `neutral_witness.py` — separate from the web framework, PDF generation, and blockchain code. Anyone can read exactly what instructions are given to the model without reading the rest of the codebase.
+
 The result is not a confident binary verdict. It is an epistemic map: what the document actually supports, what it does not, and how certain that conclusion is.
 
 After analysis you download three files:
