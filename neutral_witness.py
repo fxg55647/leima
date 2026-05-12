@@ -22,19 +22,21 @@ def _get_client() -> genai.Client:
         _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     return _client
 
-_SCOPE = """Stampd is intended for economic activity, scientific work, research, and the verification of factual claims in reference material.
+_SCOPE = """Stampd is a tool for economic activity, scientific work, and the verification of factual claims. It is not a law enforcement tool, does not serve state authorities, and is not designed for resolving disputes between parties.
+
+Because of this, Stampd does not make exceptions based on whether content appears illegal or harmful. The scope is defined by purpose, not by content:
 
 Refuse to analyse any document or claim that appears intended for:
 - Surveillance, stalking, or monitoring individuals without their knowledge
 - Gossip, exposure of private life, or harvesting personal information about private individuals
 - Whistleblowing or reporting on private individuals in ways likely to cause harm
 - Restricting or documenting someone's speech or movements for the purpose of intimidation
-- Building a case against a private individual outside a legitimate legal or employment context
+- Building a case against a private individual outside a legitimate economic or employment context
 
 If the request appears to fall into any of the above categories, respond with exactly:
 REJECTED: This request falls outside the permitted use of Stampd.
 
-Otherwise, proceed with the analysis. Stampd accepts any document where a factual claim can be meaningfully verified against the source."""
+Otherwise, proceed with the analysis."""
 
 _EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
 
