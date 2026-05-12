@@ -3,6 +3,7 @@ import hashlib
 import uuid
 import json
 import imaplib
+import dkim
 import ipaddress
 import email as email_lib
 from email.header import decode_header as _decode_header
@@ -197,15 +198,24 @@ async def fetch_emails(
         messages = []
         for num in (nums[0].split() or [])[-50:]:
             _, data = imap.fetch(num, "(RFC822)")
-            msg = email_lib.message_from_bytes(data[0][1])
+            raw = data[0][1]
+            msg = email_lib.message_from_bytes(raw)
             body = _get_body(msg)
+            if "DKIM-Signature" in msg:
+                try:
+                    dkim_valid = dkim.verify(raw)
+                except Exception:
+                    dkim_valid = False
+                dkim_status = "valid" if dkim_valid else "invalid"
+            else:
+                dkim_status = "none"
             messages.append({
                 "subject": _decode_header_value(msg["Subject"]) or "(no subject)",
                 "date": msg["Date"] or "",
                 "from": _decode_header_value(msg["From"]),
                 "to": _decode_header_value(msg.get("To") or ""),
                 "message_id": (msg.get("Message-ID") or "").strip(),
-                "has_dkim": "DKIM-Signature" in msg,
+                "dkim": dkim_status,
                 "body": body,
             })
         imap.logout()
@@ -498,13 +508,13 @@ async def ask(
             "from": msg["from"],
             "to": msg["to"],
             "date": msg["date"],
-            "has_dkim": msg["has_dkim"],
+            "dkim": msg["dkim"],
             "body_sha256": body_hash,
         }
         input_bytes = _text_to_input_pdf(
             f"From: {msg['from']}\nTo: {msg['to']}\nSubject: {msg['subject']}\n"
             f"Date: {msg['date']}\nMessage-ID: {msg['message_id']}\n"
-            f"DKIM: {'yes' if msg['has_dkim'] else 'no'}\n"
+            f"DKIM: {msg['dkim']}\n"
             f"Body SHA-256: {body_hash}\n\n{body}"
         )
         input_label = f"email: {msg['subject'][:40]}"

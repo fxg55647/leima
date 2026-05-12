@@ -105,7 +105,7 @@ This matters most in low-trust and chaotic societies where institutions are weak
 | PDF upload | Direct file upload |
 | PDF URL | Fetched server-side, max 10 MB, SSRF-protected |
 | Text paste | Converted to PDF for hashing |
-| Email (IMAP) | Fetches via IMAP; records Message-ID, DKIM presence, body hash |
+| Email (IMAP) | Fetches via IMAP; validates DKIM signature (valid / invalid / none), records Message-ID and body hash |
 
 ---
 

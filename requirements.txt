@@ -6,3 +6,4 @@ google-genai==1.16.0
 fpdf2==2.8.1
 python-dotenv==1.0.1
 irys-sdk==0.1.9
+dkimpy==1.1.8
