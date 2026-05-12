@@ -7,3 +7,4 @@ fpdf2==2.8.1
 python-dotenv==1.0.1
 irys-sdk==0.1.9
 dkimpy==1.1.8
+Markdown==3.7

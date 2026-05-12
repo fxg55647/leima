@@ -13,7 +13,7 @@
   {% for label, text in passes %}
   <div class="pass-block">
     <div class="pass-label">{{ label }}</div>
-    <div class="answer-text" data-md="{{ text | e }}"></div>
+    <div class="answer-text">{{ text | md | safe }}</div>
   </div>
   {% endfor %}
 
@@ -136,9 +136,3 @@
   }
   .generate-btn:hover { background: #0b5ed7; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
-  document.querySelectorAll('.answer-text[data-md]').forEach(el => {
-    el.innerHTML = marked.parse(el.dataset.md);
-  });
-</script>

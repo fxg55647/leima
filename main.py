@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 import re
+import markdown as _md
 import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
 import base64
@@ -34,6 +35,7 @@ IRYS_GATEWAY = "https://devnet.irys.xyz" if IRYS_NETWORK == "devnet" else "https
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+templates.env.filters["md"] = lambda text: _md.markdown(text or "", extensions=["nl2br"])
 
 # In-memory store: session_id → {pdf: bytes, manifest: dict}
 store: dict[str, dict] = {}
@@ -194,6 +196,15 @@ def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
     fetched_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     input_bytes = _text_to_input_pdf(f"URL: {url}\nFetched: {fetched_at}\n\n{text}")
     return input_bytes, text, url, fetched_at
+
+
+@app.get("/version")
+async def version():
+    return {
+        "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
+        "service": os.getenv("RENDER_SERVICE_NAME", "local"),
+        "model": MODEL,
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
