@@ -92,6 +92,8 @@ Stampd is the infrastructure that makes this testimony permanent and verifiable.
 
 This is not a better expert. It is a new category of witness, and a new foundation for how claims against documents can be proven.
 
+This matters most in low-trust and chaotic societies where institutions are weak, corruption is common, and a small business owner cannot afford a lawyer or assume that paperwork will be honoured. Combined with cryptographically signed images and videos and crypto-native financial instruments, tamper-proof AI verdicts could provide enough verifiable evidence for someone to secure a business loan, pass due diligence with an international buyer, or sell their products on global markets — without needing a functioning notary, a reliable court system, or a bank that trusts them. The infrastructure of trust that wealthy societies take for granted can be approximated, for the first time, at near-zero cost.
+
 ---
 
 ## Document sources
