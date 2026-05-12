@@ -1,6 +1,8 @@
 # Stampd
 
-**AI verdicts on documents — cryptographically sealed on Arweave.**
+**Tamper-proof records of AI document analysis.**
+
+*AI verdicts on documents — cryptographically sealed on Arweave.*
 
 Due diligence, notarisation, and source verification have always been expensive — not because they are technically complex, but because they require a trusted human to read, judge, and attest. That bottleneck is no longer absolute. AI can read any document with consistent attention, and a blockchain can seal the result permanently. Together they make it possible, for the first time, to produce credible, tamper-proof verdicts on documents for cents rather than hundreds of euros — available to anyone, not just those with legal budgets.
 
