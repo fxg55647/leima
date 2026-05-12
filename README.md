@@ -6,6 +6,8 @@ Due diligence, notarisation, and source verification have always been expensive 
 
 Stampd is built on this insight. You provide a document and a claim. Stampd analyses it, seals the verdict cryptographically, and publishes a permanent record to Arweave. The document is processed server-side and discarded — only a cryptographic fingerprint goes to the blockchain. The result is independently verifiable by anyone, without trusting Stampd itself.
 
+Stampd produces two things at once: a cryptographic proof that a specific document existed and was analysed at a specific time, and an expert opinion on what that document actually says about your claim — both sealed together permanently.
+
 ---
 
 ## Contents
