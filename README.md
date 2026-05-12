@@ -163,10 +163,7 @@ Stampd is open source. You can read the code, verify that the prompts and logic 
 **Planned: cross-instance integrity monitoring**
 Stampd instances will be able to monitor each other via the Render API: each instance can verify that the version currently running matches the expected git commit hash, and publish a signed attestation to Arweave recording that no incidents have occurred. The attestation log will be publicly readable — anyone can query any instance's API to see what version is running and whether its history is clean. This makes Stampd itself auditable by the same mechanism it provides to its users.
 
-One residual trust assumption remains: Render, as the hosting provider, could in principle silently replace the running code without updating the git repository. This is a real but low-credibility threat — it would require the hosting provider to actively conspire against users, which is a different category of risk than ordinary software vulnerabilities. The cross-instance monitoring described above is designed to make even this detectable.
-
-**Planned: private AI option**
-For organisations that cannot send documents to third-party APIs, a future option will allow routing analysis through a self-hosted or corporate LLM. The stamping and verification layer remains identical — only the AI backend changes.
+One residual trust assumption remains: Render, as the hosting provider, could in principle silently replace the running code without updating the git repository. This is a real but low-credibility threat — it would require the hosting provider to actively conspire against users, which is a different category of risk than ordinary software vulnerabilities.
 
 ---
 
