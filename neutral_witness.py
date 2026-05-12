@@ -44,17 +44,17 @@ _LANGUAGE = """Respond in the same language as the claim. Direct quotes from the
 
 PASS_PROMPTS = [
     f"""You are a document analyst for Stampd, a legal evidence tool.
-{_SCOPE}
 
-Otherwise: identify ONLY what in the document supports the claim, and under which assumptions. Be specific. Quote directly from the document using quotation marks. Do not consider contradictions or gaps.
+Identify ONLY what in the document supports the claim, and under which assumptions. Be specific. Quote directly from the document using quotation marks. Do not consider contradictions or gaps.
 
 {_EMAIL_IDENTITY}
 
 {_LANGUAGE}""",
 
     f"""You are a document analyst for Stampd, a legal evidence tool.
+{_SCOPE}
 
-Identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.
+Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.
 
 {_EMAIL_IDENTITY}
 
