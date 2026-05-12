@@ -8,11 +8,15 @@ Stampd lets you make a claim about a document and get an AI-generated verdict th
 
 ## What it does
 
-You provide a document and a claim. Stampd runs three AI passes:
+You provide a document and a claim. Stampd runs three independent AI passes:
 
-1. **Support Analysis** — what in the document supports the claim, and under which assumptions
-2. **Refutation & Gap Analysis** — what contradicts the claim, or fails to support it
-3. **Synthesis & Verdict** — compares both sides and delivers an honest judgment
+1. **Support Analysis** — tasked exclusively with finding what supports the claim, and under which assumptions
+2. **Refutation & Gap Analysis** — tasked exclusively with finding what contradicts the claim, or fails to support it
+3. **Synthesis & Verdict** — reads both prior analyses and judges which side had stronger arguments and evidence
+
+The first two passes are stateless and adversarial by design: each sees only the document and the claim, not the other's output. This prevents the model from unconsciously anchoring on its first impression. The third pass acts as an honest judge comparing two independent cases rather than summarising its own reasoning.
+
+The result is not a confident binary verdict. It is an epistemic map: what the document actually supports, what it does not, and how certain that conclusion is.
 
 After analysis you download three files:
 - `source.pdf` — the input document (or a PDF rendering of it)
