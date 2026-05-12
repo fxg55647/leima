@@ -152,7 +152,6 @@ Response:
 | Source file modified after creation | Yes | Hash mismatch detected on validation |
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
 | Stampd lies during original run | Partly | Open source code is auditable; cross-instance monitoring planned |
-| Hosting provider swaps running code silently | Partly | Cross-instance integrity monitoring planned |
 | AI verdict is wrong | No | Reviewable first opinion only — not a legal authority |
 | Document is fake before upload | No | Stampd timestamps existence, does not authenticate origin |
 | Email body altered after sending | Partly | DKIM validates signed headers and body scope — coverage depends on sender configuration |
