@@ -155,11 +155,16 @@ Documents are sent to Google's Gemini API for analysis. For sensitive materials 
 **What Arweave guarantees**
 The blockchain record proves that a specific analysis of a specific document existed at a specific time, and that neither has been altered since. It does not prove the analysis is correct, that the document is authentic, or that the claim is true in any legal sense.
 
-**Planned: private AI option**
-For organisations that cannot send documents to third-party APIs, a future option will allow routing analysis through a self-hosted or corporate LLM. The stamping and verification layer remains identical — only the AI backend changes.
+**You do not need to trust the authors**
+Stampd is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
 **Planned: cross-instance integrity monitoring**
 Stampd instances will be able to monitor each other via the Render API: each instance can verify that the version currently running matches the expected git commit hash, and publish a signed attestation to Arweave recording that no incidents have occurred. The attestation log will be publicly readable — anyone can query any instance's API to see what version is running and whether its history is clean. This makes Stampd itself auditable by the same mechanism it provides to its users.
+
+One residual trust assumption remains: Render, as the hosting provider, could in principle silently replace the running code without updating the git repository. This is a real but low-credibility threat — it would require the hosting provider to actively conspire against users, which is a different category of risk than ordinary software vulnerabilities. Self-hosting eliminates this assumption entirely.
+
+**Planned: private AI option**
+For organisations that cannot send documents to third-party APIs, a future option will allow routing analysis through a self-hosted or corporate LLM. The stamping and verification layer remains identical — only the AI backend changes.
 
 ---
 
