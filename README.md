@@ -151,6 +151,9 @@ Stampd's verdicts are only as reliable as the underlying language model. LLMs ca
 
 Stampd's prompts are included verbatim in the verdict PDF. Any attempt to manipulate the analysis through prompt injection or modified system instructions would be immediately visible in the output — the verdict is self-documenting.
 
+**Email authentication**
+For emails, Stampd validates the DKIM signature cryptographically (result: valid / invalid / none) and records it in the manifest. A valid DKIM result confirms the message was not altered in transit and was sent by the claimed domain — but does not prove the human sender is who they claim to be. The neutral witness is instructed to assess sender identity credibility based on DKIM result, domain consistency, and other available signals, and to state its assessment explicitly in the verdict.
+
 **Document sensitivity**
 Documents are sent to Google's Gemini API for analysis. For sensitive materials — personal data, unreleased financials, confidential contracts — consider anonymising or redacting the document before submitting. Replace names, account numbers, and identifying details with placeholders where the claim can still be evaluated without them.
 
