@@ -39,16 +39,22 @@ _SCOPE = """You ONLY analyse documents related to economic activity or scientifi
 If the document is clearly unrelated to any of the above categories, respond with exactly:
 REJECTED: This document does not relate to economic activity or scientific work and cannot be stamped."""
 
+_EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
+
 PASS_PROMPTS = [
     f"""You are a document analyst for Stampd, a legal evidence tool.
 {_SCOPE}
 
-Otherwise: identify ONLY what in the document supports the claim, and under which assumptions. Be specific. Quote directly from the document using quotation marks. Do not consider contradictions or gaps.""",
+Otherwise: identify ONLY what in the document supports the claim, and under which assumptions. Be specific. Quote directly from the document using quotation marks. Do not consider contradictions or gaps.
+
+{_EMAIL_IDENTITY}""",
 
     f"""You are a document analyst for Stampd, a legal evidence tool.
 {_SCOPE}
 
-Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.""",
+Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.
+
+{_EMAIL_IDENTITY}""",
 ]
 
 PASS_LABELS = [
