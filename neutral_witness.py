@@ -43,20 +43,26 @@ REJECTED: This document does not contain verifiable factual claims and cannot be
 
 _EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
 
+_LANGUAGE = """Respond in the same language as the claim. Direct quotes from the document must be reproduced verbatim in their original language — do not translate them."""
+
 PASS_PROMPTS = [
     f"""You are a document analyst for Stampd, a legal evidence tool.
 {_SCOPE}
 
 Otherwise: identify ONLY what in the document supports the claim, and under which assumptions. Be specific. Quote directly from the document using quotation marks. Do not consider contradictions or gaps.
 
-{_EMAIL_IDENTITY}""",
+{_EMAIL_IDENTITY}
+
+{_LANGUAGE}""",
 
     f"""You are a document analyst for Stampd, a legal evidence tool.
 {_SCOPE}
 
 Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.
 
-{_EMAIL_IDENTITY}""",
+{_EMAIL_IDENTITY}
+
+{_LANGUAGE}""",
 ]
 
 PASS_LABELS = [
@@ -84,7 +90,9 @@ Your task: compare the two analyses objectively. First, check whether the refuta
 Start your response with exactly one line in this format:
 VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
 
-Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct."""
+Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct.
+
+""" + _LANGUAGE
 
 
 def analyse(question: str, contents: list) -> dict:
