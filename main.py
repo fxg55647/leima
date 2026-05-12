@@ -10,6 +10,7 @@ from email.header import decode_header as _decode_header
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from dotenv import load_dotenv
+import re
 import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
 import base64
@@ -154,6 +155,7 @@ def build_manifest(
     input_hash: str,
     verdict_hash: str,
     email_meta: dict | None = None,
+    web_meta: dict | None = None,
 ) -> dict:
     manifest = {
         "version": "1",
@@ -164,7 +166,34 @@ def build_manifest(
     }
     if email_meta:
         manifest["email_meta"] = email_meta
+    if web_meta:
+        manifest["web"] = web_meta
     return manifest
+
+
+def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("Only http/https URLs are allowed")
+    try:
+        addr = ipaddress.ip_address(parsed.hostname)
+        if addr.is_private or addr.is_loopback or addr.is_link_local:
+            raise ValueError("Private/internal addresses are not allowed")
+    except ValueError as e:
+        if any(w in str(e) for w in ("Private", "internal", "loopback")):
+            raise
+    resp = http_requests.get(url, timeout=20, allow_redirects=True,
+                             headers={"User-Agent": "Stampd/1.0"})
+    resp.raise_for_status()
+    html = resp.text
+    text = re.sub(r"<style[^>]*>.*?</style>", " ", html, flags=re.S)
+    text = re.sub(r"<script[^>]*>.*?</script>", " ", text, flags=re.S)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = "\n".join(line.strip() for line in text.splitlines() if line.strip())[:30000]
+    fetched_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    input_bytes = _text_to_input_pdf(f"URL: {url}\nFetched: {fetched_at}\n\n{text}")
+    return input_bytes, text, url, fetched_at
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -434,7 +463,7 @@ def _text_to_input_pdf(text: str) -> bytes:
     return bytes(p.output())
 
 
-def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str, email_meta: dict | None = None) -> dict:
+def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str, email_meta: dict | None = None, web_meta: dict | None = None) -> dict:
     result = analyse(question, contents)
     input_hash = sha256(input_bytes)
     verdict_pdf = build_verdict_pdf(question, result["passes"], result["timestamp"], input_hash, prompts=result["prompt_log"])
@@ -446,6 +475,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         input_hash=input_hash,
         verdict_hash=verdict_hash,
         email_meta=email_meta,
+        web_meta=web_meta,
     )
     session_id = str(uuid.uuid4())[:12]
     store[session_id] = {"pdf": verdict_pdf, "manifest": manifest, "source": input_bytes}
@@ -472,9 +502,11 @@ async def ask(
     email_idx: str = Form(""),
     pdf_file: UploadFile = File(None),
     pdf_url: str = Form(""),
+    web_url: str = Form(""),
 ):
     contents = []
     email_meta = None
+    web_meta = None
 
     if active_tab == "pdf":
         if pdf_url.strip():
@@ -520,13 +552,25 @@ async def ask(
         input_label = f"email: {msg['subject'][:40]}"
         contents.append(f"Email from: {msg['from']}\nSubject: {msg['subject']}\nDate: {msg['date']}\n\n{body}")
 
+    elif active_tab == "web":
+        if not web_url.strip():
+            return HTMLResponse('<div class="error">Please enter a URL.</div>')
+        try:
+            input_bytes, page_text, fetched_url, fetched_at = _fetch_webpage(web_url.strip())
+        except Exception as e:
+            return HTMLResponse(f'<div class="error">URL error: {e}</div>')
+        web_meta = {"url": fetched_url, "fetched_at": fetched_at}
+        input_label = fetched_url
+        contents.append(f"Web page from: {fetched_url}\nFetched at: {fetched_at}\n\n{page_text}")
+
     else:
         return HTMLResponse('<div class="error">Unknown input type.</div>')
 
     contents.append(question)
 
     try:
-        result = _run_analysis(question, contents, input_bytes, input_label, email_meta)
+        result = _run_analysis(question, contents, input_bytes, input_label,
+                               email_meta, web_meta if active_tab == "web" else None)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
 

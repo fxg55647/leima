@@ -445,7 +445,8 @@
       <div class="tabs">
         <button type="button" class="tab-btn active" onclick="switchTab('pdf', this)">PDF</button>
         <button type="button" class="tab-btn" onclick="switchTab('text', this)">Text</button>
-        <button type="button" class="tab-btn" onclick="switchTab('email', this)">Email</button>
+        <button type="button" class="tab-btn" onclick="switchTab('web', this)">Web</button>
+        <button type="button" class="tab-btn" onclick="switchTab('email', this)">IMAP</button>
       </div>
 
       <div id="tab-pdf" class="tab-panel active">
@@ -468,6 +469,12 @@
             <button type="button" class="url-toggle-btn" onclick="showDropZone()">Use file instead</button>
           </div>
         </div>
+      </div>
+
+      <div id="tab-web" class="tab-panel">
+        <input type="url" name="web_url" id="web-url" class="url-input"
+          placeholder="https://example.com/article">
+        <div class="url-hint">HTML fetched server-side — URL and timestamp recorded in manifest</div>
       </div>
 
       <div id="tab-text" class="tab-panel">
@@ -535,6 +542,7 @@
 <script>
   function tabHasContent(tab) {
     if (tab === 'pdf') return document.getElementById('pdf-input').files.length > 0;
+    if (tab === 'web') return document.getElementById('web-url').value.trim() !== '';
     if (tab === 'text') return document.querySelector('[name="text_input"]').value.trim() !== '';
     if (tab === 'email') {
       return ['email_user','email_password','email_sender','email_start','email_end']
@@ -568,6 +576,8 @@
       document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
       document.getElementById('drop-zone-wrap').style.display = 'block';
       document.getElementById('url-input-wrap').style.display = 'none';
+    } else if (tab === 'web') {
+      document.getElementById('web-url').value = '';
     } else if (tab === 'text') {
       document.querySelector('[name="text_input"]').value = '';
     } else if (tab === 'email') {
