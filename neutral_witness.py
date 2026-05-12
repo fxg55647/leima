@@ -53,9 +53,8 @@ Otherwise: identify ONLY what in the document supports the claim, and under whic
 {_LANGUAGE}""",
 
     f"""You are a document analyst for Stampd, a legal evidence tool.
-{_SCOPE}
 
-Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.
+Identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.
 
 {_EMAIL_IDENTITY}
 
