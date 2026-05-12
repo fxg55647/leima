@@ -108,6 +108,25 @@ Response:
 
 ---
 
+## Trust model
+
+**AI reliability**
+Stampd's verdicts are only as reliable as the underlying language model. LLMs can misread documents, miss context, or produce confident-sounding but wrong conclusions. Stampd is a tool for structuring and timestamping analysis — not a legal authority. Treat the verdict as a documented first opinion, not a final judgment.
+
+**Document sensitivity**
+Documents are sent to Google's Gemini API for analysis. For sensitive materials — personal data, unreleased financials, confidential contracts — consider anonymising or redacting the document before submitting. Replace names, account numbers, and identifying details with placeholders where the claim can still be evaluated without them.
+
+**What Arweave guarantees**
+The blockchain record proves that a specific analysis of a specific document existed at a specific time, and that neither has been altered since. It does not prove the analysis is correct, that the document is authentic, or that the claim is true in any legal sense.
+
+**Planned: private AI option**
+For organisations that cannot send documents to third-party APIs, a future option will allow routing analysis through a self-hosted or corporate LLM. The stamping and verification layer remains identical — only the AI backend changes.
+
+**Planned: cross-instance integrity monitoring**
+Stampd instances will be able to monitor each other via the Render API: each instance can verify that the version currently running matches the expected git commit hash, and publish a signed attestation to Arweave recording that no incidents have occurred. The attestation log will be publicly readable — anyone can query any instance's API to see what version is running and whether its history is clean. This makes Stampd itself auditable by the same mechanism it provides to its users.
+
+---
+
 ## Stack
 
 - **Backend** — FastAPI + Uvicorn
