@@ -6,6 +6,36 @@ Stampd lets you make a claim about a document and get an AI-generated verdict th
 
 ---
 
+## Contents
+
+- [Why this matters](#why-this-matters)
+- [What it does](#what-it-does)
+- [How the proof works](#how-the-proof-works)
+- [Use cases](#use-cases)
+- [Document sources](#document-sources)
+- [API](#api)
+- [Trust model](#trust-model)
+- [Stack](#stack)
+- [Setup](#setup)
+- [Validation](#validation)
+- [Deployment](#deployment)
+
+---
+
+## Why this matters
+
+AI is the first witness that cannot be bribed, biased, or exhausted. But raw AI output is not evidence — it can be regenerated, altered, or denied. Stampd changes this by sealing the analysis cryptographically the moment it is made, tied to the exact document it analysed, stored permanently on Arweave before anyone knew there would be a dispute.
+
+For centuries, verifying a claim against a document required a human: expensive, partial, and available only to those who could afford one. A notary confirms existence, not meaning. A lawyer is a party. This created a world where thorough verification was a luxury — where citation checks were skipped, where disputes were settled by whoever had better representation rather than better evidence.
+
+AI changes the economics entirely. Thousands of source references checked overnight, for cents per claim. Documents analysed with the same attention regardless of who owns them or what is at stake. Sensitive materials examined by a witness that cannot be pressured, does not remember, and does not gossip.
+
+Stampd is the infrastructure that makes this testimony permanent and verifiable. The verdict is not just an AI output — it is a sealed record: this document, this claim, this analysis, this moment. Anyone can verify it independently, without trusting Stampd itself.
+
+This is not a better expert. It is a new category of witness, and a new foundation for how claims against documents can be proven.
+
+---
+
 ## What it does
 
 You provide a document and a claim. Stampd runs three independent AI passes:
