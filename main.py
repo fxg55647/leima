@@ -16,8 +16,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from google import genai
 from google.genai import types
+from neutral_witness import analyse, PASS_LABELS, MODEL
 from fpdf import FPDF
 from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
@@ -32,45 +32,6 @@ IRYS_GATEWAY = "https://devnet.irys.xyz" if IRYS_NETWORK == "devnet" else "https
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
-MODEL = "gemini-2.5-flash-lite"
-
-_ECONOMIC_SCOPE = """You ONLY analyse documents related to economic activity or scientific/research work. Accepted topics:
-- Employment: contracts, salary, dismissals, warnings, references
-- Entrepreneurship: invoices, business agreements, company ownership
-- Job seeking: applications, offers, rejections
-- Loans & debt: loan agreements, payment plans, debt collection
-- Insurance: work-related or business insurance policies
-- Social benefits: unemployment, sick pay, Kela decisions
-- Taxation: tax cards, tax decisions, advance tax
-- Investments & ownership: shares, shareholder agreements
-- Real estate: rental agreements, purchase contracts
-- Education: employer-funded training, professional certifications
-- Any contract or agreement with financial or legal consequences
-- Scientific & research: academic papers, research reports, study findings, journal articles, grant applications, data analyses, clinical trials, experiment results
-
-If the document is clearly unrelated to any of the above categories, respond with exactly:
-REJECTED: This document does not relate to economic activity or scientific work and cannot be stamped."""
-
-PASS_PROMPTS = [
-    f"""You are a document analyst for Stampd, a legal evidence tool.
-{_ECONOMIC_SCOPE}
-
-Otherwise: identify ONLY what in the document supports the claim, and under which assumptions. Be specific. Quote directly from the document using quotation marks. Do not consider contradictions or gaps.""",
-
-    f"""You are a document analyst for Stampd, a legal evidence tool.
-{_ECONOMIC_SCOPE}
-
-Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.""",
-
-]
-
-PASS_LABELS = [
-    "Support Analysis",
-    "Refutation & Gap Analysis",
-    "Synthesis & Verdict",
-]
 
 # In-memory store: session_id → {pdf: bytes, manifest: dict}
 store: dict[str, dict] = {}
@@ -464,59 +425,12 @@ def _text_to_input_pdf(text: str) -> bytes:
 
 
 def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str, email_meta: dict | None = None) -> dict:
-    passes = []
-    for prompt, label in zip(PASS_PROMPTS, PASS_LABELS):
-        resp = client.models.generate_content(
-            model=MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(system_instruction=prompt),
-        )
-        text = resp.text
-        if text.startswith("REJECTED:"):
-            raise ValueError(text)
-        passes.append((label, text))
-
-    synthesis_prompt = f"""You are the final judge for Stampd, a legal evidence tool.
-
-The claim being evaluated: "{question}"
-
-Two independent analysts have reviewed the document:
-
-SUPPORT ANALYST:
-{passes[0][1]}
-
-REFUTATION ANALYST:
-{passes[1][1]}
-
-Your task: compare the two analyses objectively. Which side had stronger arguments and better evidence from the document? Consider the quality of quotes, the directness of the evidence, and the logical strength of each case.
-
-Start your response with exactly one line in this format:
-VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
-
-Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct."""
-
-    synth_resp = client.models.generate_content(
-        model=MODEL,
-        contents=contents,
-        config=types.GenerateContentConfig(system_instruction=synthesis_prompt),
-    )
-    synth_text = synth_resp.text.strip()
-    if synth_text.startswith("VERDICT:"):
-        first_line, _, rest = synth_text.partition("\n")
-        summary_verdict = first_line.removeprefix("VERDICT:").strip()
-        synthesis_body = rest.strip()
-    else:
-        summary_verdict = synth_text.split(".")[0].strip() + "."
-        synthesis_body = synth_text
-    passes.append((PASS_LABELS[2], synthesis_body))
-
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    result = analyse(question, contents)
     input_hash = sha256(input_bytes)
-    prompt_log = list(zip(PASS_LABELS[:2], PASS_PROMPTS)) + [(PASS_LABELS[2], synthesis_prompt)]
-    verdict_pdf = build_verdict_pdf(question, passes, timestamp, input_hash, prompts=prompt_log)
+    verdict_pdf = build_verdict_pdf(question, result["passes"], result["timestamp"], input_hash, prompts=result["prompt_log"])
     verdict_hash = sha256(verdict_pdf)
     manifest = build_manifest(
-        timestamp=timestamp,
+        timestamp=result["timestamp"],
         model=MODEL,
         input_label=input_label,
         input_hash=input_hash,
@@ -526,9 +440,9 @@ Then on a new line, explain your reasoning: which arguments were stronger and wh
     session_id = str(uuid.uuid4())[:12]
     store[session_id] = {"pdf": verdict_pdf, "manifest": manifest, "source": input_bytes}
     return {
-        "passes": passes,
-        "summary_verdict": summary_verdict,
-        "timestamp": timestamp,
+        "passes": result["passes"],
+        "summary_verdict": result["summary_verdict"],
+        "timestamp": result["timestamp"],
         "input_hash": input_hash,
         "verdict_pdf": verdict_pdf,
         "verdict_hash": verdict_hash,
