@@ -152,6 +152,8 @@ Stampd's prompts are included verbatim in the verdict PDF. Any attempt to manipu
 **Document sensitivity**
 Documents are sent to Google's Gemini API for analysis. For sensitive materials — personal data, unreleased financials, confidential contracts — consider anonymising or redacting the document before submitting. Replace names, account numbers, and identifying details with placeholders where the claim can still be evaluated without them.
 
+For the email input, a planned pre-processing filter will automatically strip personal data from message bodies before sending to the AI — retaining only what is needed to evaluate the claim. This is particularly relevant for email threads that contain third-party personal data the user may not have the right to share with external APIs.
+
 **What Arweave guarantees**
 The blockchain record proves that a specific analysis of a specific document existed at a specific time, and that neither has been altered since. It does not prove the analysis is correct, that the document is authentic, or that the claim is true in any legal sense.
 
