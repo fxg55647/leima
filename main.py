@@ -135,7 +135,7 @@ def _safe(text: str) -> str:
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
-def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str) -> bytes:
+def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str, prompts: list[tuple[str, str]] | None = None) -> bytes:
     pdf = FPDF()
     pdf.add_page()
 
@@ -162,6 +162,25 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
         pdf.cell(0, 7, _safe(label), ln=True)
         pdf.set_font("Helvetica", size=11)
         pdf.multi_cell(0, 6, _safe(text))
+
+    if prompts:
+        pdf.add_page()
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 8, "System prompts (verbatim)", ln=True)
+        pdf.ln(2)
+        pdf.set_font("Helvetica", size=9)
+        pdf.set_text_color(80, 80, 80)
+        pdf.multi_cell(0, 5, "The following prompts were used as system instructions for each analysis pass. "
+                              "Any deviation from these prompts would produce visibly different output.")
+        pdf.ln(4)
+        for label, prompt_text in prompts:
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(0, 6, _safe(label), ln=True)
+            pdf.set_font("Helvetica", size=8)
+            pdf.set_text_color(60, 60, 60)
+            pdf.multi_cell(0, 5, _safe(prompt_text))
+            pdf.ln(3)
 
     return bytes(pdf.output())
 
@@ -493,7 +512,8 @@ Then on a new line, explain your reasoning: which arguments were stronger and wh
 
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     input_hash = sha256(input_bytes)
-    verdict_pdf = build_verdict_pdf(question, passes, timestamp, input_hash)
+    prompt_log = list(zip(PASS_LABELS[:2], PASS_PROMPTS)) + [(PASS_LABELS[2], synthesis_prompt)]
+    verdict_pdf = build_verdict_pdf(question, passes, timestamp, input_hash, prompts=prompt_log)
     verdict_hash = sha256(verdict_pdf)
     manifest = build_manifest(
         timestamp=timestamp,

@@ -147,6 +147,8 @@ Response:
 **AI reliability**
 Stampd's verdicts are only as reliable as the underlying language model. LLMs can misread documents, miss context, or produce confident-sounding but wrong conclusions. Stampd is a tool for structuring and timestamping analysis — not a legal authority. Treat the verdict as a documented first opinion, not a final judgment.
 
+Stampd's prompts are included verbatim in the verdict PDF. Any attempt to manipulate the analysis through prompt injection or modified system instructions would be immediately visible in the output — the verdict is self-documenting.
+
 **Document sensitivity**
 Documents are sent to Google's Gemini API for analysis. For sensitive materials — personal data, unreleased financials, confidential contracts — consider anonymising or redacting the document before submitting. Replace names, account numbers, and identifying details with placeholders where the claim can still be evaluated without them.
 
