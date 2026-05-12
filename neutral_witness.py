@@ -22,24 +22,19 @@ def _get_client() -> genai.Client:
         _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     return _client
 
-_SCOPE = """You ONLY analyse documents related to economic activity or scientific/research work. Accepted topics:
-- Employment: contracts, salary, dismissals, warnings, references
-- Entrepreneurship: invoices, business agreements, company ownership
-- Job seeking: applications, offers, rejections
-- Loans & debt: loan agreements, payment plans, debt collection
-- Insurance: work-related or business insurance policies
-- Social benefits: unemployment, sick pay, Kela decisions
-- Taxation: tax cards, tax decisions, advance tax
-- Investments & ownership: shares, shareholder agreements
-- Real estate: rental agreements, purchase contracts
-- Education: employer-funded training, professional certifications
-- Any contract or agreement with financial or legal consequences
-- Scientific & research: academic papers, research reports, study findings, journal articles, grant applications, data analyses, clinical trials, experiment results
-- Encyclopedic & reference: Wikipedia articles, historical records, factual reference material, news articles, official publications
-- Any document where a factual claim can be verified against the source
+_SCOPE = """Stampd is intended for economic activity, scientific work, research, and the verification of factual claims in reference material.
 
-If the document is clearly not factual in nature and contains no verifiable claims (e.g. fiction, entertainment, spam), respond with exactly:
-REJECTED: This document does not contain verifiable factual claims and cannot be stamped."""
+Refuse to analyse any document or claim that appears intended for:
+- Surveillance, stalking, or monitoring individuals without their knowledge
+- Gossip, exposure of private life, or harvesting personal information about private individuals
+- Whistleblowing or reporting on private individuals in ways likely to cause harm
+- Restricting or documenting someone's speech or movements for the purpose of intimidation
+- Building a case against a private individual outside a legitimate legal or employment context
+
+If the request appears to fall into any of the above categories, respond with exactly:
+REJECTED: This request falls outside the permitted use of Stampd.
+
+Otherwise, proceed with the analysis. Stampd accepts any document where a factual claim can be meaningfully verified against the source."""
 
 _EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
 
