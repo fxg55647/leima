@@ -267,39 +267,86 @@ async def preview_email(request: Request, session_id: str, idx: int):
     )
 
 
-@app.get("/download/{session_id}/source.pdf")
+@app.get("/download/{session_id}/source")
 async def download_source(session_id: str):
     entry = store.get(session_id)
     if not entry or not entry.get("source"):
         return Response(status_code=404)
+    ext = entry.get("source_ext", "pdf")
+    mime = entry.get("source_mime", "application/pdf")
     return Response(
         content=entry["source"],
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=source.pdf"},
+        media_type=mime,
+        headers={"Content-Disposition": f"attachment; filename=source.{ext}"},
+    )
+
+
+@app.get("/download/{session_id}/verdict.txt")
+async def download_verdict_txt(session_id: str):
+    entry = store.get(session_id)
+    if not entry:
+        return Response(status_code=404)
+    return Response(
+        content=build_verdict_txt(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=verdict.txt"},
+    )
+
+
+@app.get("/download/{session_id}/verdict.html")
+async def download_verdict_html(session_id: str):
+    entry = store.get(session_id)
+    if not entry:
+        return Response(status_code=404)
+    return Response(
+        content=build_verdict_html_export(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
+        media_type="text/html; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=verdict.html"},
+    )
+
+
+@app.get("/download/{session_id}/verdict.json")
+async def download_verdict_json_file(session_id: str):
+    entry = store.get(session_id)
+    if not entry:
+        return Response(status_code=404)
+    return Response(
+        content=build_verdict_json_export(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=verdict.json"},
     )
 
 
 @app.post("/files/{session_id}", response_class=HTMLResponse)
-async def files(request: Request, session_id: str):
+async def files(request: Request, session_id: str, formats: list[str] = Form(default=[])):
     entry = store.get(session_id)
     if not entry:
         return Response(status_code=404)
 
-    base_manifest = entry["manifest"]
-    manifest_bytes = json.dumps(base_manifest, indent=2, ensure_ascii=False).encode()
+    if not formats:
+        formats = ["pdf"]
+
+    stamp_record = {k: v for k, v in entry["manifest"].items() if k != "stamp"}
+    record_bytes = json.dumps(stamp_record, indent=2, ensure_ascii=False).encode()
 
     try:
-        irys_tx = _irys_upload(manifest_bytes, "application/json", {"Stampd-Type": "manifest"})
+        irys_tx = _irys_upload(record_bytes, "application/json", {"Stampd-Type": "stamp-record"})
     except Exception as e:
-        return HTMLResponse(f'<p class="error">Irys upload failed: {e}</p>')
+        return HTMLResponse(f'<p class="error">Arweave upload failed: {e}</p>')
 
     irys_url = f"{IRYS_GATEWAY}/{irys_tx}"
-    download_manifest = {**base_manifest, "arweave": {"tx_id": irys_tx, "url": irys_url}}
-    entry["manifest"] = download_manifest
+    entry["manifest"] = {**stamp_record, "stamp": {"tx_id": irys_tx, "url": irys_url}}
 
     return templates.TemplateResponse(
         "partials/files.html",
-        {"request": request, "session_id": session_id, "irys_tx": irys_tx, "irys_url": irys_url},
+        {
+            "request": request,
+            "session_id": session_id,
+            "irys_tx": irys_tx,
+            "irys_url": irys_url,
+            "formats": formats,
+            "source_ext": entry.get("source_ext", "pdf"),
+        },
     )
 
 
@@ -366,7 +413,7 @@ async def validate(
     })
 
     # 3. Arweave manifest integrity
-    arweave = manifest.get("arweave") or manifest.get("irys") or {}
+    arweave = manifest.get("stamp") or manifest.get("arweave") or manifest.get("irys") or {}
     tx_id = arweave.get("tx_id")
     arweave_check = {"label": "Arweave manifest", "ok": False, "expected": "", "actual": ""}
     if not tx_id:
@@ -403,6 +450,56 @@ def _irys_upload(data: bytes, content_type: str, tags: dict) -> str:
     return result["id"]
 
 
+
+
+_IMAGE_MIMES = {
+    "jpg": "image/jpeg", "jpeg": "image/jpeg",
+    "png": "image/png", "gif": "image/gif",
+    "webp": "image/webp", "heic": "image/heic", "heif": "image/heif",
+}
+
+def _detect_image_mime(filename: str) -> str | None:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return _IMAGE_MIMES.get(ext)
+
+
+def build_verdict_txt(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str) -> bytes:
+    lines = ["STAMPD VERDICT", "=" * 40,
+             f"Timestamp: {timestamp}", f"Model: {MODEL}", f"Input SHA-256: {input_hash}",
+             "", f"Claim: {question}", ""]
+    for label, text in passes:
+        lines += [f"\n{label}", "-" * len(label), text, ""]
+    return "\n".join(lines).encode("utf-8")
+
+
+def build_verdict_html_export(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str) -> bytes:
+    pass_html = ""
+    for label, text in passes:
+        content = _md.markdown(text or "", extensions=["nl2br"])
+        pass_html += f"<section><h2>{label}</h2>{content}</section>\n"
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Stampd Verdict</title>
+<style>
+  body{{font-family:system-ui,sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem;color:#212529}}
+  h1{{font-size:1.4rem;margin-bottom:.25rem}} .meta{{color:#6c757d;font-size:.85rem;margin-bottom:1.5rem}}
+  .claim{{background:#f0f5ff;border-left:3px solid #0d6efd;padding:.75rem 1rem;margin-bottom:1.5rem;font-weight:600}}
+  section{{margin-bottom:2rem}} h2{{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:#adb5bd;margin-bottom:.5rem}}
+  p{{margin:0 0 .6em;line-height:1.7}}
+</style></head>
+<body>
+<h1>Stampd Verdict</h1>
+<div class="meta">Timestamp: {timestamp} &nbsp;&middot;&nbsp; Model: {MODEL} &nbsp;&middot;&nbsp; Input SHA-256: {input_hash}</div>
+<div class="claim">{question}</div>
+{pass_html}</body></html>"""
+    return html.encode("utf-8")
+
+
+def build_verdict_json_export(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str) -> bytes:
+    return json.dumps({
+        "claim": question, "timestamp": timestamp, "model": MODEL, "input_hash": input_hash,
+        "passes": [{"label": l, "text": t} for l, t in passes],
+    }, indent=2, ensure_ascii=False).encode()
 
 
 PDF_URL_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -456,7 +553,9 @@ def _text_to_input_pdf(text: str) -> bytes:
     return bytes(p.output())
 
 
-def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str, email_meta: dict | None = None, web_meta: dict | None = None) -> dict:
+def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str,
+                  source_ext: str = "pdf", source_mime: str = "application/pdf",
+                  email_meta: dict | None = None, web_meta: dict | None = None) -> dict:
     result = analyse(question, contents, is_email=email_meta is not None)
     input_hash = sha256(input_bytes)
     verdict_pdf = build_verdict_pdf(question, result["passes"], result["timestamp"], input_hash, prompts=result["prompt_log"])
@@ -471,7 +570,12 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         web_meta=web_meta,
     )
     session_id = str(uuid.uuid4())[:12]
-    store[session_id] = {"pdf": verdict_pdf, "manifest": manifest, "source": input_bytes}
+    store[session_id] = {
+        "pdf": verdict_pdf, "manifest": manifest, "source": input_bytes,
+        "source_ext": source_ext, "source_mime": source_mime,
+        "passes": result["passes"], "question": question,
+        "timestamp": result["timestamp"], "input_hash": input_hash,
+    }
     return {
         "passes": result["passes"],
         "summary_verdict": result["summary_verdict"],
@@ -496,12 +600,27 @@ async def ask(
     pdf_file: UploadFile = File(None),
     pdf_url: str = Form(""),
     web_url: str = Form(""),
+    image_file: UploadFile = File(None),
 ):
     contents = []
     email_meta = None
     web_meta = None
+    source_ext = "pdf"
+    source_mime = "application/pdf"
 
-    if active_tab == "pdf":
+    if active_tab == "image":
+        if not image_file or not image_file.filename:
+            return HTMLResponse('<div class="error">Please upload an image.</div>')
+        mime = _detect_image_mime(image_file.filename)
+        if not mime:
+            return HTMLResponse('<div class="error">Unsupported image format. Use JPG, PNG, GIF, WebP, HEIC, or HEIF.</div>')
+        input_bytes = await image_file.read()
+        input_label = image_file.filename
+        source_ext = image_file.filename.rsplit(".", 1)[-1].lower()
+        source_mime = mime
+        contents.append(types.Part.from_bytes(data=input_bytes, mime_type=mime))
+
+    elif active_tab == "pdf":
         if pdf_url.strip():
             try:
                 input_bytes, input_label = _fetch_pdf_from_url(pdf_url.strip())
@@ -520,6 +639,17 @@ async def ask(
         input_bytes = _text_to_input_pdf(text_input)
         input_label = "text-input"
         contents.append(f"Document content:\n{text_input}")
+
+    elif active_tab == "web":
+        if not web_url.strip():
+            return HTMLResponse('<div class="error">Please enter a URL.</div>')
+        try:
+            input_bytes, page_text, fetched_url, fetched_at = _fetch_webpage(web_url.strip())
+        except Exception as e:
+            return HTMLResponse(f'<div class="error">URL error: {e}</div>')
+        web_meta = {"url": fetched_url, "fetched_at": fetched_at}
+        input_label = fetched_url
+        contents.append(f"Web page from: {fetched_url}\nFetched at: {fetched_at}\n\n{page_text}")
 
     elif active_tab == "email":
         msgs = email_sessions.get(email_session_id)
@@ -545,17 +675,6 @@ async def ask(
         input_label = f"email: {msg['subject'][:40]}"
         contents.append(f"Email from: {msg['from']}\nSubject: {msg['subject']}\nDate: {msg['date']}\n\n{body}")
 
-    elif active_tab == "web":
-        if not web_url.strip():
-            return HTMLResponse('<div class="error">Please enter a URL.</div>')
-        try:
-            input_bytes, page_text, fetched_url, fetched_at = _fetch_webpage(web_url.strip())
-        except Exception as e:
-            return HTMLResponse(f'<div class="error">URL error: {e}</div>')
-        web_meta = {"url": fetched_url, "fetched_at": fetched_at}
-        input_label = fetched_url
-        contents.append(f"Web page from: {fetched_url}\nFetched at: {fetched_at}\n\n{page_text}")
-
     else:
         return HTMLResponse('<div class="error">Unknown input type.</div>')
 
@@ -563,7 +682,8 @@ async def ask(
 
     try:
         result = _run_analysis(question, contents, input_bytes, input_label,
-                               email_meta, web_meta if active_tab == "web" else None)
+                               source_ext, source_mime,
+                               email_meta, web_meta)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
 
@@ -630,7 +750,7 @@ async def api_stamp(body: StampRequest):
         return JSONResponse({"error": f"Arweave upload failed: {e}"}, status_code=502)
 
     irys_url = f"{IRYS_GATEWAY}/{tx_id}"
-    full_manifest = {**manifest, "arweave": {"tx_id": tx_id, "url": irys_url}}
+    full_manifest = {**manifest, "stamp": {"tx_id": tx_id, "url": irys_url}}
     store[result["session_id"]]["manifest"] = full_manifest
 
     return JSONResponse({
@@ -640,6 +760,6 @@ async def api_stamp(body: StampRequest):
         "verdict_hash": result["verdict_hash"],
         "timestamp": result["timestamp"],
         "model": MODEL,
-        "arweave": {"tx_id": tx_id, "url": irys_url},
+        "stamp": {"tx_id": tx_id, "url": irys_url},
         "manifest": full_manifest,
     })

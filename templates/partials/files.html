@@ -1,18 +1,35 @@
 <div class="files-section">
   <div class="files-row">
-    <a class="file-btn" href="/download/{{ session_id }}/source.pdf" download>
-      ⬇ source.pdf
+    <a class="file-btn" href="/download/{{ session_id }}/source" download="source.{{ source_ext }}">
+      ⬇ source.{{ source_ext }}
     </a>
+    {% if "pdf" in formats %}
     <a class="file-btn" href="/download/{{ session_id }}/verdict.pdf" download>
       ⬇ verdict.pdf
     </a>
+    {% endif %}
+    {% if "txt" in formats %}
+    <a class="file-btn" href="/download/{{ session_id }}/verdict.txt" download>
+      ⬇ verdict.txt
+    </a>
+    {% endif %}
+    {% if "html" in formats %}
+    <a class="file-btn" href="/download/{{ session_id }}/verdict.html" download>
+      ⬇ verdict.html
+    </a>
+    {% endif %}
+    {% if "json" in formats %}
+    <a class="file-btn" href="/download/{{ session_id }}/verdict.json" download>
+      ⬇ verdict.json
+    </a>
+    {% endif %}
     <a class="file-btn secondary" href="/download/{{ session_id }}/manifest.json" download>
       ⬇ manifest.json
     </a>
   </div>
 
   <div class="irys-row">
-    <span class="irys-label">Manifest on Arweave</span>
+    <span class="irys-label">Stamp record on Arweave</span>
     <a class="irys-link" href="{{ irys_url }}" target="_blank">{{ irys_tx }}</a>
   </div>
 </div>

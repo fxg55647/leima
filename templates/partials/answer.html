@@ -28,14 +28,27 @@
     </div>
   </div>
 
-  <div class="download-row">
-    <button class="generate-btn"
-      hx-post="/files/{{ session_id }}"
-      hx-target="#files-{{ session_id }}"
-      hx-swap="innerHTML"
-      hx-on::after-request="this.remove()">
-      ⬇ Generate files
-    </button>
+  <div id="gen-wrap-{{ session_id }}">
+    <div id="fmt-{{ session_id }}" class="format-options" style="display:none">
+      <label class="fmt-label"><input type="checkbox" name="formats" value="pdf" checked> PDF</label>
+      <label class="fmt-label"><input type="checkbox" name="formats" value="txt"> TXT</label>
+      <label class="fmt-label"><input type="checkbox" name="formats" value="html"> HTML</label>
+      <label class="fmt-label"><input type="checkbox" name="formats" value="json"> JSON</label>
+    </div>
+    <div class="download-row">
+      <button class="generate-btn"
+        hx-post="/files/{{ session_id }}"
+        hx-target="#files-{{ session_id }}"
+        hx-swap="innerHTML"
+        hx-include="#fmt-{{ session_id }}"
+        hx-on::after-request="document.getElementById('gen-wrap-{{ session_id }}').remove()">
+        ⬇ Generate files
+      </button>
+      <button type="button" class="options-btn"
+        onclick="var e=document.getElementById('fmt-{{ session_id }}');e.style.display=e.style.display==='none'?'flex':'none'">
+        ⚙ Options
+      </button>
+    </div>
   </div>
 
   <div id="files-{{ session_id }}"></div>
@@ -116,11 +129,43 @@
     word-break: break-all;
   }
 
+  .format-options {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+    padding: 0.6rem 0.75rem;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+  }
+  .fmt-label {
+    font-size: 0.82rem;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+  }
+
   .download-row {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
   }
+
+  .options-btn {
+    background: #fff;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 0.45rem 0.875rem;
+    font-size: 0.875rem;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .options-btn:hover { border-color: #adb5bd; color: #212529; }
 
   .generate-btn {
     background: #0d6efd;
