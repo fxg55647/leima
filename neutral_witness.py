@@ -93,7 +93,7 @@ VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "Th
 
 Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct.
 
-""" + _LANGUAGE
+""" + _LANGUAGE_TEMPLATE.format(question=question)
 
 
 def analyse(question: str, contents: list, is_email: bool = False) -> dict:
