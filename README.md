@@ -41,9 +41,9 @@ The result is not a confident binary verdict. It is an epistemic map: what the d
 After analysis you download three files:
 - `source.pdf` — the input document (or a PDF rendering of it)
 - `verdict.pdf` — the three-pass AI analysis
-- `manifest.json` — cryptographic hashes of both files, timestamp, model version, and a permanent Arweave link
+- `manifest.json` — cryptographic hashes of both files, timestamp, model version, and a link to the stamp record on Arweave
 
-**The document is not stored on the blockchain or anywhere permanently.** It is processed server-side for AI analysis and then discarded. Only the manifest — containing SHA-256 hashes of both files — is published to Arweave via Irys. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
+**The document is not stored on the blockchain or anywhere permanently.** It is processed server-side for AI analysis and then discarded. A stamp record — containing SHA-256 hashes of both files — is published to Arweave via Irys. The `manifest.json` you download contains this stamp record plus the Arweave transaction ID pointing to it. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
 
 ---
 
@@ -51,11 +51,13 @@ After analysis you download three files:
 
 ```
 source.pdf  ──sha256──►  input.sha256  ──┐
-                                          ├──► manifest.json ──► Arweave (permanent)
-verdict.pdf ──sha256──►  verdict.sha256 ──┘
+                                          ├──► stamp record ──► Arweave (permanent)
+verdict.pdf ──sha256──►  verdict.sha256 ──┘                          │
+                                                                      ▼
+                                                    manifest.json (stamp.tx_id points here)
 ```
 
-The Arweave transaction ID in `manifest.json` points to the manifest itself. A validator fetches it from Arweave and compares it to the local copy — if they match, and the file hashes check out, the verdict is proven authentic and unmodified.
+The stamp record is the immutable on-chain object: it contains the hashes, timestamp, and model, but no Arweave link (since that ID doesn't exist yet when it's created). The `manifest.json` you download is the stamp record plus a `stamp` field with the Arweave transaction ID and URL. A validator fetches the stamp record from Arweave and compares it to `manifest.json` (minus the `stamp` field) — if they match, and the file hashes check out, the verdict is proven authentic and unmodified.
 
 ---
 
@@ -139,7 +141,7 @@ Response:
   "verdict_hash": "sha256:...",
   "timestamp": "2026-05-12 10:00:00 UTC",
   "model": "gemini-2.5-flash-lite",
-  "arweave": { "tx_id": "...", "url": "https://gateway.irys.xyz/..." },
+  "stamp": { "tx_id": "...", "url": "https://gateway.irys.xyz/..." },
   "manifest": { ... }
 }
 ```
@@ -236,7 +238,7 @@ Any party who receives the three files can verify integrity at `/validate`:
 
 - SHA-256 of `source.pdf` matches `manifest.json → input.sha256`
 - SHA-256 of `verdict.pdf` matches `manifest.json → verdict_pdf.sha256`
-- The manifest fetched from Arweave matches the local `manifest.json` (minus the `arweave` field)
+- The stamp record fetched from Arweave matches the local `manifest.json` (minus the `stamp` field)
 
 If all three pass, the verdict is authentic and unmodified.
 
