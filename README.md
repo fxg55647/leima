@@ -39,8 +39,8 @@ The first two passes are stateless and adversarial by design: each sees only the
 The result is not a confident binary verdict. It is an epistemic map: what the document actually supports, what it does not, and how certain that conclusion is.
 
 After analysis you download three files:
-- `source.pdf` — the input document (or a PDF rendering of it)
-- `verdict.pdf` — the three-pass AI analysis
+- `source` — the input document in its original format (PDF, image, or a PDF rendering of text/web input)
+- `verdict.pdf` — the three-pass AI analysis (also available as TXT, HTML, or JSON)
 - `manifest.json` — cryptographic hashes of both files, timestamp, model version, and a link to the stamp record on Arweave
 
 **The document is not stored on the blockchain or anywhere permanently.** It is processed server-side for AI analysis and then discarded. A stamp record — containing SHA-256 hashes of both files — is published to Arweave via Irys. The `manifest.json` you download contains this stamp record plus the Arweave transaction ID pointing to it. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
@@ -108,7 +108,9 @@ This matters most in low-trust and chaotic societies where institutions are weak
 |--------|-------|
 | PDF upload | Direct file upload |
 | PDF URL | Fetched server-side, max 10 MB, SSRF-protected |
+| Image | JPG, PNG, GIF, WebP, HEIC, HEIF — analysed directly, original file preserved |
 | Text paste | Converted to PDF for hashing |
+| Web page | HTML fetched server-side, stripped to text; URL and fetch timestamp recorded in stamp record |
 | Email (IMAP) | Fetches via IMAP; validates DKIM signature (valid / invalid / none), records Message-ID and body hash |
 
 ---
@@ -170,7 +172,7 @@ Response:
 **AI reliability**
 Stampd's verdicts are only as reliable as the underlying language model. LLMs can misread documents, miss context, or produce confident-sounding but wrong conclusions. Stampd is a tool for structuring and timestamping analysis — not a legal authority. Treat the verdict as a documented first opinion, not a final judgment.
 
-Stampd's prompts are included verbatim in the verdict PDF. Any attempt to manipulate the analysis through prompt injection or modified system instructions would be immediately visible in the output — the verdict is self-documenting.
+The full AI prompt logic is isolated in `neutral_witness.py` — a single file that anyone can read to verify exactly what instructions are given to the model, without reading the rest of the codebase.
 
 **Email authentication**
 For emails, Stampd validates the DKIM signature cryptographically (result: valid / invalid / none) and records it in the manifest. A valid DKIM result confirms the message was not altered in transit and was sent by the claimed domain — but does not prove the human sender is who they claim to be. The neutral witness is instructed to assess sender identity credibility based on DKIM result, domain consistency, and other available signals, and to state its assessment explicitly in the verdict.
@@ -186,8 +188,15 @@ The blockchain record proves that a specific analysis of a specific document exi
 **You do not need to trust the authors**
 Stampd is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
-**Planned: cross-instance integrity monitoring**
-Stampd instances will be able to monitor each other via the Render API: each instance can verify that the version currently running matches the expected git commit hash, and publish a signed attestation to Arweave recording that no incidents have occurred. The attestation log will be publicly readable — anyone can query any instance's API to see what version is running and whether its history is clean. This makes Stampd itself auditable by the same mechanism it provides to its users.
+**Deployment integrity monitoring**
+Stampd exposes a `/version` endpoint that returns the currently deployed git commit hash (sourced from Render's `RENDER_GIT_COMMIT` environment variable, set by the hosting platform — not by the application itself). The definitive check is to query the Render API directly:
+
+```bash
+curl -H "Authorization: Bearer $RENDER_API_KEY" \
+  "https://api.render.com/v1/services/srv-d80ohae7r5hc73bqpk00/deploys?limit=1"
+```
+
+This returns the deployed commit independently of what the application reports. Cross-referencing that commit against the public GitHub repository confirms what code is running. A planned GitHub Actions workflow will automate this check on a schedule and publish results publicly, so anyone can verify deployment integrity without Render credentials.
 
 One residual trust assumption remains: Render, as the hosting provider, could in principle silently replace the running code without updating the git repository. This is a real but low-credibility threat — it would require the hosting provider to actively conspire against users, which is a different category of risk than ordinary software vulnerabilities.
 
