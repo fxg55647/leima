@@ -457,7 +457,7 @@ def _text_to_input_pdf(text: str) -> bytes:
 
 
 def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str, email_meta: dict | None = None, web_meta: dict | None = None) -> dict:
-    result = analyse(question, contents)
+    result = analyse(question, contents, is_email=email_meta is not None)
     input_hash = sha256(input_bytes)
     verdict_pdf = build_verdict_pdf(question, result["passes"], result["timestamp"], input_hash, prompts=result["prompt_log"])
     verdict_hash = sha256(verdict_pdf)

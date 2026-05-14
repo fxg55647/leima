@@ -42,24 +42,26 @@ _EMAIL_IDENTITY = """If the document is an email, also assess sender identity cr
 
 _LANGUAGE = """Respond in the same language as the claim. Direct quotes from the document must be reproduced verbatim in their original language — do not translate them."""
 
-PASS_PROMPTS = [
-    f"""You are a document analyst for Stampd, a legal evidence tool.
+_PASS_PROMPTS_BASE = [
+    """You are a document analyst for Stampd, a legal evidence tool.
 
 Identify ONLY what in the document supports the claim, and under which assumptions. Be specific. Quote directly from the document using quotation marks. Do not consider contradictions or gaps.
 
-{_EMAIL_IDENTITY}
-
-{_LANGUAGE}""",
+{email_identity}{language}""",
 
     f"""You are a document analyst for Stampd, a legal evidence tool.
 {_SCOPE}
 
 Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.
 
-{_EMAIL_IDENTITY}
-
-{_LANGUAGE}""",
+{{email_identity}}{{language}}""",
 ]
+
+PASS_PROMPTS = [p.format(email_identity="", language=_LANGUAGE) for p in _PASS_PROMPTS_BASE]
+
+def _build_pass_prompts(is_email: bool) -> list[str]:
+    email_block = _EMAIL_IDENTITY + "\n\n" if is_email else ""
+    return [p.format(email_identity=email_block, language=_LANGUAGE) for p in _PASS_PROMPTS_BASE]
 
 PASS_LABELS = [
     "Support Analysis",
@@ -91,7 +93,7 @@ Then on a new line, explain your reasoning: which arguments were stronger and wh
 """ + _LANGUAGE
 
 
-def analyse(question: str, contents: list) -> dict:
+def analyse(question: str, contents: list, is_email: bool = False) -> dict:
     """
     Run three-pass neutral witness analysis on a document.
 
@@ -102,8 +104,9 @@ def analyse(question: str, contents: list) -> dict:
     Raises ValueError with a REJECTED: message if the document is out of scope.
     """
     client = _get_client()
+    pass_prompts = _build_pass_prompts(is_email)
     passes = []
-    for prompt, label in zip(PASS_PROMPTS, PASS_LABELS):
+    for prompt, label in zip(pass_prompts, PASS_LABELS):
         resp = client.models.generate_content(
             model=MODEL,
             contents=contents,
@@ -131,7 +134,7 @@ def analyse(question: str, contents: list) -> dict:
     passes.append((PASS_LABELS[2], synthesis_body))
 
     prompt_log = (
-        list(zip(PASS_LABELS[:2], PASS_PROMPTS))
+        list(zip(PASS_LABELS[:2], pass_prompts))
         + [(PASS_LABELS[2], synth)]
     )
 
