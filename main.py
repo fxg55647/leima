@@ -126,26 +126,8 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
         pdf.set_font("Helvetica", "B", 11)
         pdf.cell(0, 7, _safe(label), ln=True)
         pdf.set_font("Helvetica", size=11)
-        pdf.multi_cell(0, 6, _safe(text))
-
-    if prompts:
-        pdf.add_page()
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, "System prompts (verbatim)", ln=True)
-        pdf.ln(2)
-        pdf.set_font("Helvetica", size=9)
-        pdf.set_text_color(80, 80, 80)
-        pdf.multi_cell(0, 5, "The following prompts were used as system instructions for each analysis pass. "
-                              "Any deviation from these prompts would produce visibly different output.")
-        pdf.ln(4)
-        for label, prompt_text in prompts:
-            pdf.set_font("Helvetica", "B", 10)
-            pdf.set_text_color(0, 0, 0)
-            pdf.cell(0, 6, _safe(label), ln=True)
-            pdf.set_font("Helvetica", size=8)
-            pdf.set_text_color(60, 60, 60)
-            pdf.multi_cell(0, 5, _safe(prompt_text))
-            pdf.ln(3)
+        html = _md.markdown(text or "", extensions=["nl2br"])
+        pdf.write_html(html)
 
     return bytes(pdf.output())
 
