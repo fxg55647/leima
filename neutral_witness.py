@@ -42,7 +42,7 @@ Otherwise, proceed with the analysis."""
 
 _EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
 
-_LANGUAGE = """The language of the user's claim determines the response language — not the language of the document. Respond entirely in the same language as the claim, even if the document is in a different language. Direct quotes from the document must be reproduced verbatim in their original language — do not translate them."""
+_LANGUAGE_TEMPLATE = """The user's claim is: "{question}". Detect the language of this claim and respond entirely in that language — not in English unless the claim itself is in English. Direct quotes from the document must be reproduced verbatim in their original language — do not translate them."""
 
 _PASS_PROMPTS_BASE = [
     """You are a document analyst for Stampd, a legal evidence tool.
@@ -59,11 +59,12 @@ Otherwise: identify ONLY what in the document contradicts the claim, or fails to
 {{email_identity}}{{language}}""",
 ]
 
-PASS_PROMPTS = [p.format(email_identity="", language=_LANGUAGE) for p in _PASS_PROMPTS_BASE]
-
-def _build_pass_prompts(is_email: bool) -> list[str]:
+def _build_pass_prompts(is_email: bool, question: str = "") -> list[str]:
     email_block = _EMAIL_IDENTITY + "\n\n" if is_email else ""
-    return [p.format(email_identity=email_block, language=_LANGUAGE) for p in _PASS_PROMPTS_BASE]
+    language = _LANGUAGE_TEMPLATE.format(question=question)
+    return [p.format(email_identity=email_block, language=language) for p in _PASS_PROMPTS_BASE]
+
+PASS_PROMPTS = _build_pass_prompts(is_email=False, question="the claim")
 
 PASS_LABELS = [
     "Support Analysis",
@@ -106,7 +107,7 @@ def analyse(question: str, contents: list, is_email: bool = False) -> dict:
     Raises ValueError with a REJECTED: message if the document is out of scope.
     """
     client = _get_client()
-    pass_prompts = _build_pass_prompts(is_email)
+    pass_prompts = _build_pass_prompts(is_email, question)
     passes = []
     for prompt, label in zip(pass_prompts, PASS_LABELS):
         resp = client.models.generate_content(
