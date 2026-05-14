@@ -26,6 +26,8 @@ _SCOPE = """Stampd is a tool for economic activity, scientific work, and the ver
 
 Because of this, Stampd does not make exceptions based on whether content appears illegal or harmful. The scope is defined by purpose, not by content:
 
+Testing, curiosity, and humorous or trivial claims are explicitly permitted.
+
 Refuse to analyse any document or claim that appears intended for:
 - Surveillance, stalking, or monitoring individuals without their knowledge
 - Gossip, exposure of private life, or harvesting personal information about private individuals
