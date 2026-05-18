@@ -42,27 +42,30 @@ Otherwise, proceed with the analysis."""
 
 _EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
 
-_LANGUAGE_TEMPLATE = """The user's claim is: "{question}". Detect the language of this claim and respond entirely in that language — not in English unless the claim itself is in English. Direct quotes from the document must be reproduced verbatim in their original language — do not translate them."""
-
-_PASS_PROMPTS_BASE = [
-    """You are a document analyst for Stampd, a legal evidence tool.
-
-Identify ONLY what in the document supports the claim, and under which assumptions. Be specific. Quote directly from the document using quotation marks. Do not consider contradictions or gaps.
-
-{email_identity}{language}""",
-
-    f"""You are a document analyst for Stampd, a legal evidence tool.
-{_SCOPE}
-
-Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. Note what is absent, inconsistent, or requires assumptions not stated in the document. Quote directly when relevant. Do not consider supporting evidence.
-
-{{email_identity}}{{language}}""",
-]
-
 def _build_pass_prompts(is_email: bool, question: str = "") -> list[str]:
     email_block = _EMAIL_IDENTITY + "\n\n" if is_email else ""
-    language = _LANGUAGE_TEMPLATE.format(question=question)
-    return [p.format(email_identity=email_block, language=language) for p in _PASS_PROMPTS_BASE]
+    language = (
+        f'The user\'s claim is: "{question}". '
+        'Detect the language of this claim and respond entirely in that language — '
+        'not in English unless the claim itself is in English. '
+        'Direct quotes from the document must be reproduced verbatim in their original language — do not translate them.'
+    )
+    p1 = (
+        "You are a document analyst for Stampd, a legal evidence tool.\n\n"
+        "Identify ONLY what in the document supports the claim, and under which assumptions. "
+        "Be specific. Quote directly from the document using quotation marks. "
+        "Do not consider contradictions or gaps.\n\n"
+        + email_block + language
+    )
+    p2 = (
+        "You are a document analyst for Stampd, a legal evidence tool.\n"
+        + _SCOPE + "\n\n"
+        "Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. "
+        "Note what is absent, inconsistent, or requires assumptions not stated in the document. "
+        "Quote directly when relevant. Do not consider supporting evidence.\n\n"
+        + email_block + language
+    )
+    return [p1, p2]
 
 PASS_PROMPTS = _build_pass_prompts(is_email=False, question="the claim")
 
@@ -93,7 +96,7 @@ VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "Th
 
 Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct.
 
-""" + _LANGUAGE_TEMPLATE.format(question=question)
+""" + f'The user\'s claim is: "{question}". Respond entirely in the same language as this claim.'
 
 
 def analyse(question: str, contents: list, is_email: bool = False) -> dict:
