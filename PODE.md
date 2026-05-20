@@ -65,6 +65,30 @@ If any workflow is red, either a policy violation was detected in the code or a 
 
 ---
 
+## Real-world incidents
+
+**PHP git server compromise (2021).** Attackers gained access to PHP's official git server and injected a backdoor directly into the source code. The commits appeared to come from known, trusted developers — everything looked normal. The attack was caught before a release was made, but had it reached production, millions of PHP-powered websites would have been running malicious code from an apparently legitimate source. PoDe-style monitoring would not have prevented the git compromise, but an immutable deployment log and independent runtime verification would have made the gap between "what was in git" and "what was actually running" immediately visible.
+
+**Picreel and Alpaca Forms supply chain attack (2019).** Attackers compromised a web analytics service and several open source form libraries. The malicious code was quietly injected into JavaScript files served to over 4,600 websites. Those sites began leaking user data to an attacker-controlled server. Site owners did not know. Users did not know. The browser showed a perfectly normal page — HTTPS was green — but the runtime JavaScript had been replaced. This is the attack PoDe is designed to make visible: the running code had changed, but nothing in the user's environment reflected that.
+
+Both incidents share the same structure: the trust signal users had (a familiar domain, a green padlock, a known developer's name on a commit) said nothing about what code was actually executing. PoDe adds the missing signal.
+
+---
+
+## Real-world incidents
+
+These three attacks illustrate different points in the supply chain where code can be silently replaced — and where deployment transparency would have made the manipulation harder to hide.
+
+**XZ Utils backdoor (2024).** An attacker spent years building trust in the open source community, gradually acquiring maintainer rights to XZ Utils, a compression library present in most Linux distributions. The backdoor was injected not into the visible source code but into the release process — the malicious code appeared in the distributed tarballs but not in the git repository in the same form. It was discovered almost by accident, through a performance anomaly. Had there been public build attestation, verifiable artifact provenance, and continuous runtime checks, the gap between "what the source said" and "what was actually distributed and running" would have been significantly harder to maintain silently.
+
+**PHP git server compromise (2021).** Attackers gained access to PHP's official git server and injected a backdoor directly into the source code. The commits appeared to come from known, trusted developers — everything looked normal. The attack was caught before a release was made, but had it reached production, millions of PHP-powered websites would have been running malicious code from an apparently legitimate source. An immutable deployment log and independent runtime verification would have made the gap between "what was in git" and "what was actually running" immediately visible.
+
+**Picreel and Alpaca Forms supply chain attack (2019).** Attackers compromised a web analytics service and several open source form libraries. The malicious code was quietly injected into JavaScript files served to over 4,600 websites. Those sites began leaking user data to an attacker-controlled server. Site owners did not know. Users did not know. The browser showed a perfectly normal page — HTTPS was green — but the runtime JavaScript had been replaced. This is the attack PoDe is most directly designed to make visible: the running code had changed, but nothing in the user's environment reflected that.
+
+All three share the same structure: the trust signal users had — a familiar domain, a green padlock, a known developer's name on a commit — said nothing about what code was actually executing. PoDe adds the missing signal at the runtime end of the chain. Sigstore, SLSA, and reproducible builds address the earlier stages; together they cover the full path from source to running instance.
+
+---
+
 ## Prior art and existing landscape
 
 The problem PoDe addresses is recognised but underserved. Existing approaches fall into three categories:
