@@ -183,8 +183,8 @@ def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
 @app.get("/version")
 async def version():
     return {
-        "commit": os.getenv("RAILWAY_GIT_COMMIT_SHA", "unknown"),
-        "service": os.getenv("RAILWAY_SERVICE_NAME", "local"),
+        "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
+        "service": os.getenv("RENDER_SERVICE_NAME", "local"),
         "model": MODEL,
     }
 
