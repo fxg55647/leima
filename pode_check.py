@@ -19,14 +19,11 @@ def render_state():
     )
     resp.raise_for_status()
     deploys = resp.json()
-
     deploying = bool(deploys and deploys[0].get("deploy", {}).get("status") in _IN_PROGRESS)
-
     for item in deploys:
         deploy = item.get("deploy", {})
         if deploy.get("status") == "live":
             return deploy.get("commit", {}).get("id"), "live", deploying
-
     return None, "no_live_deploy", deploying
 
 
@@ -41,6 +38,24 @@ def github_commit():
     return resp.text.strip()
 
 
+def github_review_status():
+    resp = requests.get(
+        f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/code_review.yml/runs"
+        f"?per_page=1&branch={GITHUB_BRANCH}",
+        headers={"Accept": "application/vnd.github+json"},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        return None
+    runs = resp.json().get("workflow_runs", [])
+    if not runs:
+        return None
+    run = runs[0]
+    if run.get("status") != "completed":
+        return "in_progress"
+    return run.get("conclusion")
+
+
 error = None
 try:
     deployed, deploy_status, deploying = render_state()
@@ -53,14 +68,25 @@ except Exception as e:
     expected = None
     error = (error + "; " if error else "") + str(e)
 
-ok = bool(deployed and expected and deployed.startswith(expected[:7]))
+try:
+    review_conclusion = github_review_status()
+except Exception as e:
+    review_conclusion = None
+    error = (error + "; " if error else "") + str(e)
+
+deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
+review_ok = review_conclusion == "success"
+ok = deployment_ok and review_ok and not deploying
 
 result = {
     "ok": ok,
+    "deployment_ok": deployment_ok,
+    "review_ok": review_ok,
     "deploying": deploying,
     "deployed_commit": deployed,
     "expected_commit": expected,
     "deploy_status": deploy_status,
+    "review_conclusion": review_conclusion,
     "repo": GITHUB_REPO,
     "branch": GITHUB_BRANCH,
     "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
