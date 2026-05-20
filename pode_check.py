@@ -1,5 +1,27 @@
-import os, sys, json, requests
+import hashlib, os, sys, json, requests
 from datetime import datetime, timezone
+from pathlib import Path
+
+MONITOR_FILES = [
+    ".github/workflows/pode-a.yml",
+    ".github/workflows/pode-b.yml",
+    ".github/workflows/pode-c.yml",
+    ".github/workflows/pode-d.yml",
+    ".github/workflows/pode-e.yml",
+    ".github/workflows/code_review.yml",
+    "pode_check.py",
+    "code_review.py",
+    "POLICY.md",
+]
+
+
+def hash_monitor_files() -> dict[str, str | None]:
+    root = Path(__file__).parent
+    return {
+        name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+        if (root / name).exists() else None
+        for name in MONITOR_FILES
+    }
 
 RENDER_API_KEY    = os.environ.get("RENDER_API_KEY", "")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID", "")
@@ -90,6 +112,7 @@ result = {
     "repo": GITHUB_REPO,
     "branch": GITHUB_BRANCH,
     "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+    "monitor_files": hash_monitor_files(),
 }
 if error:
     result["error"] = error
