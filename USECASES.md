@@ -54,6 +54,22 @@ Both parties can demand these stamps before the first substantive meeting. The r
 
 ---
 
+## Personal credentials and life events
+
+Institutions routinely send emails that carry significant evidentiary weight: universities confirm graduation, employers welcome new hires and attach contracts, banks confirm account opening, government agencies send decisions. These emails are typically trusted because they come from a known domain — and DKIM validation makes that trust verifiable and recordable.
+
+A private individual can stamp almost any significant life event for which they have received a credible email, without needing access to any official verification service.
+
+**Educational credentials.** A university's confirmation email that a student has completed a degree — sent from the institution's domain, DKIM-validated — can be stamped to create a portable, independently verifiable record. The stamp does not replace the official certificate, but it provides a dated, cryptographically anchored reference that is harder to fabricate than a PDF and does not require the issuing institution to be involved in the verification.
+
+**Employment.** A welcome email from an employer — informing a new employee of their start date, role, and onboarding details — establishes that an employment relationship began on a specific date, from a specific organisation. An electronic employment contract attached to or referenced in that email, stamped at the time of receipt, creates a record of the agreed terms that is independent of either party's later recollection. Useful in employment disputes, for visa and residency applications that require proof of employment, and for credit applications that require income verification.
+
+**Proof of relationship with an organisation.** Any email from a company, institution, or authority — confirming a transaction, a membership, a decision, or a status — can be stamped to establish that the relationship existed at a specific point in time. This is useful wherever a person needs to demonstrate a connection that the other party may later deny or be unable to confirm (due to staff turnover, system changes, or organisational restructuring).
+
+The underlying principle is that DKIM shifts the trust question from "do you believe this person?" to "do you trust this domain?" — a much easier question to answer for institutions with established reputations. Leima makes that shift permanent and auditable.
+
+---
+
 ## Economic inclusion and access to markets
 
 In many parts of the world, the barrier to economic participation is not capability or effort — it is the inability to prove what you own, what you have done, or what agreements you have made. Banks require collateral that cannot be documented. Buyers require certificates that cost more than the transaction is worth. Leima does not solve these problems entirely, but it lowers the cost of producing credible evidence to near zero.

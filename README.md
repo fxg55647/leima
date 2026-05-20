@@ -85,6 +85,10 @@ The stamp record is the immutable on-chain object: it contains the hashes, times
 - Preserving pre-dispute state of agreements, leases, and correspondence
 - Employment disputes: salary confirmations, policy documents, HR communications
 
+**Personal credentials**
+- Any email from a trusted domain can be stamped: degree completion notices, employer welcome emails, electronic contracts — DKIM proves the sender's domain, Leima timestamps the content
+- Portable proof of employment, education, or institutional relationships without requiring the issuing party to participate in verification
+
 **Economic inclusion**
 - Small-scale farmers and fishing cooperatives building stamped records of sales, inputs, and activity — usable as evidence for microfinance or access to premium markets
 - Professionals in jurisdictions without reliable registries establishing verifiable work history and agreements from email records alone
