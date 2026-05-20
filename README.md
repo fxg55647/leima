@@ -24,6 +24,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Validation](#validation)
 - [Deployment](#deployment)
 - [Deployment integrity (PoDe)](#deployment-integrity-pode)
+- [Data policy](POLICY.md)
 
 ---
 
