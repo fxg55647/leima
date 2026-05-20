@@ -30,8 +30,10 @@ RENDER_API_KEY    = os.environ.get("RENDER_API_KEY", "")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID", "")
 GITHUB_REPO       = os.environ.get("GITHUB_REPO", "fxg55647/leima")
 GITHUB_BRANCH     = os.environ.get("GITHUB_BRANCH", "main")
+GITHUB_TOKEN      = os.environ.get("GITHUB_TOKEN", "")
 
-_IN_PROGRESS = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
+_IN_PROGRESS      = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
+_COMPLETED        = {"live", "deactivated"}
 
 
 def render_state():
@@ -88,6 +90,57 @@ def check_cron_freshness() -> bool | None:
     return False if found_any else None
 
 
+def check_deploy_history() -> dict:
+    if not RENDER_API_KEY or not RENDER_SERVICE_ID:
+        return {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
+
+    resp = requests.get(
+        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=20",
+        headers={"Authorization": f"Bearer {RENDER_API_KEY}"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+
+    gh_headers = {"Accept": "application/vnd.github+json"}
+    if GITHUB_TOKEN:
+        gh_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+
+    last_mismatch_at = None
+    last_mismatch_commit = None
+    oldest_at = None
+    scanned = 0
+
+    for item in resp.json():
+        deploy = item.get("deploy", {})
+        if deploy.get("status") not in _COMPLETED:
+            continue
+        commit_id = deploy.get("commit", {}).get("id")
+        created_at = deploy.get("createdAt") or deploy.get("created_at")
+        if not commit_id:
+            continue
+
+        scanned += 1
+        if oldest_at is None or (created_at and created_at < oldest_at):
+            oldest_at = created_at
+
+        r = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/commits/{commit_id}",
+            headers=gh_headers,
+            timeout=10,
+        )
+        if r.status_code == 404:
+            if last_mismatch_at is None or (created_at and created_at > last_mismatch_at):
+                last_mismatch_at = created_at
+                last_mismatch_commit = commit_id[:7]
+
+    return {
+        "scanned_deploys": scanned,
+        "last_mismatch_at": last_mismatch_at,
+        "last_mismatch_commit": last_mismatch_commit,
+        "clean_since": oldest_at if last_mismatch_at is None else None,
+    }
+
+
 def github_review_status():
     resp = requests.get(
         f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/code_review.yml/runs"
@@ -130,6 +183,12 @@ except Exception as e:
     cron_fresh = None
     error = (error + "; " if error else "") + str(e)
 
+try:
+    history = check_deploy_history()
+except Exception as e:
+    history = {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
+    error = (error + "; " if error else "") + str(e)
+
 deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
 review_ok = review_conclusion == "success"
 ok = deployment_ok and review_ok and not deploying and (cron_fresh is not False)
@@ -144,6 +203,7 @@ result = {
     "deploy_status": deploy_status,
     "review_conclusion": review_conclusion,
     "cron_fresh": cron_fresh,
+    "history": history,
     "repo": GITHUB_REPO,
     "branch": GITHUB_BRANCH,
     "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),

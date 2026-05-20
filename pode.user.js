@@ -42,11 +42,25 @@ function checkMonitorFiles(current) {
 }
 
 function failReason(d) {
-    if (d.deploying)          return "deploy käynnissä";
-    if (!d.deployment_ok)     return "deployed commit ei täsmää GitHubiin";
-    if (!d.review_ok)         return "policy-katselmus epäonnistui";
-    if (d.cron_fresh === false) return "monitorointi myöhässä — GitHub Actions ruuhka?";
+    if (d.deploying)            return "deploy käynnissä";
+    if (!d.deployment_ok)       return "deployed commit ei täsmää GitHubiin";
+    if (!d.review_ok)           return "policy-katselmus epäonnistui";
+    if (d.cron_fresh === false)  return "monitorointi myöhässä — GitHub Actions ruuhka?";
     return "tila tuntematon";
+}
+
+function historyLabel(h) {
+    if (!h || h.scanned_deploys === 0) return null;
+    if (h.last_mismatch_at) {
+        const days = Math.floor((Date.now() - new Date(h.last_mismatch_at)) / 86400000);
+        return { level: days < 7 ? "red" : "orange",
+                 text: `mismatch historiassa ${days} pv sitten (${h.last_mismatch_commit})` };
+    }
+    if (h.clean_since) {
+        const days = Math.floor((Date.now() - new Date(h.clean_since)) / 86400000);
+        return { level: "green", text: `puhdas historia ${days} pv` };
+    }
+    return null;
 }
 
 GM_xmlhttpRequest({
@@ -58,15 +72,20 @@ GM_xmlhttpRequest({
         catch { banner("#e67e22", "PoDe ✗", "status.json ei ole kelvollinen JSON"); return; }
 
         const changed = checkMonitorFiles(d.monitor_files || {});
+        const hist = historyLabel(d.history);
 
         if (!d.ok) {
             banner("#c0392b", "PoDe ✗ — tarkista GitHub Actions ennen käyttöä", failReason(d));
         } else if (changed) {
             banner("#e67e22", "PoDe ⚠ — valvontatiedostot muuttuneet edellisestä sessiosta",
                 changed.join(", "));
+        } else if (hist && hist.level !== "green") {
+            banner(hist.level === "red" ? "#c0392b" : "#e67e22",
+                "PoDe ⚠ — " + hist.text, null);
         } else {
-            banner("#27ae60", "PoDe ✓ — koodi tarkistettu, deployment kunnossa", null);
-            setTimeout(() => document.getElementById("pode-banner")?.remove(), 4000);
+            const detail = hist ? hist.text : null;
+            banner("#27ae60", "PoDe ✓ — koodi tarkistettu, deployment kunnossa", detail);
+            setTimeout(() => document.getElementById("pode-banner")?.remove(), 5000);
         }
     },
     onerror() {
