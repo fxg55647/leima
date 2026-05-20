@@ -197,7 +197,7 @@ Leima is open source. You can read the code, verify that the prompts and logic m
 **Deployment integrity monitoring (PoDe)**
 Open source code is auditable — but only if the running code is the same as the published code. Leima implements PoDe (Proof of Deployment): five GitHub Actions workflows run on a staggered schedule, together achieving one-minute polling resolution. Each workflow queries the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishes the result publicly. Anyone can verify deployment integrity without credentials, at any time.
 
-See [PODE.md](PODE.md) for a full description of the protocol, the current implementation, and the longer-term vision — including independent commit auditing, in-app status display, and a browser extension.
+See [PODE.md](PODE.md) for a full description of the protocol, the current implementation, the longer-term vision, real-world incidents where deployment transparency would have helped (XZ Utils, PHP git compromise, Picreel), and how PoDe relates to existing approaches such as Sigstore and Meta Code Verify.
 
 One residual trust assumption remains: Render, as the hosting provider, could in principle report a false commit hash while running different code. This is a different category of risk than ordinary vulnerabilities — it requires the hosting provider to actively conspire against users. See PODE.md for a discussion of how this could be mitigated.
 
