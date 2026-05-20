@@ -65,6 +65,12 @@ The stamp record is the immutable on-chain object: it contains the hashes, times
 
 ## Use cases
 
+**Due diligence**
+- Any material — contracts, financial statements, code, patent applications — can be partially disclosed: the AI characterises the content and stamps a verdict, while the hash commits to the full document. If fraudulent or misleading data was provided, the hash exposes it later
+- Startups and inventors seeking investment can disclose enough for an AI verdict ("novel approach, coherent technical claims") without surrendering full intellectual property
+- Investors can be required to stamp proof of funds or portfolio history — bilateral verification before the first meeting, without a trusted intermediary
+- Suppliers, vendors, and counterparties can be held to their representations at the time of negotiation
+
 **Consumer documentation**
 - Stamping service receipts received by email — car repairs, appliance installations, specialist appraisals — for insurance claims, warranty disputes, or resale
 - Recording purchases and valuations before a loss occurs, so the evidence predates the claim
