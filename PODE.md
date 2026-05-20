@@ -69,16 +69,6 @@ If any workflow is red, either a policy violation was detected in the code or a 
 
 ## Real-world incidents
 
-**PHP git server compromise (2021).** Attackers gained access to PHP's official git server and injected a backdoor directly into the source code. The commits appeared to come from known, trusted developers — everything looked normal. The attack was caught before a release was made, but had it reached production, millions of PHP-powered websites would have been running malicious code from an apparently legitimate source. PoDe-style monitoring would not have prevented the git compromise, but an immutable deployment log and independent runtime verification would have made the gap between "what was in git" and "what was actually running" immediately visible.
-
-**Picreel and Alpaca Forms supply chain attack (2019).** Attackers compromised a web analytics service and several open source form libraries. The malicious code was quietly injected into JavaScript files served to over 4,600 websites. Those sites began leaking user data to an attacker-controlled server. Site owners did not know. Users did not know. The browser showed a perfectly normal page — HTTPS was green — but the runtime JavaScript had been replaced. This is the attack PoDe is designed to make visible: the running code had changed, but nothing in the user's environment reflected that.
-
-Both incidents share the same structure: the trust signal users had (a familiar domain, a green padlock, a known developer's name on a commit) said nothing about what code was actually executing. PoDe adds the missing signal.
-
----
-
-## Real-world incidents
-
 These three attacks illustrate different points in the supply chain where code can be silently replaced — and where deployment transparency would have made the manipulation harder to hide.
 
 **XZ Utils backdoor (2024).** An attacker spent years building trust in the open source community, gradually acquiring maintainer rights to XZ Utils, a compression library present in most Linux distributions. The backdoor was injected not into the visible source code but into the release process — the malicious code appeared in the distributed tarballs but not in the git repository in the same form. It was discovered almost by accident, through a performance anomaly. Had there been public build attestation, verifiable artifact provenance, and continuous runtime checks, the gap between "what the source said" and "what was actually distributed and running" would have been significantly harder to maintain silently.
@@ -95,13 +85,13 @@ All three share the same structure: the trust signal users had — a familiar do
 
 The problem PoDe addresses is recognised but underserved. Existing approaches fall into three categories:
 
-**Too narrow.** Meta released [Code Verify](https://github.com/nicholasgasior/code-verify) (2022), a browser extension that checks WhatsApp Web, Facebook, and Instagram JavaScript against a Cloudflare-hosted reference copy. If the running code differs from the published version, the user is warned immediately. This is essentially the browser extension part of the PoDe vision — but built only for Meta's own services, with Cloudflare as the trusted third party. No general version exists that any project could adopt.
+**Too narrow.** Meta released [Code Verify](https://github.com/facebookincubator/meta-code-verify) (2022), a browser extension that checks WhatsApp Web, Facebook, and Instagram JavaScript against a Cloudflare-hosted reference copy. If the running code differs from the published version, the user is warned immediately. This is essentially the browser extension part of the PoDe vision — but built only for Meta's own services, with Cloudflare as the trusted third party. No general version exists that any project could adopt.
 
 **Too heavy.** Academic and industrial research has gone in a hardware direction. HTTPA extends HTTPS with remote attestation using Intel SGX enclaves, allowing clients to verify that a server is running exactly the published code at the hardware level. Signal uses SGX for contact discovery. This is the strongest possible guarantee — but it requires Intel SGX support, re-architecting code into enclaves, and hosting provider cooperation. It is not a realistic option for small open source projects.
 
 **Wrong layer.** Sigstore, SLSA, and in-toto are supply chain standards that secure the path from source code to build artifact. They answer: "was this binary built from this source?" PoDe answers the next question: "is this binary what is actually running?" The two are complementary — Sigstore covers source → artifact, PoDe covers artifact → running instance.
 
-**In standardisation.** The W3C Web Application Security Working Group has discussed [Source Code Transparency](https://github.com/nicholasgasior/source-code-transparency) — a proposal to publish web app bundle hashes to a Certificate Transparency-style log, requiring browsers to verify the running code is in the log before executing it. The problem is recognised, the process is active, but nothing is in production.
+**In standardisation.** The W3C Web Application Security Working Group has discussed [Source Code Transparency](https://github.com/WICG/source-code-transparency) — a proposal to publish web app bundle hashes to a Certificate Transparency-style log, requiring browsers to verify the running code is in the log before executing it. The problem is recognised, the process is active, but nothing is in production.
 
 **An underserved gap.** Most proposals focus on client-side JavaScript — the code the browser downloads and runs. PoDe focuses on server-side code — the code that runs on the hosting provider and processes user data. For AI services, server-side code is the only relevant surface: models cannot process encrypted data, so there is no E2E architecture to fall back on. Trust rests entirely on what the server code does. This remains an underrepresented problem space.
 
