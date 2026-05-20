@@ -18,14 +18,27 @@ pode-d: 3-59/5 * * * *    ← minutes 3, 8, 13 ...
 pode-e: 4-59/5 * * * *    ← minutes 4, 9, 14 ...
 ```
 
-Each workflow runs `pode_check.py`, which:
+Each workflow runs `pode_check.py`, which checks three conditions and publishes a combined `status.json` to the `gh-pages` branch:
 
-1. Calls the Render API: *"which commit is currently live on this service?"*
-2. Calls the GitHub API: *"what is the latest commit on the main branch?"*
-3. Compares them
-4. Writes the result to `status.json` on the `gh-pages` branch
+1. **Deployment match** — calls the Render API and the GitHub API, verifies the live commit matches the repository HEAD
+2. **No deploy in progress** — flags if Render reports an active build or update
+3. **Code review passed** — queries the GitHub Actions API for the result of the latest `PoDe Code Review` run
 
-The check passes if the deployed commit matches the GitHub HEAD. If a deploy is in progress, or if an unauthorised deployment has occurred, the check fails and the GitHub Actions badge turns red.
+`ok: true` requires all three to pass simultaneously.
+
+The code review (`code_review.py`) runs automatically on every push to `main`. It sends all Python and JavaScript source files together with `POLICY.md` to an AI model, which checks whether the code complies with the stated data policy. If a violation is found, the workflow fails and `review_ok` stays false until a corrected commit is pushed and passes.
+
+The full trust chain on every commit:
+```
+push → code_review.yml → Gemini audits code vs POLICY.md → pass/fail
+                                                                  ↓
+cron (every minute) → pode_check.py → deployment match?
+                                     → review passed?
+                                     → no deploy in progress?
+                                                → status.json → gh-pages (public)
+```
+
+The check passes if the deployed commit matches the GitHub HEAD and the code review is green. If a deploy is in progress, or if an unauthorised deployment has occurred, the check fails and the GitHub Actions badge turns red.
 
 **The result is public and independently verifiable.** Anyone can visit the [Actions tab](../../actions) to see the continuous check history, or fetch `status.json` directly. The checks run on GitHub's infrastructure — not Render's — so they cannot be influenced by a compromise of the hosting environment.
 
@@ -35,13 +48,13 @@ The check passes if the deployed commit matches the GitHub HEAD. If a deploy is 
 
 ## Checking deployment status
 
-Before using Leima, you can verify that the running code matches the published source:
+Before using Leima, you can verify the full trust chain in one place:
 
 1. Open the [Actions tab](../../actions) in this repository
-2. Check that the five PoDe workflows show green on their most recent runs
-3. Note the timestamp of the last successful check
+2. Check that **PoDe Code Review** is green on the latest commit — the code has been audited against `POLICY.md`
+3. Check that the five **PoDe A–E** workflows show green on their most recent runs — the running code matches the audited source
 
-If any workflow is red, a deployment mismatch was detected within the last minute. Do not submit sensitive documents until the checks recover.
+If any workflow is red, either a policy violation was detected in the code or a deployment mismatch was found within the last minute. Do not submit sensitive documents until the checks recover.
 
 ---
 
