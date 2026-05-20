@@ -23,6 +23,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Setup](#setup)
 - [Validation](#validation)
 - [Deployment](#deployment)
+- [Deployment integrity (PoDe)](#deployment-integrity-pode)
 
 ---
 
@@ -158,7 +159,7 @@ Response:
 | Source file modified after creation | Yes | Hash mismatch detected on validation |
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
 | Leima lies during original run | Partly | Open source code is auditable; cross-instance monitoring planned |
-| Hosting provider (Railway) swaps running code silently | No | Outside our control — requires trusting the hosting provider |
+| Hosting provider (Render) swaps running code silently | Partly | PoDe workflows detect mismatches within ~1 minute; trusting provider's API response remains a residual assumption |
 | AI verdict is wrong | No | Reviewable first opinion only — not a legal authority |
 | Document is fake before upload | No | Leima timestamps existence, does not authenticate origin |
 | Email body altered after sending | Partly | DKIM validates signed headers and body scope — coverage depends on sender configuration |
@@ -188,19 +189,12 @@ The blockchain record proves that a specific analysis of a specific document exi
 **You do not need to trust the authors**
 Leima is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
-**Deployment integrity monitoring**
-Leima exposes a `/version` endpoint that returns the currently deployed git commit hash (sourced from Railway's `RAILWAY_GIT_COMMIT_SHA` environment variable, set by the hosting platform — not by the application itself). The definitive check is to query the Railway API directly:
+**Deployment integrity monitoring (PoDe)**
+Open source code is auditable — but only if the running code is the same as the published code. Leima implements PoDe (Proof of Deployment): five GitHub Actions workflows run on a staggered schedule, together achieving one-minute polling resolution. Each workflow queries the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishes the result publicly. Anyone can verify deployment integrity without credentials, at any time.
 
-```bash
-curl -H "Authorization: Bearer $RAILWAY_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"query":"{ deployments(projectId: \"PROJECT_ID\") { edges { node { status commitSHA } } } }"}' \
-  https://backboard.railway.app/graphql/v2
-```
+See [PODE.md](PODE.md) for a full description of the protocol, the current implementation, and the longer-term vision — including independent commit auditing, in-app status display, and a browser extension.
 
-This returns the deployed commit independently of what the application reports. Cross-referencing that commit against the public GitHub repository confirms what code is running. A planned GitHub Actions workflow will automate this check on a schedule and publish results publicly, so anyone can verify deployment integrity without Railway credentials.
-
-One residual trust assumption remains: Railway, as the hosting provider, could in principle silently replace the running code without updating the git repository. This is a real but low-credibility threat — it would require the hosting provider to actively conspire against users, which is a different category of risk than ordinary software vulnerabilities.
+One residual trust assumption remains: Render, as the hosting provider, could in principle report a false commit hash while running different code. This is a different category of risk than ordinary vulnerabilities — it requires the hosting provider to actively conspire against users. See PODE.md for a discussion of how this could be mitigated.
 
 **Planned: privacy-committed AI providers**
 A future option will allow switching to AI providers that operate under strict, publicly auditable privacy commitments — where documents are contractually guaranteed not to be used for training or retained after the request. The stamping and verification layer remains identical; only the AI backend changes. This preserves the trust model while reducing reliance on Google's standard API terms.
@@ -257,4 +251,12 @@ If all three pass, the verdict is authentic and unmodified.
 
 ## Deployment
 
-Connect the GitHub repository in the Railway dashboard and set the environment variables. Switch `IRYS_NETWORK` to `mainnet` and remove `IRYS_RPC_URL` for production.
+Connect the GitHub repository in the Render dashboard and set the environment variables. Switch `IRYS_NETWORK` to `mainnet` and remove `IRYS_RPC_URL` for production.
+
+---
+
+## Deployment integrity (PoDe)
+
+Five GitHub Actions workflows run on a staggered schedule and together poll deployment status every minute. Each checks that the commit Render reports as live matches the GitHub repository HEAD, and publishes the result to the `gh-pages` branch as `status.json`.
+
+Before submitting sensitive documents, verify that the five PoDe workflows show green on the [Actions tab](../../actions). See [PODE.md](PODE.md) for the full protocol description.

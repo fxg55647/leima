@@ -1,0 +1,39 @@
+name: PoDe check (reusable)
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install requests
+
+      - name: Run PoDe check
+        id: check
+        continue-on-error: true
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: python pode_check.py
+
+      - name: Push status.json to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: pages-output
+          clean: false
+          commit-message: "chore: update deployment status"
+
+      - name: Fail if check failed
+        if: steps.check.outcome == 'failure'
+        run: exit 1

@@ -1,0 +1,9 @@
+name: PoDe A
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  run:
+    uses: ./.github/workflows/pode-run.yml
+    secrets: inherit
