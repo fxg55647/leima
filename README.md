@@ -14,7 +14,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 
 - [What it does](#what-it-does)
 - [How the proof works](#how-the-proof-works)
-- [Use cases](#use-cases)
+- [Use cases](#use-cases) — see also [USECASES.md](USECASES.md) for extended examples
 - [Why this matters](#why-this-matters)
 - [Document sources](#document-sources)
 - [API](#api)
