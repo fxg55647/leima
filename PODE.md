@@ -57,6 +57,7 @@ Before using Leima, you can verify the full trust chain in one place:
 1. Open the [Actions tab](../../actions) in this repository
 2. Check that **PoDe Code Review** is green on the latest commit — the code has been audited against `POLICY.md`
 3. Check that the five **PoDe A–E** workflows show green on their most recent runs — the running code matches the audited source
+4. Optionally fetch [`status.json`](../../raw/refs/heads/gh-pages/status.json) and compare the `monitor_files` hashes against your previous session — if any hash has changed, check what changed and why before submitting documents
 
 If any workflow is red, either a policy violation was detected in the code or a deployment mismatch was found within the last minute. Do not submit sensitive documents until the checks recover.
 
