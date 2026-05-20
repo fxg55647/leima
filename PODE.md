@@ -42,6 +42,8 @@ The check passes if the deployed commit matches the GitHub HEAD and the code rev
 
 **The result is public and independently verifiable.** Anyone can visit the [Actions tab](../../actions) to see the continuous check history, or fetch `status.json` directly. The checks run on GitHub's infrastructure — not Render's — so they cannot be influenced by a compromise of the hosting environment.
 
+**Deploy history as an audit trail.** Render retains the full deployment history for a service. Even if a malicious deploy were pushed and immediately reverted, it would remain visible in the history — there is no way to silently insert and remove a deployment. Combined with the fact that a Render deploy takes longer than one minute, any unauthorised code change will appear in at least one PoDe check before the deployment completes.
+
 **Trust boundary:** this approach assumes Render is not actively colluding — i.e., that the Render API reports the actual running commit honestly. A colluding hosting provider could lie in the API response while running different code. Mitigating that threat requires either multiple independent hosting providers each monitoring the others, or hosting-provider-level cryptographic attestation (see [Vision](#vision) below).
 
 ---
@@ -55,6 +57,24 @@ Before using Leima, you can verify the full trust chain in one place:
 3. Check that the five **PoDe A–E** workflows show green on their most recent runs — the running code matches the audited source
 
 If any workflow is red, either a policy violation was detected in the code or a deployment mismatch was found within the last minute. Do not submit sensitive documents until the checks recover.
+
+---
+
+## Prior art and existing landscape
+
+The problem PoDe addresses is recognised but underserved. Existing approaches fall into three categories:
+
+**Too narrow.** Meta released [Code Verify](https://github.com/nicholasgasior/code-verify) (2022), a browser extension that checks WhatsApp Web, Facebook, and Instagram JavaScript against a Cloudflare-hosted reference copy. If the running code differs from the published version, the user is warned immediately. This is essentially the browser extension part of the PoDe vision — but built only for Meta's own services, with Cloudflare as the trusted third party. No general version exists that any project could adopt.
+
+**Too heavy.** Academic and industrial research has gone in a hardware direction. HTTPA extends HTTPS with remote attestation using Intel SGX enclaves, allowing clients to verify that a server is running exactly the published code at the hardware level. Signal uses SGX for contact discovery. This is the strongest possible guarantee — but it requires Intel SGX support, re-architecting code into enclaves, and hosting provider cooperation. It is not a realistic option for small open source projects.
+
+**Wrong layer.** Sigstore, SLSA, and in-toto are supply chain standards that secure the path from source code to build artifact. They answer: "was this binary built from this source?" PoDe answers the next question: "is this binary what is actually running?" The two are complementary — Sigstore covers source → artifact, PoDe covers artifact → running instance.
+
+**In standardisation.** The W3C Web Application Security Working Group has discussed [Source Code Transparency](https://github.com/nicholasgasior/source-code-transparency) — a proposal to publish web app bundle hashes to a Certificate Transparency-style log, requiring browsers to verify the running code is in the log before executing it. The problem is recognised, the process is active, but nothing is in production.
+
+**An underserved gap.** Most proposals focus on client-side JavaScript — the code the browser downloads and runs. PoDe focuses on server-side code — the code that runs on the hosting provider and processes user data. For AI services, server-side code is the only relevant surface: models cannot process encrypted data, so there is no E2E architecture to fall back on. Trust rests entirely on what the server code does. This remains an underrepresented problem space.
+
+PoDe's differentiator is that it works with existing building blocks — a hosting provider API, GitHub API, GitHub Actions, and a cron schedule. No browser changes, no hardware enclaves, no new standardisation processes, no partnership agreements. Any open source project can adopt it over a weekend. The guarantee is weaker than SGX attestation, but meaningfully stronger than "trust us because we're open source" — and it is deployable today.
 
 ---
 
