@@ -2,6 +2,9 @@ import hashlib, os, sys, json, requests
 from datetime import datetime, timezone
 from pathlib import Path
 
+PODE_WORKFLOWS    = [f"pode-{c}.yml" for c in "abcde"]
+MAX_CRON_AGE_MIN  = 10  # 5-min schedule with 2× headroom
+
 MONITOR_FILES = [
     ".github/workflows/pode-a.yml",
     ".github/workflows/pode-b.yml",
@@ -60,6 +63,31 @@ def github_commit():
     return resp.text.strip()
 
 
+def check_cron_freshness() -> bool | None:
+    """True = at least one cron ran within window; False = all stale; None = no data yet."""
+    cutoff = datetime.now(timezone.utc).timestamp() - MAX_CRON_AGE_MIN * 60
+    found_any = False
+    for workflow in PODE_WORKFLOWS:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow}/runs"
+            f"?per_page=1&branch={GITHUB_BRANCH}",
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            continue
+        runs = resp.json().get("workflow_runs", [])
+        if not runs:
+            continue
+        found_any = True
+        updated = runs[0].get("updated_at", "")
+        if updated:
+            ts = datetime.fromisoformat(updated.replace("Z", "+00:00")).timestamp()
+            if ts > cutoff:
+                return True
+    return False if found_any else None
+
+
 def github_review_status():
     resp = requests.get(
         f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/code_review.yml/runs"
@@ -96,9 +124,15 @@ except Exception as e:
     review_conclusion = None
     error = (error + "; " if error else "") + str(e)
 
+try:
+    cron_fresh = check_cron_freshness()
+except Exception as e:
+    cron_fresh = None
+    error = (error + "; " if error else "") + str(e)
+
 deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
 review_ok = review_conclusion == "success"
-ok = deployment_ok and review_ok and not deploying
+ok = deployment_ok and review_ok and not deploying and (cron_fresh is not False)
 
 result = {
     "ok": ok,
@@ -109,6 +143,7 @@ result = {
     "expected_commit": expected,
     "deploy_status": deploy_status,
     "review_conclusion": review_conclusion,
+    "cron_fresh": cron_fresh,
     "repo": GITHUB_REPO,
     "branch": GITHUB_BRANCH,
     "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
