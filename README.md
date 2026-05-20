@@ -247,7 +247,7 @@ uvicorn main:app --reload
 
 Any party who receives the three files can verify integrity at `/validate`:
 
-- SHA-256 of `source.pdf` matches `manifest.json → input.sha256`
+- SHA-256 of `source` matches `manifest.json → input.sha256`
 - SHA-256 of `verdict.pdf` matches `manifest.json → verdict_pdf.sha256`
 - The stamp record fetched from Arweave matches the local `manifest.json` (minus the `stamp` field)
 
@@ -263,6 +263,6 @@ Connect the GitHub repository in the Render dashboard and set the environment va
 
 ## Deployment integrity (PoDe)
 
-Five GitHub Actions workflows run on a staggered schedule and together poll deployment status every minute. Each checks that the commit Render reports as live matches the GitHub repository HEAD, and publishes the result to the `gh-pages` branch as `status.json`.
+Five GitHub Actions workflows run on a staggered schedule and together poll deployment status every minute. Each run checks three conditions: the live Render commit matches the GitHub repository HEAD, the latest automated code review passed, and the deploy history contains no commits absent from git. Results are published to the `gh-pages` branch as `status.json`.
 
-Before submitting sensitive documents, verify that the five PoDe workflows show green on the [Actions tab](../../actions). See [PODE.md](PODE.md) for the full protocol description.
+Before submitting sensitive documents, verify that the PoDe Code Review and the five PoDe A–E workflows show green on the [Actions tab](../../actions). See [PODE.md](PODE.md) for the full protocol description.
