@@ -1,0 +1,75 @@
+// ==UserScript==
+// @name         PoDe — Leima deployment check
+// @namespace    https://github.com/fxg55647/leima
+// @version      1.0
+// @description  Verifies Leima deployment integrity before each session
+// @match        https://leima.onrender.com/*
+// @grant        GM_xmlhttpRequest
+// @grant        GM_getValue
+// @grant        GM_setValue
+// ==/UserScript==
+
+const STATUS_URL = "https://fxg55647.github.io/leima/status.json";
+
+function banner(color, message, detail) {
+    const el = document.createElement("div");
+    el.id = "pode-banner";
+    el.style.cssText = `
+        position:fixed; top:0; left:0; right:0; z-index:999999;
+        background:${color}; color:#fff; padding:10px 16px;
+        font:14px/1.4 system-ui,sans-serif; display:flex;
+        justify-content:space-between; align-items:center;
+        box-shadow:0 2px 6px rgba(0,0,0,.3);
+    `;
+    const text = document.createElement("span");
+    text.textContent = message + (detail ? " — " + detail : "");
+    const close = document.createElement("button");
+    close.textContent = "×";
+    close.style.cssText = "background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0 4px;";
+    close.onclick = () => el.remove();
+    el.appendChild(text);
+    el.appendChild(close);
+    document.body.prepend(el);
+}
+
+function checkMonitorFiles(current) {
+    const stored = GM_getValue("monitor_files", null);
+    GM_setValue("monitor_files", JSON.stringify(current));
+    if (!stored) return null;
+    const prev = JSON.parse(stored);
+    const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
+    return changed.length > 0 ? changed : null;
+}
+
+function failReason(d) {
+    if (d.deploying)          return "deploy käynnissä";
+    if (!d.deployment_ok)     return "deployed commit ei täsmää GitHubiin";
+    if (!d.review_ok)         return "policy-katselmus epäonnistui";
+    if (d.cron_fresh === false) return "monitorointi myöhässä — GitHub Actions ruuhka?";
+    return "tila tuntematon";
+}
+
+GM_xmlhttpRequest({
+    method: "GET",
+    url: STATUS_URL,
+    onload(r) {
+        let d;
+        try { d = JSON.parse(r.responseText); }
+        catch { banner("#e67e22", "PoDe ✗", "status.json ei ole kelvollinen JSON"); return; }
+
+        const changed = checkMonitorFiles(d.monitor_files || {});
+
+        if (!d.ok) {
+            banner("#c0392b", "PoDe ✗ — tarkista GitHub Actions ennen käyttöä", failReason(d));
+        } else if (changed) {
+            banner("#e67e22", "PoDe ⚠ — valvontatiedostot muuttuneet edellisestä sessiosta",
+                changed.join(", "));
+        } else {
+            banner("#27ae60", "PoDe ✓ — koodi tarkistettu, deployment kunnossa", null);
+            setTimeout(() => document.getElementById("pode-banner")?.remove(), 4000);
+        }
+    },
+    onerror() {
+        banner("#e67e22", "PoDe ✗", "ei yhteyttä status.json:iin");
+    }
+});

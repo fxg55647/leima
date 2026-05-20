@@ -91,7 +91,9 @@ The current implementation is a practical first step. The logical end state is a
 
 **Visible in the application UI.** The current deployment status and the last audit result are shown directly in the application — not just on GitHub. Users do not need to open a separate page. A mismatch or a failed audit blocks the UI until resolved.
 
-**Browser extension.** A browser extension checks PoDe status automatically when the user navigates to any participating application. If the running code does not match the audited source, the extension warns the user before they interact. No manual check required.
+**Userscript (available now).** A Tampermonkey/Greasemonkey userscript ([`pode.user.js`](pode.user.js)) is included in the repository. It uses `GM_xmlhttpRequest` — which runs in the browser extension's isolated context, not the page's JavaScript environment — so a compromised Leima page cannot intercept or spoof the check. On each page load it fetches `status.json`, shows a green banner if everything is in order, and a red warning if not. It also compares `monitor_files` hashes against the previous session using `GM_getValue`/`GM_setValue`, alerting if any monitoring file has changed.
+
+**Browser extension.** A dedicated browser extension would make the same check fully automatic for any PoDe-enabled application without requiring manual userscript installation. No manual check required.
 
 **Hosting platform attestation.** The cleanest solution is for hosting providers to publish cryptographically signed deployment records: *"we certify that service X is running commit Y, signed with our public key."* This would make third-party monitoring unnecessary — the platform itself provides the proof, and any client can verify it. Until hosting platforms offer this natively, external monitoring is the practical alternative.
 
