@@ -47,6 +47,14 @@ After analysis you download three files:
 
 **The document is not stored on the blockchain or anywhere permanently.** It is processed server-side for AI analysis and then discarded. A stamp record — containing SHA-256 hashes of both files — is published to Arweave via Irys. The `manifest.json` you download contains this stamp record plus the Arweave transaction ID pointing to it. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
 
+Leima produces two guarantees that work independently of each other:
+
+**Hash commitment — the cryptographic layer.** The SHA-256 hash of your document is sealed on Arweave at the moment of stamping. If anyone later claims the document said something different, or substitutes a different version, the hash mismatch is provable. This does not require trusting AI — it requires only that SHA-256 is collision-resistant, which is a mathematical fact. A hash mismatch after the fact is evidence of tampering: at minimum a contractual breach, potentially fraud.
+
+**AI verdict — the practical layer.** The analysis characterises what the document actually says about the claim, captured before either party had an incentive to misrepresent it. An insurance adjuster, a lender, or a due diligence analyst can use this to guide their work and accelerate decisions — not as a legal authority, but as an independent first opinion made before any dispute arose. Its value comes from timing and independence, not from being infallible.
+
+These layers serve different purposes and can be relied on for different things. The hash commitment is a hard guarantee regardless of whether the AI analysis was correct.
+
 ---
 
 ## How the proof works
@@ -104,9 +112,13 @@ For extended examples and context see [USECASES.md](USECASES.md).
 
 ## Why this matters
 
-When used with an open-source model on a fixed, publicly auditable prompt, AI has a useful property: it applies the same reasoning process to the same input every time, without financial interest, fatigue, or social pressure. It cannot be personally bribed or threatened. The analysis is still only as good as the model and the prompt — both can be biased, and LLMs can hallucinate — but the point is not perfection. The point is that the analysis is sealed before anyone knew there would be a dispute, tied to the exact document, and reproducible by anyone with the same inputs.
+Leima's value does not depend on AI being infallible. It rests on two separate foundations.
 
-Raw AI output alone is not evidence — it can be regenerated, altered, or denied. Leima changes this by sealing the analysis cryptographically the moment it is made and storing it permanently on Arweave.
+The first is cryptographic. The SHA-256 hash of the document is sealed permanently before anyone knows there will be a dispute. If the document is later altered or substituted, the hash exposes it — provably, without interpretation. In a due diligence context, a hash mismatch is not a matter of opinion: it is evidence of tampering, and with it a contractual or criminal case. No court needs to evaluate an AI verdict for this to hold.
+
+The second is practical. AI applies the same reasoning process to the same input every time, without financial interest, fatigue, or social pressure. The analysis is not infallible — LLMs can misread documents and hallucinate — but it was made independently, before any dispute arose, and it is sealed. An insurance adjuster, a lender, or a counterparty in due diligence can use it to orient their own judgment faster and more cheaply than commissioning a human review. They do not need to treat the verdict as authoritative; they use it as a documented first opinion made at the right moment.
+
+Raw AI output alone is worth little — it can be regenerated, altered, or denied. Leima changes this by sealing the analysis cryptographically the moment it is made and storing it permanently on Arweave.
 
 For centuries, verifying a claim against a document required a human: expensive, partial, and available only to those who could afford one. A notary confirms existence, not meaning. A lawyer is a party. This created a world where thorough verification was a luxury — where citation checks were skipped, where disputes were settled by whoever had better representation rather than better evidence.
 
@@ -180,7 +192,7 @@ Response:
 | Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
 | Hosting provider (Render) swaps running code silently | Partly | PoDe detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
 | Leima lies during original run | Partly | Full prompt logic is isolated in `neutral_witness.py` and audited on every commit |
-| AI verdict is wrong | No | Reviewable first opinion only — not a legal authority |
+| AI verdict is wrong | Partly | The hash commitment stands regardless — document tampering is still provable. The AI analysis is a first opinion, not a legal authority |
 | Document is fake before upload | No | Leima timestamps existence, does not authenticate origin |
 | Email body altered after sending | Partly | DKIM validates signed headers and body scope — coverage depends on sender configuration |
 | Human sender identity false | No | DKIM proves domain, not individual identity; LLM assesses credibility signals |
@@ -192,10 +204,11 @@ Response:
 
 For a complete description of what data Leima collects, where it goes, and what triggers re-consent when code changes, see [POLICY.md](POLICY.md).
 
-**AI reliability**
-Leima's verdicts are only as reliable as the underlying language model. LLMs can misread documents, miss context, or produce confident-sounding but wrong conclusions. Leima is a tool for structuring and timestamping analysis — not a legal authority. Treat the verdict as a documented first opinion, not a final judgment.
+**Two layers: hash commitment and AI verdict**
+Leima's legal and practical weight comes from two mechanisms that work independently. The hash commitment is a hard guarantee: if anyone alters a document after it has been stamped, the SHA-256 mismatch is provable without any reliance on AI. A mismatch is grounds for a contractual or fraud claim regardless of whether the AI analysis was correct. The AI verdict is the practical layer: an independent opinion made before any dispute arose, useful for guiding human decisions — an insurance adjuster's assessment, a lender's judgment, a due diligence review — without needing to be treated as a legal authority. Do not conflate the two: the hash commitment stands on its own.
 
-The full AI prompt logic is isolated in `neutral_witness.py` — a single file that anyone can read to verify exactly what instructions are given to the model, without reading the rest of the codebase.
+**AI reliability**
+Leima's verdicts are only as reliable as the underlying language model. LLMs can misread documents, miss context, or produce confident-sounding but wrong conclusions. Treat the verdict as a documented first opinion, not a final judgment. The full AI prompt logic is isolated in `neutral_witness.py` — a single file that anyone can read to verify exactly what instructions are given to the model.
 
 **Email authentication**
 For emails, Leima validates the DKIM signature cryptographically (result: valid / invalid / none) and records it in the manifest. A valid DKIM result confirms the message was not altered in transit and was sent by the claimed domain — but does not prove the human sender is who they claim to be. The neutral witness is instructed to assess sender identity credibility based on DKIM result, domain consistency, and other available signals, and to state its assessment explicitly in the verdict.
