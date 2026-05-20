@@ -161,6 +161,7 @@ Response:
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
 | Code violates stated data policy | Yes | AI audits all source files against POLICY.md on every commit; workflow fails and PoDe turns red if a violation is found |
 | Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render deploy takes longer than one minute; PoDe polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
+| Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
 | Hosting provider (Render) swaps running code silently | Partly | PoDe detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
 | Leima lies during original run | Partly | Full prompt logic is isolated in `neutral_witness.py` and audited on every commit |
 | AI verdict is wrong | No | Reviewable first opinion only — not a legal authority |
