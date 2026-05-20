@@ -65,24 +65,30 @@ The stamp record is the immutable on-chain object: it contains the hashes, times
 
 ## Use cases
 
-**Legal & contractual**
-- Proving what a contract said on a specific date
-- Verifying claims against employment documents, loan agreements, or invoices
-- Preserving the state of a document before a dispute arises
-- Extracting evidence from emails (sender, Message-ID, DKIM status, body hash all recorded)
+**Consumer documentation**
+- Stamping service receipts received by email — car repairs, appliance installations, specialist appraisals — for insurance claims, warranty disputes, or resale
+- Recording purchases and valuations before a loss occurs, so the evidence predates the claim
 
-**Due diligence**
-- Codebase reviews: stamp a claim like "this repository contains no hardcoded credentials" against a specific commit snapshot, creating a dated record that partially mitigates liability
-- Tax and financial documents: verify that a specific figure appears in a tax decision or financial statement before acting on it
-- Vendor contracts and SLAs: lock in what was agreed before a relationship begins
-- Insurance policies: record what was covered on a specific date before filing a claim
+**Art and collectibles**
+- Artists proving creation and first-owner transfer via a stamped email — DKIM confirms the sender's domain and date
+- Creation process documented with C2PA-signed photographs (already supported by cameras from Leica, Sony, Nikon): cryptographic timestamps from the device itself, combined with a Leima verdict, create provenance that is difficult to fabricate
+- Restoration and conservation records; collectibles chain of custody
 
-**Research & prior art**
-- Recording the existence of an idea or finding on a specific date — stronger timestamping than email or a notebook entry
-- AI research agents that need a citable, tamper-proof record of a source supporting a claim
-- Verifying that a cited source actually says what a paper claims it says
+**Legal and contractual**
+- Proving what a contract, offer letter, or invoice said on a specific date
+- Preserving pre-dispute state of agreements, leases, and correspondence
+- Employment disputes: salary confirmations, policy documents, HR communications
 
-Leima accepts documents related to economic activity (contracts, employment, loans, taxation, insurance, investments, real estate) and scientific or research work (papers, reports, study findings, clinical trials, grant applications).
+**Economic inclusion**
+- Small-scale farmers and fishing cooperatives building stamped records of sales, inputs, and activity — usable as evidence for microfinance or access to premium markets
+- Professionals in jurisdictions without reliable registries establishing verifiable work history and agreements from email records alone
+
+**Research and due diligence**
+- Timestamping findings before publication to establish priority
+- Verifying that a cited source says what a paper claims it says, at the time of writing
+- Codebase reviews: stamping a claim against a specific commit snapshot
+
+For extended examples and context see [USECASES.md](USECASES.md).
 
 ---
 
