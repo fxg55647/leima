@@ -1,12 +1,12 @@
-# Stampd
+# Leima
 
 **Tamper-proof records of AI document analysis.**
 
 Due diligence, notarisation, and source verification have always been expensive — not because they are technically complex, but because they require a trusted human to read, judge, and attest. That bottleneck is no longer absolute. AI can read any document with consistent attention, and a blockchain can seal the result permanently. Together they make it possible, for the first time, to produce credible, tamper-proof verdicts on documents for cents rather than hundreds of euros — available to anyone, not just those with legal budgets.
 
-Stampd is built on this insight. You provide a document and a claim. Stampd analyses it, seals the verdict cryptographically, and publishes a permanent record to Arweave. The document is processed server-side and discarded — only a cryptographic fingerprint goes to the blockchain. The result is independently verifiable by anyone, without trusting Stampd itself.
+Leima is built on this insight. You provide a document and a claim. Leima analyses it, seals the verdict cryptographically, and publishes a permanent record to Arweave. The document is processed server-side and discarded — only a cryptographic fingerprint goes to the blockchain. The result is independently verifiable by anyone, without trusting Leima itself.
 
-Stampd produces two things at once: a cryptographic proof that a specific document existed and was analysed at a specific time, and an expert opinion on what that document actually says about your claim — both sealed together permanently.
+Leima produces two things at once: a cryptographic proof that a specific document existed and was analysed at a specific time, and an expert opinion on what that document actually says about your claim — both sealed together permanently.
 
 ---
 
@@ -28,7 +28,7 @@ Stampd produces two things at once: a cryptographic proof that a specific docume
 
 ## What it does
 
-You provide a document and a claim. Stampd runs three independent AI passes:
+You provide a document and a claim. Leima runs three independent AI passes:
 
 1. **Support Analysis** — tasked exclusively with finding what supports the claim, and under which assumptions
 2. **Refutation & Gap Analysis** — tasked exclusively with finding what contradicts the claim, or fails to support it
@@ -80,7 +80,7 @@ The stamp record is the immutable on-chain object: it contains the hashes, times
 - AI research agents that need a citable, tamper-proof record of a source supporting a claim
 - Verifying that a cited source actually says what a paper claims it says
 
-Stampd accepts documents related to economic activity (contracts, employment, loans, taxation, insurance, investments, real estate) and scientific or research work (papers, reports, study findings, clinical trials, grant applications).
+Leima accepts documents related to economic activity (contracts, employment, loans, taxation, insurance, investments, real estate) and scientific or research work (papers, reports, study findings, clinical trials, grant applications).
 
 ---
 
@@ -88,13 +88,13 @@ Stampd accepts documents related to economic activity (contracts, employment, lo
 
 When used with an open-source model on a fixed, publicly auditable prompt, AI has a useful property: it applies the same reasoning process to the same input every time, without financial interest, fatigue, or social pressure. It cannot be personally bribed or threatened. The analysis is still only as good as the model and the prompt — both can be biased, and LLMs can hallucinate — but the point is not perfection. The point is that the analysis is sealed before anyone knew there would be a dispute, tied to the exact document, and reproducible by anyone with the same inputs.
 
-Raw AI output alone is not evidence — it can be regenerated, altered, or denied. Stampd changes this by sealing the analysis cryptographically the moment it is made and storing it permanently on Arweave.
+Raw AI output alone is not evidence — it can be regenerated, altered, or denied. Leima changes this by sealing the analysis cryptographically the moment it is made and storing it permanently on Arweave.
 
 For centuries, verifying a claim against a document required a human: expensive, partial, and available only to those who could afford one. A notary confirms existence, not meaning. A lawyer is a party. This created a world where thorough verification was a luxury — where citation checks were skipped, where disputes were settled by whoever had better representation rather than better evidence.
 
 AI changes the economics entirely. Thousands of source references checked overnight, for cents per claim. Documents analysed at consistent quality regardless of who owns them or what is at stake. Sensitive materials examined without the result being gossiped, remembered, or sold.
 
-Stampd is the infrastructure that makes this analysis permanent and verifiable. The verdict is not just an AI output — it is a sealed record: this document, this claim, this analysis, this moment. Anyone can verify it independently, without trusting Stampd itself.
+Leima is the infrastructure that makes this analysis permanent and verifiable. The verdict is not just an AI output — it is a sealed record: this document, this claim, this analysis, this moment. Anyone can verify it independently, without trusting Leima itself.
 
 We call this role the **neutral witness** — an AI that has no stake in the outcome, no memory of previous cases, and no relationship with either party.
 
@@ -117,7 +117,7 @@ This matters most in low-trust and chaotic societies where institutions are weak
 
 ## API
 
-Agents and automated pipelines can call Stampd directly without the UI:
+Agents and automated pipelines can call Leima directly without the UI:
 
 ```
 POST /api/stamp
@@ -157,10 +157,10 @@ Response:
 | Verdict modified after creation | Yes | Hash mismatch detected on validation |
 | Source file modified after creation | Yes | Hash mismatch detected on validation |
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
-| Stampd lies during original run | Partly | Open source code is auditable; cross-instance monitoring planned |
-| Hosting provider (Render) swaps running code silently | No | Outside our control — requires trusting the hosting provider |
+| Leima lies during original run | Partly | Open source code is auditable; cross-instance monitoring planned |
+| Hosting provider (Railway) swaps running code silently | No | Outside our control — requires trusting the hosting provider |
 | AI verdict is wrong | No | Reviewable first opinion only — not a legal authority |
-| Document is fake before upload | No | Stampd timestamps existence, does not authenticate origin |
+| Document is fake before upload | No | Leima timestamps existence, does not authenticate origin |
 | Email body altered after sending | Partly | DKIM validates signed headers and body scope — coverage depends on sender configuration |
 | Human sender identity false | No | DKIM proves domain, not individual identity; LLM assesses credibility signals |
 | Sensitive data exposure to AI provider | Partly | Redaction recommended; privacy-committed AI provider planned |
@@ -170,12 +170,12 @@ Response:
 ## Trust model
 
 **AI reliability**
-Stampd's verdicts are only as reliable as the underlying language model. LLMs can misread documents, miss context, or produce confident-sounding but wrong conclusions. Stampd is a tool for structuring and timestamping analysis — not a legal authority. Treat the verdict as a documented first opinion, not a final judgment.
+Leima's verdicts are only as reliable as the underlying language model. LLMs can misread documents, miss context, or produce confident-sounding but wrong conclusions. Leima is a tool for structuring and timestamping analysis — not a legal authority. Treat the verdict as a documented first opinion, not a final judgment.
 
 The full AI prompt logic is isolated in `neutral_witness.py` — a single file that anyone can read to verify exactly what instructions are given to the model, without reading the rest of the codebase.
 
 **Email authentication**
-For emails, Stampd validates the DKIM signature cryptographically (result: valid / invalid / none) and records it in the manifest. A valid DKIM result confirms the message was not altered in transit and was sent by the claimed domain — but does not prove the human sender is who they claim to be. The neutral witness is instructed to assess sender identity credibility based on DKIM result, domain consistency, and other available signals, and to state its assessment explicitly in the verdict.
+For emails, Leima validates the DKIM signature cryptographically (result: valid / invalid / none) and records it in the manifest. A valid DKIM result confirms the message was not altered in transit and was sent by the claimed domain — but does not prove the human sender is who they claim to be. The neutral witness is instructed to assess sender identity credibility based on DKIM result, domain consistency, and other available signals, and to state its assessment explicitly in the verdict.
 
 **Document sensitivity**
 Documents are sent to Google's Gemini API for analysis. For sensitive materials — personal data, unreleased financials, confidential contracts — consider anonymising or redacting the document before submitting. Replace names, account numbers, and identifying details with placeholders where the claim can still be evaluated without them.
@@ -186,19 +186,21 @@ For the email input, a planned pre-processing filter will automatically strip pe
 The blockchain record proves that a specific analysis of a specific document existed at a specific time, and that neither has been altered since. It does not prove the analysis is correct, that the document is authentic, or that the claim is true in any legal sense.
 
 **You do not need to trust the authors**
-Stampd is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
+Leima is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
 **Deployment integrity monitoring**
-Stampd exposes a `/version` endpoint that returns the currently deployed git commit hash (sourced from Render's `RENDER_GIT_COMMIT` environment variable, set by the hosting platform — not by the application itself). The definitive check is to query the Render API directly:
+Leima exposes a `/version` endpoint that returns the currently deployed git commit hash (sourced from Railway's `RAILWAY_GIT_COMMIT_SHA` environment variable, set by the hosting platform — not by the application itself). The definitive check is to query the Railway API directly:
 
 ```bash
-curl -H "Authorization: Bearer $RENDER_API_KEY" \
-  "https://api.render.com/v1/services/srv-d80ohae7r5hc73bqpk00/deploys?limit=1"
+curl -H "Authorization: Bearer $RAILWAY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ deployments(projectId: \"PROJECT_ID\") { edges { node { status commitSHA } } } }"}' \
+  https://backboard.railway.app/graphql/v2
 ```
 
-This returns the deployed commit independently of what the application reports. Cross-referencing that commit against the public GitHub repository confirms what code is running. A planned GitHub Actions workflow will automate this check on a schedule and publish results publicly, so anyone can verify deployment integrity without Render credentials.
+This returns the deployed commit independently of what the application reports. Cross-referencing that commit against the public GitHub repository confirms what code is running. A planned GitHub Actions workflow will automate this check on a schedule and publish results publicly, so anyone can verify deployment integrity without Railway credentials.
 
-One residual trust assumption remains: Render, as the hosting provider, could in principle silently replace the running code without updating the git repository. This is a real but low-credibility threat — it would require the hosting provider to actively conspire against users, which is a different category of risk than ordinary software vulnerabilities.
+One residual trust assumption remains: Railway, as the hosting provider, could in principle silently replace the running code without updating the git repository. This is a real but low-credibility threat — it would require the hosting provider to actively conspire against users, which is a different category of risk than ordinary software vulnerabilities.
 
 **Planned: privacy-committed AI providers**
 A future option will allow switching to AI providers that operate under strict, publicly auditable privacy commitments — where documents are contractually guaranteed not to be used for training or retained after the request. The stamping and verification layer remains identical; only the AI backend changes. This preserves the trust model while reducing reliance on Google's standard API terms.
@@ -218,8 +220,8 @@ A future option will allow switching to AI providers that operate under strict, 
 ## Setup
 
 ```bash
-git clone https://github.com/fxg55647/stampd
-cd stampd
+git clone https://github.com/fxg55647/leima
+cd leima
 uv venv --python 3.12
 uv pip install -r requirements.txt
 ```
@@ -255,4 +257,4 @@ If all three pass, the verdict is authentic and unmodified.
 
 ## Deployment
 
-Render deployment is configured in `render.yaml`. Set the environment variables in the Render dashboard. Switch `IRYS_NETWORK` to `mainnet` and remove `IRYS_RPC_URL` for production.
+Connect the GitHub repository in the Railway dashboard and set the environment variables. Switch `IRYS_NETWORK` to `mainnet` and remove `IRYS_RPC_URL` for production.
