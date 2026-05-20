@@ -1,5 +1,5 @@
 """
-neutral_witness.py — the AI analysis layer of Stampd.
+neutral_witness.py — the AI analysis layer of Leima.
 
 This module contains all prompts and logic that determine what the AI does with
 a document and a claim. It is intentionally isolated from the web framework,
@@ -22,9 +22,9 @@ def _get_client() -> genai.Client:
         _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     return _client
 
-_SCOPE = """Stampd is a tool for economic activity, scientific work, and the verification of factual claims. It is not a law enforcement tool, does not serve state authorities, and is not designed for resolving disputes between parties.
+_SCOPE = """Leima is a tool for economic activity, scientific work, and the verification of factual claims. It is not a law enforcement tool, does not serve state authorities, and is not designed for resolving disputes between parties.
 
-Because of this, Stampd does not make exceptions based on whether content appears illegal or harmful. The scope is defined by purpose, not by content:
+Because of this, Leima does not make exceptions based on whether content appears illegal or harmful. The scope is defined by purpose, not by content:
 
 Testing, curiosity, and humorous or trivial claims are explicitly permitted.
 
@@ -36,7 +36,7 @@ Refuse to analyse any document or claim that appears intended for:
 - Building a case against a private individual outside a legitimate economic or employment context
 
 If the request appears to fall into any of the above categories, respond with exactly:
-REJECTED: This request falls outside the permitted use of Stampd.
+REJECTED: This request falls outside the permitted use of Leima.
 
 Otherwise, proceed with the analysis."""
 
@@ -51,14 +51,14 @@ def _build_pass_prompts(is_email: bool, question: str = "") -> list[str]:
         'Direct quotes from the document must be reproduced verbatim in their original language — do not translate them.'
     )
     p1 = (
-        "You are a document analyst for Stampd, a legal evidence tool.\n\n"
+        "You are a document analyst for Leima, a legal evidence tool.\n\n"
         "Identify ONLY what in the document supports the claim, and under which assumptions. "
         "Be specific. Quote directly from the document using quotation marks. "
         "Do not consider contradictions or gaps.\n\n"
         + email_block + language
     )
     p2 = (
-        "You are a document analyst for Stampd, a legal evidence tool.\n"
+        "You are a document analyst for Leima, a legal evidence tool.\n"
         + _SCOPE + "\n\n"
         "Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. "
         "Note what is absent, inconsistent, or requires assumptions not stated in the document. "
@@ -77,7 +77,7 @@ PASS_LABELS = [
 
 
 def _synthesis_prompt(question: str, support: str, refutation: str) -> str:
-    return f"""You are the final judge for Stampd, a legal evidence tool.
+    return f"""You are the final judge for Leima, a legal evidence tool.
 
 The claim being evaluated: "{question}"
 

@@ -105,7 +105,7 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
     pdf.add_page()
 
     pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, _safe("Stampd - verdict"), ln=True)
+    pdf.cell(0, 10, _safe("Leima - verdict"), ln=True)
     pdf.ln(2)
 
     pdf.set_font("Helvetica", size=9)
@@ -167,7 +167,7 @@ def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
         if any(w in str(e) for w in ("Private", "internal", "loopback")):
             raise
     resp = http_requests.get(url, timeout=20, allow_redirects=True,
-                             headers={"User-Agent": "Stampd/1.0"})
+                             headers={"User-Agent": "Leima/1.0"})
     resp.raise_for_status()
     html = resp.text
     text = re.sub(r"<style[^>]*>.*?</style>", " ", html, flags=re.S)
@@ -330,7 +330,7 @@ async def files(request: Request, session_id: str, formats: list[str] = Form(def
     record_bytes = json.dumps(stamp_record, indent=2, ensure_ascii=False).encode()
 
     try:
-        irys_tx = _irys_upload(record_bytes, "application/json", {"Stampd-Type": "stamp-record"})
+        irys_tx = _irys_upload(record_bytes, "application/json", {"Leima-Type": "stamp-record"})
     except Exception as e:
         return HTMLResponse(f'<p class="error">Arweave upload failed: {e}</p>')
 
@@ -445,7 +445,7 @@ def _irys_upload(data: bytes, content_type: str, tags: dict) -> str:
     if IRYS_RPC_URL:
         builder = builder.rpc_url(IRYS_RPC_URL)
     uploader = builder.build()
-    all_tags = {"Content-Type": content_type, "App-Name": "Stampd", **tags}
+    all_tags = {"Content-Type": content_type, "App-Name": "Leima", **tags}
     result = uploader.upload(bytearray(data), tags_from_dict(all_tags))
     return result["id"]
 
@@ -479,7 +479,7 @@ def build_verdict_html_export(question: str, passes: list[tuple[str, str]], time
         pass_html += f"<section><h2>{label}</h2>{content}</section>\n"
     html = f"""<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>Stampd Verdict</title>
+<head><meta charset="UTF-8"><title>Leima Verdict</title>
 <style>
   body{{font-family:system-ui,sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem;color:#212529}}
   h1{{font-size:1.4rem;margin-bottom:.25rem}} .meta{{color:#6c757d;font-size:.85rem;margin-bottom:1.5rem}}
@@ -488,7 +488,7 @@ def build_verdict_html_export(question: str, passes: list[tuple[str, str]], time
   p{{margin:0 0 .6em;line-height:1.7}}
 </style></head>
 <body>
-<h1>Stampd Verdict</h1>
+<h1>Leima Verdict</h1>
 <div class="meta">Timestamp: {timestamp} &nbsp;&middot;&nbsp; Model: {MODEL} &nbsp;&middot;&nbsp; Input SHA-256: {input_hash}</div>
 <div class="claim">{question}</div>
 {pass_html}</body></html>"""
@@ -745,7 +745,7 @@ async def api_stamp(body: StampRequest):
     manifest = result["manifest"]
     manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode()
     try:
-        tx_id = _irys_upload(manifest_bytes, "application/json", {"Stampd-Type": "manifest"})
+        tx_id = _irys_upload(manifest_bytes, "application/json", {"Leima-Type": "manifest"})
     except Exception as e:
         return JSONResponse({"error": f"Arweave upload failed: {e}"}, status_code=502)
 
