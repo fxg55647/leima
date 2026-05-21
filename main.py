@@ -23,6 +23,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from google.genai import types
 from neutral_witness import analyse, PASS_LABELS, MODEL
+from notary import poll_and_process as _notary_poll
 from fpdf import FPDF
 from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
@@ -33,6 +34,17 @@ IRYS_PRIVATE_KEY = os.getenv("IRYS_PRIVATE_KEY")
 IRYS_NETWORK = os.getenv("IRYS_NETWORK", "mainnet")
 IRYS_RPC_URL = os.getenv("IRYS_RPC_URL")
 IRYS_GATEWAY = "https://devnet.irys.xyz" if IRYS_NETWORK == "devnet" else "https://gateway.irys.xyz"
+
+NOTARY_IMAP_HOST = os.getenv("NOTARY_IMAP_HOST", "imap.gmail.com")
+NOTARY_IMAP_USER = os.getenv("NOTARY_IMAP_USER")
+NOTARY_IMAP_PASSWORD = os.getenv("NOTARY_IMAP_PASSWORD")
+NOTARY_SMTP_HOST = os.getenv("NOTARY_SMTP_HOST", "smtp.gmail.com")
+NOTARY_SMTP_PORT = int(os.getenv("NOTARY_SMTP_PORT", "587"))
+NOTARY_SMTP_USER = os.getenv("NOTARY_SMTP_USER")
+NOTARY_SMTP_PASSWORD = os.getenv("NOTARY_SMTP_PASSWORD")
+NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.fi>")
+NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
+LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.fi")
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -191,6 +203,31 @@ def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
     return input_bytes, text, url, fetched_at
 
 
+@app.post("/notary/poll")
+async def notary_poll(request: Request):
+    if not NOTARY_POLL_TOKEN or request.headers.get("X-Notary-Token") != NOTARY_POLL_TOKEN:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not NOTARY_IMAP_USER or not NOTARY_IMAP_PASSWORD:
+        return JSONResponse({"error": "Notary IMAP not configured"}, status_code=503)
+    try:
+        results = _notary_poll(
+            imap_host=NOTARY_IMAP_HOST,
+            imap_user=NOTARY_IMAP_USER,
+            imap_password=NOTARY_IMAP_PASSWORD,
+            smtp_host=NOTARY_SMTP_HOST,
+            smtp_port=NOTARY_SMTP_PORT,
+            smtp_user=NOTARY_SMTP_USER or NOTARY_IMAP_USER,
+            smtp_password=NOTARY_SMTP_PASSWORD or NOTARY_IMAP_PASSWORD,
+            notary_from=NOTARY_FROM,
+            irys_upload_fn=_irys_upload,
+            gateway=IRYS_GATEWAY,
+            leima_url=LEIMA_URL,
+        )
+        return JSONResponse({"processed": len(results), "results": results})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.get("/version")
 async def version():
     return {
@@ -206,8 +243,8 @@ async def index(request: Request):
 
 
 @app.get("/validate", response_class=HTMLResponse)
-async def validate_page(request: Request):
-    return templates.TemplateResponse("validate.html", {"request": request})
+async def validate_page(request: Request, tx: str = ""):
+    return templates.TemplateResponse("validate.html", {"request": request, "tx": tx})
 
 
 @app.post("/fetch-emails", response_class=HTMLResponse)
@@ -387,13 +424,62 @@ async def download_manifest(session_id: str):
     )
 
 
+async def _validate_notary(request: Request, tx_id: str, eml_file) -> HTMLResponse:
+    if not eml_file or not eml_file.filename:
+        return HTMLResponse('<p class="error">Please upload the .eml file.</p>')
+    eml_bytes = await eml_file.read()
+
+    try:
+        resp = http_requests.get(f"{IRYS_GATEWAY}/{tx_id}", timeout=15)
+        resp.raise_for_status()
+        manifest = resp.json()
+    except Exception as e:
+        return HTMLResponse(f'<p class="error">Could not fetch manifest from Arweave: {e}</p>')
+
+    results = []
+
+    email_actual = sha256(eml_bytes)
+    email_expected = manifest.get("email_sha256", "")
+    results.append({
+        "label": "Email hash",
+        "ok": email_actual == email_expected,
+        "expected": email_expected,
+        "actual": email_actual,
+    })
+
+    dkim_status = manifest.get("dkim", "none")
+    results.append({
+        "label": "DKIM (at time of notarization)",
+        "ok": dkim_status == "valid",
+        "expected": "valid",
+        "actual": dkim_status,
+    })
+
+    results.append({
+        "label": "Arweave record",
+        "ok": True,
+        "expected": "",
+        "actual": f"Verified at {IRYS_GATEWAY}/{tx_id}",
+    })
+
+    all_ok = all(r["ok"] for r in results)
+    return templates.TemplateResponse(
+        "partials/validation_result.html",
+        {"request": request, "results": results, "all_ok": all_ok},
+    )
+
+
 @app.post("/validate", response_class=HTMLResponse)
 async def validate(
     request: Request,
-    source_file: UploadFile = File(...),
-    verdict_file: UploadFile = File(...),
-    manifest_file: UploadFile = File(...),
+    tx_id: str = Form(""),
+    eml_file: UploadFile = File(None),
+    source_file: UploadFile = File(None),
+    verdict_file: UploadFile = File(None),
+    manifest_file: UploadFile = File(None),
 ):
+    if tx_id:
+        return await _validate_notary(request, tx_id, eml_file)
     source_bytes = await source_file.read()
     verdict_bytes = await verdict_file.read()
     manifest_bytes = await manifest_file.read()
