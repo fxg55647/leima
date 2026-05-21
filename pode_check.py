@@ -28,6 +28,7 @@ def hash_monitor_files() -> dict[str, str | None]:
 
 RENDER_API_KEY    = os.environ.get("RENDER_API_KEY", "")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID", "")
+RENDER_SERVICE_URL = os.environ.get("RENDER_SERVICE_URL", "")
 GITHUB_REPO       = os.environ.get("GITHUB_REPO", "fxg55647/leima")
 GITHUB_BRANCH     = os.environ.get("GITHUB_BRANCH", "main")
 GITHUB_TOKEN      = os.environ.get("GITHUB_TOKEN", "")
