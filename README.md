@@ -21,6 +21,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Document sources](#document-sources)
 - [API](#api)
 - [Trust model](#trust-model)
+- [Threat model](#threat-model)
 - [Stack](#stack)
 - [Setup](#setup)
 - [Validation](#validation)
@@ -214,26 +215,6 @@ Response:
 
 ---
 
-## Threat model
-
-| Threat | Covered? | Notes |
-|--------|----------|-------|
-| Verdict modified after creation | Yes | Hash mismatch detected on validation |
-| Source file modified after creation | Yes | Hash mismatch detected on validation |
-| Manifest altered locally | Yes | Compared against immutable Arweave copy |
-| Code violates stated data policy | Yes | AI audits all source files against POLICY.md on every commit; workflow fails and PoDe turns red if a violation is found |
-| Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render deploy takes longer than one minute; PoDe polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
-| Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
-| Hosting provider (Render) swaps running code silently | Partly | PoDe detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
-| Leima lies during original run | Partly | Full prompt logic is isolated in `neutral_witness.py` and audited on every commit |
-| AI verdict is wrong | Partly | The hash commitment stands regardless — document tampering is still provable. The AI analysis is a first opinion, not a legal authority |
-| Document is fake before upload | No | Leima timestamps existence, does not authenticate origin |
-| Email body altered after sending | Partly | DKIM validates signed headers and body scope — coverage depends on sender configuration |
-| Human sender identity false | No | DKIM proves domain, not individual identity; LLM assesses credibility signals |
-| Sensitive data exposure to AI provider | Partly | Redaction recommended; privacy-committed AI provider planned |
-
----
-
 ## Trust model
 
 For a complete description of what data Leima collects, where it goes, and what triggers re-consent when code changes, see [POLICY.md](POLICY.md).
@@ -271,6 +252,26 @@ One residual trust assumption remains: Render, as the hosting provider, could in
 
 **Planned: privacy-committed AI providers**
 A future option will allow switching to AI providers that operate under strict, publicly auditable privacy commitments — where documents are contractually guaranteed not to be used for training or retained after the request. The stamping and verification layer remains identical; only the AI backend changes. This preserves the trust model while reducing reliance on Google's standard API terms.
+
+---
+
+## Threat model
+
+| Threat | Covered? | Notes |
+|--------|----------|-------|
+| Verdict modified after creation | Yes | Hash mismatch detected on validation |
+| Source file modified after creation | Yes | Hash mismatch detected on validation |
+| Manifest altered locally | Yes | Compared against immutable Arweave copy |
+| Code violates stated data policy | Yes | AI audits all source files against POLICY.md on every commit; workflow fails and PoDe turns red if a violation is found |
+| Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render deploy takes longer than one minute; PoDe polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
+| Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
+| Hosting provider (Render) swaps running code silently | Partly | PoDe detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
+| Leima lies during original run | Partly | Full prompt logic is isolated in `neutral_witness.py` and audited on every commit |
+| AI verdict is wrong | Partly | The hash commitment stands regardless — document tampering is still provable. The AI analysis is a first opinion, not a legal authority |
+| Document is fake before upload | No | Leima timestamps existence, does not authenticate origin |
+| Email body altered after sending | Partly | DKIM validates signed headers and body scope — coverage depends on sender configuration |
+| Human sender identity false | No | DKIM proves domain, not individual identity; LLM assesses credibility signals |
+| Sensitive data exposure to AI provider | Partly | Redaction recommended; privacy-committed AI provider planned |
 
 ---
 
