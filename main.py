@@ -2,6 +2,7 @@ import os
 import hashlib
 import uuid
 import json
+import time
 import imaplib
 import dkim
 import ipaddress
@@ -11,6 +12,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 import re
+from html import escape as _html_escape
 import markdown as _md
 import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
@@ -41,6 +43,15 @@ templates.env.filters["md"] = lambda text: _md.markdown(text or "", extensions=[
 store: dict[str, dict] = {}
 # Email sessions: session_id → list of email dicts
 email_sessions: dict[str, list[dict]] = {}
+
+SESSION_TTL = 3600  # seconds
+
+def _evict_old_sessions() -> None:
+    cutoff = time.time() - SESSION_TTL
+    for d in (store, email_sessions):
+        stale = [k for k, v in d.items() if v.get("_stored_at", 0) < cutoff]
+        for k in stale:
+            del d[k]
 
 
 def _imap_server(user_email: str) -> str:
@@ -248,7 +259,8 @@ async def fetch_emails(
         return HTMLResponse('<p class="fetch-error">No emails found for this period.</p>')
 
     session_id = str(uuid.uuid4())[:12]
-    email_sessions[session_id] = messages
+    _evict_old_sessions()
+    email_sessions[session_id] = {"messages": messages, "_stored_at": time.time()}
 
     return templates.TemplateResponse(
         "partials/email_results.html",
@@ -258,7 +270,8 @@ async def fetch_emails(
 
 @app.get("/preview-email/{session_id}/{idx}", response_class=HTMLResponse)
 async def preview_email(request: Request, session_id: str, idx: int):
-    messages = email_sessions.get(session_id)
+    entry = email_sessions.get(session_id)
+    messages = entry["messages"] if entry else None
     if not messages or idx >= len(messages):
         return Response(status_code=404)
     return templates.TemplateResponse(
@@ -423,7 +436,7 @@ async def validate(
             resp = http_requests.get(f"{IRYS_GATEWAY}/{tx_id}", timeout=15)
             resp.raise_for_status()
             arweave_manifest = resp.json()
-            base_manifest = {k: v for k, v in manifest.items() if k != "arweave"}
+            base_manifest = {k: v for k, v in manifest.items() if k != "stamp"}
             arweave_check["ok"] = arweave_manifest == base_manifest
             if not arweave_check["ok"]:
                 arweave_check["actual"] = "Arweave content does not match local manifest"
@@ -489,8 +502,8 @@ def build_verdict_html_export(question: str, passes: list[tuple[str, str]], time
 </style></head>
 <body>
 <h1>Leima Verdict</h1>
-<div class="meta">Timestamp: {timestamp} &nbsp;&middot;&nbsp; Model: {MODEL} &nbsp;&middot;&nbsp; Input SHA-256: {input_hash}</div>
-<div class="claim">{question}</div>
+<div class="meta">Timestamp: {_html_escape(timestamp)} &nbsp;&middot;&nbsp; Model: {_html_escape(MODEL)} &nbsp;&middot;&nbsp; Input SHA-256: {_html_escape(input_hash)}</div>
+<div class="claim">{_html_escape(question)}</div>
 {pass_html}</body></html>"""
     return html.encode("utf-8")
 
@@ -570,11 +583,13 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         web_meta=web_meta,
     )
     session_id = str(uuid.uuid4())[:12]
+    _evict_old_sessions()
     store[session_id] = {
         "pdf": verdict_pdf, "manifest": manifest, "source": input_bytes,
         "source_ext": source_ext, "source_mime": source_mime,
         "passes": result["passes"], "question": question,
         "timestamp": result["timestamp"], "input_hash": input_hash,
+        "_stored_at": time.time(),
     }
     return {
         "passes": result["passes"],
@@ -652,7 +667,8 @@ async def ask(
         contents.append(f"Web page from: {fetched_url}\nFetched at: {fetched_at}\n\n{page_text}")
 
     elif active_tab == "email":
-        msgs = email_sessions.get(email_session_id)
+        _entry = email_sessions.get(email_session_id)
+        msgs = _entry["messages"] if _entry else None
         if not msgs or not email_idx.isdigit() or int(email_idx) >= len(msgs):
             return HTMLResponse('<div class="error">No email selected.</div>')
         msg = msgs[int(email_idx)]

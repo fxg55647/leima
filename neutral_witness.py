@@ -42,6 +42,18 @@ Otherwise, proceed with the analysis."""
 
 _EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
 
+def _scope_prompt(question: str) -> str:
+    return (
+        "You are a scope filter for Leima, a document analysis tool.\n\n"
+        + _SCOPE + "\n\n"
+        f'The claim to be evaluated is: "{question}"\n\n'
+        "Review the document and the claim against the scope rules above. "
+        "If the request is permitted, respond with exactly: APPROVED\n"
+        "If the request falls outside permitted use, respond with exactly: "
+        "REJECTED: This request falls outside the permitted use of Leima."
+    )
+
+
 def _build_pass_prompts(is_email: bool, question: str = "") -> list[str]:
     email_block = _EMAIL_IDENTITY + "\n\n" if is_email else ""
     language = (
@@ -58,9 +70,8 @@ def _build_pass_prompts(is_email: bool, question: str = "") -> list[str]:
         + email_block + language
     )
     p2 = (
-        "You are a document analyst for Leima, a legal evidence tool.\n"
-        + _SCOPE + "\n\n"
-        "Otherwise: identify ONLY what in the document contradicts the claim, or fails to support it. "
+        "You are a document analyst for Leima, a legal evidence tool.\n\n"
+        "Identify ONLY what in the document contradicts the claim, or fails to support it. "
         "Note what is absent, inconsistent, or requires assumptions not stated in the document. "
         "Quote directly when relevant. Do not consider supporting evidence.\n\n"
         + email_block + language
@@ -110,6 +121,16 @@ def analyse(question: str, contents: list, is_email: bool = False) -> dict:
     Raises ValueError with a REJECTED: message if the document is out of scope.
     """
     client = _get_client()
+
+    scope_resp = client.models.generate_content(
+        model=MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(system_instruction=_scope_prompt(question)),
+    )
+    scope_text = (scope_resp.text or "").strip()
+    if not scope_text.startswith("APPROVED"):
+        raise ValueError(scope_text or "Model returned no response during scope check")
+
     pass_prompts = _build_pass_prompts(is_email, question)
     passes = []
     for prompt, label in zip(pass_prompts, PASS_LABELS):
@@ -118,10 +139,7 @@ def analyse(question: str, contents: list, is_email: bool = False) -> dict:
             contents=contents,
             config=types.GenerateContentConfig(system_instruction=prompt),
         )
-        text = resp.text
-        if text.startswith("REJECTED:"):
-            raise ValueError(text)
-        passes.append((label, text))
+        passes.append((label, resp.text or ""))
 
     synth = _synthesis_prompt(question, passes[0][1], passes[1][1])
     synth_resp = client.models.generate_content(
@@ -129,7 +147,7 @@ def analyse(question: str, contents: list, is_email: bool = False) -> dict:
         contents=contents,
         config=types.GenerateContentConfig(system_instruction=synth),
     )
-    synth_text = synth_resp.text.strip()
+    synth_text = (synth_resp.text or "").strip()
     if synth_text.startswith("VERDICT:"):
         first_line, _, rest = synth_text.partition("\n")
         summary_verdict = first_line.removeprefix("VERDICT:").strip()

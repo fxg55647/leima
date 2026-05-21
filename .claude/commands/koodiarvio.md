@@ -1,4 +1,4 @@
-Spawn a background agent to review all Python source files in this project. The agent should:
+Spawn a background agent to review all Python and JavaScript source files in this project. The agent should:
 
 1. Read every .py and .js file in the project root and subdirectories (skip .venv, __pycache__, .git, node_modules)
 2. For each file, look for:
@@ -6,7 +6,7 @@ Spawn a background agent to review all Python source files in this project. The 
    - Bugs or edge cases that could cause incorrect behaviour
    - Missing error handling where external calls can fail
    - Anything surprising or non-obvious that a reviewer should flag
-3. Write all findings to SUGGESTIONS_CODE.md in the project root using this format:
+3. Return all findings as the final response in this format:
 
 ```
 ## filename.py
@@ -15,6 +15,6 @@ Spawn a background agent to review all Python source files in this project. The 
 - line N — description of issue or suggestion
 ```
 
-Only include genuine findings. Skip style preferences and trivial nits.
+Only include genuine findings. Skip style preferences and trivial nits. Do not write any files.
 
-After spawning the agent, tell the user it is running in the background and that they can ask you to check SUGGESTIONS_CODE.md when ready.
+After spawning the agent, tell the user it is running in the background. When the agent completes, present its findings directly to the user — do not ask the user to check a file.

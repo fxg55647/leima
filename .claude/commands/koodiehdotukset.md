@@ -1,6 +1,6 @@
-Read both SUGGESTIONS_CODE.md and SUGGESTIONS_DOCS.md if they exist in the project root.
+Use the findings from /koodiarvio and /dokuarvio that are already in this conversation. If neither has been run yet, say so and ask the user to run them first.
 
-For each file, go through every finding and assess:
+For each finding, assess:
 1. **Relevantti ja tärkeä** — oikea ongelma, kannattaa korjata heti
 2. **Relevantti mutta pieni** — oikea huomio, mutta matala prioriteetti
 3. **Ei relevantti** — tyyliseikka, väärä oletus, tai jo käsitelty
