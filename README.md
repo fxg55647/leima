@@ -16,6 +16,8 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [How the proof works](#how-the-proof-works)
 - [Use cases](#use-cases) — see also [USECASES.md](USECASES.md) for extended examples
 - [Why this matters](#why-this-matters)
+- [A public good](#a-public-good)
+- [Contributing](#contributing)
 - [Document sources](#document-sources)
 - [API](#api)
 - [Trust model](#trust-model)
@@ -130,6 +132,38 @@ We call this role the **neutral witness** — an AI that has no stake in the out
 
 This matters most in low-trust and chaotic societies where institutions are weak, corruption is common, and a small business owner cannot afford a lawyer or assume that paperwork will be honoured. Combined with C2PA-signed images and videos and crypto-native financial instruments, tamper-proof AI verdicts could provide enough verifiable evidence for someone to secure a business loan, pass due diligence with an international buyer, or sell their products on global markets — without needing a functioning notary, a reliable court system, or a bank that trusts them. The infrastructure of trust that wealthy societies take for granted can be approximated, for the first time, at near-zero cost.
 
+There is a paradox here. In wealthy countries with strong institutions — Germany, for example — a notary is not just a tradition but a legal requirement for certain transactions. Leima does not compete there, because legislation protects the incumbent. In countries where that infrastructure never existed, there is nothing to compete with. A farmer in Kenya or a contractor in Ukraine does not bypass the notary system; it was never there to bypass. The table is empty, and infrastructure builds directly on what is available now.
+
+This is the inverse of the usual leapfrog story. Normally, developing countries skip outdated technology — landlines, then straight to mobile. Here, it is developed countries that are locked in, because their existing institutions were built before better alternatives existed and are now protected by the rules those institutions helped create. If the notary system were designed from scratch today, it would not look like a notary.
+
+---
+
+## A public good
+
+The value Leima creates depends on its neutrality. A neutral witness cannot have a financial stake in verdicts. A permanent record loses meaning if the infrastructure can be shut down by a single owner. These properties are structurally incompatible with a standard commercial model — the moment a company controls the service and needs to extract revenue from it, the neutrality that makes it useful begins to erode.
+
+The natural form for this kind of infrastructure is a commons: open source, governed collectively, funded in a way that does not create incentives to alter verdicts or restrict access. Token-based governance is one credible path — a protocol token that funds ongoing development and infrastructure costs while keeping the service accessible to anyone, with governance rights distributed to holders rather than concentrated in a founding entity. This is how protocol-layer infrastructure like Ethereum and Uniswap is structured: no single party controls it, and no single party can shut it down.
+
+The goal is a service that is free or near-free to use, sustainable without a corporate owner, and governed by no one with an interest in its verdicts. That is the only governance model consistent with the role of a neutral witness.
+
+---
+
+## Contributing
+
+Leima is designed to be a public good. That only works if it is built and governed by more than one person.
+
+Contributions of any kind are welcome: code, bug reports, use cases, feedback on the trust model, testing against real documents, integrations, translations, or simply spreading the word to someone who would benefit from this.
+
+**Contributions are recorded permanently.** Every accepted contribution — code merged to main, a documented use case, a verified bug, a substantive improvement to the trust model or documentation — is stamped to Arweave using Leima itself. The record is immutable: who contributed, what they contributed, and when. This is not a spreadsheet that can be edited later.
+
+**If the project is ever tokenised, the on-chain contribution history is the basis for distribution.** The intent is that early contributors are not forgotten. If governance tokens are issued to fund infrastructure and keep the service free, the stamped record determines each contributor's share — evaluated with AI assistance against the contribution history at that time. This is not a guarantee; it is a commitment that is credible precisely because the record cannot be altered.
+
+Early contributors take on more uncertainty than later ones. That is acknowledged, and it is part of what the record captures.
+
+The long-term goal is for Leima to become independent of any individual or founding group entirely. A neutral witness that depends on specific people to remain honest is only as trustworthy as those people. The target state is infrastructure governed by protocol and community — where no single person or organisation can alter verdicts, restrict access, or shut it down. Getting there requires building the contributor base, the governance model, and the technical decentralisation in parallel. That process starts with the first contributors.
+
+To get involved: open an issue or pull request on GitHub, or contact via the repository. No contribution is too small to record.
+
 ---
 
 ## Document sources
@@ -219,6 +253,10 @@ Documents are sent to Google's Gemini API for analysis. For sensitive materials 
 For the email input, a planned pre-processing filter will automatically strip personal data from message bodies before sending to the AI — retaining only what is needed to evaluate the claim. This is particularly relevant for email threads that contain third-party personal data the user may not have the right to share with external APIs.
 
 **What Arweave guarantees**
+Arweave is a decentralised storage network designed for permanent data. Unlike cloud storage where a provider can shut down or delete data, Arweave stores each piece of data across many independent nodes. Anyone can run a node and is paid from an endowment funded by the original upload fee. The endowment is sized on the assumption that storage costs decline continuously — and as costs fall, the same endowment covers an ever-longer period. The economic model targets storage on the order of centuries.
+
+In practice, permanence also has a simpler backstop: in twenty years, everything currently stored on Arweave will fit on a single consumer drive. The cost of keeping it is negligible; the incentive to do so — mining rewards, archival interest, or simply not needing the space for anything else — is sufficient. Data that exists in many places and costs almost nothing to keep tends to survive.
+
 The blockchain record proves that a specific analysis of a specific document existed at a specific time, and that neither has been altered since. It does not prove the analysis is correct, that the document is authentic, or that the claim is true in any legal sense.
 
 **You do not need to trust the authors**
