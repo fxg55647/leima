@@ -42,6 +42,26 @@ Both parties can demand these stamps before the first substantive meeting. The r
 
 ---
 
+## Email notary
+
+The AI verdict flow requires a deliberate action: a user uploads a document, poses a claim, and receives a stamped result. The email notary works differently — it operates automatically, as a side effect of ordinary email communication, with no change in behaviour required from either party.
+
+**How it works.** A sender adds `BCC: stamp@leima.fi` to any email. Leima receives the message, verifies the DKIM signature (confirming that the message genuinely originated from the sender's domain and was not altered in transit), hashes the full email including any attachments, stamps the hash on Arweave, and forwards a notarized copy to the real recipient — the address in the `To:` field. The recipient receives the original message plus a certificate containing the hash, the DKIM result, a permanent Arweave link, and a one-click verification URL.
+
+The sender's domain is the trust anchor. DKIM is not a claim the sender makes about themselves — it is a cryptographic assertion made by their mail server, verifiable against their published DNS records. A notarized email from `huolto@ferrarikeskus.fi` carries the same institutional weight as a letter on headed paper, but with a tamper-proof timestamp and an immutable record that cannot be lost, backdated, or silently altered.
+
+**Receipt and service documentation.** A car workshop, appliance repair company, or specialist service provider adds one BCC address to their outgoing email template. Every customer automatically receives a notarized copy of their receipt, work order, or service confirmation — without the customer needing to do anything. When the car is sold, the buyer can verify the service history by uploading the `.eml` file and checking the Arweave record. The record exists independently of the workshop, the email provider, or the customer's inbox.
+
+**Dispute prevention.** The notarization is symmetric: it proves what was said, not who was right. A message from a landlord stating that a repair was completed, or from a contractor confirming the scope of work, becomes a reference point that neither party can later reinterpret. This is most valuable before a relationship deteriorates — the record captures the agreed state before either side had an incentive to revise it.
+
+**Due diligence correspondence.** Investors and founders conducting due diligence exchange significant commitments by email — term sheet summaries, representations about portfolios or technology, confirmations of financial standing. Adding BCC to this correspondence notarizes the exchange automatically. If a dispute later arises about what was represented before the deal was signed, the notarized record provides the reference point without requiring either party to have anticipated the dispute.
+
+**High-value resale.** For any asset where service history affects value — vehicles, instruments, machinery, art — a body of notarized emails from verified service providers, appraisers, and previous owners builds a chain of custody that a buyer can independently verify. The verification requires only the `.eml` file and the Arweave link included in the notarized copy.
+
+**Verification.** Each notarized email includes a direct link to `leima.fi/validate?tx=<arweave_id>`. Anyone with the original `.eml` file can verify in one step: open the link, upload the file, and receive an immediate confirmation that the email hash matches the Arweave record and that DKIM was valid at the time of notarization.
+
+---
+
 ## Art, craft, and collectibles
 
 **Proof of creation.** An artist can establish provenance by emailing documentation of a new work — photographs, sketches, process notes — to themselves or to a trusted party, and stamping that email. The DKIM signature confirms the date and sender. This creates a verifiable record that a specific person created a specific work on or before a specific date: harder to forge than a signature on a canvas, and timestamped independently of the artist's own claim.

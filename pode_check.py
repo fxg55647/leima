@@ -91,12 +91,16 @@ def check_cron_freshness() -> bool | None:
     return False if found_any else None
 
 
+RAPID_DEPLOY_WINDOW_MIN = 60   # sliding window for burst detection
+RAPID_DEPLOY_THRESHOLD  = 10   # deploys in that window triggers warning
+
+
 def check_deploy_history() -> dict:
     if not RENDER_API_KEY or not RENDER_SERVICE_ID:
         return {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
 
     resp = requests.get(
-        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=20",
+        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=100",
         headers={"Authorization": f"Bearer {RENDER_API_KEY}"},
         timeout=10,
     )
@@ -110,6 +114,8 @@ def check_deploy_history() -> dict:
     last_mismatch_commit = None
     oldest_at = None
     scanned = 0
+    window_cutoff = datetime.now(timezone.utc).timestamp() - RAPID_DEPLOY_WINDOW_MIN * 60
+    deploys_in_window = 0
 
     for item in resp.json():
         deploy = item.get("deploy", {})
@@ -124,6 +130,14 @@ def check_deploy_history() -> dict:
         if oldest_at is None or (created_at and created_at < oldest_at):
             oldest_at = created_at
 
+        if created_at:
+            try:
+                ts = datetime.fromisoformat(created_at.replace("Z", "+00:00")).timestamp()
+                if ts > window_cutoff:
+                    deploys_in_window += 1
+            except ValueError:
+                pass
+
         r = requests.get(
             f"https://api.github.com/repos/{GITHUB_REPO}/commits/{commit_id}",
             headers=gh_headers,
@@ -134,11 +148,15 @@ def check_deploy_history() -> dict:
                 last_mismatch_at = created_at
                 last_mismatch_commit = commit_id[:7]
 
+    rapid_deploy_warning = deploys_in_window >= RAPID_DEPLOY_THRESHOLD
+
     return {
         "scanned_deploys": scanned,
         "last_mismatch_at": last_mismatch_at,
         "last_mismatch_commit": last_mismatch_commit,
         "clean_since": oldest_at if last_mismatch_at is None else None,
+        "deploys_last_hour": deploys_in_window,
+        "rapid_deploy_warning": rapid_deploy_warning,
     }
 
 
@@ -192,7 +210,8 @@ except Exception as e:
 
 deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
 review_ok = review_conclusion == "success"
-ok = deployment_ok and review_ok and not deploying and (cron_fresh is not False)
+rapid_warning = history.get("rapid_deploy_warning", False)
+ok = deployment_ok and review_ok and not deploying and (cron_fresh is not False) and not rapid_warning
 
 result = {
     "ok": ok,
@@ -204,6 +223,7 @@ result = {
     "deploy_status": deploy_status,
     "review_conclusion": review_conclusion,
     "cron_fresh": cron_fresh,
+    "rapid_deploy_warning": rapid_warning,
     "history": history,
     "repo": GITHUB_REPO,
     "branch": GITHUB_BRANCH,

@@ -40,22 +40,36 @@ The document itself, the verdict text, and any personal data in either are **not
 
 ## Session handling
 
-Results are held in server memory for the duration of your session — long enough for you to download your files. No database is used. When the server restarts, all session data is gone. Leima has no user accounts and does not track individuals across sessions.
+Results are held in server memory for one hour from the time of submission, regardless of browser activity. No database is used. When the server restarts, all session data is gone. Leima has no user accounts and does not track individuals across sessions.
 
 ---
 
-## Email input
+## Email input (IMAP analysis)
 
 If you use the email (IMAP) input:
 - Your IMAP credentials are used to fetch the selected message and are not stored
 - The email content is processed the same way as any other document: sent to Google Gemini, hashed, then discarded
 - DKIM validation is performed locally; the result is recorded in the manifest
 
+## Email notary
+
+The email notary is a separate flow. When a sender adds `BCC: stamp@leima.fi` to an outgoing email, Leima receives the message and writes the following to the Arweave blockchain **permanently**:
+
+- Sender address (`From:`)
+- Recipient address (`To:`)
+- Subject line
+- Date header
+- Message-ID
+- DKIM validation result
+- SHA-256 hash of the full email (including attachments)
+
+This is more than fingerprints — it includes the sender and recipient addresses and subject line as plain text, permanently on a public blockchain. Do not use the notary flow for emails containing information you do not want publicly associated with the sender and recipient addresses.
+
 ---
 
 ## What the AI is instructed to do
 
-The full AI prompt logic is in `neutral_witness.py`. The model is instructed to:
+The full AI prompt logic is in `neutral_witness.py`. Before any analysis, a scope-check pass evaluates whether the request falls within permitted use. If rejected, no further AI calls are made and no stamp is created. If approved, the model is instructed to:
 - Analyse the document against the claim in three independent passes
 - Refuse requests intended for surveillance, stalking, or harassment
 - Respond in the language of the claim

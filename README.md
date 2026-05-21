@@ -204,8 +204,8 @@ Response:
     { "label": "Refutation & Gap Analysis", "text": "..." },
     { "label": "Synthesis & Verdict", "text": "..." }
   ],
-  "input_hash": "sha256:...",
-  "verdict_hash": "sha256:...",
+  "input_hash": "a3f1c8...(64-char hex)",
+  "verdict_hash": "9e2d47...(64-char hex)",
   "timestamp": "2026-05-12 10:00:00 UTC",
   "model": "gemini-2.5-flash-lite",
   "stamp": { "tx_id": "...", "url": "https://gateway.irys.xyz/..." },
@@ -231,7 +231,7 @@ For emails, Leima validates the DKIM signature cryptographically (result: valid 
 **Document sensitivity**
 Documents are sent to Google's Gemini API for analysis. For sensitive materials — personal data, unreleased financials, confidential contracts — consider anonymising or redacting the document before submitting. Replace names, account numbers, and identifying details with placeholders where the claim can still be evaluated without them.
 
-For the email input, a planned pre-processing filter will automatically strip personal data from message bodies before sending to the AI — retaining only what is needed to evaluate the claim. This is particularly relevant for email threads that contain third-party personal data the user may not have the right to share with external APIs.
+For the email input, consider redacting or summarising message bodies that contain third-party personal data before submitting — particularly in email threads where other parties' information appears.
 
 **What Arweave guarantees**
 Arweave is a decentralised storage network designed for permanent data. Unlike cloud storage where a provider can shut down or delete data, Arweave stores each piece of data across many independent nodes. Anyone can run a node and is paid from an endowment funded by the original upload fee. The endowment is sized on the assumption that storage costs decline continuously — and as costs fall, the same endowment covers an ever-longer period. The economic model targets storage on the order of centuries.
@@ -305,6 +305,23 @@ IRYS_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com  # devnet only
 
 For devnet you need Sepolia ETH in your wallet. Get it from a Sepolia faucet.
 
+**Email notary (optional).** To enable the BCC notarisation flow, add:
+
+```env
+NOTARY_IMAP_HOST=imap.gmail.com
+NOTARY_IMAP_USER=stamp@yourdomain.com
+NOTARY_IMAP_PASSWORD=your-app-password
+NOTARY_SMTP_HOST=smtp.gmail.com
+NOTARY_SMTP_PORT=587
+NOTARY_SMTP_USER=stamp@yourdomain.com   # defaults to NOTARY_IMAP_USER
+NOTARY_SMTP_PASSWORD=your-app-password  # defaults to NOTARY_IMAP_PASSWORD
+NOTARY_FROM=Leima <stamp@yourdomain.com>
+NOTARY_POLL_TOKEN=random-secret-string  # authenticates POST /notary/poll
+LEIMA_URL=https://yourdomain.com        # used to build verify links in outgoing emails
+```
+
+Trigger polling by calling `POST /notary/poll` with header `X-Notary-Token: <NOTARY_POLL_TOKEN>` — from a cron job or Render scheduled task.
+
 ```bash
 uvicorn main:app --reload
 ```
@@ -313,7 +330,7 @@ uvicorn main:app --reload
 
 ## Validation
 
-Any party who receives the three files can verify integrity at `/validate`:
+**AI verdict flow.** Any party who receives the three files can verify integrity at `/validate`:
 
 - SHA-256 of `source` matches `manifest.json → input.sha256`
 - SHA-256 of `verdict.pdf` matches `manifest.json → verdict_pdf.sha256`
@@ -321,11 +338,20 @@ Any party who receives the three files can verify integrity at `/validate`:
 
 If all three pass, the verdict is authentic and unmodified.
 
+**Email notary flow.** Each notarised email contains a direct link to `/validate?tx=<arweave_id>`. Open the link, upload the `original.eml` attachment from the same email, and the page confirms that the email hash matches the Arweave record and that DKIM was valid at the time of notarisation. No other files are needed.
+
 ---
 
 ## Deployment
 
-Connect the GitHub repository in the Render dashboard and set the environment variables. Switch `IRYS_NETWORK` to `mainnet` and remove `IRYS_RPC_URL` for production.
+Connect the GitHub repository in the Render dashboard. Create a **Web Service** with:
+
+- **Build command:** `pip install -r requirements.txt`
+- **Start command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+Set all environment variables from `.env.example`. Switch `IRYS_NETWORK` to `mainnet` and remove `IRYS_RPC_URL` for production.
+
+To enable the email notary, add a **Cron Job** service pointing at `POST /notary/poll` with the `X-Notary-Token` header, running at whatever interval you want (e.g. every minute).
 
 ---
 
