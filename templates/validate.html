@@ -434,8 +434,9 @@
       }
     }
 
-    function row(statusText, statusColor) {
+    function row(statusText, statusColor, reason) {
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
+           + (reason ? ' <span style="color:#fff;font-weight:400">— ' + reason + '</span>' : '')
            + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">PoDe</span>'
            + ' <span id="pode-ago-inner" style="color:#fff">' + timeAgo() + '</span>'
            + ' <a href="https://github.com/fxg55647/leima#pode" target="_blank" rel="noopener"'
@@ -467,9 +468,14 @@
         if (d.ok) {
           fadeSet(row('OK', '#fff'), 'ok');
         } else if (d.rapid_deploy_warning) {
-          fadeSet(row('Warning', '#f0a030'), 'warning');
+          fadeSet(row('Warning', '#f0a030', 'rapid deploys'), 'warning');
         } else {
-          fadeSet(row('Danger', '#ff6b6b'), 'danger');
+          const reason = d.deploying ? 'deploying'
+            : !d.deployment_ok ? 'commit mismatch'
+            : !d.review_ok ? 'review failed'
+            : !d.cron_fresh ? 'crons stale'
+            : 'check failed';
+          fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
         }
       }).catch(() => {
         lastCheckedAt = null;
