@@ -437,7 +437,7 @@
     function row(statusText, statusColor) {
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
            + ' <span style="color:#fff;font-weight:500">PoDe</span>'
-           + ' <span id="pode-ago-inner" style="color:#666">' + timeAgo() + '</span>';
+           + ' <span id="pode-ago-inner" style="color:#bbb">' + timeAgo() + '</span>';
     }
 
     function fadeSet(html, dotMode) {
@@ -452,7 +452,7 @@
     function update() {
       text.style.opacity = '0';
       setTimeout(() => {
-        text.innerHTML = '<span style="color:#666">Retrieving…</span>';
+        text.innerHTML = '<span style="color:#bbb">Retrieving…</span>';
         text.style.opacity = '1';
       }, 280);
 
