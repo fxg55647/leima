@@ -21,13 +21,13 @@
   <div class="c2pa-block">
     {% if c2pa.present %}
       <span class="c2pa-badge {% if c2pa.valid %}c2pa-ok{% else %}c2pa-fail{% endif %}">
-        C2PA {{ "✓" if c2pa.valid else "✗" }}
+        C2PA — found, {{ "unmodified" if c2pa.valid else "modified after capture" }}
       </span>
       {% if c2pa.generator %}<span class="c2pa-meta">{{ c2pa.generator }}</span>{% endif %}
       {% if c2pa.signer %}<span class="c2pa-meta">Signed: {{ c2pa.signer }}</span>{% endif %}
       {% if c2pa.actions %}<span class="c2pa-meta">{{ c2pa.actions | join(", ") }}</span>{% endif %}
     {% else %}
-      <span class="c2pa-badge c2pa-none">No C2PA manifest</span>
+      <span class="c2pa-badge c2pa-none">C2PA — not found</span>
     {% endif %}
   </div>
   {% endif %}
