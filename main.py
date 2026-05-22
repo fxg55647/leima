@@ -764,10 +764,6 @@ async def ask(
         body = msg["body"]
         body_hash = sha256(body.encode())
         email_meta = {
-            "message_id": msg["message_id"],
-            "from": msg["from"],
-            "to": msg["to"],
-            "date": msg["date"],
             "dkim": msg["dkim"],
             "body_sha256": body_hash,
         }
@@ -777,7 +773,7 @@ async def ask(
             f"DKIM: {msg['dkim']}\n"
             f"Body SHA-256: {body_hash}\n\n{body}"
         )
-        input_label = f"email: {msg['subject'][:40]}"
+        input_label = "email"
         contents.append(f"Email from: {msg['from']}\nSubject: {msg['subject']}\nDate: {msg['date']}\n\n{body}")
 
     else:
