@@ -265,9 +265,7 @@
       flex-shrink: 0;
     }
 
-    #pode-sw, #pode-ago { transition: opacity 0.28s ease; }
-
-    .pode-label { color: #fff; font-weight: 500; }
+    #pode-text { transition: opacity 0.28s ease; }
 
     @keyframes podePulse {
       0%, 100% { transform: scale(1); }
@@ -294,9 +292,7 @@
 <div id="pode-bar">
   <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
     <span id="pode-dot" style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block"></span>
-    <span id="pode-sw" style="font-weight:600;color:#555"></span>
-    <span class="pode-label">PoDe</span>
-    <span id="pode-ago" style="color:#666"></span>
+    <span id="pode-text"></span>
   </div>
 </div>
 
@@ -417,9 +413,8 @@
 
 <script>
   (function() {
-    const dot = document.getElementById('pode-dot');
-    const sw  = document.getElementById('pode-sw');
-    const ago = document.getElementById('pode-ago');
+    const dot  = document.getElementById('pode-dot');
+    const text = document.getElementById('pode-text');
     let lastCheckedAt = null;
 
     function timeAgo() {
@@ -439,27 +434,26 @@
       }
     }
 
-    function fadeSet(statusText, statusColor, dotMode) {
-      sw.style.opacity = '0';
-      ago.style.opacity = '0';
+    function row(statusText, statusColor) {
+      return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
+           + ' <span style="color:#fff;font-weight:500">PoDe</span>'
+           + ' <span id="pode-ago-inner" style="color:#666">' + timeAgo() + '</span>';
+    }
+
+    function fadeSet(html, dotMode) {
+      text.style.opacity = '0';
       setTimeout(() => {
-        setDot(dotMode);
-        sw.textContent = statusText;
-        sw.style.color = statusColor;
-        ago.textContent = timeAgo();
-        sw.style.opacity = '1';
-        ago.style.opacity = '1';
+        if (dotMode) setDot(dotMode);
+        text.innerHTML = html;
+        text.style.opacity = '1';
       }, 280);
     }
 
     function update() {
-      sw.style.opacity = '0';
-      ago.style.opacity = '0';
+      text.style.opacity = '0';
       setTimeout(() => {
-        sw.textContent = 'Retrieving…';
-        sw.style.color = '#555';
-        ago.textContent = '';
-        sw.style.opacity = '1';
+        text.innerHTML = '<span style="color:#666">Retrieving…</span>';
+        text.style.opacity = '1';
       }, 280);
 
       const minWait = new Promise(r => setTimeout(r, 1100));
@@ -467,24 +461,28 @@
         fetch('https://fxg55647.github.io/leima/status.json?_=' + Date.now()).then(r => r.json()),
         minWait,
       ]).then(([d]) => {
-          lastCheckedAt = d.checked_at ? new Date(d.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
-          if (d.ok) {
-            fadeSet('OK', '#2ecc71', 'ok');
-          } else if (d.rapid_deploy_warning) {
-            fadeSet('Warning', '#f0a030', 'warning');
-          } else {
-            fadeSet('Danger', '#ff6b6b', 'danger');
-          }
-        })
-        .catch(() => {
-          lastCheckedAt = null;
-          fadeSet('Unavailable', '#555', 'loading');
-        });
+        lastCheckedAt = d.checked_at ? new Date(d.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
+        if (d.ok) {
+          fadeSet(row('OK', '#2ecc71'), 'ok');
+        } else if (d.rapid_deploy_warning) {
+          fadeSet(row('Warning', '#f0a030'), 'warning');
+        } else {
+          fadeSet(row('Danger', '#ff6b6b'), 'danger');
+        }
+      }).catch(() => {
+        lastCheckedAt = null;
+        fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">PoDe</span>', 'loading');
+      });
     }
 
     update();
     setInterval(update, 60000);
-    setInterval(() => { if (lastCheckedAt) ago.textContent = timeAgo(); }, 15000);
+    setInterval(() => {
+      if (lastCheckedAt) {
+        const el = document.getElementById('pode-ago-inner');
+        if (el) el.textContent = timeAgo();
+      }
+    }, 15000);
   })();
 </script>
 
