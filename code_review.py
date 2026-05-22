@@ -9,7 +9,7 @@ from google import genai
 from google.genai import types
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.5-flash"
 
 SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github"}
 SOURCE_EXTENSIONS = {".py", ".js"}
@@ -43,7 +43,7 @@ Architecture note: the codebase has two distinct parts:
 
 Check each of the following, citing specific file and line where relevant:
 
-1. Does any code in the user-data path send document content to a service other than Google Gemini (gemini-2.5-flash-lite) or SMTP (for the email notary flow described in POLICY.md)?
+1. Does any code in the user-data path send document content to a service other than Google Gemini (gemini-3.1-flash-lite) or SMTP (for the email notary flow described in POLICY.md)?
 2. Does any code write document content or claim text to persistent storage (files, databases, logs)?
 3. Does any code add tracking, analytics, cookies, or cross-session identification?
 4. Does the AI prompt logic in neutral_witness.py match what POLICY.md says the model is instructed to do?

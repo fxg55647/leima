@@ -18,7 +18,7 @@ Neither is stored permanently by Leima.
 
 ## Where your document goes
 
-**Google Gemini API.** Your document and claim are sent to Google's Gemini API (`gemini-2.5-flash-lite`) for analysis. This is the only external service that receives the content of your document. Google's standard API terms apply to this transmission. If your document contains sensitive personal data, consider anonymising it before submission.
+**Google Gemini API.** Your document and claim are sent to Google's Gemini API (`gemini-3.1-flash-lite`) for analysis. This is the only external service that receives the content of your document. Google's standard API terms apply to this transmission. If your document contains sensitive personal data, consider anonymising it before submission.
 
 **Nowhere else.** The document is not sent to any other external service, not written to disk, and not retained after your session ends.
 

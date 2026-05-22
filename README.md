@@ -207,7 +207,7 @@ Response:
   "input_hash": "a3f1c8...(64-char hex)",
   "verdict_hash": "9e2d47...(64-char hex)",
   "timestamp": "2026-05-12 10:00:00 UTC",
-  "model": "gemini-2.5-flash-lite",
+  "model": "gemini-3.1-flash-lite",
   "stamp": { "tx_id": "...", "url": "https://gateway.irys.xyz/..." },
   "manifest": { ... }
 }

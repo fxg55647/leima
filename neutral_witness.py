@@ -12,7 +12,7 @@ from datetime import datetime
 from google import genai
 from google.genai import types
 
-MODEL = "gemini-2.5-flash-lite"
+MODEL = "gemini-3.1-flash-lite"
 
 _client: genai.Client | None = None
 
