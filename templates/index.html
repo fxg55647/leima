@@ -17,6 +17,12 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
       align-items: center;
       padding: 2.5rem 1rem;
     }
@@ -419,8 +425,78 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    footer {
+      background: #111;
+      color: #ccc;
+      width: 100%;
+      padding: 3rem 2rem 1.5rem;
+    }
+
+    .footer-inner {
+      max-width: 860px;
+      margin: 0 auto;
+      display: flex;
+      gap: 3rem;
+    }
+
+    .footer-brand { flex: 1.5; }
+
+    .footer-logo {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.14em;
+      display: block;
+    }
+
+    .footer-domain {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 0.65rem;
+      color: #dc3545;
+      letter-spacing: 0.22em;
+      display: block;
+      margin-bottom: 0.75rem;
+    }
+
+    .footer-brand p { font-size: 0.82rem; color: #888; line-height: 1.6; }
+
+    .footer-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .footer-col-title {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #fff;
+      margin-bottom: 0.25rem;
+    }
+
+    .footer-col a {
+      color: #888;
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.15s;
+    }
+
+    .footer-col a:hover { color: #fff; }
+
+    .footer-bottom {
+      max-width: 860px;
+      margin: 2rem auto 0;
+      padding-top: 1.25rem;
+      border-top: 1px solid #2a2a2a;
+      font-size: 0.75rem;
+      color: #555;
+    }
+
     @media (max-width: 520px) {
-      body { padding: 0.75rem 0.5rem; }
+      main { padding: 0.75rem 0.5rem; }
 
       .card { padding: 1.1rem; margin: 4px 0; }
 
@@ -437,10 +513,14 @@
       .email-split { flex-direction: column; height: auto; }
       .email-list { width: 100%; border-right: none; border-bottom: 1px solid #dee2e6; max-height: 160px; }
       .email-preview-pane { max-height: 200px; }
+
+      .footer-inner { flex-direction: column; gap: 2rem; }
+      footer { padding: 2rem 1.25rem 1.25rem; }
     }
   </style>
 </head>
 <body>
+<main>
 
 <div class="card">
   <header>
@@ -572,6 +652,33 @@
 </div>
 
 <div id="answer-area"></div>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-col footer-brand">
+      <span class="footer-logo">LEIMA</span>
+      <span class="footer-domain">leima.io</span>
+      <p>Pysyvä digitaalinen notaari.<br>Dokumentit todistetaan tekoälyllä ja sinetöidään Arweavelle.</p>
+    </div>
+    <div class="footer-col">
+      <span class="footer-col-title">Palvelu</span>
+      <a href="/validate">Validate</a>
+      <a href="#">Miten toimii</a>
+      <a href="#">Käyttötapaukset</a>
+      <a href="#">Hinnasto</a>
+    </div>
+    <div class="footer-col">
+      <span class="footer-col-title">Avoimuus</span>
+      <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
+      <a href="#">Data policy</a>
+      <a href="https://fxg55647.github.io/leima/" target="_blank" rel="noopener">PoDe-status</a>
+      <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2026 Leima — Open source</div>
+</footer>
 
 <script>
   function tabHasContent(tab) {
