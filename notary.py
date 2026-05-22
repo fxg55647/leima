@@ -137,13 +137,16 @@ def poll_and_process(
                 raw = data[0][1]
 
                 meta = extract_meta(raw)
+                msg_parsed = email_lib.message_from_bytes(raw)
+                cc_addrs = _extract_addresses(msg_parsed.get("CC", ""))
                 recipients = [
-                    a for a in _extract_addresses(meta["to"])
+                    a for a in _extract_addresses(meta["to"]) + cc_addrs
                     if a.lower() != imap_user.lower()
                 ]
+                recipients = list(dict.fromkeys(recipients))
 
                 if not recipients:
-                    result["error"] = "No valid recipient in To: field"
+                    result["error"] = "No valid recipient in To:/CC: fields"
                     results.append(result)
                     imap.store(num, "+FLAGS", "\\Seen")
                     continue
