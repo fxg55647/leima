@@ -520,11 +520,12 @@
       transition: background 0.5s ease;
       animation: podePulse 2.4s ease-in-out infinite;
       transform-origin: center;
+      flex-shrink: 0;
     }
 
-    #pode-text {
-      transition: opacity 0.28s ease;
-    }
+    #pode-sw, #pode-ago { transition: opacity 0.28s ease; }
+
+    .pode-label { color: #fff; font-weight: 500; }
 
     @keyframes podePulse {
       0%, 100% { transform: scale(1); }
@@ -558,9 +559,11 @@
 <body>
 
 <div id="pode-bar">
-  <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.5rem;padding:0 1rem;">
-    <span id="pode-dot" style="width:6px;height:6px;border-radius:50%;background:#555;flex-shrink:0;display:inline-block"></span>
-    <span id="pode-text" style="color:#aaa">PoDe — loading…</span>
+  <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
+    <span id="pode-dot" style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block"></span>
+    <span id="pode-sw" style="font-weight:600;color:#555"></span>
+    <span class="pode-label">PoDe</span>
+    <span id="pode-ago" style="color:#444"></span>
   </div>
 </div>
 
@@ -856,41 +859,72 @@
 
 <script>
   (function() {
-    const dot  = document.getElementById('pode-dot');
-    const text = document.getElementById('pode-text');
+    const dot = document.getElementById('pode-dot');
+    const sw  = document.getElementById('pode-sw');
+    const ago = document.getElementById('pode-ago');
+    let lastCheckedAt = null;
 
-    function fadeSet(content, color, dotColor) {
-      if (dotColor) dot.style.background = dotColor;
-      text.style.opacity = '0';
+    function timeAgo() {
+      if (!lastCheckedAt) return '';
+      const s = Math.floor((Date.now() - lastCheckedAt) / 1000);
+      return s < 60 ? 'retrieved ' + s + 's ago' : 'retrieved ' + Math.floor(s / 60) + 'm ago';
+    }
+
+    function setDot(mode) {
+      if (mode === 'danger') {
+        dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;';
+        dot.textContent = '⛔';
+      } else {
+        dot.textContent = '';
+        const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#555';
+        dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:podePulse 2.4s ease-in-out infinite;transform-origin:center;';
+      }
+    }
+
+    function fadeSet(statusText, statusColor, dotMode) {
+      sw.style.opacity = '0';
+      ago.style.opacity = '0';
       setTimeout(() => {
-        text.textContent = content;
-        text.style.color = color;
-        text.style.opacity = '1';
+        setDot(dotMode);
+        sw.textContent = statusText;
+        sw.style.color = statusColor;
+        ago.textContent = timeAgo();
+        sw.style.opacity = '1';
+        ago.style.opacity = '1';
       }, 280);
     }
 
     function update() {
-      fadeSet('Retrieving…', '#666');
+      sw.style.opacity = '0';
+      ago.style.opacity = '0';
+      setTimeout(() => {
+        sw.textContent = 'Retrieving…';
+        sw.style.color = '#555';
+        ago.textContent = '';
+        sw.style.opacity = '1';
+      }, 280);
+
       fetch('https://fxg55647.github.io/leima/status.json?_=' + Date.now())
         .then(r => r.json())
         .then(d => {
-          const time = (d.checked_at || '').slice(11, 16);
-          const url  = d.service_url || '';
+          lastCheckedAt = d.checked_at ? new Date(d.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
           if (d.ok) {
-            fadeSet('PoDe ✓  ' + url + '  ' + time + ' UTC', '#aaa', '#2ecc71');
+            fadeSet('OK', '#2ecc71', 'ok');
           } else if (d.rapid_deploy_warning) {
-            fadeSet('PoDe ⚠  rapid deploys detected — verify on GitHub Actions', '#e67e22', '#e67e22');
+            fadeSet('Warning', '#f0a030', 'warning');
           } else {
-            const reason = d.deploying ? 'deploying' : !d.deployment_ok ? 'commit mismatch' : !d.review_ok ? 'review failed' : 'check failed';
-            fadeSet('PoDe ✗  ' + reason + ' — verify on GitHub Actions', '#e74c3c', '#e74c3c');
+            fadeSet('Danger', '#ff6b6b', 'danger');
           }
         })
         .catch(() => {
-          fadeSet('PoDe — status unavailable', '#555', '#555');
+          lastCheckedAt = null;
+          fadeSet('Unavailable', '#555', 'loading');
         });
     }
+
     update();
     setInterval(update, 60000);
+    setInterval(() => { if (lastCheckedAt) ago.textContent = timeAgo(); }, 15000);
   })();
 </script>
 
