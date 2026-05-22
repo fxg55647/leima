@@ -3,7 +3,7 @@ Automated policy compliance audit for Leima.
 Reads all Python and JS source files, compares against POLICY.md,
 and reports whether the code complies with the stated data policy.
 """
-import os, sys
+import os, sys, time
 from pathlib import Path
 from google import genai
 from google.genai import types
@@ -86,17 +86,25 @@ root = Path(__file__).parent
 policy = (root / "POLICY.md").read_text(encoding="utf-8")
 sources = collect_sources(root)
 
-try:
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    resp = client.models.generate_content(
-        model=MODEL,
-        contents=build_prompt(policy, sources),
-        config=types.GenerateContentConfig(temperature=0),
-    )
-    result = (resp.text or "").strip()
-except Exception as e:
-    print(f"::error title=Code review error::API call failed: {e}", flush=True)
-    sys.exit(1)
+client = genai.Client(api_key=GEMINI_API_KEY)
+prompt = build_prompt(policy, sources)
+result = ""
+for attempt in range(3):
+    try:
+        resp = client.models.generate_content(
+            model=MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0),
+        )
+        result = (resp.text or "").strip()
+        break
+    except Exception as e:
+        print(f"Attempt {attempt + 1} failed: {e}", flush=True)
+        if attempt < 2:
+            time.sleep(15 * (attempt + 1))
+        else:
+            print(f"::error title=Code review error::API call failed after 3 attempts: {e}", flush=True)
+            sys.exit(1)
 
 if not result:
     print("::error title=Code review error::Gemini returned an empty response", flush=True)
