@@ -2,10 +2,6 @@ name: PoDe check (reusable)
 on:
   workflow_call:
 
-concurrency:
-  group: pode-run
-  cancel-in-progress: false
-
 permissions:
   contents: write
   pages: write
