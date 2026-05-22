@@ -1,23 +1,26 @@
 {
   "ok": false,
-  "deployment_ok": false,
+  "deployment_ok": true,
   "review_ok": true,
   "deploying": false,
-  "deployed_commit": null,
-  "expected_commit": "3b965c06827a53cb4971a565ce306f8c5d84da16",
-  "deploy_status": "not_configured",
+  "deployed_commit": "51f7456e0b4fd032acbf44dc2c2ebfa4590ed098",
+  "expected_commit": "51f7456e0b4fd032acbf44dc2c2ebfa4590ed098",
+  "deploy_status": "live",
   "review_conclusion": "success",
   "cron_fresh": true,
-  "rapid_deploy_warning": false,
+  "rapid_deploy_warning": true,
   "history": {
-    "scanned_deploys": 0,
+    "scanned_deploys": 20,
     "last_mismatch_at": null,
-    "clean_since": null
+    "last_mismatch_commit": null,
+    "clean_since": "2026-05-22T13:09:49.56685Z",
+    "deploys_last_hour": 10,
+    "rapid_deploy_warning": true
   },
-  "service_url": "",
+  "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-22 16:31:49 UTC",
+  "checked_at": "2026-05-22 17:01:48 UTC",
   "monitor_files": {
     ".github/workflows/pode-a.yml": "4a7786a311859f502a489712ca0971e8727fcd03c55c91ff6431469bb156b73c",
     ".github/workflows/pode-b.yml": "33f29523af19919f9bb7034d71ecfdd87c9ad4fdb290629f4b95adb30581d6ab",
@@ -30,7 +33,7 @@
     "pode_check.py": "3c64565d408ae5657fe4c1eec3e050a55aa327abbbf16c1c0c7bc55a7bd947c9",
     "pode_arweave.py": "bb77f0f2adbae5a9a5cdf29dcdcdc7ad453fda0841187bbecc0b42061016439e",
     "monthly_audit.py": "13669962c231f3c80056edb2d9b4c939293e985e99301c839e4fc4ce30cd6917",
-    "code_review.py": "fb624986b501a295f4ef66afbdc112d36d4f75648226d328f419ef63262e61a3",
-    "POLICY.md": "177647be05be204db60fe49a69c3963f782aa9fc91ad61f68434ba505667bcfa"
+    "code_review.py": "770471e19e477ee594b599fcdc0ca4d55677fe09fbf03d7b958a0f0283941590",
+    "POLICY.md": "37b21a75bc292a9572fef25bd1142920d10082b7edb08fae08c8f9a2ef9d1c5c"
   }
 }
