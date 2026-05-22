@@ -80,6 +80,25 @@ def github_commit():
     return resp.text.strip()
 
 
+def check_workflow_states() -> dict[str, str]:
+    """Returns {workflow_filename: state} where state is active/disabled_inactivity/etc."""
+    gh_headers = {"Accept": "application/vnd.github+json"}
+    if GITHUB_TOKEN:
+        gh_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    states = {}
+    for workflow in PODE_WORKFLOWS:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow}",
+            headers=gh_headers,
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            states[workflow] = resp.json().get("state", "unknown")
+        else:
+            states[workflow] = "unknown"
+    return states
+
+
 def check_cron_freshness() -> bool | None:
     """True = at least one cron ran within window; False = all stale; None = no data yet."""
     cutoff = datetime.now(timezone.utc).timestamp() - MAX_CRON_AGE_MIN * 60
@@ -217,6 +236,14 @@ except Exception as e:
     error = (error + "; " if error else "") + str(e)
 
 try:
+    workflow_states = check_workflow_states()
+except Exception as e:
+    workflow_states = {}
+    error = (error + "; " if error else "") + str(e)
+
+disabled_workflows = [w for w, s in workflow_states.items() if s != "active"]
+
+try:
     history = check_deploy_history()
 except Exception as e:
     history = {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
@@ -225,7 +252,7 @@ except Exception as e:
 deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
 review_ok = review_conclusion == "success"
 rapid_warning = history.get("rapid_deploy_warning", False)
-ok = deployment_ok and review_ok and not deploying and (cron_fresh is not False) and not rapid_warning
+ok = deployment_ok and review_ok and not deploying and (cron_fresh is not False) and not rapid_warning and not disabled_workflows
 
 result = {
     "ok": ok,
@@ -238,6 +265,8 @@ result = {
     "review_conclusion": review_conclusion,
     "cron_fresh": cron_fresh,
     "rapid_deploy_warning": rapid_warning,
+    "workflow_states": workflow_states,
+    "disabled_workflows": disabled_workflows,
     "history": history,
     "service_url": service_url or "",
     "repo": GITHUB_REPO,
