@@ -563,7 +563,7 @@
     <span id="pode-dot" style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block"></span>
     <span id="pode-sw" style="font-weight:600;color:#555"></span>
     <span class="pode-label">PoDe</span>
-    <span id="pode-ago" style="color:#444"></span>
+    <span id="pode-ago" style="color:#666"></span>
   </div>
 </div>
 
@@ -867,7 +867,7 @@
     function timeAgo() {
       if (!lastCheckedAt) return '';
       const s = Math.floor((Date.now() - lastCheckedAt) / 1000);
-      return s < 60 ? 'retrieved ' + s + 's ago' : 'retrieved ' + Math.floor(s / 60) + 'm ago';
+      return s < 60 ? 'checked ' + s + 's ago' : 'checked ' + Math.floor(s / 60) + 'm ago';
     }
 
     function setDot(mode) {
