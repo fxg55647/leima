@@ -2,6 +2,10 @@ name: PoDe B
 on:
   schedule:
     - cron: '1-59/5 * * * *'
+permissions:
+  contents: write
+  pages: write
+
 jobs:
   run:
     uses: ./.github/workflows/pode-run.yml

@@ -3,6 +3,10 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+
 jobs:
   run:
     uses: ./.github/workflows/pode-run.yml
