@@ -2,6 +2,10 @@ name: PoDe check (reusable)
 on:
   workflow_call:
 
+concurrency:
+  group: pode-run
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pages: write
@@ -37,6 +41,7 @@ jobs:
         run: python pode_arweave.py
 
       - name: Push status.json and log to gh-pages
+        continue-on-error: true
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
