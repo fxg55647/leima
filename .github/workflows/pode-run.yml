@@ -37,6 +37,7 @@ jobs:
         run: python pode_arweave.py
 
       - name: Push status.json and log to gh-pages
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python push_status.py
