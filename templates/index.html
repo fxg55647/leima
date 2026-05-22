@@ -904,9 +904,11 @@
         sw.style.opacity = '1';
       }, 280);
 
-      fetch('https://fxg55647.github.io/leima/status.json?_=' + Date.now())
-        .then(r => r.json())
-        .then(d => {
+      const minWait = new Promise(r => setTimeout(r, 1100));
+      Promise.all([
+        fetch('https://fxg55647.github.io/leima/status.json?_=' + Date.now()).then(r => r.json()),
+        minWait,
+      ]).then(([d]) => {
           lastCheckedAt = d.checked_at ? new Date(d.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
           if (d.ok) {
             fadeSet('OK', '#2ecc71', 'ok');
