@@ -38,13 +38,31 @@ jobs:
 
       - name: Push status.json and log to gh-pages
         continue-on-error: true
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: gh-pages
-          folder: pages-output
-          clean: false
-          commit-message: "chore: update deployment status"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          TMPDIR=$(mktemp -d)
+
+          # Clone gh-pages into temp dir, or init fresh if branch doesn't exist yet
+          if ! git clone --depth 1 --branch gh-pages "$REPO_URL" "$TMPDIR/pages" 2>/dev/null; then
+            mkdir -p "$TMPDIR/pages"
+            git -C "$TMPDIR/pages" init
+            git -C "$TMPDIR/pages" checkout -b gh-pages
+            git -C "$TMPDIR/pages" remote add origin "$REPO_URL"
+          fi
+
+          # Copy fresh output files
+          cp pages-output/status.json "$TMPDIR/pages/"
+          [ -f pages-output/status-log.jsonl ] && cp pages-output/status-log.jsonl "$TMPDIR/pages/" || true
+
+          # Commit and force-push
+          git -C "$TMPDIR/pages" config user.name "github-actions[bot]"
+          git -C "$TMPDIR/pages" config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C "$TMPDIR/pages" add .
+          git -C "$TMPDIR/pages" diff --staged --quiet || \
+            git -C "$TMPDIR/pages" commit -m "chore: update deployment status"
+          git -C "$TMPDIR/pages" push --force origin gh-pages
 
       - name: Fail if check failed
         if: steps.check.outcome == 'failure'
