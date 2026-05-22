@@ -1,4 +1,8 @@
 name: PoDe check (reusable)
+# WARNING: Do not add concurrency groups — causes queue bursts that trigger
+# GitHub abuse detection and stop all scheduled runs for up to an hour.
+# WARNING: Do not add "Fail if check failed" or sys.exit(1) — workflow must
+# always exit 0 or GitHub will suspend the scheduled crons.
 on:
   workflow_call:
 
