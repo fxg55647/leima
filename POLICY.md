@@ -32,7 +32,6 @@ Only the following is written to the Arweave blockchain, via Irys:
 - SHA-256 hash of the verdict PDF
 - Timestamp
 - AI model version
-- Claim text
 
 The document itself, the verdict text, and any personal data in either are **not** stored on Arweave or anywhere else permanently. The stamp record on Arweave contains fingerprints, not content.
 

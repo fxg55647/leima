@@ -161,7 +161,7 @@ def build_manifest(
     input_label: str,
     input_hash: str,
     verdict_hash: str,
-    claim: str = "",
+
     email_meta: dict | None = None,
     web_meta: dict | None = None,
 ) -> dict:
@@ -169,7 +169,7 @@ def build_manifest(
         "version": "1",
         "timestamp": timestamp,
         "model": model,
-        "claim": claim,
+
         "input": {"label": input_label, "sha256": input_hash},
         "verdict_pdf": {"sha256": verdict_hash},
     }
@@ -667,7 +667,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         input_label=input_label,
         input_hash=input_hash,
         verdict_hash=verdict_hash,
-        claim=question,
+
         email_meta=email_meta,
         web_meta=web_meta,
     )
