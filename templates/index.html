@@ -900,7 +900,7 @@
 
       const minWait = new Promise(r => setTimeout(r, 1100));
       Promise.all([
-        fetch('https://fxg55647.github.io/leima/status.json?_=' + Date.now()).then(r => r.json()),
+        fetch('https://raw.githubusercontent.com/fxg55647/leima/gh-pages/status.json?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
         minWait,
       ]).then(([d]) => {
         lastCheckedAt = d.checked_at ? new Date(d.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
