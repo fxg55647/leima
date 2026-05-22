@@ -43,10 +43,21 @@ _COMPLETED        = {"live", "deactivated"}
 
 def render_state():
     if not RENDER_API_KEY or not RENDER_SERVICE_ID:
-        return None, "not_configured", False
+        return None, "not_configured", False, None
+    headers = {"Authorization": f"Bearer {RENDER_API_KEY}"}
+
+    svc_resp = requests.get(
+        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}",
+        headers=headers,
+        timeout=10,
+    )
+    svc_resp.raise_for_status()
+    svc = svc_resp.json()
+    service_url = svc.get("serviceDetails", {}).get("url") or svc.get("url", "")
+
     resp = requests.get(
         f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=5",
-        headers={"Authorization": f"Bearer {RENDER_API_KEY}"},
+        headers=headers,
         timeout=10,
     )
     resp.raise_for_status()
@@ -55,8 +66,8 @@ def render_state():
     for item in deploys:
         deploy = item.get("deploy", {})
         if deploy.get("status") == "live":
-            return deploy.get("commit", {}).get("id"), "live", deploying
-    return None, "no_live_deploy", deploying
+            return deploy.get("commit", {}).get("id"), "live", deploying, service_url
+    return None, "no_live_deploy", deploying, service_url
 
 
 def github_commit():
@@ -184,9 +195,9 @@ def github_review_status():
 
 error = None
 try:
-    deployed, deploy_status, deploying = render_state()
+    deployed, deploy_status, deploying, service_url = render_state()
 except Exception as e:
-    deployed, deploy_status, deploying, error = None, "error", False, str(e)
+    deployed, deploy_status, deploying, service_url, error = None, "error", False, None, str(e)
 
 try:
     expected = github_commit()
@@ -229,7 +240,7 @@ result = {
     "cron_fresh": cron_fresh,
     "rapid_deploy_warning": rapid_warning,
     "history": history,
-    "service_url": RENDER_SERVICE_URL,
+    "service_url": service_url or RENDER_SERVICE_URL,
     "repo": GITHUB_REPO,
     "branch": GITHUB_BRANCH,
     "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),

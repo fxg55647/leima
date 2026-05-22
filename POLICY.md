@@ -53,7 +53,16 @@ If you use the email (IMAP) input:
 
 ## Email notary
 
-The email notary is a separate flow. When a sender adds `BCC: stamp@leima.fi` to an outgoing email, Leima receives the message and writes the following to the Arweave blockchain **permanently**:
+The email notary is a separate flow. When a sender adds `BCC: stamp@leima.fi` to an outgoing email, Leima receives the message via IMAP and:
+
+1. Verifies the DKIM signature locally
+2. Computes a SHA-256 hash of the full raw email
+3. Writes a manifest containing only metadata and hashes to Arweave/Irys
+4. Sends a notarized copy of the email back to the `To:` and `CC:` recipients (and optionally the sender if CC'd) via SMTP — the notarized copy contains the original email as an `.eml` attachment, the manifest as a `.json` attachment, and a verification link
+
+**External services used by this flow:** IMAP server (receiving), SMTP server (sending notarized copy), Arweave/Irys (permanent hash storage). No email content is sent to Google Gemini or any other AI service in this flow.
+
+The following is written to the Arweave blockchain **permanently**:
 
 - Sender address (`From:`)
 - Recipient address (`To:`)

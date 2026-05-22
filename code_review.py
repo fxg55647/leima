@@ -37,14 +37,20 @@ def build_prompt(policy: str, sources: dict[str, str]) -> str:
 
 Your task: verify that the source code below complies with the data policy in POLICY.md.
 
+Architecture note: the codebase has two distinct parts:
+- User-data path: main.py, neutral_witness.py, notary.py — these handle user documents and emails
+- Infrastructure path: pode_check.py, pode_arweave.py, monthly_audit.py — these are deployment integrity monitors that never touch user data
+
 Check each of the following, citing specific file and line where relevant:
 
-1. Does any code send document content to a service other than Google Gemini (gemini-2.5-flash-lite)?
+1. Does any code in the user-data path send document content to a service other than Google Gemini (gemini-2.5-flash-lite) or SMTP (for the email notary flow described in POLICY.md)?
 2. Does any code write document content or claim text to persistent storage (files, databases, logs)?
 3. Does any code add tracking, analytics, cookies, or cross-session identification?
 4. Does the AI prompt logic in neutral_witness.py match what POLICY.md says the model is instructed to do?
-5. Does the Arweave/Irys upload contain anything beyond hashes and metadata?
-6. Are there any external HTTP calls not described in POLICY.md?
+5. Does the Arweave/Irys upload in the user-data path contain anything beyond hashes and metadata?
+6. Are there any external HTTP calls in the user-data path not described in POLICY.md?
+
+Note: infrastructure scripts (pode_check.py, pode_arweave.py, monthly_audit.py) make HTTP calls to Render API, GitHub API, and Arweave — these are deployment monitoring calls, not user-data calls, and are not in scope for POLICY.md compliance.
 
 For each check write one line: PASS or FAIL — and a brief explanation.
 
