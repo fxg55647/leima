@@ -40,6 +40,7 @@ jobs:
         continue-on-error: true
         uses: JamesIves/github-pages-deploy-action@v4
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           branch: gh-pages
           folder: pages-output
           clean: false
