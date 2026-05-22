@@ -516,6 +516,21 @@
       flex-shrink: 0;
     }
 
+    #pode-dot {
+      transition: background 0.5s ease;
+      animation: podePulse 2.4s ease-in-out infinite;
+      transform-origin: center;
+    }
+
+    #pode-text {
+      transition: opacity 0.28s ease;
+    }
+
+    @keyframes podePulse {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.75); }
+    }
+
     @media (max-width: 520px) {
       .col-frame { padding: 0.75rem 0.5rem; box-shadow: none; }
 
@@ -843,31 +858,35 @@
   (function() {
     const dot  = document.getElementById('pode-dot');
     const text = document.getElementById('pode-text');
+
+    function fadeSet(content, color, dotColor) {
+      if (dotColor) dot.style.background = dotColor;
+      text.style.opacity = '0';
+      setTimeout(() => {
+        text.textContent = content;
+        text.style.color = color;
+        text.style.opacity = '1';
+      }, 280);
+    }
+
     function update() {
+      fadeSet('Retrieving…', '#666');
       fetch('https://fxg55647.github.io/leima/status.json?_=' + Date.now())
         .then(r => r.json())
         .then(d => {
           const time = (d.checked_at || '').slice(11, 16);
           const url  = d.service_url || '';
           if (d.ok) {
-            dot.style.background  = '#2ecc71';
-            text.style.color      = '#aaa';
-            text.textContent      = 'PoDe ✓  ' + url + '  ' + time + ' UTC';
+            fadeSet('PoDe ✓  ' + url + '  ' + time + ' UTC', '#aaa', '#2ecc71');
           } else if (d.rapid_deploy_warning) {
-            dot.style.background  = '#e67e22';
-            text.style.color      = '#e67e22';
-            text.textContent      = 'PoDe ⚠  rapid deploys detected — verify on GitHub Actions';
+            fadeSet('PoDe ⚠  rapid deploys detected — verify on GitHub Actions', '#e67e22', '#e67e22');
           } else {
             const reason = d.deploying ? 'deploying' : !d.deployment_ok ? 'commit mismatch' : !d.review_ok ? 'review failed' : 'check failed';
-            dot.style.background  = '#e74c3c';
-            text.style.color      = '#e74c3c';
-            text.textContent      = 'PoDe ✗  ' + reason + ' — verify on GitHub Actions';
+            fadeSet('PoDe ✗  ' + reason + ' — verify on GitHub Actions', '#e74c3c', '#e74c3c');
           }
         })
         .catch(() => {
-          dot.style.background = '#555';
-          text.style.color     = '#555';
-          text.textContent     = 'PoDe —  status unavailable';
+          fadeSet('PoDe — status unavailable', '#555', '#555');
         });
     }
     update();
