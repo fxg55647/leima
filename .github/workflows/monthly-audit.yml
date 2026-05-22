@@ -1,0 +1,48 @@
+name: Monthly PoDe audit
+on:
+  schedule:
+    - cron: '0 6 1 * *'  # 1st of each month at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install requests irys-sdk
+
+      - name: Run monthly audit
+        id: audit
+        env:
+          IRYS_PRIVATE_KEY: ${{ secrets.IRYS_PRIVATE_KEY }}
+          IRYS_NETWORK:     ${{ secrets.IRYS_NETWORK }}
+          IRYS_RPC_URL:     ${{ secrets.IRYS_RPC_URL }}
+        run: |
+          output=$(python monthly_audit.py)
+          echo "$output"
+          echo "month=$(echo "$output" | grep ^MONTH= | cut -d= -f2)" >> $GITHUB_OUTPUT
+          echo "tx=$(echo "$output"    | grep ^TX=    | cut -d= -f2)" >> $GITHUB_OUTPUT
+          echo "url=$(echo "$output"   | grep ^URL=   | cut -d= -f2)" >> $GITHUB_OUTPUT
+
+      - name: Commit audit record
+        run: |
+          mkdir -p audit
+          cat > audit/${{ steps.audit.outputs.month }}.md << 'EOF'
+          # PoDe audit — ${{ steps.audit.outputs.month }}
+
+          Arweave: ${{ steps.audit.outputs.url }}
+          TX: ${{ steps.audit.outputs.tx }}
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add audit/
+          git diff --staged --quiet || git commit -m "chore: PoDe audit ${{ steps.audit.outputs.month }}"
+          git push

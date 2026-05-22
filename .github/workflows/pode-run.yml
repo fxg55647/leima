@@ -16,18 +16,27 @@ jobs:
         with:
           python-version: '3.12'
 
-      - run: pip install requests
+      - run: pip install requests irys-sdk
 
       - name: Run PoDe check
         id: check
         continue-on-error: true
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RENDER_API_KEY:     ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID:  ${{ secrets.RENDER_SERVICE_ID }}
+          RENDER_SERVICE_URL: ${{ secrets.RENDER_SERVICE_URL }}
+          GITHUB_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
         run: python pode_check.py
 
-      - name: Push status.json to gh-pages
+      - name: Upload status to Arweave
+        continue-on-error: true
+        env:
+          IRYS_PRIVATE_KEY: ${{ secrets.IRYS_PRIVATE_KEY }}
+          IRYS_NETWORK:     ${{ secrets.IRYS_NETWORK }}
+          IRYS_RPC_URL:     ${{ secrets.IRYS_RPC_URL }}
+        run: python pode_arweave.py
+
+      - name: Push status.json and log to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
