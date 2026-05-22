@@ -97,4 +97,9 @@ print(result)
 
 compliant = "OVERALL: COMPLIANT" in result
 write_summary(result, compliant)
+
+if not compliant:
+    violation_line = next((l for l in result.splitlines() if l.startswith("OVERALL:")), "OVERALL: VIOLATION")
+    print(f"::error title=Policy violation::{violation_line}", flush=True)
+
 sys.exit(0 if compliant else 1)
