@@ -86,13 +86,22 @@ root = Path(__file__).parent
 policy = (root / "POLICY.md").read_text(encoding="utf-8")
 sources = collect_sources(root)
 
-client = genai.Client(api_key=GEMINI_API_KEY)
-resp = client.models.generate_content(
-    model=MODEL,
-    contents=build_prompt(policy, sources),
-    config=types.GenerateContentConfig(temperature=0),
-)
-result = resp.text.strip()
+try:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    resp = client.models.generate_content(
+        model=MODEL,
+        contents=build_prompt(policy, sources),
+        config=types.GenerateContentConfig(temperature=0),
+    )
+    result = (resp.text or "").strip()
+except Exception as e:
+    print(f"::error title=Code review error::API call failed: {e}", flush=True)
+    sys.exit(1)
+
+if not result:
+    print("::error title=Code review error::Gemini returned an empty response", flush=True)
+    sys.exit(1)
+
 print(result)
 
 compliant = "OVERALL: COMPLIANT" in result
