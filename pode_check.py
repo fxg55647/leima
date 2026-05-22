@@ -32,7 +32,6 @@ def hash_monitor_files() -> dict[str, str | None]:
 
 RENDER_API_KEY    = os.environ.get("RENDER_API_KEY", "")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID", "")
-RENDER_SERVICE_URL = os.environ.get("RENDER_SERVICE_URL", "")
 GITHUB_REPO       = os.environ.get("GITHUB_REPO", "fxg55647/leima")
 GITHUB_BRANCH     = os.environ.get("GITHUB_BRANCH", "main")
 GITHUB_TOKEN      = os.environ.get("GITHUB_TOKEN", "")
@@ -240,7 +239,7 @@ result = {
     "cron_fresh": cron_fresh,
     "rapid_deploy_warning": rapid_warning,
     "history": history,
-    "service_url": service_url or RENDER_SERVICE_URL,
+    "service_url": service_url or "",
     "repo": GITHUB_REPO,
     "branch": GITHUB_BRANCH,
     "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
