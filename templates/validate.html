@@ -12,7 +12,7 @@
 
     body {
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      background: #f8f9fa;
+      background: #e8e8e8;
       color: #212529;
       min-height: 100vh;
       display: flex;
@@ -22,9 +22,23 @@
     main {
       flex: 1;
       display: flex;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .col-frame {
+      width: 100%;
+      max-width: 760px;
+      background: #fff;
+      display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2.5rem 1rem;
+      padding: 2.5rem 1.5rem;
+      box-shadow:
+        4px 0 12px -4px rgba(0,0,0,0.14),
+        -4px 0 12px -4px rgba(0,0,0,0.14),
+        1px 0 0 rgba(0,0,0,0.07),
+        -1px 0 0 rgba(0,0,0,0.07);
     }
 
     header {
@@ -76,13 +90,9 @@
     .back-btn:hover { border-color: #adb5bd; color: #212529; }
 
     .card {
-      background: #fff;
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 1.75rem;
+      padding: 1.75rem 0;
       width: 100%;
       max-width: 680px;
-      box-shadow: 0 5px 10px -2.5px rgba(0,0,0,.15);
     }
 
     .card-title {
@@ -249,7 +259,7 @@
     }
 
     @media (max-width: 520px) {
-      main { padding: 0.75rem 0.5rem; }
+      .col-frame { padding: 0.75rem 0.5rem; box-shadow: none; }
       .card { padding: 1.1rem; }
       header { flex-wrap: wrap; row-gap: 0.4rem; }
       .logo-text { font-size: 1.5rem; }
@@ -273,6 +283,7 @@
 </div>
 
 <main>
+<div class="col-frame">
 
 <div class="card">
   <header>
@@ -348,6 +359,7 @@
   <div id="result"></div>
 </div>
 
+</div><!-- /.col-frame -->
 </main>
 
 <footer>
