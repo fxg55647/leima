@@ -8,3 +8,4 @@ python-dotenv==1.0.1
 irys-sdk==0.1.9
 dkimpy==1.1.8
 Markdown==3.7
+c2pa-python==0.6.0

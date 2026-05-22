@@ -17,6 +17,21 @@
   </div>
   {% endfor %}
 
+  {% if c2pa %}
+  <div class="c2pa-block">
+    {% if c2pa.present %}
+      <span class="c2pa-badge {% if c2pa.valid %}c2pa-ok{% else %}c2pa-fail{% endif %}">
+        C2PA {{ "✓" if c2pa.valid else "✗" }}
+      </span>
+      {% if c2pa.generator %}<span class="c2pa-meta">{{ c2pa.generator }}</span>{% endif %}
+      {% if c2pa.signer %}<span class="c2pa-meta">Signed: {{ c2pa.signer }}</span>{% endif %}
+      {% if c2pa.actions %}<span class="c2pa-meta">{{ c2pa.actions | join(", ") }}</span>{% endif %}
+    {% else %}
+      <span class="c2pa-badge c2pa-none">No C2PA manifest</span>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <div class="hash-block">
     <div class="hash-row">
       <span class="hash-label">Input SHA-256</span>
@@ -180,4 +195,24 @@
     transition: background 0.15s;
   }
   .generate-btn:hover { background: #0b5ed7; }
+
+  .c2pa-block {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+    font-size: 0.8rem;
+  }
+  .c2pa-badge {
+    font-weight: 700;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+  }
+  .c2pa-ok   { background: #d1fae5; color: #065f46; }
+  .c2pa-fail { background: #fee2e2; color: #991b1b; }
+  .c2pa-none { background: #f3f4f6; color: #6b7280; }
+  .c2pa-meta { color: #6c757d; }
 </style>

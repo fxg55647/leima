@@ -564,6 +564,44 @@ def _detect_image_mime(filename: str) -> str | None:
     return _IMAGE_MIMES.get(ext)
 
 
+def _check_c2pa(image_bytes: bytes, mime: str) -> dict | None:
+    """Returns C2PA manifest summary, or None if library not available."""
+    try:
+        import c2pa
+        import io
+        reader = c2pa.Reader(mime, io.BytesIO(image_bytes))
+        report_json = reader.json()
+        if not report_json:
+            return {"present": False}
+        data = json.loads(report_json)
+        active = data.get("active_manifest")
+        if not active or active not in data.get("manifests", {}):
+            return {"present": False}
+        m = data["manifests"][active]
+        bad = [s for s in data.get("validation_status", [])
+               if "mismatch" in s.get("code", "") or "error" in s.get("code", "").lower()]
+        actions = []
+        for assertion in m.get("assertions", []):
+            if assertion.get("label") == "c2pa.actions":
+                for a in assertion.get("data", {}).get("actions", []):
+                    act = a.get("action", "")
+                    if act:
+                        actions.append(act.removeprefix("c2pa."))
+        sig = m.get("signature_info", {})
+        return {
+            "present": True,
+            "valid": len(bad) == 0,
+            "generator": m.get("claim_generator", ""),
+            "signer": sig.get("issuer", ""),
+            "signed_at": sig.get("time", ""),
+            "actions": actions,
+        }
+    except ImportError:
+        return None
+    except Exception:
+        return {"present": False}
+
+
 def build_verdict_txt(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str) -> bytes:
     lines = ["STAMPD VERDICT", "=" * 40,
              f"Timestamp: {timestamp}", f"Model: {MODEL}", f"Input SHA-256: {input_hash}",
@@ -709,6 +747,7 @@ async def ask(
     contents = []
     email_meta = None
     web_meta = None
+    c2pa_info = None
     source_ext = "pdf"
     source_mime = "application/pdf"
 
@@ -719,6 +758,7 @@ async def ask(
         if not mime:
             return HTMLResponse('<div class="error">Unsupported image format. Use JPG, PNG, GIF, WebP, HEIC, or HEIF.</div>')
         input_bytes = await image_file.read()
+        c2pa_info = _check_c2pa(input_bytes, mime)
         input_label = image_file.filename
         source_ext = image_file.filename.rsplit(".", 1)[-1].lower()
         source_mime = mime
@@ -788,6 +828,9 @@ async def ask(
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
 
+    if active_tab == "image" and c2pa_info:
+        store[result["session_id"]]["manifest"]["c2pa"] = c2pa_info
+
     return templates.TemplateResponse(
         "partials/answer.html",
         {
@@ -800,6 +843,7 @@ async def ask(
             "verdict_hash": result["verdict_hash"],
             "session_id": result["session_id"],
             "timestamp": result["timestamp"],
+            "c2pa": c2pa_info if active_tab == "image" else None,
         },
     )
 
