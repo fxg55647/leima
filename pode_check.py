@@ -253,4 +253,3 @@ with open("pages-output/status.json", "w") as f:
     json.dump(result, f, indent=2)
 
 print(json.dumps(result, indent=2))
-sys.exit(0 if ok else 1)

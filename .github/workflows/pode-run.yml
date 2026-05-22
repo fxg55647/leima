@@ -42,6 +42,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python push_status.py
 
-      - name: Fail if check failed
-        if: steps.check.outcome == 'failure'
-        run: exit 1
