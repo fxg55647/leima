@@ -102,6 +102,8 @@ REFUTATION ANALYST:
 
 Your task: compare the two analyses objectively. First, check whether the refutation actually addresses the specific claim — not a related issue, not a broader context, but the exact claim as stated. A refutation that is technically true but does not contradict the claim should be discounted. Then assess which side had stronger direct evidence for or against the claim itself.
 
+If the evidence clearly favours one side, say so directly. Do not hedge. A clear verdict is more useful than a balanced non-answer.
+
 Start your response with exactly one line in this format:
 VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
 
