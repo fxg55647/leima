@@ -3,6 +3,7 @@ import hashlib
 import uuid
 import json
 import time
+import threading
 import imaplib
 import dkim
 import ipaddress
@@ -45,6 +46,21 @@ NOTARY_SMTP_PASSWORD = os.getenv("NOTARY_SMTP_PASSWORD")
 NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.fi>")
 NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
 LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.fi")
+
+def _pode_dispatcher():
+    token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
+    if not token:
+        return
+    url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/pode-a.yml/dispatches"
+    hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    while True:
+        time.sleep(60)
+        try:
+            http_requests.post(url, headers=hdrs, json={"ref": "main"}, timeout=10)
+        except Exception:
+            pass
+
+threading.Thread(target=_pode_dispatcher, daemon=True).start()
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
