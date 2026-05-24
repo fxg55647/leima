@@ -360,7 +360,8 @@ async def fetch_emails(
         imap.select("INBOX")
         since = datetime.strptime(email_start, "%Y-%m-%d").strftime("%d-%b-%Y")
         before = (datetime.strptime(email_end, "%Y-%m-%d") + timedelta(days=1)).strftime("%d-%b-%Y")
-        _, nums = imap.search(None, f'(FROM "{email_sender}" SINCE {since} BEFORE {before})')
+        safe_sender = email_sender.replace("\\", "\\\\").replace('"', '\\"')
+        _, nums = imap.search(None, f'(FROM "{safe_sender}" SINCE {since} BEFORE {before})')
         messages = []
         for num in (nums[0].split() or [])[-50:]:
             _, data = imap.fetch(num, "(RFC822)")
@@ -391,7 +392,7 @@ async def fetch_emails(
     if not messages:
         return HTMLResponse('<p class="fetch-error">No emails found for this period.</p>')
 
-    session_id = str(uuid.uuid4())[:12]
+    session_id = uuid.uuid4().hex
     _evict_old_sessions()
     email_sessions[session_id] = {"messages": messages, "_stored_at": time.time()}
 
@@ -815,7 +816,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
             "commit": poide_snap.get("commit", ""),
             "ok": poide_snap.get("ok", False),
         }
-    session_id = str(uuid.uuid4())[:12]
+    session_id = uuid.uuid4().hex
     _evict_old_sessions()
     store[session_id] = {
         "pdf": verdict_pdf, "manifest": manifest, "source": input_bytes,
