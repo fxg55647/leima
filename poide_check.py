@@ -2,20 +2,20 @@ import hashlib, os, sys, json, requests
 from datetime import datetime, timezone
 from pathlib import Path
 
-PODE_WORKFLOWS    = [f"pode-{c}.yml" for c in "abcde"]
+POIDE_WORKFLOWS   = [f"poide-{c}.yml" for c in "abcde"]
 MAX_CRON_AGE_MIN  = 10  # 5-min schedule with 2× headroom
 
 MONITOR_FILES = [
-    ".github/workflows/pode-a.yml",
-    ".github/workflows/pode-b.yml",
-    ".github/workflows/pode-c.yml",
-    ".github/workflows/pode-d.yml",
-    ".github/workflows/pode-e.yml",
-    ".github/workflows/pode-run.yml",
+    ".github/workflows/poide-a.yml",
+    ".github/workflows/poide-b.yml",
+    ".github/workflows/poide-c.yml",
+    ".github/workflows/poide-d.yml",
+    ".github/workflows/poide-e.yml",
+    ".github/workflows/poide-run.yml",
     ".github/workflows/monthly-audit.yml",
     ".github/workflows/code_review.yml",
-    "pode_check.py",
-    "pode_arweave.py",
+    "poide_check.py",
+    "poide_arweave.py",
     "monthly_audit.py",
     "code_review.py",
     "POLICY.md",
@@ -86,7 +86,7 @@ def check_workflow_states() -> dict[str, str]:
     if GITHUB_TOKEN:
         gh_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
     states = {}
-    for workflow in PODE_WORKFLOWS:
+    for workflow in POIDE_WORKFLOWS:
         resp = requests.get(
             f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow}",
             headers=gh_headers,
@@ -103,7 +103,7 @@ def check_cron_freshness() -> bool | None:
     """True = at least one cron ran within window; False = all stale; None = no data yet."""
     cutoff = datetime.now(timezone.utc).timestamp() - MAX_CRON_AGE_MIN * 60
     found_any = False
-    for workflow in PODE_WORKFLOWS:
+    for workflow in POIDE_WORKFLOWS:
         resp = requests.get(
             f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow}/runs"
             f"?per_page=1&branch={GITHUB_BRANCH}",

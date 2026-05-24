@@ -1,12 +1,12 @@
-name: PoDe B
+name: POIDE E
 on:
   schedule:
-    - cron: '1-59/5 * * * *'
+    - cron: '4-59/5 * * * *'
 permissions:
   contents: write
   pages: write
 
 jobs:
   run:
-    uses: ./.github/workflows/pode-run.yml
+    uses: ./.github/workflows/poide-run.yml
     secrets: inherit

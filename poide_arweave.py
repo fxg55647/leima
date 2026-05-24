@@ -1,9 +1,9 @@
 """
-Upload the current PoDe status.json to Arweave and append the tx_id to the
+Upload the current POIDE status.json to Arweave and append the tx_id to the
 cumulative log (pages-output/status-log.jsonl).
 
-Run after pode_check.py. Exits 0 on success, 1 on failure — but pode-run.yml
-marks this step continue-on-error so a failure never blocks the PoDe check itself.
+Run after poide_check.py. Exits 0 on success, 1 on failure — but poide-run.yml
+marks this step continue-on-error so a failure never blocks the POIDE check itself.
 """
 import json, os, sys
 from datetime import datetime, timezone
@@ -36,7 +36,7 @@ uploader = builder.build()
 tags = tags_from_dict({
     "Content-Type":    "application/json",
     "App-Name":        "Leima",
-    "Leima-Type":      "pode-status",
+    "Leima-Type":      "poide-status",
     "Checked-At":      status.get("checked_at", ""),
     "Deploy-Ok":       str(status.get("ok", False)).lower(),
 })

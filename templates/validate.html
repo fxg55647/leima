@@ -246,7 +246,7 @@
       color: #555;
     }
 
-    #pode-bar {
+    #poide-bar {
       width: 100%;
       background: #111;
       height: 26px;
@@ -258,16 +258,16 @@
       flex-shrink: 0;
     }
 
-    #pode-dot {
+    #poide-dot {
       transition: background 0.5s ease;
-      animation: podePulse 2.4s ease-in-out infinite;
+      animation: poidePulse 2.4s ease-in-out infinite;
       transform-origin: center;
       flex-shrink: 0;
     }
 
-    #pode-text { transition: opacity 0.28s ease; }
+    #poide-text { transition: opacity 0.28s ease; }
 
-    @keyframes podePulse {
+    @keyframes poidePulse {
       0%, 100% { transform: scale(1); }
       50%       { transform: scale(1.75); }
     }
@@ -289,10 +289,10 @@
 </head>
 <body>
 
-<div id="pode-bar">
+<div id="poide-bar">
   <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
-    <span id="pode-dot" style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block"></span>
-    <span id="pode-text"></span>
+    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block"></span>
+    <span id="poide-text"></span>
   </div>
 </div>
 
@@ -394,7 +394,7 @@
       <span class="footer-col-title">Transparency</span>
       <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
       <a href="#">Data policy</a>
-      <a href="https://fxg55647.github.io/leima/" target="_blank" rel="noopener">PoDe status</a>
+      <a href="https://fxg55647.github.io/leima/" target="_blank" rel="noopener">POIDE status</a>
       <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
     </div>
   </div>
@@ -413,8 +413,8 @@
 
 <script>
   (function() {
-    const dot  = document.getElementById('pode-dot');
-    const text = document.getElementById('pode-text');
+    const dot  = document.getElementById('poide-dot');
+    const text = document.getElementById('poide-text');
     let lastCheckedAt = null;
 
     function timeAgo() {
@@ -430,16 +430,16 @@
       } else {
         dot.textContent = '';
         const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#555';
-        dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:podePulse 2.4s ease-in-out infinite;transform-origin:center;';
+        dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;';
       }
     }
 
     function row(statusText, statusColor, reason) {
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
            + (reason ? ' <span style="color:#fff;font-weight:400">— ' + reason + '</span>' : '')
-           + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">PoDe</span>'
-           + ' <span id="pode-ago-inner" style="color:#fff">' + timeAgo() + '</span>'
-           + ' <a href="https://github.com/fxg55647/leima#pode" target="_blank" rel="noopener"'
+           + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">POIDE</span>'
+           + ' <span id="poide-ago-inner" style="color:#fff">' + timeAgo() + '</span>'
+           + ' <a href="https://github.com/fxg55647/leima#poide" target="_blank" rel="noopener"'
            + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>';
     }
 
@@ -479,7 +479,7 @@
         }
       }).catch(() => {
         lastCheckedAt = null;
-        fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">PoDe</span>', 'loading');
+        fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">POIDE</span>', 'loading');
       });
     }
 
@@ -487,7 +487,7 @@
     setInterval(update, 60000);
     setInterval(() => {
       if (lastCheckedAt) {
-        const el = document.getElementById('pode-ago-inner');
+        const el = document.getElementById('poide-ago-inner');
         if (el) el.textContent = timeAgo();
       }
     }, 15000);

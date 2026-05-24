@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leima Validator v1</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: #f8f9fa;
+      color: #212529;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 680px;
+      box-shadow: 0 5px 10px -2.5px rgba(0,0,0,.15);
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid #dc3545;
+    }
+
+    header h1 { font-size: 1.2rem; font-weight: 700; color: #212529; }
+
+    .version-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: #dc3545;
+      color: #fff;
+      border-radius: 4px;
+      padding: 0.1rem 0.4rem;
+      letter-spacing: 0.04em;
+    }
+
+    .permalink {
+      margin-left: auto;
+      font-size: 0.72rem;
+      color: #adb5bd;
+      font-family: "Segoe UI Mono", monospace;
+      word-break: break-all;
+      text-align: right;
+      max-width: 260px;
+    }
+    .permalink a { color: #adb5bd; text-decoration: none; }
+    .permalink a:hover { color: #0d6efd; }
+
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #6c757d;
+      padding: 0.4rem 0.875rem 0.6rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-family: inherit;
+      font-weight: 500;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: #212529; }
+    .tab-btn.active { color: #dc3545; border-bottom-color: #dc3545; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .field-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .field-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #495057;
+      width: 110px;
+      flex-shrink: 0;
+    }
+
+    .file-btn {
+      flex: 1;
+      display: inline-block;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 0.4rem 0.875rem;
+      font-size: 0.85rem;
+      font-family: inherit;
+      color: #495057;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-btn:hover { border-color: #adb5bd; background: #f1f3f5; }
+    .file-btn.has-file { border-color: #dc3545; color: #dc3545; background: #fff5f5; }
+
+    input[type="file"] { display: none; }
+
+    .tx-input {
+      flex: 1;
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      color: #212529;
+      padding: 0.4rem 0.875rem;
+      font-family: "Segoe UI Mono", monospace;
+      font-size: 0.8rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .tx-input:focus {
+      border-color: #86b7fe;
+      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: #6c757d;
+      margin-bottom: 1.25rem;
+      margin-top: -0.4rem;
+    }
+
+    .validate-btn {
+      background: #dc3545;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.625rem 1.5rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 0.5rem;
+    }
+    .validate-btn:hover { background: #b02a37; }
+    .validate-btn:disabled { background: #6c757d; cursor: not-allowed; }
+
+    #results { margin-top: 1.5rem; }
+
+    .val-card {
+      border-radius: 6px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .val-ok { background: #f0fff4; border: 1px solid #c3e6cb; }
+    .val-fail { background: #fff5f5; border: 1px solid #f5c6cb; }
+    .val-title { font-weight: 600; font-size: 0.95rem; }
+    .val-ok .val-title { color: #198754; }
+    .val-fail .val-title { color: #dc3545; }
+
+    .val-row { display: flex; gap: 0.75rem; align-items: flex-start; }
+    .val-icon { font-size: 1rem; min-width: 1.2rem; margin-top: 0.05rem; }
+    .val-ok .val-icon { color: #198754; }
+    .val-fail .val-icon { color: #dc3545; }
+
+    .val-detail { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; }
+    .val-label { font-size: 0.8rem; font-weight: 600; color: #495057; }
+    .val-code {
+      font-family: "Segoe UI Mono", "Courier New", monospace;
+      font-size: 0.72rem;
+      word-break: break-all;
+    }
+    .val-code.ok { color: #198754; }
+    .val-code.fail { color: #dc3545; }
+
+    .error-msg {
+      background: #fff5f5;
+      border: 1px solid #f5c6cb;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      color: #dc3545;
+      font-size: 0.875rem;
+    }
+
+    .info-box {
+      background: #f0f5ff;
+      border: 1px solid #c5d8ff;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-size: 0.78rem;
+      color: #4a6fa5;
+      margin-top: 1.5rem;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 520px) {
+      body { padding: 0.75rem 0.5rem; }
+      .card { padding: 1.1rem; }
+      .field-group { flex-direction: column; align-items: flex-start; }
+      .field-label { width: auto; }
+      .file-btn, .tx-input { width: 100%; }
+      .permalink { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <header>
+    <h1>Leima Validator</h1>
+    <span class="version-badge">v1</span>
+    <div class="permalink" id="permalink"></div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('verdict', this)">AI Verdict</button>
+    <button class="tab-btn" onclick="switchTab('notary', this)">Email Notary</button>
+  </div>
+
+  <!-- AI Verdict panel -->
+  <div id="panel-verdict" class="panel active">
+    <div class="field-group">
+      <span class="field-label">source</span>
+      <label class="file-btn" id="lbl-source" for="inp-source">Choose file…</label>
+      <input type="file" id="inp-source" onchange="setLabel(this,'lbl-source')">
+    </div>
+    <div class="field-group">
+      <span class="field-label">verdict.pdf</span>
+      <label class="file-btn" id="lbl-verdict" for="inp-verdict">Choose file…</label>
+      <input type="file" id="inp-verdict" accept="application/pdf" onchange="setLabel(this,'lbl-verdict')">
+    </div>
+    <div class="field-group">
+      <span class="field-label">manifest.json</span>
+      <label class="file-btn" id="lbl-manifest" for="inp-manifest">Choose file…</label>
+      <input type="file" id="inp-manifest" accept="application/json" onchange="setLabel(this,'lbl-manifest')">
+    </div>
+    <button class="validate-btn" onclick="validateVerdict()">Validate</button>
+  </div>
+
+  <!-- Email Notary panel -->
+  <div id="panel-notary" class="panel">
+    <div class="field-group">
+      <span class="field-label">Arweave TX</span>
+      <input type="text" class="tx-input" id="notary-tx" placeholder="paste tx_id from the notarized email">
+    </div>
+    <div class="field-group">
+      <span class="field-label">original.eml</span>
+      <label class="file-btn" id="lbl-eml" for="inp-eml">Choose file…</label>
+      <input type="file" id="inp-eml" accept=".eml,message/rfc822" onchange="setLabel(this,'lbl-eml')">
+    </div>
+    <p class="hint">Both are attached to the notarization email you received.</p>
+    <button class="validate-btn" onclick="validateNotary()">Validate</button>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="info-box">
+    This page is permanently stored on Arweave and works without leima.fi.
+    If a newer version exists, it will be referenced in stamps issued after the update.
+    To verify manually: <code>curl https://gateway.irys.xyz/&lt;tx_id&gt;</code> and compare SHA-256 hashes yourself.
+  </div>
+</div>
+
+<script>
+  const GATEWAY = 'https://gateway.irys.xyz';
+  const VALIDATOR_VERSION = 1;
+
+  // Show permalink if served from Arweave
+  (function () {
+    const path = window.location.pathname.replace(/^\//, '').split('/')[0];
+    if (path && path.length > 30) {
+      const el = document.getElementById('permalink');
+      el.innerHTML = 'This page: <a href="' + window.location.href + '" target="_blank">' + path.slice(0, 12) + '…</a>';
+    }
+    // Pre-fill tx from query param
+    const tx = new URLSearchParams(window.location.search).get('tx');
+    if (tx) {
+      document.getElementById('notary-tx').value = tx;
+      switchTab('notary', document.querySelectorAll('.tab-btn')[1]);
+    }
+  })();
+
+  function switchTab(name, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    btn.classList.add('active');
+    document.getElementById('results').innerHTML = '';
+  }
+
+  function setLabel(input, labelId) {
+    const label = document.getElementById(labelId);
+    if (input.files[0]) {
+      label.textContent = input.files[0].name;
+      label.classList.add('has-file');
+    }
+  }
+
+  async function sha256hex(buffer) {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  async function readFile(input) {
+    const file = input.files[0];
+    if (!file) return null;
+    return new Uint8Array(await file.arrayBuffer());
+  }
+
+  function showError(msg) {
+    document.getElementById('results').innerHTML =
+      '<div class="error-msg">' + escHtml(msg) + '</div>';
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function renderResults(rows) {
+    const allOk = rows.every(r => r.ok);
+    let html = '<div class="val-card ' + (allOk ? 'val-ok' : 'val-fail') + '">';
+    html += '<div class="val-title">' + (allOk ? '✓ All checks passed' : '✗ Validation failed') + '</div>';
+    for (const r of rows) {
+      html += '<div class="val-row">';
+      html += '<span class="val-icon">' + (r.ok ? '✓' : '✗') + '</span>';
+      html += '<div class="val-detail">';
+      html += '<span class="val-label">' + escHtml(r.label) + '</span>';
+      if (r.ok) {
+        html += '<span class="val-code ok">' + escHtml(r.value) + '</span>';
+      } else {
+        html += '<span class="val-code fail">Expected: ' + escHtml(r.expected) + '</span>';
+        html += '<span class="val-code fail">Got:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + escHtml(r.actual) + '</span>';
+      }
+      html += '</div></div>';
+    }
+    html += '</div>';
+    document.getElementById('results').innerHTML = html;
+  }
+
+  async function validateVerdict() {
+    const sourceBytes = await readFile(document.getElementById('inp-source'));
+    const verdictBytes = await readFile(document.getElementById('inp-verdict'));
+    const manifestBytes = await readFile(document.getElementById('inp-manifest'));
+
+    if (!sourceBytes || !verdictBytes || !manifestBytes) {
+      return showError('Please select all three files.');
+    }
+
+    let manifest;
+    try {
+      manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
+    } catch {
+      return showError('manifest.json is not valid JSON.');
+    }
+
+    const rows = [];
+
+    const sourceHash = await sha256hex(sourceBytes);
+    const sourceExpected = (manifest.input || {}).sha256 || '';
+    rows.push({
+      label: 'Source hash',
+      ok: sourceHash === sourceExpected,
+      expected: sourceExpected,
+      actual: sourceHash,
+      value: sourceHash,
+    });
+
+    const verdictHash = await sha256hex(verdictBytes);
+    const verdictExpected = (manifest.verdict_pdf || {}).sha256 || '';
+    rows.push({
+      label: 'Verdict PDF hash',
+      ok: verdictHash === verdictExpected,
+      expected: verdictExpected,
+      actual: verdictHash,
+      value: verdictHash,
+    });
+
+    const stamp = manifest.stamp || manifest.arweave || manifest.irys || {};
+    const txId = stamp.tx_id;
+    if (!txId) {
+      rows.push({ label: 'Arweave record', ok: false, expected: 'tx_id in manifest', actual: 'missing', value: '' });
+    } else {
+      try {
+        const resp = await fetch(GATEWAY + '/' + txId);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const remote = await resp.json();
+        const base = Object.fromEntries(Object.entries(manifest).filter(([k]) => k !== 'stamp'));
+        const match = JSON.stringify(remote) === JSON.stringify(base);
+        rows.push({
+          label: 'Arweave record',
+          ok: match,
+          expected: 'content matches',
+          actual: match ? '' : 'content mismatch',
+          value: GATEWAY + '/' + txId,
+        });
+      } catch (e) {
+        rows.push({ label: 'Arweave record', ok: false, expected: 'fetch ok', actual: String(e), value: '' });
+      }
+    }
+
+    renderResults(rows);
+  }
+
+  async function validateNotary() {
+    const txId = document.getElementById('notary-tx').value.trim();
+    const emlBytes = await readFile(document.getElementById('inp-eml'));
+
+    if (!txId) return showError('Please enter the Arweave TX ID.');
+    if (!emlBytes) return showError('Please select the original.eml file.');
+
+    let manifest;
+    try {
+      const resp = await fetch(GATEWAY + '/' + txId);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      manifest = await resp.json();
+    } catch (e) {
+      return showError('Could not fetch manifest from Arweave: ' + e);
+    }
+
+    const rows = [];
+
+    const emlHash = await sha256hex(emlBytes);
+    const emlExpected = manifest.email_sha256 || '';
+    rows.push({
+      label: 'Email hash',
+      ok: emlHash === emlExpected,
+      expected: emlExpected,
+      actual: emlHash,
+      value: emlHash,
+    });
+
+    const dkim = manifest.dkim || 'none';
+    rows.push({
+      label: 'DKIM (at time of notarization)',
+      ok: dkim === 'valid',
+      expected: 'valid',
+      actual: dkim,
+      value: dkim,
+    });
+
+    rows.push({
+      label: 'Arweave record',
+      ok: true,
+      value: GATEWAY + '/' + txId,
+    });
+
+    renderResults(rows);
+  }
+</script>
+
+</body>
+</html>

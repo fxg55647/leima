@@ -50,10 +50,10 @@
       <span class="hash-label">Verdict PDF SHA-256</span>
       <code class="hash-value">{{ verdict_hash }}</code>
     </div>
-    {% if pode_snap and pode_snap.tx %}
+    {% if poide_snap and poide_snap.tx %}
     <div class="hash-row">
-      <span class="hash-label">Deployment proof on Arweave ({{ pode_snap.ts }})</span>
-      <a class="hash-value" href="{{ irys_gateway }}/{{ pode_snap.tx }}" target="_blank" rel="noopener">{{ pode_snap.tx }}</a>
+      <span class="hash-label">Deployment proof on Arweave ({{ poide_snap.ts }})</span>
+      <a class="hash-value" href="{{ irys_gateway }}/{{ poide_snap.tx }}" target="_blank" rel="noopener">{{ poide_snap.tx }}</a>
     </div>
     {% endif %}
   </div>

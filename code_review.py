@@ -39,7 +39,7 @@ Your task: verify that the source code below complies with the data policy in PO
 
 Architecture note: the codebase has two distinct parts:
 - User-data path: main.py, neutral_witness.py, notary.py — these handle user documents and emails
-- Infrastructure path: pode_check.py, pode_arweave.py, monthly_audit.py — these are deployment integrity monitors that never touch user data
+- Infrastructure path: poide_check.py, poide_arweave.py, monthly_audit.py — these are deployment integrity monitors that never touch user data
 
 Check each of the following, citing specific file and line where relevant:
 
@@ -50,7 +50,7 @@ Check each of the following, citing specific file and line where relevant:
 5. Does the Arweave/Irys upload in the user-data path contain anything beyond hashes and metadata?
 6. Are there any external HTTP calls in the user-data path not described in POLICY.md?
 
-Note: infrastructure scripts (pode_check.py, pode_arweave.py, monthly_audit.py) make HTTP calls to Render API, GitHub API, and Arweave — these are deployment monitoring calls, not user-data calls, and are not in scope for POLICY.md compliance.
+Note: infrastructure scripts (poide_check.py, poide_arweave.py, monthly_audit.py) make HTTP calls to Render API, GitHub API, and Arweave — these are deployment monitoring calls, not user-data calls, and are not in scope for POLICY.md compliance.
 
 For each check write one line: PASS or FAIL — and a brief explanation.
 
@@ -79,7 +79,7 @@ def write_summary(text: str, compliant: bool):
         return
     status = "✅ COMPLIANT" if compliant else "❌ VIOLATION DETECTED"
     with open(summary_file, "w", encoding="utf-8") as f:
-        f.write(f"# PoDe Code Review — {status}\n\n```\n{text}\n```\n")
+        f.write(f"# POIDE Code Review — {status}\n\n```\n{text}\n```\n")
 
 
 root = Path(__file__).parent

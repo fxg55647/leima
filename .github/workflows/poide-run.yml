@@ -1,4 +1,4 @@
-name: PoDe check (reusable)
+name: POIDE check (reusable)
 # WARNING: Do not add concurrency groups — causes queue bursts that trigger
 # GitHub abuse detection and stop all scheduled runs for up to an hour.
 # WARNING: Do not add "Fail if check failed" or sys.exit(1) — workflow must
@@ -22,7 +22,7 @@ jobs:
 
       - run: pip install requests irys-sdk
 
-      - name: Run PoDe check
+      - name: Run POIDE check
         id: check
         continue-on-error: true
         env:
@@ -30,7 +30,7 @@ jobs:
           RENDER_SERVICE_ID:  ${{ secrets.RENDER_SERVICE_ID }}
 
           GITHUB_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
-        run: python pode_check.py
+        run: python poide_check.py
 
       - name: Upload status to Arweave
         continue-on-error: true
@@ -38,7 +38,7 @@ jobs:
           IRYS_PRIVATE_KEY: ${{ secrets.IRYS_PRIVATE_KEY }}
           IRYS_NETWORK:     ${{ secrets.IRYS_NETWORK }}
           IRYS_RPC_URL:     ${{ secrets.IRYS_RPC_URL }}
-        run: python pode_arweave.py
+        run: python poide_arweave.py
 
       - name: Push status.json and log to gh-pages
         continue-on-error: true

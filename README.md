@@ -26,7 +26,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Setup](#setup)
 - [Validation](#validation)
 - [Deployment](#deployment)
-- [Deployment integrity (PoDe)](#deployment-integrity-pode)
+- [Deployment integrity (POIDE)](#deployment-integrity-poide)
 - [Data policy](POLICY.md)
 
 ---
@@ -243,12 +243,12 @@ The blockchain record proves that a specific analysis of a specific document exi
 **You do not need to trust the authors**
 Leima is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
-**Deployment integrity monitoring (PoDe)**
-Open source code is auditable — but only if the running code is the same as the published code. Leima implements PoDe (Proof of Deployment): five GitHub Actions workflows run on a staggered schedule, together achieving one-minute polling resolution. Each workflow queries the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishes the result publicly. Anyone can verify deployment integrity without credentials, at any time.
+**Deployment integrity monitoring (POIDE)**
+Open source code is auditable — but only if the running code is the same as the published code. Leima implements POIDE (Proof of Deployment): five GitHub Actions workflows run on a staggered schedule, together achieving one-minute polling resolution. Each workflow queries the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishes the result publicly. Anyone can verify deployment integrity without credentials, at any time.
 
-See [PODE.md](PODE.md) for a full description of the protocol, the current implementation, the longer-term vision, real-world incidents where deployment transparency would have helped (XZ Utils, PHP git compromise, Picreel), and how PoDe relates to existing approaches such as Sigstore and Meta Code Verify.
+See [POIDE.md](POIDE.md) for a full description of the protocol, the current implementation, the longer-term vision, real-world incidents where deployment transparency would have helped (XZ Utils, PHP git compromise, Picreel), and how POIDE relates to existing approaches such as Sigstore and Meta Code Verify.
 
-One residual trust assumption remains: Render, as the hosting provider, could in principle report a false commit hash while running different code. This is a different category of risk than ordinary vulnerabilities — it requires the hosting provider to actively conspire against users. See PODE.md for a discussion of how this could be mitigated.
+One residual trust assumption remains: Render, as the hosting provider, could in principle report a false commit hash while running different code. This is a different category of risk than ordinary vulnerabilities — it requires the hosting provider to actively conspire against users. See POIDE.md for a discussion of how this could be mitigated.
 
 **Planned: privacy-committed AI providers**
 A future option will allow switching to AI providers that operate under strict, publicly auditable privacy commitments — where documents are contractually guaranteed not to be used for training or retained after the request. The stamping and verification layer remains identical; only the AI backend changes. This preserves the trust model while reducing reliance on Google's standard API terms.
@@ -262,10 +262,10 @@ A future option will allow switching to AI providers that operate under strict, 
 | Verdict modified after creation | Yes | Hash mismatch detected on validation |
 | Source file modified after creation | Yes | Hash mismatch detected on validation |
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
-| Code violates stated data policy | Yes | AI audits all source files against POLICY.md on every commit; workflow fails and PoDe turns red if a violation is found |
-| Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render deploy takes longer than one minute; PoDe polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
+| Code violates stated data policy | Yes | AI audits all source files against POLICY.md on every commit; workflow fails and POIDE turns red if a violation is found |
+| Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render deploy takes longer than one minute; POIDE polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
 | Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
-| Hosting provider (Render) swaps running code silently | Partly | PoDe detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
+| Hosting provider (Render) swaps running code silently | Partly | POIDE detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
 | Leima lies during original run | Partly | Full prompt logic is isolated in `neutral_witness.py` and audited on every commit |
 | AI verdict is wrong | Partly | The hash commitment stands regardless — document tampering is still provable. The AI analysis is a first opinion, not a legal authority |
 | Document is fake before upload | No | Leima timestamps existence, does not authenticate origin |
@@ -355,8 +355,8 @@ To enable the email notary, add a **Cron Job** service pointing at `POST /notary
 
 ---
 
-## Deployment integrity (PoDe)
+## Deployment integrity (POIDE)
 
 Five GitHub Actions workflows run on a staggered schedule and together poll deployment status every minute. Each run checks three conditions: the live Render commit matches the GitHub repository HEAD, the latest automated code review passed, and the deploy history contains no commits absent from git. Results are published to the `gh-pages` branch as `status.json`.
 
-Before submitting sensitive documents, verify that the PoDe Code Review and the five PoDe A–E workflows show green on the [Actions tab](../../actions). See [PODE.md](PODE.md) for the full protocol description.
+Before submitting sensitive documents, verify that the POIDE Code Review and the five POIDE A–E workflows show green on the [Actions tab](../../actions). See [POIDE.md](POIDE.md) for the full protocol description.

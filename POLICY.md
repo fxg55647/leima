@@ -98,7 +98,7 @@ The model is not instructed to retain, summarise, or report your data for any ot
 
 ## Deployment integrity
 
-Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [PODE.md](PODE.md) for details.
+Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [POIDE.md](POIDE.md) for details.
 
 ---
 

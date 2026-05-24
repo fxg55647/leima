@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         PoDe — Leima deployment check
+// @name         POIDE — Leima deployment check
 // @namespace    https://github.com/fxg55647/leima
 // @version      1.0
 // @description  Verifies Leima deployment integrity before each session
@@ -13,7 +13,7 @@ const STATUS_URL = "https://fxg55647.github.io/leima/status.json";
 
 function banner(color, message, detail) {
     const el = document.createElement("div");
-    el.id = "pode-banner";
+    el.id = "poide-banner";
     el.style.cssText = `
         position:fixed; top:0; left:0; right:0; z-index:999999;
         background:${color}; color:#fff; padding:10px 16px;
@@ -69,26 +69,26 @@ GM_xmlhttpRequest({
     onload(r) {
         let d;
         try { d = JSON.parse(r.responseText); }
-        catch { banner("#e67e22", "PoDe ✗", "status.json ei ole kelvollinen JSON"); return; }
+        catch { banner("#e67e22", "POIDE ✗", "status.json ei ole kelvollinen JSON"); return; }
 
         const changed = checkMonitorFiles(d.monitor_files || {});
         const hist = historyLabel(d.history);
 
         if (!d.ok) {
-            banner("#c0392b", "PoDe ✗ — tarkista GitHub Actions ennen käyttöä", failReason(d));
+            banner("#c0392b", "POIDE ✗ — tarkista GitHub Actions ennen käyttöä", failReason(d));
         } else if (changed) {
-            banner("#e67e22", "PoDe ⚠ — valvontatiedostot muuttuneet edellisestä sessiosta",
+            banner("#e67e22", "POIDE ⚠ — valvontatiedostot muuttuneet edellisestä sessiosta",
                 changed.join(", "));
         } else if (hist && hist.level !== "green") {
             banner(hist.level === "red" ? "#c0392b" : "#e67e22",
-                "PoDe ⚠ — " + hist.text, null);
+                "POIDE ⚠ — " + hist.text, null);
         } else {
             const detail = hist ? hist.text : null;
-            banner("#27ae60", "PoDe ✓ — koodi tarkistettu, deployment kunnossa", detail);
-            setTimeout(() => document.getElementById("pode-banner")?.remove(), 5000);
+            banner("#27ae60", "POIDE ✓ — koodi tarkistettu, deployment kunnossa", detail);
+            setTimeout(() => document.getElementById("poide-banner")?.remove(), 5000);
         }
     },
     onerror() {
-        banner("#e67e22", "PoDe ✗", "ei yhteyttä status.json:iin");
+        banner("#e67e22", "POIDE ✗", "ei yhteyttä status.json:iin");
     }
 });

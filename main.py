@@ -47,14 +47,14 @@ NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.fi>")
 NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
 LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.fi")
 
-_pode_cache: dict | None = None
-_pode_cache_ready = threading.Event()
+_poide_cache: dict | None = None
+_poide_cache_ready = threading.Event()
 _PAGES_URL = "https://fxg55647.github.io/leima"
 
-def _pode_dispatcher():
-    global _pode_cache
+def _poide_dispatcher():
+    global _poide_cache
     token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
-    dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/pode-a.yml/dispatches"
+    dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/poide-a.yml/dispatches"
     log_url = f"{_PAGES_URL}/status-log.jsonl"
     hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
     cache_populated = False
@@ -63,8 +63,8 @@ def _pode_dispatcher():
             r = http_requests.get(log_url, timeout=10)
             lines = [l for l in r.text.strip().splitlines() if l]
             if lines:
-                _pode_cache = json.loads(lines[-1])
-                _pode_cache_ready.set()
+                _poide_cache = json.loads(lines[-1])
+                _poide_cache_ready.set()
                 cache_populated = True
         except Exception:
             pass
@@ -75,7 +75,7 @@ def _pode_dispatcher():
                 pass
         time.sleep(60 if cache_populated else 5)
 
-threading.Thread(target=_pode_dispatcher, daemon=True).start()
+threading.Thread(target=_poide_dispatcher, daemon=True).start()
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -776,8 +776,8 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
                   source_ext: str = "pdf", source_mime: str = "application/pdf",
                   email_meta: dict | None = None, web_meta: dict | None = None,
                   source_context: dict | None = None) -> dict:
-    _pode_cache_ready.wait()
-    pode_snap = _pode_cache.copy() if _pode_cache else None
+    _poide_cache_ready.wait()
+    poide_snap = _poide_cache.copy() if _poide_cache else None
 
     result = analyse(question, contents, source_context=source_context)
     input_hash = sha256(input_bytes)
@@ -793,13 +793,13 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         email_meta=email_meta,
         web_meta=web_meta,
     )
-    if pode_snap and pode_snap.get("tx"):
-        manifest["pode"] = {
-            "tx": pode_snap["tx"],
-            "url": f"{IRYS_GATEWAY}/{pode_snap['tx']}",
-            "checked_at": pode_snap.get("ts", ""),
-            "commit": pode_snap.get("commit", ""),
-            "ok": pode_snap.get("ok", False),
+    if poide_snap and poide_snap.get("tx"):
+        manifest["poide"] = {
+            "tx": poide_snap["tx"],
+            "url": f"{IRYS_GATEWAY}/{poide_snap['tx']}",
+            "checked_at": poide_snap.get("ts", ""),
+            "commit": poide_snap.get("commit", ""),
+            "ok": poide_snap.get("ok", False),
         }
     session_id = str(uuid.uuid4())[:12]
     _evict_old_sessions()
@@ -819,7 +819,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         "verdict_pdf": verdict_pdf,
         "verdict_hash": verdict_hash,
         "manifest": manifest,
-        "pode_snap": pode_snap,
+        "poide_snap": poide_snap,
         "session_id": session_id,
         "input_label": input_label,
     }
@@ -962,7 +962,7 @@ async def ask(
             "verdict_hash": result["verdict_hash"],
             "session_id": result["session_id"],
             "timestamp": result["timestamp"],
-            "pode_snap": result.get("pode_snap"),
+            "poide_snap": result.get("poide_snap"),
             "irys_gateway": IRYS_GATEWAY,
             "c2pa": c2pa_info if active_tab == "image" else None,
         },

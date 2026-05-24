@@ -45,7 +45,7 @@ for e in month_entries:
 failed_windows = [e for e in month_entries if not e.get("ok")]
 
 summary = {
-    "type":           "pode-monthly-summary",
+    "type":           "poide-monthly-summary",
     "month":          month_str,
     "total_checks":   total,
     "ok_checks":      ok_count,
@@ -63,7 +63,7 @@ uploader = builder.build()
 tags = tags_from_dict({
     "Content-Type": "application/json",
     "App-Name":     "Leima",
-    "Leima-Type":   "pode-monthly-summary",
+    "Leima-Type":   "poide-monthly-summary",
     "Month":        month_str,
 })
 
