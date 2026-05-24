@@ -1,8 +1,14 @@
-# POIDE — Proof of Deployment
+# POIDE — Proof of Intended Deployment
 
 Open source code is auditable. But "you can read the code" only proves that *some version* of the code is readable — not that it is the version currently running on the server. A hosting provider, a compromised deployment pipeline, or an attacker with account access could replace the running code without touching the git repository. Users would have no way to know.
 
-POIDE (Proof of Deployment) is a protocol for closing this gap. The idea is simple: query the hosting provider's API directly — not the application — to find out which git commit is deployed, then compare it to the public repository. If they match, the code running is the code you can read.
+POIDE (Proof of Intended Deployment) is a protocol for closing this gap. The idea is simple: query the hosting provider's API directly — not the application — to find out which git commit is deployed, then compare it to the public repository. If they match, the code the hosting provider was instructed to run is the code you can read.
+
+**What POIDE proves — and what it does not.** POIDE records which commit the hosting provider was asked to deploy and what it reports as currently running. It does not provide cryptographic proof of what code the hosting provider actually executed in memory. That distinction matters: the proof is about *intended* deployment, not execution-level attestation. For most threat models — where the concern is an operator quietly swapping application code — this is sufficient. Hardware-level execution attestation would require trusted execution environments (TEEs) or similar infrastructure and remains out of scope for this protocol.
+
+**Open source projects.** For software with a public repository, POIDE makes the intended deployment visible to everyone. Any user, journalist, regulator, or researcher can independently verify which commit is running without trusting the operator's word. This is a meaningful property: it turns "trust us, we run what we say" into a continuously auditable claim.
+
+**Closed source projects.** POIDE is equally applicable to proprietary software. An organisation can use it to prove internally — to management, a compliance team, a business partner, or a regulatory authority — which version of their software was running at a given time. The audit trail on Arweave is permanent and cannot be retroactively altered, making it useful for post-incident analysis, regulatory reporting, or contractual obligations.
 
 ---
 
