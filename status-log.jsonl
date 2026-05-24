@@ -174,4 +174,4 @@
 {"ts": "2026-05-24 22:33:28 UTC", "tx": "KyGVp68rFR5tSnG3sw6XtXZNDPFGSEZAGNtsLj8NRrD", "ok": true, "commit": "4a2b4a0", "deploy_status": "live", "deployment_ok": true, "review_ok": true}
 {"ts": "2026-05-24 22:34:40 UTC", "tx": "9Nxz6ZYq9LfzLg5k62ZdTRWQGq4NsQ7PbLzinqoup5sU", "ok": true, "commit": "4a2b4a0", "deploy_status": "live", "deployment_ok": true, "review_ok": true}
 {"ts": "2026-05-24 22:35:31 UTC", "tx": "3oBjRgiibDDE95ku5mKM5ktQqHJnDpfXUEKdg2VBvkDw", "ok": true, "commit": "4a2b4a0", "deploy_status": "live", "deployment_ok": true, "review_ok": true}
-{"ts": "2026-05-24 22:38:24 UTC", "tx": "9wQpX9MsXrgYinBbicAAoMCmCfzB3XRs3wZYFK8tR2Xj", "ok": false, "commit": "43cc842", "deploy_status": "live", "deployment_ok": false, "review_ok": false}
+{"ts": "2026-05-24 22:38:57 UTC", "tx": "Hma3XcvdW954n9qBgWvcGU3fsUWFRer2iwBCXwgyTUsY", "ok": false, "commit": "43cc842", "deploy_status": "live", "deployment_ok": false, "review_ok": true}
