@@ -945,7 +945,7 @@
           fadeSet(row('OK', '#fff'), 'ok');
         } else if (p.ok === false) {
           if (!p.deployment_ok) {
-            fadeSet(row('Warning', '#f0a030', 'commit mismatch'), 'warning');
+            fadeSet(row('Deploying', '#adb5bd', ''), 'loading');
           } else if (p.rapid_deploy_warning) {
             fadeSet(row('Warning', '#f0a030', 'rapid deploys'), 'warning');
           } else {
