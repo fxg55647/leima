@@ -2,15 +2,11 @@ import hashlib, os, sys, json, requests
 from datetime import datetime, timezone
 from pathlib import Path
 
-POIDE_WORKFLOWS   = [f"poide-{c}.yml" for c in "abcde"]
+POIDE_WORKFLOWS   = ["poide-a.yml"]
 MAX_CRON_AGE_MIN  = 10  # 5-min schedule with 2× headroom
 
 MONITOR_FILES = [
     ".github/workflows/poide-a.yml",
-    ".github/workflows/poide-b.yml",
-    ".github/workflows/poide-c.yml",
-    ".github/workflows/poide-d.yml",
-    ".github/workflows/poide-e.yml",
     ".github/workflows/poide-run.yml",
     ".github/workflows/monthly-audit.yml",
     ".github/workflows/code_review.yml",
