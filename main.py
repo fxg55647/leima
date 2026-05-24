@@ -47,18 +47,33 @@ NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.fi>")
 NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
 LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.fi")
 
+_pode_cache: dict | None = None
+_pode_cache_ready = threading.Event()
+_PAGES_URL = "https://fxg55647.github.io/leima"
+
 def _pode_dispatcher():
+    global _pode_cache
     token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
-    if not token:
-        return
-    url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/pode-a.yml/dispatches"
+    dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/pode-a.yml/dispatches"
+    log_url = f"{_PAGES_URL}/status-log.jsonl"
     hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    cache_populated = False
     while True:
-        time.sleep(60)
         try:
-            http_requests.post(url, headers=hdrs, json={"ref": "main"}, timeout=10)
+            r = http_requests.get(log_url, timeout=10)
+            lines = [l for l in r.text.strip().splitlines() if l]
+            if lines:
+                _pode_cache = json.loads(lines[-1])
+                _pode_cache_ready.set()
+                cache_populated = True
         except Exception:
             pass
+        if token:
+            try:
+                http_requests.post(dispatch_url, headers=hdrs, json={"ref": "main"}, timeout=10)
+            except Exception:
+                pass
+        time.sleep(60 if cache_populated else 5)
 
 threading.Thread(target=_pode_dispatcher, daemon=True).start()
 
@@ -139,7 +154,39 @@ def _safe(text: str) -> str:
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
-def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str, prompts: list[tuple[str, str]] | None = None) -> bytes:
+def _source_assessment_text(source_context: dict | None) -> str:
+    if not source_context:
+        return "Document (uploaded) — No verifiable origin. Content assessed against claim only."
+    t = source_context.get("type", "document")
+    if t == "email":
+        parts = ["Email (IMAP)", f"DKIM: {source_context.get('dkim', 'none')}"]
+        if source_context.get("sender_domain"):
+            parts.append(f"Sender domain: {source_context['sender_domain']}")
+        return " — ".join(parts)
+    elif t == "image_c2pa_valid":
+        s = "Image — C2PA: valid — Origin cryptographically established"
+        if source_context.get("c2pa_generator"):
+            s += f" — Generator: {source_context['c2pa_generator']}"
+        return s
+    elif t == "image_c2pa_invalid":
+        return "Image — C2PA: INVALID — Modified after capture. Content assessed against claim only."
+    elif t == "image_no_c2pa":
+        return "Image — No C2PA provenance. Content assessed against claim only."
+    elif t == "web":
+        parts = [f"Web page — Domain: {source_context.get('domain', 'unknown')}"]
+        if source_context.get("fetched_at"):
+            parts.append(f"Fetched: {source_context['fetched_at']}")
+        return " — ".join(parts)
+    elif t == "pdf_url":
+        parts = [f"PDF from URL — Domain: {source_context.get('domain', 'unknown')}"]
+        if source_context.get("fetched_at"):
+            parts.append(f"Fetched: {source_context['fetched_at']}")
+        return " — ".join(parts)
+    else:
+        return "Document (uploaded) — No verifiable origin. Content assessed against claim only."
+
+
+def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str, prompts: list[tuple[str, str]] | None = None, source_context: dict | None = None) -> bytes:
     pdf = FPDF()
     pdf.add_page()
 
@@ -151,7 +198,9 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
     pdf.set_text_color(120, 120, 120)
     pdf.cell(0, 6, f"Timestamp: {timestamp}", ln=True)
     pdf.cell(0, 6, f"Model: {MODEL}", ln=True)
+    pdf.cell(0, 6, _safe(f"Commit: {os.getenv('RENDER_GIT_COMMIT', 'unknown')}"), ln=True)
     pdf.cell(0, 6, _safe(f"Input hash (SHA-256): {input_hash}"), ln=True)
+    pdf.cell(0, 6, _safe(f"Source: {_source_assessment_text(source_context)}"), ln=True)
     pdf.ln(4)
 
     pdf.set_text_color(0, 0, 0)
@@ -167,6 +216,18 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
         pdf.set_font("Helvetica", size=11)
         html = _md.markdown(text or "", extensions=["nl2br"])
         pdf.write_html(html)
+
+    pdf.ln(10)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 6, "Interpretive note", ln=True)
+    pdf.set_font("Helvetica", size=9)
+    pdf.multi_cell(0, 5, _safe(
+        "AI analysis can in principle be disrupted by text deliberately embedded in the document. "
+        "Use your own judgement about how likely this is: an official message from a reputable sender rarely contains such attempts. "
+        "For emails: check the sender domain and DKIM validation result."
+    ))
+    pdf.set_text_color(0, 0, 0)
 
     return bytes(pdf.output())
 
@@ -185,6 +246,7 @@ def build_manifest(
         "version": "1",
         "timestamp": timestamp,
         "model": model,
+        "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
 
         "input": {"label": input_label, "sha256": input_hash},
         "verdict_pdf": {"sha256": verdict_hash},
@@ -710,10 +772,14 @@ def _text_to_input_pdf(text: str) -> bytes:
 
 def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str,
                   source_ext: str = "pdf", source_mime: str = "application/pdf",
-                  email_meta: dict | None = None, web_meta: dict | None = None) -> dict:
-    result = analyse(question, contents, is_email=email_meta is not None)
+                  email_meta: dict | None = None, web_meta: dict | None = None,
+                  source_context: dict | None = None) -> dict:
+    _pode_cache_ready.wait()
+    pode_snap = _pode_cache.copy() if _pode_cache else None
+
+    result = analyse(question, contents, source_context=source_context)
     input_hash = sha256(input_bytes)
-    verdict_pdf = build_verdict_pdf(question, result["passes"], result["timestamp"], input_hash, prompts=result["prompt_log"])
+    verdict_pdf = build_verdict_pdf(question, result["passes"], result["timestamp"], input_hash, prompts=result["prompt_log"], source_context=source_context)
     verdict_hash = sha256(verdict_pdf)
     manifest = build_manifest(
         timestamp=result["timestamp"],
@@ -725,6 +791,14 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         email_meta=email_meta,
         web_meta=web_meta,
     )
+    if pode_snap and pode_snap.get("tx"):
+        manifest["pode"] = {
+            "tx": pode_snap["tx"],
+            "url": f"{IRYS_GATEWAY}/{pode_snap['tx']}",
+            "checked_at": pode_snap.get("ts", ""),
+            "commit": pode_snap.get("commit", ""),
+            "ok": pode_snap.get("ok", False),
+        }
     session_id = str(uuid.uuid4())[:12]
     _evict_old_sessions()
     store[session_id] = {
@@ -737,11 +811,13 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
     return {
         "passes": result["passes"],
         "summary_verdict": result["summary_verdict"],
+        "verdict_category": result.get("verdict_category", "Epävarma"),
         "timestamp": result["timestamp"],
         "input_hash": input_hash,
         "verdict_pdf": verdict_pdf,
         "verdict_hash": verdict_hash,
         "manifest": manifest,
+        "pode_snap": pode_snap,
         "session_id": session_id,
         "input_label": input_label,
     }
@@ -764,6 +840,7 @@ async def ask(
     email_meta = None
     web_meta = None
     c2pa_info = None
+    source_context = None
     source_ext = "pdf"
     source_mime = "application/pdf"
 
@@ -779,6 +856,14 @@ async def ask(
         source_ext = image_file.filename.rsplit(".", 1)[-1].lower()
         source_mime = mime
         contents.append(types.Part.from_bytes(data=input_bytes, mime_type=mime))
+        if c2pa_info and c2pa_info.get("present"):
+            source_context = {
+                "type": "image_c2pa_valid" if c2pa_info.get("valid") else "image_c2pa_invalid",
+                "c2pa_generator": c2pa_info.get("generator", ""),
+                "c2pa_signer": c2pa_info.get("signer", ""),
+            }
+        else:
+            source_context = {"type": "image_no_c2pa"}
 
     elif active_tab == "pdf":
         if pdf_url.strip():
@@ -786,9 +871,12 @@ async def ask(
                 input_bytes, input_label = _fetch_pdf_from_url(pdf_url.strip())
             except Exception as e:
                 return HTMLResponse(f'<div class="error">URL error: {e}</div>')
+            parsed = urlparse(pdf_url.strip())
+            source_context = {"type": "pdf_url", "domain": parsed.netloc, "url": pdf_url.strip()}
         elif pdf_file and pdf_file.filename:
             input_bytes = await pdf_file.read()
             input_label = pdf_file.filename
+            source_context = {"type": "document"}
         else:
             return HTMLResponse('<div class="error">Please upload a PDF or enter a URL.</div>')
         contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
@@ -798,6 +886,7 @@ async def ask(
             return HTMLResponse('<div class="error">Please paste some text.</div>')
         input_bytes = _text_to_input_pdf(text_input)
         input_label = "text-input"
+        source_context = {"type": "document"}
         contents.append(f"Document content:\n{text_input}")
 
     elif active_tab == "web":
@@ -809,6 +898,8 @@ async def ask(
             return HTMLResponse(f'<div class="error">URL error: {e}</div>')
         web_meta = {"url": fetched_url, "fetched_at": fetched_at}
         input_label = fetched_url
+        parsed = urlparse(fetched_url)
+        source_context = {"type": "web", "domain": parsed.netloc, "fetched_at": fetched_at, "url": fetched_url}
         contents.append(f"Web page from: {fetched_url}\nFetched at: {fetched_at}\n\n{page_text}")
 
     elif active_tab == "email":
@@ -823,6 +914,8 @@ async def ask(
             "dkim": msg["dkim"],
             "body_sha256": body_hash,
         }
+        sender_domain = msg["from"].split("@")[-1].rstrip(">").strip() if "@" in msg["from"] else ""
+        source_context = {"type": "email", "dkim": msg["dkim"], "sender_domain": sender_domain}
         input_bytes = _text_to_input_pdf(
             f"From: {msg['from']}\nTo: {msg['to']}\nSubject: {msg['subject']}\n"
             f"Date: {msg['date']}\nMessage-ID: {msg['message_id']}\n"
@@ -840,7 +933,7 @@ async def ask(
     try:
         result = _run_analysis(question, contents, input_bytes, input_label,
                                source_ext, source_mime,
-                               email_meta, web_meta)
+                               email_meta, web_meta, source_context)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
 
@@ -854,11 +947,14 @@ async def ask(
             "passes": result["passes"],
             "question": question,
             "summary_verdict": result["summary_verdict"],
+            "verdict_category": result["verdict_category"],
             "filename": result["input_label"],
             "input_hash": result["input_hash"],
             "verdict_hash": result["verdict_hash"],
             "session_id": result["session_id"],
             "timestamp": result["timestamp"],
+            "pode_snap": result.get("pode_snap"),
+            "irys_gateway": IRYS_GATEWAY,
             "c2pa": c2pa_info if active_tab == "image" else None,
         },
     )

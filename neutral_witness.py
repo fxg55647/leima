@@ -26,7 +26,7 @@ _SCOPE = """Leima is a tool for economic activity, scientific work, and the veri
 
 Because of this, Leima does not make exceptions based on whether content appears illegal or harmful. The scope is defined by purpose, not by content:
 
-Testing, curiosity, and humorous or trivial claims are explicitly permitted.
+Testing, curiosity, humorous or trivial claims, and sports analytics or verification of public sporting events and results are explicitly permitted.
 
 Refuse to analyse any document or claim that appears intended for:
 - Surveillance, stalking, or monitoring individuals without their knowledge
@@ -40,7 +40,61 @@ REJECTED: This request falls outside the permitted use of Leima.
 
 Otherwise, proceed with the analysis."""
 
-_EMAIL_IDENTITY = """If the document is an email, also assess sender identity credibility: consider the DKIM validation result (valid/invalid/none), whether the From address domain matches the sending infrastructure, and any other signals that might indicate the sender is not who they claim to be. State your assessment explicitly."""
+def _source_block(source_context: dict | None) -> str:
+    if not source_context:
+        return (
+            "Source type: User-provided document (uploaded file or pasted text). "
+            "This document has no verifiable origin — it is not known who created or modified it. "
+            "Assess only whether its content supports or contradicts the claim. "
+            "Do not draw conclusions about the truth value of the claim itself — only about what the document states."
+        )
+    t = source_context.get("type", "document")
+    if t == "email":
+        dkim = source_context.get("dkim", "none")
+        domain = source_context.get("sender_domain", "unknown")
+        return (
+            f"Source type: Email (fetched via IMAP). DKIM: {dkim}. Sender domain: {domain}. "
+            "Assess sender identity credibility based on the DKIM result and whether the sender domain "
+            "matches the claimed sender. "
+            "If the claim names a specific individual as the recipient, verify that this person's name "
+            "or email address appears in the To field or email body — if not, flag this as a significant gap."
+        )
+    elif t == "image_c2pa_valid":
+        return (
+            "Source type: Image with a valid C2PA cryptographic signature. "
+            "The image's origin and authenticity are cryptographically established. "
+            "Treat the image content as genuine unless internal inconsistencies suggest otherwise."
+        )
+    elif t == "image_c2pa_invalid":
+        return (
+            "Source type: Image with an INVALID C2PA signature. "
+            "The image has been modified after the original capture. "
+            "Factor this significantly into your credibility assessment."
+        )
+    elif t == "image_no_c2pa":
+        return (
+            "Source type: Image without provenance data. "
+            "The image's origin cannot be cryptographically verified. "
+            "Assess only whether its content supports or contradicts the claim — do not speculate about origin. "
+            "Do not draw conclusions about truth value beyond what the image itself shows."
+        )
+    elif t in ("web", "pdf_url"):
+        domain = source_context.get("domain", "unknown")
+        label = "Web page" if t == "web" else "PDF document"
+        return (
+            f"Source type: {label} fetched from {domain}. "
+            "Assess the credibility of this domain in relation to the claim. "
+            "An authoritative domain within its field (e.g. a stock exchange for market data, "
+            "a government site for legal records, a major institution for official statements) "
+            "significantly strengthens credibility. An unknown or unrelated domain weakens it."
+        )
+    else:
+        return (
+            "Source type: User-provided document (uploaded file or pasted text). "
+            "This document has no verifiable origin — it is not known who created or modified it. "
+            "Assess only whether its content supports or contradicts the claim. "
+            "Do not draw conclusions about the truth value of the claim itself — only about what the document states."
+        )
 
 def _scope_prompt(question: str) -> str:
     return (
@@ -54,8 +108,8 @@ def _scope_prompt(question: str) -> str:
     )
 
 
-def _build_pass_prompts(is_email: bool, question: str = "") -> list[str]:
-    email_block = _EMAIL_IDENTITY + "\n\n" if is_email else ""
+def _build_pass_prompts(source_context: dict | None, question: str = "") -> list[str]:
+    source_block = _source_block(source_context) + "\n\n"
     language = (
         f'The user\'s claim is: "{question}". '
         'Detect the language of this claim and respond entirely in that language — '
@@ -67,23 +121,23 @@ def _build_pass_prompts(is_email: bool, question: str = "") -> list[str]:
         "Identify ONLY what in the document supports the claim, and under which assumptions. "
         "Be specific. Quote directly from the document using quotation marks. "
         "Do not consider contradictions or gaps.\n\n"
-        + email_block + language
+        + source_block + language
     )
     p2 = (
         "You are a document analyst for Leima, a legal evidence tool.\n\n"
         "Identify ONLY what in the document contradicts the claim, or fails to support it. "
         "Note what is absent, inconsistent, or requires assumptions not stated in the document. "
         "Quote directly when relevant. Do not consider supporting evidence.\n\n"
-        + email_block + language
+        + source_block + language
     )
     return [p1, p2]
 
-PASS_PROMPTS = _build_pass_prompts(is_email=False, question="the claim")
+PASS_PROMPTS = _build_pass_prompts(source_context=None, question="the claim")
 
 PASS_LABELS = [
-    "Support Analysis",
-    "Refutation & Gap Analysis",
-    "Synthesis & Verdict",
+    "Supporting evidence",
+    "Contradicting evidence",
+    "Verdict",
 ]
 
 
@@ -104,15 +158,16 @@ Your task: compare the two analyses objectively. First, check whether the refuta
 
 If the evidence clearly favours one side, say so directly. Do not hedge. A clear verdict is more useful than a balanced non-answer.
 
-Start your response with exactly one line in this format:
+Start your response with exactly two lines in this format:
+CATEGORY: <exactly one of: Strongly supports / Mostly supports / Inconclusive / Mostly does not support / Does not support>
 VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
 
 Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct.
 
-""" + f'The user\'s claim is: "{question}". Respond entirely in the same language as this claim.'
+""" + f'The user\'s claim is: "{question}". Use exactly one of the five English CATEGORY strings listed above. Respond to VERDICT and the explanation entirely in the same language as this claim.'
 
 
-def analyse(question: str, contents: list, is_email: bool = False) -> dict:
+def analyse(question: str, contents: list, source_context: dict | None = None) -> dict:
     """
     Run three-pass neutral witness analysis on a document.
 
@@ -133,7 +188,7 @@ def analyse(question: str, contents: list, is_email: bool = False) -> dict:
     if not scope_text.startswith("APPROVED"):
         raise ValueError(scope_text or "Model returned no response during scope check")
 
-    pass_prompts = _build_pass_prompts(is_email, question)
+    pass_prompts = _build_pass_prompts(source_context, question)
     passes = []
     for prompt, label in zip(pass_prompts, PASS_LABELS):
         resp = client.models.generate_content(
@@ -150,7 +205,18 @@ def analyse(question: str, contents: list, is_email: bool = False) -> dict:
         config=types.GenerateContentConfig(system_instruction=synth),
     )
     synth_text = (synth_resp.text or "").strip()
-    if synth_text.startswith("VERDICT:"):
+    verdict_category = "Epävarma"
+    if synth_text.startswith("CATEGORY:"):
+        lines = synth_text.split("\n", 3)
+        verdict_category = lines[0].removeprefix("CATEGORY:").strip()
+        rest_lines = lines[1:]
+        if rest_lines and rest_lines[0].startswith("VERDICT:"):
+            summary_verdict = rest_lines[0].removeprefix("VERDICT:").strip()
+            synthesis_body = "\n".join(rest_lines[1:]).strip()
+        else:
+            summary_verdict = ""
+            synthesis_body = "\n".join(rest_lines).strip()
+    elif synth_text.startswith("VERDICT:"):
         first_line, _, rest = synth_text.partition("\n")
         summary_verdict = first_line.removeprefix("VERDICT:").strip()
         synthesis_body = rest.strip()
@@ -167,6 +233,7 @@ def analyse(question: str, contents: list, is_email: bool = False) -> dict:
     return {
         "passes": passes,
         "summary_verdict": summary_verdict,
+        "verdict_category": verdict_category,
         "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         "prompt_log": prompt_log,
     }

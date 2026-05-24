@@ -1,7 +1,16 @@
 <div class="card" style="margin-top: 1.5rem; padding-top: 1.75rem; border-top: 1px solid #dee2e6;">
 
   <div class="verdict-header">
+    <div class="verdict-checked-label">Claim verified</div>
     <div class="verdict-claim">{{ question }}</div>
+    <div class="verdict-category-row">
+      <span class="verdict-category-badge
+        {% if verdict_category == 'Strongly supports' %}vcat-strong-yes
+        {% elif verdict_category == 'Mostly supports' %}vcat-mostly-yes
+        {% elif verdict_category == 'Mostly does not support' %}vcat-mostly-no
+        {% elif verdict_category == 'Does not support' %}vcat-strong-no
+        {% else %}vcat-uncertain{% endif %}">AI analysis: {{ verdict_category }}</span>
+    </div>
     <div class="verdict-summary">{{ summary_verdict }}</div>
   </div>
 
@@ -41,6 +50,12 @@
       <span class="hash-label">Verdict PDF SHA-256</span>
       <code class="hash-value">{{ verdict_hash }}</code>
     </div>
+    {% if pode_snap and pode_snap.tx %}
+    <div class="hash-row">
+      <span class="hash-label">Deployment proof on Arweave ({{ pode_snap.ts }})</span>
+      <a class="hash-value" href="{{ irys_gateway }}/{{ pode_snap.tx }}" target="_blank" rel="noopener">{{ pode_snap.tx }}</a>
+    </div>
+    {% endif %}
   </div>
 
   <div id="gen-wrap-{{ session_id }}">
@@ -78,12 +93,36 @@
     background: #f0f5ff;
     border-radius: 0 6px 6px 0;
   }
+  .verdict-checked-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #adb5bd;
+    margin-bottom: 0.2rem;
+  }
   .verdict-claim {
-    font-size: 0.8rem;
-    color: #6c757d;
-    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+    color: #495057;
+    margin-bottom: 0.5rem;
     font-style: italic;
   }
+  .verdict-category-row {
+    margin-bottom: 0.4rem;
+  }
+  .verdict-category-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+  }
+  .vcat-strong-yes  { background: #d1fae5; color: #065f46; }
+  .vcat-mostly-yes  { background: #dcfce7; color: #166534; }
+  .vcat-uncertain   { background: #fef3c7; color: #92400e; }
+  .vcat-mostly-no   { background: #ffedd5; color: #9a3412; }
+  .vcat-strong-no   { background: #fee2e2; color: #991b1b; }
   .verdict-summary {
     font-size: 1.05rem;
     font-weight: 600;
