@@ -940,14 +940,14 @@
         if (isStale) {
           fadeSet(row('Danger', '#ff6b6b', 'checks stale'), 'danger');
         } else if (!unknownCommit && verified && !commitMatch) {
-          fadeSet(row('Warning', '#f0a030', 'verifying deploy'), 'warning');
+          fadeSet(row('Please notify', '#f0a030', 'verifying deploy'), 'warning');
         } else if (p.ok) {
           fadeSet(row('OK', '#fff'), 'ok');
         } else if (p.ok === false) {
           if (!p.deployment_ok) {
-            fadeSet(row('Deploying', '#adb5bd', ''), 'loading');
+            fadeSet(row('Please notify — Deploying', '#fff', ''), 'loading');
           } else if (p.rapid_deploy_warning) {
-            fadeSet(row('Warning', '#f0a030', 'rapid deploys'), 'warning');
+            fadeSet(row('Please notify', '#f0a030', 'rapid deploys'), 'warning');
           } else {
             const reason = p.deploy_status === 'not_configured' ? 'API key missing'
               : !p.review_ok ? 'review failed'
