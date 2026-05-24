@@ -35,9 +35,9 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 
 You provide a document and a claim. Leima runs three independent AI passes:
 
-1. **Support Analysis** — tasked exclusively with finding what supports the claim, and under which assumptions
-2. **Refutation & Gap Analysis** — tasked exclusively with finding what contradicts the claim, or fails to support it
-3. **Synthesis & Verdict** — reads both prior analyses and judges which side had stronger arguments and evidence
+1. **Supporting evidence** — tasked exclusively with finding what supports the claim, and under which assumptions
+2. **Contradicting evidence** — tasked exclusively with finding what contradicts the claim, or fails to support it
+3. **Verdict** — reads both prior analyses and judges which side had stronger arguments and evidence
 
 The first two passes are stateless and adversarial by design: each sees only the document and the claim, not the other's output. This prevents the model from unconsciously anchoring on its first impression. The third pass acts as an honest judge comparing two independent cases rather than summarising its own reasoning.
 
@@ -204,9 +204,9 @@ Response:
 {
   "verdict": "The document strongly supports the claim.",
   "passes": [
-    { "label": "Support Analysis", "text": "..." },
-    { "label": "Refutation & Gap Analysis", "text": "..." },
-    { "label": "Synthesis & Verdict", "text": "..." }
+    { "label": "Supporting evidence", "text": "..." },
+    { "label": "Contradicting evidence", "text": "..." },
+    { "label": "Verdict", "text": "..." }
   ],
   "input_hash": "a3f1c8...(64-char hex)",
   "verdict_hash": "9e2d47...(64-char hex)",
@@ -248,7 +248,7 @@ The blockchain record proves that a specific analysis of a specific document exi
 Leima is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
 **Deployment integrity monitoring (POIDE)**
-Open source code is auditable — but only if the running code is the same as the published code. Leima implements POIDE (Proof of Deployment): five GitHub Actions workflows run on a staggered schedule, together achieving one-minute polling resolution. Each workflow queries the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishes the result publicly. Anyone can verify deployment integrity without credentials, at any time.
+Open source code is auditable — but only if the running code is the same as the published code. Leima implements POIDE (Proof of Intended Deployment): five GitHub Actions workflows run on a staggered schedule, together achieving one-minute polling resolution. Each workflow queries the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishes the result publicly. Anyone can verify deployment integrity without credentials, at any time.
 
 See [POIDE.md](POIDE.md) for a full description of the protocol, the current implementation, the longer-term vision, real-world incidents where deployment transparency would have helped (XZ Utils, PHP git compromise, Picreel), and how POIDE relates to existing approaches such as Sigstore and Meta Code Verify.
 
@@ -282,7 +282,7 @@ A future option will allow switching to AI providers that operate under strict, 
 ## Stack
 
 - **Backend** — FastAPI + Uvicorn
-- **AI** — Google Gemini 2.5 Flash Lite
+- **AI** — Google Gemini 3.1 Flash Lite
 - **Blockchain** — Arweave via Irys SDK (Ethereum wallet)
 - **Frontend** — HTMX, no JS framework
 - **PDF generation** — fpdf2
