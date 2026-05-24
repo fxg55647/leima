@@ -902,6 +902,8 @@ async def ask(
     elif active_tab == "text":
         if not text_input.strip():
             return HTMLResponse('<div class="error">Please paste some text.</div>')
+        if len(text_input) > 20_000:
+            return HTMLResponse('<div class="error">Text is too long (max 20 000 characters). Please shorten it and try again.</div>')
         input_bytes = _text_to_input_pdf(text_input)
         input_label = "text-input"
         source_context = {"type": "content_only"}
@@ -959,6 +961,8 @@ async def ask(
                                email_meta, web_meta, source_context)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
+    except Exception as e:
+        return HTMLResponse(f'<div class="error">Analysis failed: {e}</div>')
 
     if active_tab == "image" and c2pa_info:
         store[result["session_id"]]["manifest"]["c2pa"] = c2pa_info
@@ -1022,6 +1026,8 @@ async def api_stamp(body: StampRequest):
         result = _run_analysis(claim, contents, input_bytes, input_label)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"Analysis failed: {e}"}, status_code=500)
 
     manifest = result["manifest"]
     manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode()
