@@ -58,7 +58,12 @@ def _source_block(source_context: dict | None) -> str:
         dkim = source_context.get("dkim", "none")
         domain = source_context.get("sender_domain", "unknown")
         return (
-            f"Source type: Email (fetched via IMAP). DKIM: {dkim}. Sender domain: {domain}. "
+            f"Source type: Email (fetched via IMAP from the user's own mailbox). DKIM: {dkim}. Sender domain: {domain}. "
+            "The user has accessed this email from their own account and is using it to prove something about themselves — "
+            "for example, their employment history, a transaction they were party to, or a communication they received. "
+            "Analysing personal information in this context is permitted because the person whose data is involved "
+            "is the one submitting it. Normal topic restrictions still apply: work, business, financial, and factual "
+            "claims are within scope; surveillance, stalking, or building a case against a third party are not. "
             "Assess sender identity credibility based on the DKIM result and whether the sender domain "
             "matches the claimed sender. "
             "If the claim names a specific individual as the recipient, verify that this person's name "
