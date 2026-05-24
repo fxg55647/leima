@@ -70,15 +70,33 @@ def _source_block(source_context: dict | None) -> str:
             "or email address appears in the To field or email body — if not, flag this as a significant gap."
         )
     elif t == "image_c2pa_valid":
+        loc = source_context.get("c2pa_location")
+        loc_str = ""
+        if loc:
+            lat, lon = loc["lat"], loc["lon"]
+            lat_str = f"{abs(lat):.6f}°{'N' if lat >= 0 else 'S'}"
+            lon_str = f"{abs(lon):.6f}°{'E' if lon >= 0 else 'W'}"
+            alt_str = f", altitude {loc['alt']:.0f} m" if "alt" in loc else ""
+            loc_str = f" GPS location recorded in metadata: {lat_str}, {lon_str}{alt_str}."
         return (
             "Source type: Image with a valid C2PA cryptographic signature. "
             "The image's origin and authenticity are cryptographically established. "
+            f"{loc_str} "
             "Treat the image content as genuine unless internal inconsistencies suggest otherwise."
         )
     elif t == "image_c2pa_invalid":
+        loc = source_context.get("c2pa_location")
+        loc_str = ""
+        if loc:
+            lat, lon = loc["lat"], loc["lon"]
+            lat_str = f"{abs(lat):.6f}°{'N' if lat >= 0 else 'S'}"
+            lon_str = f"{abs(lon):.6f}°{'E' if lon >= 0 else 'W'}"
+            alt_str = f", altitude {loc['alt']:.0f} m" if "alt" in loc else ""
+            loc_str = f" GPS location in metadata: {lat_str}, {lon_str}{alt_str} (note: signature invalid — metadata may have been altered)."
         return (
             "Source type: Image with an INVALID C2PA signature. "
             "The image has been modified after the original capture. "
+            f"{loc_str} "
             "Factor this significantly into your credibility assessment."
         )
     elif t == "image_no_c2pa":

@@ -676,12 +676,36 @@ def _check_c2pa(image_bytes: bytes, mime: str) -> dict | None:
         bad = [s for s in data.get("validation_status", [])
                if "mismatch" in s.get("code", "") or "error" in s.get("code", "").lower()]
         actions = []
+        location = None
         for assertion in m.get("assertions", []):
-            if assertion.get("label") == "c2pa.actions":
-                for a in assertion.get("data", {}).get("actions", []):
+            label = assertion.get("label", "")
+            data = assertion.get("data", {})
+            if label == "c2pa.actions":
+                for a in data.get("actions", []):
                     act = a.get("action", "")
                     if act:
                         actions.append(act.removeprefix("c2pa."))
+            elif label == "stds.exif":
+                lat = data.get("EXIF:GPSLatitude") or data.get("exif:GPSLatitude")
+                lon = data.get("EXIF:GPSLongitude") or data.get("exif:GPSLongitude")
+                lat_ref = data.get("EXIF:GPSLatitudeRef") or data.get("exif:GPSLatitudeRef", "")
+                lon_ref = data.get("EXIF:GPSLongitudeRef") or data.get("exif:GPSLongitudeRef", "")
+                alt = data.get("EXIF:GPSAltitude") or data.get("exif:GPSAltitude")
+                if lat is not None and lon is not None:
+                    if lat_ref.upper() == "S":
+                        lat = -abs(float(lat))
+                    if lon_ref.upper() == "W":
+                        lon = -abs(float(lon))
+                    location = {"lat": float(lat), "lon": float(lon)}
+                    if alt is not None:
+                        location["alt"] = float(alt)
+            elif label == "c2pa.location.precise":
+                lat = data.get("latitude")
+                lon = data.get("longitude")
+                if lat is not None and lon is not None:
+                    location = {"lat": float(lat), "lon": float(lon)}
+                    if data.get("altitude") is not None:
+                        location["alt"] = float(data["altitude"])
         sig = m.get("signature_info", {})
         return {
             "present": True,
@@ -690,6 +714,7 @@ def _check_c2pa(image_bytes: bytes, mime: str) -> dict | None:
             "signer": sig.get("issuer", ""),
             "signed_at": sig.get("time", ""),
             "actions": actions,
+            "location": location,
         }
     except ImportError:
         return None
@@ -879,6 +904,7 @@ async def ask(
                 "type": "image_c2pa_valid" if c2pa_info.get("valid") else "image_c2pa_invalid",
                 "c2pa_generator": c2pa_info.get("generator", ""),
                 "c2pa_signer": c2pa_info.get("signer", ""),
+                "c2pa_location": c2pa_info.get("location"),
             }
         else:
             source_context = {"type": "image_no_c2pa"}

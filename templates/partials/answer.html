@@ -35,6 +35,10 @@
       {% if c2pa.generator %}<span class="c2pa-meta">{{ c2pa.generator }}</span>{% endif %}
       {% if c2pa.signer %}<span class="c2pa-meta">Signed: {{ c2pa.signer }}</span>{% endif %}
       {% if c2pa.actions %}<span class="c2pa-meta">{{ c2pa.actions | join(", ") }}</span>{% endif %}
+      {% if c2pa.location %}
+        {% set loc = c2pa.location %}
+        <span class="c2pa-meta">GPS: {{ "%.6f"|format(loc.lat|abs) }}°{{ "N" if loc.lat >= 0 else "S" }}, {{ "%.6f"|format(loc.lon|abs) }}°{{ "E" if loc.lon >= 0 else "W" }}{% if loc.alt is defined %}, {{ loc.alt|int }} m{% endif %}</span>
+      {% endif %}
     {% else %}
       <span class="c2pa-badge c2pa-none">C2PA — not found</span>
     {% endif %}
