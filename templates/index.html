@@ -946,6 +946,8 @@
         } else if (p.ok === false) {
           if (!p.deployment_ok) {
             fadeSet(row('Warning', '#f0a030', 'commit mismatch'), 'warning');
+          } else if (p.rapid_deploy_warning) {
+            fadeSet(row('Warning', '#f0a030', 'rapid deploys'), 'warning');
           } else {
             const reason = p.deploy_status === 'not_configured' ? 'API key missing'
               : !p.review_ok ? 'review failed'

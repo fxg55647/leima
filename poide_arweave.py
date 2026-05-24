@@ -58,9 +58,10 @@ entry = {
     "tx":            tx_id,
     "ok":            status.get("ok", False),
     "commit":        (status.get("deployed_commit") or "")[:7],
-    "deploy_status": status.get("deploy_status", ""),
-    "deployment_ok": status.get("deployment_ok", False),
-    "review_ok":     status.get("review_ok", False),
+    "deploy_status":        status.get("deploy_status", ""),
+    "deployment_ok":        status.get("deployment_ok", False),
+    "review_ok":            status.get("review_ok", False),
+    "rapid_deploy_warning": status.get("rapid_deploy_warning", False),
 }
 with log_path.open("a") as f:
     f.write(json.dumps(entry) + "\n")
