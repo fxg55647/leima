@@ -1,4 +1,5 @@
 import os
+import base64
 import hashlib
 import uuid
 import json
@@ -17,7 +18,6 @@ from html import escape as _html_escape
 import markdown as _md
 import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
-import base64
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
@@ -63,7 +63,6 @@ def _poide_dispatcher():
         try:
             r = http_requests.get(api_log_url, headers=hdrs, timeout=10)
             if r.status_code == 200:
-                import base64
                 content = base64.b64decode(r.json()["content"]).decode()
                 lines = [l for l in content.strip().splitlines() if l]
                 if lines:
