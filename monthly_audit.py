@@ -44,15 +44,22 @@ for e in month_entries:
 
 failed_windows = [e for e in month_entries if not e.get("ok")]
 
+def _count_status(entries, status):
+    return sum(1 for e in entries if e.get("deploy_status") == status)
+
 summary = {
-    "type":           "poide-monthly-summary",
-    "month":          month_str,
-    "total_checks":   total,
-    "ok_checks":      ok_count,
-    "uptime_pct":     uptime,
-    "deploy_count":   deploy_count,
-    "failed_windows": len(failed_windows),
-    "generated_at":   now.strftime("%Y-%m-%d %H:%M:%S UTC"),
+    "type":                      "poide-monthly-summary",
+    "month":                     month_str,
+    "total_checks":              total,
+    "ok_checks":                 ok_count,
+    "uptime_pct":                uptime,
+    "deploy_count":              deploy_count,
+    "failed_windows":            len(failed_windows),
+    "failures_not_configured":   _count_status(failed_windows, "not_configured"),
+    "failures_error":            _count_status(failed_windows, "error"),
+    "failures_no_live_deploy":   _count_status(failed_windows, "no_live_deploy"),
+    "failures_commit_mismatch":  sum(1 for e in failed_windows if not e.get("deployment_ok") and e.get("deploy_status") == "live"),
+    "generated_at":              now.strftime("%Y-%m-%d %H:%M:%S UTC"),
 }
 
 builder = Builder("ethereum").wallet(IRYS_PRIVATE_KEY).network(IRYS_NETWORK)
