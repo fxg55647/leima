@@ -273,6 +273,12 @@ result = {
     "branch": GITHUB_BRANCH,
     "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
     "monitor_files": hash_monitor_files(),
+    "actions_run_id": os.environ.get("GITHUB_RUN_ID", ""),
+    "actions_run_url": (
+        f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}"
+        f"/{GITHUB_REPO}/actions/runs/{os.environ.get('GITHUB_RUN_ID', '')}"
+        if os.environ.get("GITHUB_RUN_ID") else ""
+    ),
 }
 if error:
     result["error"] = error
