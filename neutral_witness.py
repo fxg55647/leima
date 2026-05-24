@@ -43,12 +43,17 @@ Otherwise, proceed with the analysis."""
 def _source_block(source_context: dict | None) -> str:
     if not source_context:
         return (
-            "Source type: User-provided document (uploaded file or pasted text). "
-            "This document has no verifiable origin — it is not known who created or modified it. "
-            "Assess only whether its content supports or contradicts the claim. "
-            "Do not draw conclusions about the truth value of the claim itself — only about what the document states."
+            "Content analysis mode: assess only what the document contains or states. "
+            "Do not evaluate source authenticity, origin, or credibility."
         )
-    t = source_context.get("type", "document")
+    t = source_context.get("type", "content_only")
+    if t == "content_only":
+        return (
+            "Content analysis mode: assess only what the document contains or states. "
+            "Do not evaluate source authenticity, origin, or credibility. "
+            "Report findings in terms of the document's content — "
+            "e.g. 'the document states that...' or 'the code contains...'"
+        )
     if t == "email":
         dkim = source_context.get("dkim", "none")
         domain = source_context.get("sender_domain", "unknown")
@@ -90,10 +95,8 @@ def _source_block(source_context: dict | None) -> str:
         )
     else:
         return (
-            "Source type: User-provided document (uploaded file or pasted text). "
-            "This document has no verifiable origin — it is not known who created or modified it. "
-            "Assess only whether its content supports or contradicts the claim. "
-            "Do not draw conclusions about the truth value of the claim itself — only about what the document states."
+            "Content analysis mode: assess only what the document contains or states. "
+            "Do not evaluate source authenticity, origin, or credibility."
         )
 
 def _scope_prompt(question: str) -> str:
@@ -141,7 +144,12 @@ PASS_LABELS = [
 ]
 
 
-def _synthesis_prompt(question: str, support: str, refutation: str) -> str:
+def _synthesis_prompt(question: str, support: str, refutation: str, source_context: dict | None = None) -> str:
+    content_only = (source_context or {}).get("type") == "content_only"
+    content_only_note = (
+        "\nThis is a content analysis — do not assert whether the claim is true in an absolute sense. "
+        "Frame your verdict in terms of what the document states or contains.\n"
+    ) if content_only else ""
     return f"""You are the final judge for Leima, a legal evidence tool.
 
 The claim being evaluated: "{question}"
@@ -157,14 +165,14 @@ REFUTATION ANALYST:
 Your task: compare the two analyses objectively. First, check whether the refutation actually addresses the specific claim — not a related issue, not a broader context, but the exact claim as stated. A refutation that is technically true but does not contradict the claim should be discounted. Then assess which side had stronger direct evidence for or against the claim itself.
 
 If the evidence clearly favours one side, say so directly. Do not hedge. A clear verdict is more useful than a balanced non-answer.
-
+{content_only_note}
 Start your response with exactly two lines in this format:
-CATEGORY: <exactly one of: Strongly supports / Mostly supports / Inconclusive / Mostly does not support / Does not support>
+CATEGORY: <exactly one of: Strongly matches / Mostly matches / Equally supports and contradicts / Mostly does not match / Does not match>
 VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
 
 Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct.
 
-""" + f'The user\'s claim is: "{question}". Use exactly one of the five English CATEGORY strings listed above. Respond to VERDICT and the explanation entirely in the same language as this claim.'
+""" + f'The user\'s claim is: "{question}". Use exactly one of the five English CATEGORY strings listed above (Strongly matches / Mostly matches / Equally supports and contradicts / Mostly does not match / Does not match). Respond to VERDICT and the explanation entirely in the same language as this claim.'
 
 
 def analyse(question: str, contents: list, source_context: dict | None = None) -> dict:
@@ -198,7 +206,7 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
         )
         passes.append((label, resp.text or ""))
 
-    synth = _synthesis_prompt(question, passes[0][1], passes[1][1])
+    synth = _synthesis_prompt(question, passes[0][1], passes[1][1], source_context)
     synth_resp = client.models.generate_content(
         model=MODEL,
         contents=contents,

@@ -5,11 +5,11 @@
     <div class="verdict-claim">{{ question }}</div>
     <div class="verdict-category-row">
       <span class="verdict-category-badge
-        {% if verdict_category == 'Strongly supports' %}vcat-strong-yes
-        {% elif verdict_category == 'Mostly supports' %}vcat-mostly-yes
-        {% elif verdict_category == 'Mostly does not support' %}vcat-mostly-no
-        {% elif verdict_category == 'Does not support' %}vcat-strong-no
-        {% else %}vcat-uncertain{% endif %}">AI analysis: {{ verdict_category }}</span>
+        {% if verdict_category == 'Strongly matches' %}vcat-strong-yes
+        {% elif verdict_category == 'Mostly matches' %}vcat-mostly-yes
+        {% elif verdict_category == 'Mostly does not match' %}vcat-mostly-no
+        {% elif verdict_category == 'Does not match' %}vcat-strong-no
+        {% else %}vcat-uncertain{% endif %}">{{ verdict_prefix }}: {{ verdict_category }}{% if verdict_category != 'Equally supports and contradicts' %} the claim{% endif %}</span>
     </div>
     <div class="verdict-summary">{{ summary_verdict }}</div>
   </div>

@@ -156,8 +156,10 @@ def _safe(text: str) -> str:
 
 def _source_assessment_text(source_context: dict | None) -> str:
     if not source_context:
-        return "Document (uploaded) — No verifiable origin. Content assessed against claim only."
-    t = source_context.get("type", "document")
+        return "Content analysis mode — source credibility not assessed."
+    t = source_context.get("type", "content_only")
+    if t == "content_only":
+        return "Content analysis mode — source credibility not assessed."
     if t == "email":
         parts = ["Email (IMAP)", f"DKIM: {source_context.get('dkim', 'none')}"]
         if source_context.get("sender_domain"):
@@ -220,12 +222,12 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
     pdf.ln(10)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 6, "Interpretive note", ln=True)
+    pdf.cell(0, 6, "Note", ln=True)
     pdf.set_font("Helvetica", size=9)
     pdf.multi_cell(0, 5, _safe(
-        "AI analysis can in principle be disrupted by text deliberately embedded in the document. "
-        "Use your own judgement about how likely this is: an official message from a reputable sender rarely contains such attempts. "
-        "For emails: check the sender domain and DKIM validation result."
+        "A prompt injection attack — text deliberately embedded in a document to manipulate AI behaviour — "
+        "can alter the analysis produced by this tool. Such content is typically found in dubious websites "
+        "and suspicious emails; it is rare in official sources. Use your own judgement when evaluating this verdict."
     ))
     pdf.set_text_color(0, 0, 0)
 
@@ -835,6 +837,7 @@ async def ask(
     pdf_url: str = Form(""),
     web_url: str = Form(""),
     image_file: UploadFile = File(None),
+    assess_credibility: str = Form(""),
 ):
     contents = []
     email_meta = None
@@ -876,7 +879,7 @@ async def ask(
         elif pdf_file and pdf_file.filename:
             input_bytes = await pdf_file.read()
             input_label = pdf_file.filename
-            source_context = {"type": "document"}
+            source_context = {"type": "content_only"}
         else:
             return HTMLResponse('<div class="error">Please upload a PDF or enter a URL.</div>')
         contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
@@ -886,7 +889,7 @@ async def ask(
             return HTMLResponse('<div class="error">Please paste some text.</div>')
         input_bytes = _text_to_input_pdf(text_input)
         input_label = "text-input"
-        source_context = {"type": "document"}
+        source_context = {"type": "content_only"}
         contents.append(f"Document content:\n{text_input}")
 
     elif active_tab == "web":
@@ -930,6 +933,11 @@ async def ask(
 
     contents.append(question)
 
+    if assess_credibility != "1":
+        source_context = {"type": "content_only"}
+
+    verdict_prefix = "Document (with evaluation)" if assess_credibility == "1" else "Document"
+
     try:
         result = _run_analysis(question, contents, input_bytes, input_label,
                                source_ext, source_mime,
@@ -948,6 +956,7 @@ async def ask(
             "question": question,
             "summary_verdict": result["summary_verdict"],
             "verdict_category": result["verdict_category"],
+            "verdict_prefix": verdict_prefix,
             "filename": result["input_label"],
             "input_hash": result["input_hash"],
             "verdict_hash": result["verdict_hash"],
