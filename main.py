@@ -312,10 +312,20 @@ async def notary_poll(request: Request):
 
 @app.get("/version")
 async def version():
+    cache = _poide_cache.copy() if _poide_cache else {}
     return {
         "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
         "service": os.getenv("RENDER_SERVICE_NAME", "local"),
         "model": MODEL,
+        "poide": {
+            "ok": cache.get("ok"),
+            "checked_at": cache.get("ts"),
+            "verified_commit": cache.get("commit", ""),
+            "tx": cache.get("tx"),
+            "deploy_status": cache.get("deploy_status"),
+            "deployment_ok": cache.get("deployment_ok"),
+            "review_ok": cache.get("review_ok"),
+        },
     }
 
 

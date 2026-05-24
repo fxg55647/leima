@@ -912,29 +912,34 @@
     }
 
     function update() {
-      text.style.opacity = '0';
-      setTimeout(() => {
-        text.innerHTML = '<span style="color:#fff">Retrieving…</span>';
-        text.style.opacity = '1';
-      }, 280);
+      fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
+        const p = d.poide || {};
+        const running = d.commit || '';
+        const verified = p.verified_commit || '';
 
-      const minWait = new Promise(r => setTimeout(r, 1100));
-      Promise.all([
-        fetch('https://raw.githubusercontent.com/fxg55647/leima/gh-pages/status.json?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
-        minWait,
-      ]).then(([d]) => {
-        lastCheckedAt = d.checked_at ? new Date(d.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
-        if (d.ok) {
+        lastCheckedAt = p.checked_at
+          ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime()
+          : null;
+
+        const staleSecs = lastCheckedAt ? (Date.now() - lastCheckedAt) / 1000 : 9999;
+        const isStale = staleSecs > 150;
+        const commitMatch = running && verified && running.startsWith(verified);
+        const unknownCommit = running === 'unknown' || !running;
+
+        if (isStale) {
+          fadeSet(row('Danger', '#ff6b6b', 'checks stale'), 'danger');
+        } else if (!unknownCommit && verified && !commitMatch) {
+          fadeSet(row('Warning', '#f0a030', 'verifying deploy'), 'warning');
+        } else if (p.ok) {
           fadeSet(row('OK', '#fff'), 'ok');
-        } else if (d.rapid_deploy_warning) {
-          fadeSet(row('Warning', '#f0a030', 'rapid deploys'), 'warning');
-        } else {
-          const reason = d.deploying ? 'deploying'
-            : !d.deployment_ok ? 'commit mismatch'
-            : !d.review_ok ? 'review failed'
-            : !d.cron_fresh ? 'crons stale'
+        } else if (p.ok === false) {
+          const reason = p.deploy_status === 'not_configured' ? 'API key missing'
+            : !p.deployment_ok ? 'commit mismatch'
+            : !p.review_ok ? 'review failed'
             : 'check failed';
           fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
+        } else {
+          fadeSet(row('Checking…', '#555', ''), 'loading');
         }
       }).catch(() => {
         lastCheckedAt = null;
