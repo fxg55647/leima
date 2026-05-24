@@ -109,6 +109,10 @@ The stamp record is the immutable on-chain object: it contains the hashes, times
 - Verifying that a cited source says what a paper claims it says, at the time of writing
 - Codebase reviews: stamping a claim against a specific commit snapshot
 
+**Prediction markets and information credentialing**
+- A tipster on a platform such as Polymarket can prove they possessed a document supporting a claim *before* the outcome was known — without revealing the document's contents. The stamp establishes the existence and date of the evidence; the verdict characterises what it shows; the hash commits to the full document for later disclosure if needed
+- This creates a primitive that did not previously exist: *provable knowledge without disclosure*. A person can credibly signal "I know something material about this event" in a way that can be verified after the fact, within the bounds of applicable law
+
 For extended examples and context see [USECASES.md](USECASES.md).
 
 ---
