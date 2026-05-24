@@ -167,3 +167,4 @@
 {"ts": "2026-05-24 22:27:05 UTC", "tx": "Kqf4fdHxyEDzdCzAMAB236qHeYCMXqQ2j7b5BsPjEmV", "ok": true, "commit": "36fb714", "deploy_status": "live", "deployment_ok": true, "review_ok": true}
 {"ts": "2026-05-24 22:27:56 UTC", "tx": "EJ6HtybWLZQVrFdqEa8HXGh61gW6QYFBPGxPJD4Rw7TP", "ok": true, "commit": "36fb714", "deploy_status": "live", "deployment_ok": true, "review_ok": true}
 {"ts": "2026-05-24 22:29:03 UTC", "tx": "5jUwe9gKDogF6YzwaQuhpvebmzmQkNK23VcZPVoyt9eg", "ok": true, "commit": "36fb714", "deploy_status": "live", "deployment_ok": true, "review_ok": true}
+{"ts": "2026-05-24 22:30:12 UTC", "tx": "4rmP7syxUeDxGfXnDufTGoQBvKkxXamVTsBnMGFdSVd3", "ok": false, "commit": "36fb714", "deploy_status": "live", "deployment_ok": false, "review_ok": true}
