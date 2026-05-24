@@ -54,10 +54,13 @@ if not log_path.exists():
         pass
 
 entry = {
-    "ts":     status.get("checked_at", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")),
-    "tx":     tx_id,
-    "ok":     status.get("ok", False),
-    "commit": (status.get("deployed_commit") or "")[:7],
+    "ts":            status.get("checked_at", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")),
+    "tx":            tx_id,
+    "ok":            status.get("ok", False),
+    "commit":        (status.get("deployed_commit") or "")[:7],
+    "deploy_status": status.get("deploy_status", ""),
+    "deployment_ok": status.get("deployment_ok", False),
+    "review_ok":     status.get("review_ok", False),
 }
 with log_path.open("a") as f:
     f.write(json.dumps(entry) + "\n")
