@@ -85,9 +85,10 @@ def _build_notarized_email(to: str, from_addr: str, original_raw: bytes, manifes
         f"{verify_line}"
         "\n"
         "--- How to verify ---\n\n"
-        "Upload the attached original.eml and the Arweave transaction ID above\n"
-        "to the Leima validator. If Leima is unavailable, search for a\n"
-        "compatible Leima validator to verify the record independently.\n"
+        f"Upload the attached original.eml and the Arweave transaction ID to\n"
+        f"the Leima validator: {validate_url or leima_url + '/validate'}\n\n"
+        "If Leima is unavailable, search for a compatible Leima validator\n"
+        "to verify the record independently.\n"
         "\n---\nLeima — permanent digital notary\n"
     )
     outer.attach(MIMEText(body, "plain", "utf-8"))
