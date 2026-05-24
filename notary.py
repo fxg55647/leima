@@ -172,7 +172,7 @@ def poll_and_process(
 
             except Exception as e:
                 result["error"] = str(e)
-                imap.store(num, "+FLAGS", "\\Seen")
+                # Do not mark as Seen — leave UNSEEN so next poll retries
 
             results.append(result)
     finally:
