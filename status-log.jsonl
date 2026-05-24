@@ -179,4 +179,4 @@
 {"ts": "2026-05-24 22:41:29 UTC", "tx": "HfwbKigkNdYFjp5aJCFhyzT43rXQ53WNA5w1Xz5fCase", "ok": true, "commit": "fa32182", "deploy_status": "live", "deployment_ok": true, "review_ok": true}
 {"ts": "2026-05-24 22:42:01 UTC", "tx": "2W32sWAwxfCLNMTtfaN7eknMEfxzMXtfjQpTQdUPX9Kc", "ok": false, "commit": "fa32182", "deploy_status": "live", "deployment_ok": false, "review_ok": true}
 {"ts": "2026-05-24 22:43:01 UTC", "tx": "BfV9danv68F2zuUFMyyDGy7wYCnQdQJJybfqNzdDeys2", "ok": false, "commit": "fa32182", "deploy_status": "live", "deployment_ok": false, "review_ok": false}
-{"ts": "2026-05-24 22:44:05 UTC", "tx": "DR7BBTWi6ysuBs7PzQ2JqrEmsDAhAThH36t8Xq2jvpfD", "ok": false, "commit": "e26c64a", "deploy_status": "live", "deployment_ok": true, "review_ok": false}
+{"ts": "2026-05-24 22:44:17 UTC", "tx": "6Cp2VuuEKrCDHMcMLfc82jijxQbtieoRjkojYTonkvj6", "ok": false, "commit": "e26c64a", "deploy_status": "live", "deployment_ok": true, "review_ok": false}
