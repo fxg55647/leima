@@ -944,11 +944,14 @@
         } else if (p.ok) {
           fadeSet(row('OK', '#fff'), 'ok');
         } else if (p.ok === false) {
-          const reason = p.deploy_status === 'not_configured' ? 'API key missing'
-            : !p.deployment_ok ? 'commit mismatch'
-            : !p.review_ok ? 'review failed'
-            : 'check failed';
-          fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
+          if (!p.deployment_ok) {
+            fadeSet(row('Warning', '#f0a030', 'commit mismatch'), 'warning');
+          } else {
+            const reason = p.deploy_status === 'not_configured' ? 'API key missing'
+              : !p.review_ok ? 'review failed'
+              : 'check failed';
+            fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
+          }
         } else {
           fadeSet(row('Checking…', '#555', ''), 'loading');
         }
