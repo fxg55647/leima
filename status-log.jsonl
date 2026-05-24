@@ -200,4 +200,4 @@
 {"ts": "2026-05-24 23:22:08 UTC", "tx": "2M9iGoah1FfCSoMQvcAjM4dEBZeJu3ZdvwwCKxPudD3p", "ok": false, "commit": "a0d87db", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": true}
 {"ts": "2026-05-24 23:23:12 UTC", "tx": "Aha2wf8kxrK8uHCQQJjxfYJyA1yS91dCcPohhUjbMcNQ", "ok": false, "commit": "a0d87db", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": true}
 {"ts": "2026-05-24 23:28:59 UTC", "tx": "8yYJyCXwrK4zd79pAybRGkoqG3vNXHWorWQxu7TQnGBW", "ok": false, "commit": "a0d87db", "deploy_status": "live", "deployment_ok": false, "review_ok": false, "rapid_deploy_warning": true}
-{"ts": "2026-05-24 23:32:27 UTC", "tx": "EqXAVQDB7ve2xJKwpVn1K5ofF8R2MkQBHagSdKkNPaxC", "ok": false, "commit": "16424f8", "deploy_status": "live", "deployment_ok": false, "review_ok": false, "rapid_deploy_warning": true}
+{"ts": "2026-05-24 23:32:51 UTC", "tx": "Hv1PjDYmArndXbwMGxA4Hh2zjabfk7mM7UpsPqVL9qF5", "ok": false, "commit": "16424f8", "deploy_status": "live", "deployment_ok": false, "review_ok": false, "rapid_deploy_warning": true}
