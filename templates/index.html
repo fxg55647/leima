@@ -280,17 +280,22 @@
     .question-row input[type="text"]::placeholder,
     textarea::placeholder { color: #adb5bd; }
 
-    .credibility-check {
+    .credibility-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      margin-top: 0.5rem;
+    }
+    .credibility-option {
       display: flex;
       align-items: flex-start;
       gap: 0.4rem;
-      margin-top: 0.5rem;
       font-size: 0.78rem;
       color: #6c757d;
       cursor: pointer;
       line-height: 1.4;
     }
-    .credibility-check input { margin-top: 0.15rem; flex-shrink: 0; }
+    .credibility-option input { margin-top: 0.15rem; flex-shrink: 0; }
 
     button[type="submit"] {
       background: #0d6efd;
@@ -700,10 +705,16 @@
         </button>
       </div>
 
-      <label class="credibility-check">
-        <input type="checkbox" name="assess_credibility" value="1" checked>
-        Evaluate source and claim credibility
-      </label>
+      <div class="credibility-options">
+        <label class="credibility-option">
+          <input type="radio" name="assess_credibility" value="1" checked>
+          Evaluate the overall credibility of the claim and the source
+        </label>
+        <label class="credibility-option">
+          <input type="radio" name="assess_credibility" value="0">
+          Evaluate only what the source says about the claim
+        </label>
+      </div>
 
       <div class="htmx-indicator">
         <span class="spinner"></span>Analysing...
