@@ -967,9 +967,17 @@
           }
           fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
         } else if (staleSecs > 600) {
-          fadeSet(row('Danger', '#ff6b6b', 'checks stale'), 'danger');
+          if (p.commit_matches_poide === true) {
+            fadeSet(row('Warning', '#f0a030', 'checks overdue — commit unchanged'), 'warning');
+          } else {
+            fadeSet(row('Danger', '#ff6b6b', 'checks stale — commit unverified'), 'danger');
+          }
         } else if (staleSecs > 180) {
-          fadeSet(row('Warning', '#f0a030', 'check overdue — cron delayed?'), 'warning');
+          if (p.commit_matches_poide === true) {
+            fadeSet(row('Warning', '#f0a030', 'check overdue — commit unchanged'), 'warning');
+          } else {
+            fadeSet(row('Warning', '#f0a030', 'check overdue — cron delayed?'), 'warning');
+          }
         } else if (!unknownCommit && verified && !commitMatch) {
           fadeSet(row('Please notify', '#f0a030', 'verifying deploy'), 'warning');
         } else if (p.ok) {
