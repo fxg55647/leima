@@ -1096,7 +1096,7 @@
 
         if (p.review_stuck) {
           const n = p.review_consecutive_failures || '';
-          fadeSet(row('Warning', '#f0a030', 'code review failing — ' + n + ' commits not deployed'), 'warning');
+          fadeSet(row('Please note', '#f0a030', 'code review failing — ' + n + ' commits blocked'), 'warning');
         } else {
 
         const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
@@ -1113,7 +1113,7 @@
           fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
         } else if (staleSecs > 600) {
           if (p.commit_matches_poide === true) {
-            fadeSet(row('Warning', '#f0a030', 'checks overdue — commit unchanged'), 'warning');
+            fadeSet(row('Please note', '#f0a030', 'checks overdue'), 'warning');
           } else {
             if (p.commit_matches_poide === false) {
               const key = 'stale_mismatch_' + (running || '').slice(0, 7);
@@ -1125,12 +1125,6 @@
               );
             }
             fadeSet(row('Danger', '#ff6b6b', 'checks stale — commit unverified'), 'danger');
-          }
-        } else if (staleSecs > 180) {
-          if (p.commit_matches_poide === true) {
-            fadeSet(row('Warning', '#f0a030', 'check overdue — commit unchanged'), 'warning');
-          } else {
-            fadeSet(row('Warning', '#f0a030', 'check overdue — cron delayed?'), 'warning');
           }
         } else if (!unknownCommit && verified && !commitMatch) {
           fadeSet(row('Please note', '#f0a030', 'verifying deploy'), 'warning');
