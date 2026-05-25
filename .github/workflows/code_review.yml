@@ -24,15 +24,31 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python code_review.py
 
-      - name: Deploy to Render
+      - name: Deploy to Render and wait
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
         run: |
-          curl -s -X POST \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+          DEPLOY_ID=$(curl -s -X POST \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
             -H "Content-Type: application/json" \
             -d '{"clearCache":"do_not_clear"}' \
-            "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" > /dev/null
+            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          echo "Deploy ID: $DEPLOY_ID"
+          for i in $(seq 1 40); do
+            sleep 15
+            STATUS=$(curl -s \
+              -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" | python3 -c "import sys,json; print(json.load(sys.stdin)['deploy']['status'])")
+            echo "Status: $STATUS"
+            if [ "$STATUS" = "live" ]; then exit 0; fi
+            if [ "$STATUS" = "deactivated" ] || [ "$STATUS" = "canceled" ] || [ "$STATUS" = "failed" ]; then
+              echo "Deploy ended with status: $STATUS"; exit 1
+            fi
+          done
+          echo "Deploy timed out after 10 minutes"; exit 1
 
-      - name: Wake up POIDE cron after deploy
+      - name: Wake up POIDE
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
