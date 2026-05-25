@@ -8,3 +8,5 @@ python-dotenv==1.0.1
 irys-sdk==0.1.9
 dkimpy==1.1.8
 Markdown==3.7
+pyhanko==0.21.0
+pyhanko-certvalidator==0.26.3

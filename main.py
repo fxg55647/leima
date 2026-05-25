@@ -187,6 +187,17 @@ def _source_assessment_text(source_context: dict | None) -> str:
         if source_context.get("fetched_at"):
             parts.append(f"Fetched: {source_context['fetched_at']}")
         return " — ".join(parts)
+    elif t == "pdf_signed_intact":
+        signer = source_context.get("sig_signer") or source_context.get("sig_signer_org") or "unknown"
+        ts = source_context.get("sig_timestamp", "")
+        rfc = " — RFC 3161 timestamp" if source_context.get("sig_rfc3161") else " — claimed time only"
+        tsa = f" via {source_context['sig_tsa']}" if source_context.get("sig_tsa") else ""
+        return f"PDF — Digital signature: INTACT — Signer: {signer} — Signed: {ts}{rfc}{tsa}"
+    elif t == "pdf_signed_tampered":
+        signer = source_context.get("sig_signer") or "unknown"
+        return f"PDF — Digital signature: TAMPERED — Signer: {signer} — Document modified after signing"
+    elif t == "pdf_unsigned":
+        return "PDF — No digital signature detected"
     else:
         return "Document (uploaded) — No verifiable origin. Content assessed against claim only."
 
@@ -724,6 +735,80 @@ def _check_c2pa(image_bytes: bytes, mime: str) -> dict | None:
         return {"present": False}
 
 
+def _check_pdf_signatures(pdf_bytes: bytes) -> dict | None:
+    """Check PDF for digital signatures and RFC 3161 timestamps. Returns None if pyhanko unavailable."""
+    try:
+        import io as _io
+        from pyhanko.pdf_utils.reader import PdfFileReader
+    except ImportError:
+        return None
+    try:
+        reader = PdfFileReader(_io.BytesIO(pdf_bytes))
+        sigs = reader.embedded_signatures
+        if not sigs:
+            return {"signed": False}
+    except Exception:
+        return {"signed": False}
+
+    results = []
+    for sig in sigs:
+        entry: dict = {}
+        try:
+            from pyhanko.sign.validation import validate_pdf_signature
+            from pyhanko_certvalidator import ValidationContext
+            vc = ValidationContext(allow_fetching=False)
+            status = validate_pdf_signature(sig, vc)
+            entry["intact"] = bool(status.intact)
+            cert = status.signing_cert
+            if cert:
+                try:
+                    entry["signer_cn"] = cert.subject["common_name"].value
+                except Exception:
+                    pass
+                try:
+                    entry["signer_org"] = cert.subject["organization_name"].value
+                except Exception:
+                    pass
+                entry["signer"] = cert.subject.human_friendly
+            ts_val = getattr(status, "timestamp_validity", None)
+            if ts_val and getattr(ts_val, "timestamp", None):
+                entry["timestamp"] = ts_val.timestamp.isoformat()
+                entry["timestamp_rfc3161"] = True
+                entry["timestamp_intact"] = bool(getattr(ts_val, "intact", False))
+                tsa_cert = getattr(ts_val, "signing_cert", None)
+                if tsa_cert:
+                    try:
+                        entry["tsa"] = tsa_cert.subject["common_name"].value
+                    except Exception:
+                        try:
+                            entry["tsa"] = tsa_cert.subject.human_friendly
+                        except Exception:
+                            pass
+            elif getattr(status, "signer_reported_dt", None):
+                entry["timestamp"] = status.signer_reported_dt.isoformat()
+                entry["timestamp_rfc3161"] = False
+                entry["timestamp_intact"] = False
+        except Exception as e:
+            entry["error"] = str(e)[:120]
+        results.append(entry)
+
+    if not results:
+        return {"signed": False}
+    first = results[0]
+    return {
+        "signed": True,
+        "intact": first.get("intact", False),
+        "rfc3161": first.get("timestamp_rfc3161", False),
+        "count": len(results),
+        "signer": first.get("signer_cn") or first.get("signer_org") or first.get("signer", ""),
+        "signer_org": first.get("signer_org", ""),
+        "timestamp": first.get("timestamp"),
+        "timestamp_intact": first.get("timestamp_intact", False),
+        "tsa": first.get("tsa", ""),
+        "signatures": results,
+    }
+
+
 def build_verdict_txt(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str) -> bytes:
     lines = ["STAMPD VERDICT", "=" * 40,
              f"Timestamp: {timestamp}", f"Model: {MODEL}", f"Input SHA-256: {input_hash}",
@@ -922,7 +1007,20 @@ async def ask(
         elif pdf_file and pdf_file.filename:
             input_bytes = await pdf_file.read()
             input_label = pdf_file.filename
-            source_context = None
+            sig_info = _check_pdf_signatures(input_bytes)
+            if sig_info and sig_info.get("signed"):
+                source_context = {
+                    "type": "pdf_signed_intact" if sig_info.get("intact") else "pdf_signed_tampered",
+                    "sig_signer": sig_info.get("signer", ""),
+                    "sig_signer_org": sig_info.get("signer_org", ""),
+                    "sig_timestamp": sig_info.get("timestamp"),
+                    "sig_rfc3161": sig_info.get("rfc3161", False),
+                    "sig_timestamp_intact": sig_info.get("timestamp_intact", False),
+                    "sig_tsa": sig_info.get("tsa", ""),
+                    "sig_count": sig_info.get("count", 1),
+                }
+            else:
+                source_context = {"type": "pdf_unsigned"}
         else:
             return HTMLResponse('<div class="error">Please upload a PDF or enter a URL.</div>')
         contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
