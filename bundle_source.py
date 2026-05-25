@@ -1,5 +1,8 @@
 """
-Bundle all Python and JS source files into a single text file for Leima upload.
+Bundle source files and documentation into a single text file for Leima upload.
+
+Includes all .py and .js source files plus README.md and POLICY.md so the
+AI reviewer has full context about the project's architecture and data policy.
 
 Usage:
     python bundle_source.py [commit]
@@ -13,6 +16,7 @@ from pathlib import Path
 
 SKIP_DIRS  = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
 SOURCE_EXT = {".py", ".js"}
+DOCS       = {"README.md", "POLICY.md"}
 
 ref = sys.argv[1] if len(sys.argv) > 1 else "HEAD"
 root = Path(__file__).parent
@@ -22,18 +26,27 @@ result = subprocess.run(
     ["git", "ls-tree", "-r", "--name-only", ref],
     capture_output=True, text=True, cwd=root, check=True, encoding="utf-8",
 )
-tracked = [p for p in result.stdout.splitlines() if Path(p).suffix in SOURCE_EXT]
-tracked = [p for p in tracked if not any(part in SKIP_DIRS for part in Path(p).parts)]
-tracked.sort()
+all_tracked = result.stdout.splitlines()
 
-parts = []
-for path in tracked:
-    blob = subprocess.run(
+docs    = [p for p in all_tracked if Path(p).name in DOCS]
+sources = [p for p in all_tracked if Path(p).suffix in SOURCE_EXT
+           and not any(part in SKIP_DIRS for part in Path(p).parts)]
+tracked = sorted(docs) + sorted(sources)
+
+
+def read_blob(path: str) -> str | None:
+    r = subprocess.run(
         ["git", "show", f"{ref}:{path}"],
         capture_output=True, text=True, cwd=root, encoding="utf-8", errors="replace",
     )
-    if blob.returncode == 0:
-        parts.append(f"### {path}\n```\n{blob.stdout}\n```")
+    return r.stdout if r.returncode == 0 else None
+
+
+parts = []
+for path in tracked:
+    content = read_blob(path)
+    if content is not None:
+        parts.append(f"### {path}\n```\n{content}\n```")
 
 commit_sha = subprocess.run(
     ["git", "rev-parse", ref],
