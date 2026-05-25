@@ -97,7 +97,8 @@
           const rs = tr.insertCell();
           if (!ok) {
             const reasons = [];
-            if (e.deployment_ok === false) reasons.push('commit mismatch');
+            if (e.deploying) reasons.push('deploy in progress');
+            else if (e.deployment_ok === false) reasons.push('commit mismatch');
             if (e.review_ok === false) reasons.push('review failed');
             if (e.rapid_deploy_warning) reasons.push('rapid deploy');
             if (e.cron_fresh === false) reasons.push('stale cron');
