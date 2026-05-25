@@ -82,7 +82,7 @@ def _poide_dispatcher():
             pass
         if token:
             try:
-                http_requests.post(dispatch_url, headers=hdrs, json={"ref": "main"}, timeout=10)
+                http_requests.post(dispatch_url, headers=api_hdrs, json={"ref": "main"}, timeout=10)
             except Exception:
                 pass
         time.sleep(30 if cache_populated else 5)
