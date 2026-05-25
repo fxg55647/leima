@@ -20,7 +20,7 @@
   </div>
 
   {% for label, text in [passes[2], passes[0], passes[1]] %}
-  <div class="pass-block">
+  <div class="pass-block{% if label == 'Supporting evidence' %} pass-block-support{% endif %}">
     <div class="pass-label">{{ label }}</div>
     <div class="answer-text">{{ text | md | safe }}</div>
   </div>
@@ -142,6 +142,13 @@
   .meta-label { font-size: 0.8rem; color: #6c757d; }
 
   .pass-block { margin-bottom: 1.25rem; }
+  .pass-block-support {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-left: -1rem;
+    margin-right: -1rem;
+  }
   .pass-label {
     font-size: 0.85rem;
     font-weight: 700;
