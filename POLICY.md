@@ -32,8 +32,11 @@ Only the following is written to the Arweave blockchain, via Irys:
 - SHA-256 hash of the verdict PDF
 - Timestamp
 - AI model version
+- Input label: the original filename (for uploaded files) or the source URL (for web and PDF URL submissions)
+- For web-sourced documents: the URL and the time it was fetched
+- For email submissions: sender address, subject, date, and DKIM result (see Email notary section)
 
-The document itself, the verdict text, and any personal data in either are **not** stored on Arweave or anywhere else permanently. The stamp record on Arweave contains fingerprints, not content.
+The document content, the verdict text, and any personal data in either are **not** stored on Arweave permanently. The stamp record contains fingerprints and provenance metadata — not content.
 
 ---
 
