@@ -148,6 +148,13 @@ def poll_and_process(
                 raw = data[0][1]
 
                 meta = extract_meta(raw)
+
+                if meta["dkim"] != "valid":
+                    result["error"] = f"DKIM {meta['dkim']} — message rejected"
+                    results.append(result)
+                    imap.store(num, "+FLAGS", "\\Seen")
+                    continue
+
                 msg_parsed = email_lib.message_from_bytes(raw)
                 cc_addrs = _extract_addresses(msg_parsed.get("CC", ""))
                 recipients = [
