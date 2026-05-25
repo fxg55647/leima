@@ -46,3 +46,32 @@ jobs:
           git add audit/
           git diff --staged --quiet || git commit -m "chore: POIDE audit ${{ steps.audit.outputs.month }}"
           git push
+
+      - name: Push monthly summary to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PYEOF'
+          import base64, json, os
+          import requests
+
+          token = os.environ["GITHUB_TOKEN"]
+          repo  = os.environ.get("GITHUB_REPOSITORY", "fxg55647/leima")
+          month = "${{ steps.audit.outputs.month }}"
+          tx    = "${{ steps.audit.outputs.tx }}"
+          url   = "${{ steps.audit.outputs.url }}"
+
+          data = json.dumps({"month": month, "tx": tx, "url": url}, indent=2).encode()
+          content = base64.b64encode(data).decode()
+
+          hdr = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+          api = f"https://api.github.com/repos/{repo}/contents/monthly-summary.json"
+          r = requests.get(api, headers=hdr, params={"ref": "gh-pages"}, timeout=10)
+          sha = r.json().get("sha") if r.status_code == 200 else None
+
+          payload = {"message": "chore: update monthly summary", "content": content, "branch": "gh-pages"}
+          if sha:
+              payload["sha"] = sha
+          r = requests.put(api, headers=hdr, json=payload, timeout=10)
+          print("monthly-summary.json →", r.status_code)
+          PYEOF
