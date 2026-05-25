@@ -1071,6 +1071,8 @@
             'Check GitHub Actions and the Render dashboard.'
           );
           fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
+        } else if (p.deploying) {
+          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
         } else if (staleSecs > 600) {
           if (p.commit_matches_poide === true) {
             fadeSet(row('Warning', '#f0a030', 'checks overdue — commit unchanged'), 'warning');
@@ -1097,12 +1099,8 @@
         } else if (p.ok) {
           fadeSet(row('OK', '#fff'), 'ok');
         } else if (p.ok === false) {
-          if (p.deploying) {
-            fadeSet(row('Please note — Deploying', '#f0a030', ''), 'warning');
-          } else {
-            const reason = p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed';
-            fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
-          }
+          const reason = p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed';
+          fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
         } else {
           fadeSet(row('Checking…', '#555', ''), 'loading');
         }
