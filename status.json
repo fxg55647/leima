@@ -2,29 +2,29 @@
   "ok": true,
   "deployment_ok": false,
   "review_ok": false,
-  "deploying": false,
-  "deploying_commit": null,
-  "deploying_commit_ok": false,
+  "deploying": true,
+  "deploying_commit": "93fed151bd7954367ddd985f99df36ab6cda306e",
+  "deploying_commit_ok": true,
   "deployed_commit": "e33b31157489542763118708ae1005ee7e3fcb55",
-  "expected_commit": "71129c503d8205c7e3e2aca32c781f3c64ed7a1a",
+  "expected_commit": "93fed151bd7954367ddd985f99df36ab6cda306e",
   "deploy_status": "live",
-  "review_conclusion": "failure",
+  "review_conclusion": "in_progress",
   "cron_fresh": true,
   "workflow_states": {
     "poide-a.yml": "active"
   },
   "disabled_workflows": [],
   "history": {
-    "scanned_deploys": 99,
+    "scanned_deploys": 98,
     "last_mismatch_at": null,
     "last_mismatch_commit": null,
-    "clean_since": "2026-05-22T22:38:26.053173Z",
+    "clean_since": "2026-05-22T22:39:44.081272Z",
     "deploys_last_hour": 7
   },
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-25 16:22:09 UTC",
+  "checked_at": "2026-05-25 16:22:57 UTC",
   "monitor_files": {
     ".github/workflows/poide-a.yml": "b57ee4f08c3cd31bde7e15c13707ec2fc7c36f19d61f45548b7cd395989bcf03",
     ".github/workflows/poide-run.yml": "7d8db4bc305a24391234b9ec0733267726148801af26a93df315c0e73d4e817a",
@@ -36,6 +36,6 @@
     "code_review.py": "c25601bc6a25c5f8b53e21d4bbb006d891f1d052f8f44c8da251121e408f816f",
     "POLICY.md": "d4d7dc33b8a94a6834d267ffd0e2f6bc6a5cdfaa1c5c8d17c469f0df37291f26"
   },
-  "actions_run_id": "26409986375",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26409986375"
+  "actions_run_id": "26410005748",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26410005748"
 }
