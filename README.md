@@ -283,6 +283,8 @@ A future option will allow switching to AI providers that operate under strict, 
 
 Deployment transparency has historically required either expensive infrastructure or accepting "trust us" as the answer. This has had a real cost.
 
+**A provable record of intent.** Every POIDE check is written permanently to Arweave. This means a small company can at any point in time prove — to a customer, a regulator, an auditor, or a court — exactly what source code they were asking their hosting provider to run, and when. They cannot prove that the hosting provider executed it exactly as instructed; that residual assumption is documented openly. But the record of intent is permanent, tamper-proof, and independently verifiable without asking the company for anything. For regulated industries or contractual disputes, this is a meaningful guarantee that previously required expensive third-party auditing infrastructure.
+
 **Lost opportunity.** Small operators have had no mechanism to demonstrate that the code they claim to run is the code actually running. Large players substitute brand reputation for technical transparency. This locks small operators out of trust-sensitive markets — legal, financial, medical, research — not because their code is worse, but because they lack the tools to prove it. Use cases that could be automated have stayed manual. Services that could exist have not been built.
 
 **Why not TEE?** Hardware-level trusted execution environments (Intel SGX, AMD SEV) provide the strongest possible guarantee: cryptographic proof of what code is executing in memory. They also cost orders of magnitude more to implement and require hosting provider cooperation. The question is whether that cost is justified by the risk it covers.
