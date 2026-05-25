@@ -36,7 +36,8 @@ function checkMonitorFiles(current) {
     const stored = GM_getValue("monitor_files", null);
     GM_setValue("monitor_files", JSON.stringify(current));
     if (!stored) return null;
-    const prev = JSON.parse(stored);
+    let prev;
+    try { prev = JSON.parse(stored); } catch { return null; }
     const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
     return changed.length > 0 ? changed : null;
 }

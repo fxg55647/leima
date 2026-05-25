@@ -69,9 +69,12 @@ def render_state():
 
 
 def github_commit():
+    gh_headers = {"Accept": "application/vnd.github.sha"}
+    if GITHUB_TOKEN:
+        gh_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
     resp = requests.get(
         f"https://api.github.com/repos/{GITHUB_REPO}/commits/{GITHUB_BRANCH}",
-        headers={"Accept": "application/vnd.github.sha"},
+        headers=gh_headers,
         timeout=10,
     )
     if resp.status_code != 200:
@@ -266,10 +269,12 @@ deployment_safe = deployment_ok or deploying_commit_ok or review_conclusion in (
 # review_stuck: code review has failed repeatedly — commits are not deploying
 REVIEW_STUCK_THRESHOLD = 3
 review_stuck = review_consecutive_failures >= REVIEW_STUCK_THRESHOLD
+rapid_deploy_warning = history.get("deploys_last_hour", 0) >= RAPID_DEPLOY_THRESHOLD
 ok = deployment_safe and (cron_fresh is not False) and not disabled_workflows
 
 result = {
     "ok": ok,
+    "rapid_deploy_warning": rapid_deploy_warning,
     "deployment_ok": deployment_ok,
     "review_ok": review_ok,
     "review_consecutive_failures": review_consecutive_failures,

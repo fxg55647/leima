@@ -486,8 +486,9 @@ async def fetch_emails(
         imap.select("INBOX")
         since = datetime.strptime(email_start, "%Y-%m-%d").strftime("%d-%b-%Y")
         before = (datetime.strptime(email_end, "%Y-%m-%d") + timedelta(days=1)).strftime("%d-%b-%Y")
-        safe_sender = email_sender.replace("\\", "\\\\").replace('"', '\\"')
-        _, nums = imap.search(None, f'(FROM "{safe_sender}" SINCE {since} BEFORE {before})')
+        if not re.fullmatch(r"[a-zA-Z0-9._%+\-@]+", email_sender):
+            return HTMLResponse('<p class="fetch-error">Invalid sender email address.</p>')
+        _, nums = imap.search(None, "FROM", email_sender, "SINCE", since, "BEFORE", before)
         messages = []
         for num in (nums[0].split() or [])[-50:]:
             _, data = imap.fetch(num, "(RFC822)")

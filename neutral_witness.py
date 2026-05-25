@@ -19,7 +19,10 @@ _client: genai.Client | None = None
 def _get_client() -> genai.Client:
     global _client
     if _client is None:
-        _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        _client = genai.Client(
+            api_key=os.getenv("GEMINI_API_KEY"),
+            http_options={"timeout": 120},
+        )
     return _client
 
 _SCOPE = """Leima is a tool for economic activity, scientific work, and the verification of factual claims. It is not a law enforcement tool, does not serve state authorities, and is not designed for resolving disputes between parties.
