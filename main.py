@@ -355,11 +355,25 @@ def _check_ssrf(url: str) -> None:
             raise ValueError(f"URL resolves to private/internal address: {ip_str}")
 
 
+def _safe_get(url: str, **kwargs) -> http_requests.Response:
+    max_redirects = 10
+    for _ in range(max_redirects):
+        resp = http_requests.get(url, allow_redirects=False, **kwargs)
+        if resp.is_redirect or resp.status_code in (301, 302, 303, 307, 308):
+            location = resp.headers.get("Location", "")
+            if not location:
+                break
+            url = http_requests.compat.urljoin(url, location)
+            _check_ssrf(url)
+        else:
+            return resp
+    raise ValueError("Too many redirects or redirect loop")
+
+
 def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
     _check_ssrf(url)
     parsed = urlparse(url)
-    resp = http_requests.get(url, timeout=20, allow_redirects=True,
-                             headers={"User-Agent": "Leima/1.0"})
+    resp = _safe_get(url, timeout=20, headers={"User-Agent": "Leima/1.0"})
     resp.raise_for_status()
     html = resp.text
     text = re.sub(r"<style[^>]*>.*?</style>", " ", html, flags=re.S)
@@ -974,12 +988,12 @@ def _fetch_pdf_from_url(url: str) -> tuple[bytes, str]:
     _check_ssrf(url)
     parsed = urlparse(url)
 
-    head = http_requests.head(url, timeout=10, allow_redirects=True)
+    head = _safe_get(url, timeout=10)
     content_length = head.headers.get("Content-Length")
     if content_length and int(content_length) > PDF_URL_MAX_BYTES:
         raise ValueError(f"File too large (max {PDF_URL_MAX_BYTES // 1024 // 1024} MB)")
 
-    resp = http_requests.get(url, timeout=30, allow_redirects=True, stream=True)
+    resp = _safe_get(url, timeout=30, stream=True)
     resp.raise_for_status()
 
     content_type = resp.headers.get("Content-Type", "")
