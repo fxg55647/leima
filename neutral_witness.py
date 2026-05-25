@@ -143,8 +143,7 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
     ) if not content_only else ""
     language = (
         f'The user\'s claim is: "{question}". '
-        'Detect the language of this claim and respond entirely in that language — '
-        'not in English unless the claim itself is in English. '
+        'Respond entirely in the same language as the claim. '
         'Direct quotes from the document must be reproduced verbatim in their original language — do not translate them.'
     )
     p1 = (
