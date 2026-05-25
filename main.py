@@ -219,7 +219,7 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
         pdf.set_font("Helvetica", "B", 11)
         pdf.cell(0, 7, _safe(label), ln=True)
         pdf.set_font("Helvetica", size=11)
-        html = _md.markdown(text or "", extensions=["nl2br"])
+        html = _md.markdown(_safe(text or ""), extensions=["nl2br"])
         pdf.write_html(html)
 
     pdf.ln(10)
