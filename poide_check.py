@@ -38,7 +38,7 @@ _COMPLETED        = {"live", "deactivated"}
 
 def render_state():
     if not RENDER_API_KEY or not RENDER_SERVICE_ID:
-        return None, "not_configured", False, None
+        return None, "not_configured", False, None, None
     headers = {"Authorization": f"Bearer {RENDER_API_KEY}"}
 
     svc_resp = requests.get(
@@ -58,11 +58,14 @@ def render_state():
     resp.raise_for_status()
     deploys = resp.json()
     deploying = bool(deploys and deploys[0].get("deploy", {}).get("status") in _IN_PROGRESS)
+    deploying_commit = (
+        deploys[0].get("deploy", {}).get("commit", {}).get("id") if deploying else None
+    )
     for item in deploys:
         deploy = item.get("deploy", {})
         if deploy.get("status") == "live":
-            return deploy.get("commit", {}).get("id"), "live", deploying, service_url
-    return None, "no_live_deploy", deploying, service_url
+            return deploy.get("commit", {}).get("id"), "live", deploying, service_url, deploying_commit
+    return None, "no_live_deploy", deploying, service_url, deploying_commit
 
 
 def github_commit():
@@ -206,9 +209,9 @@ def github_review_status():
 
 error = None
 try:
-    deployed, deploy_status, deploying, service_url = render_state()
+    deployed, deploy_status, deploying, service_url, deploying_commit = render_state()
 except Exception as e:
-    deployed, deploy_status, deploying, service_url, error = None, "error", False, None, str(e)
+    deployed, deploy_status, deploying, service_url, deploying_commit, error = None, "error", False, None, None, str(e)
 
 try:
     expected = github_commit()
@@ -243,14 +246,17 @@ except Exception as e:
     error = (error + "; " if error else "") + str(e)
 
 deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
+deploying_commit_ok = bool(deploying and deploying_commit and expected and deploying_commit.startswith(expected[:7]))
 review_ok = review_conclusion == "success"
-ok = deployment_ok and review_ok and not deploying and (cron_fresh is not False) and not disabled_workflows
+ok = (deployment_ok or deploying_commit_ok) and review_ok and (cron_fresh is not False) and not disabled_workflows
 
 result = {
     "ok": ok,
     "deployment_ok": deployment_ok,
     "review_ok": review_ok,
     "deploying": deploying,
+    "deploying_commit": deploying_commit,
+    "deploying_commit_ok": deploying_commit_ok,
     "deployed_commit": deployed,
     "expected_commit": expected,
     "deploy_status": deploy_status,
