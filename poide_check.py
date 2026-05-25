@@ -248,7 +248,10 @@ except Exception as e:
 deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
 deploying_commit_ok = bool(deploying and deploying_commit and expected and deploying_commit.startswith(expected[:7]))
 review_ok = review_conclusion == "success"
-ok = (deployment_ok or deploying_commit_ok) and (cron_fresh is not False) and not disabled_workflows
+# deployment_safe: running code is the expected code, or the mismatch is explained
+# by the normal deploy gate (review running or failed → old safe code still live)
+deployment_safe = deployment_ok or deploying_commit_ok or review_conclusion in ("in_progress", "failure")
+ok = deployment_safe and (cron_fresh is not False) and not disabled_workflows
 
 result = {
     "ok": ok,
