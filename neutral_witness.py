@@ -172,7 +172,10 @@ def _synthesis_prompt(question: str, support: str, refutation: str, source_conte
     content_only_note = (
         "\nThis is a content analysis — do not assert whether the claim is true in an absolute sense. "
         "Frame your verdict in terms of what the document states or contains.\n"
-    ) if content_only else ""
+    ) if content_only else (
+        "\nYou may draw on your own training data and reasoning to assess the claim — not just what the document says. "
+        "If you know something relevant that the document does not cover, or if the document's content is consistent or inconsistent with established facts, say so.\n"
+    )
     return f"""You are the final judge for Leima, a legal evidence tool.
 
 The claim being evaluated: "{question}"
