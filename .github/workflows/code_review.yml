@@ -25,7 +25,12 @@ jobs:
         run: python code_review.py
 
       - name: Deploy to Render
-        run: curl -s "${{ secrets.RENDER_DEPLOY_HOOK }}" > /dev/null
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache":"do_not_clear"}' \
+            "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" > /dev/null
 
       - name: Wake up POIDE cron after deploy
         continue-on-error: true
