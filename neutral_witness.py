@@ -172,11 +172,10 @@ def _independent_prompt(question: str) -> str:
     return (
         "You are a critical reviewer for Leima.\n\n"
         "Your task: find at most five factual errors, unsupported assumptions, or significant logical flaws in this document. "
-        "The claim defines the subject area to focus on.\n\n"
+        f'The claim "{question}" defines where to focus — if it names a specific aspect, topic, or section of the document, concentrate your critique there first before considering the rest.\n\n'
         "For each finding, state briefly what the document claims and why it is incorrect, unsupported, or misleading. "
-        "If the document is factually sound with no significant errors, say so explicitly. "
+        "If the document is factually sound with no significant errors in the relevant area, say so explicitly. "
         "Be specific and direct. Do not summarise what the document says — only flag what is wrong or questionable.\n\n"
-        f'Subject area is defined by this claim: "{question}". '
         "Respond entirely in the same language as the claim."
     )
 
