@@ -19,7 +19,7 @@
     <span class="meta-label">🕐 {{ timestamp }}</span>
   </div>
 
-  {% for label, text in passes %}
+  {% for label, text in [passes[2], passes[0], passes[1]] %}
   <div class="pass-block">
     <div class="pass-label">{{ label }}</div>
     <div class="answer-text">{{ text | md | safe }}</div>
