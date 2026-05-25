@@ -20,7 +20,9 @@ Neither is stored permanently by Leima.
 
 **Google Gemini API.** Your document and claim are sent to Google's Gemini API (`gemini-3.1-flash-lite`) for analysis. This is the only external service that receives the content of your document. Google's standard API terms apply to this transmission. If your document contains sensitive personal data, consider anonymising it before submission.
 
-**Nowhere else.** The document is not sent to any other external service, not written to disk, and not retained after your session ends.
+**GitHub API (GitHub tab only).** If you use the GitHub tab, Leima fetches the file contents you specify from the GitHub API (`api.github.com`) using the repository, commit reference, and file paths you provide. Your optional GitHub token is passed directly to the API as a Bearer credential and is never stored. The fetched file contents are then sent to Gemini for analysis in the same way as any other document.
+
+**Nowhere else.** Outside of the above, your document is not sent to any other external service, not written to disk, and not retained after your session ends.
 
 ---
 
