@@ -6,6 +6,7 @@ import json
 import time
 import threading
 import imaplib
+import socket
 import dkim
 import ipaddress
 import email as email_lib
@@ -327,17 +328,36 @@ def _github_fetch_files(repo: str, commit_sha: str, paths: list[str], token: str
     return results
 
 
-def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
+def _check_ssrf(url: str) -> None:
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError("Only http/https URLs are allowed")
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if not host:
+        raise ValueError("No hostname in URL")
+    if host in ("localhost", "0.0.0.0"):
+        raise ValueError("Private/internal addresses are not allowed")
     try:
-        addr = ipaddress.ip_address(parsed.hostname)
-        if addr.is_private or addr.is_loopback or addr.is_link_local:
+        addr = ipaddress.ip_address(host)
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
             raise ValueError("Private/internal addresses are not allowed")
+        return
     except ValueError as e:
-        if any(w in str(e) for w in ("Private", "internal", "loopback")):
+        if "Private" in str(e) or "internal" in str(e) or "loopback" in str(e) or "reserved" in str(e):
             raise
+    try:
+        _, _, addrs = socket.gethostbyname_ex(host)
+    except OSError:
+        raise ValueError(f"Cannot resolve hostname: {host}")
+    for ip_str in addrs:
+        addr = ipaddress.ip_address(ip_str)
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+            raise ValueError(f"URL resolves to private/internal address: {ip_str}")
+
+
+def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
+    _check_ssrf(url)
+    parsed = urlparse(url)
     resp = http_requests.get(url, timeout=20, allow_redirects=True,
                              headers={"User-Agent": "Leima/1.0"})
     resp.raise_for_status()
@@ -951,19 +971,8 @@ PDF_URL_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 def _fetch_pdf_from_url(url: str) -> tuple[bytes, str]:
+    _check_ssrf(url)
     parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError("Only http/https URLs are allowed")
-
-    try:
-        host = parsed.hostname
-        addr = ipaddress.ip_address(host)
-        if addr.is_private or addr.is_loopback or addr.is_link_local:
-            raise ValueError("Private/internal addresses are not allowed")
-    except ValueError as e:
-        if "Private" in str(e) or "internal" in str(e) or "loopback" in str(e):
-            raise
-        pass  # hostname is not an IP — OK
 
     head = http_requests.head(url, timeout=10, allow_redirects=True)
     content_length = head.headers.get("Content-Length")
