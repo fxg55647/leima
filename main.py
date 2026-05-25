@@ -1034,7 +1034,7 @@ async def ask(
             return HTMLResponse('<div class="error">Unsupported image format. Use JPG, PNG, GIF, WebP, HEIC, or HEIF.</div>')
         input_bytes = await image_file.read()
         c2pa_info = _check_c2pa(input_bytes, mime)
-        input_label = image_file.filename
+        input_label = mime
         source_ext = image_file.filename.rsplit(".", 1)[-1].lower()
         source_mime = mime
         contents.append(types.Part.from_bytes(data=input_bytes, mime_type=mime))
@@ -1058,7 +1058,7 @@ async def ask(
             source_context = {"type": "pdf_url", "domain": parsed.netloc, "url": pdf_url.strip()}
         elif pdf_file and pdf_file.filename:
             input_bytes = await pdf_file.read()
-            input_label = pdf_file.filename
+            input_label = "application/pdf"
             sig_info = _check_pdf_signatures(input_bytes)
             if sig_info and sig_info.get("signed"):
                 source_context = {

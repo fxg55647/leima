@@ -32,7 +32,7 @@ Only the following is written to the Arweave blockchain, via Irys:
 - SHA-256 hash of the verdict PDF
 - Timestamp
 - AI model version
-- Input label: the original filename (for uploaded files) or the source URL (for web and PDF URL submissions)
+- Input label: the MIME type of the document (e.g. `application/pdf`, `image/jpeg`) for uploaded files, or the source URL for web and PDF URL submissions — original filenames are never stored
 - For web-sourced documents: the URL and the time it was fetched
 - For email submissions: sender address, subject, date, and DKIM result (see Email notary section)
 
