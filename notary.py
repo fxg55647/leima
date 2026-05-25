@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email.mime.message import MIMEMessage
 from email import encoders
-from email.utils import getaddresses
+from email.utils import getaddresses, parseaddr
 from datetime import datetime
 
 
@@ -114,10 +114,11 @@ def _build_notarized_email(to: str, from_addr: str, original_raw: bytes, manifes
 
 
 def _smtp_send(to: str, msg_bytes: bytes, smtp_host: str, smtp_port: int, smtp_user: str, smtp_password: str, from_addr: str) -> None:
+    _, clean_from = parseaddr(from_addr)
     with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
         server.starttls()
         server.login(smtp_user, smtp_password)
-        server.sendmail(from_addr, [to], msg_bytes)
+        server.sendmail(clean_from, [to], msg_bytes)
 
 
 def poll_and_process(

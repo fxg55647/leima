@@ -257,7 +257,7 @@ except Exception as e:
     history = {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
     error = (error + "; " if error else "") + str(e)
 
-deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
+deployment_ok = bool(deployed and expected and deployed == expected)
 deploying_commit_ok = bool(deploying and deploying_commit and expected and deploying_commit.startswith(expected[:7]))
 review_ok = review_conclusion == "success"
 # deployment_safe: running code is the expected code, or the mismatch is explained

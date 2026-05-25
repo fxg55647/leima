@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 import re
 from html import escape as _html_escape
 import markdown as _md
+import bleach
 import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -93,7 +94,11 @@ threading.Thread(target=_poide_dispatcher, daemon=True).start()
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-templates.env.filters["md"] = lambda text: _md.markdown(text or "", extensions=["nl2br"])
+_MD_ALLOWED_TAGS = ["p", "strong", "em", "ul", "ol", "li", "blockquote", "code", "pre", "br", "h1", "h2", "h3"]
+templates.env.filters["md"] = lambda text: bleach.clean(
+    _md.markdown(text or "", extensions=["nl2br"]),
+    tags=_MD_ALLOWED_TAGS, strip=True
+)
 
 # In-memory store: session_id → {pdf: bytes, manifest: dict}
 store: dict[str, dict] = {}
@@ -1100,12 +1105,16 @@ async def ask(
     source_ext = "pdf"
     source_mime = "application/pdf"
 
+    MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+
     if active_tab == "image":
         if not image_file or not image_file.filename:
             return HTMLResponse('<div class="error">Please upload an image.</div>')
         mime = _detect_image_mime(image_file.filename)
         if not mime:
             return HTMLResponse('<div class="error">Unsupported image format. Use JPG, PNG, GIF, WebP, HEIC, or HEIF.</div>')
+        if image_file.size and image_file.size > MAX_UPLOAD_BYTES:
+            return HTMLResponse('<div class="error">File too large (max 20 MB).</div>')
         input_bytes = await image_file.read()
         c2pa_info = _check_c2pa(input_bytes, mime)
         input_label = mime
@@ -1117,7 +1126,7 @@ async def ask(
                 "type": "image_c2pa_valid" if c2pa_info.get("valid") else "image_c2pa_invalid",
                 "c2pa_generator": c2pa_info.get("generator", ""),
                 "c2pa_signer": c2pa_info.get("signer", ""),
-                "c2pa_location": c2pa_info.get("location"),
+                "c2pa_location_present": bool(c2pa_info.get("location")),
             }
         else:
             source_context = {"type": "image_no_c2pa"}
@@ -1131,6 +1140,8 @@ async def ask(
             parsed = urlparse(pdf_url.strip())
             source_context = {"type": "pdf_url", "domain": parsed.netloc, "url": pdf_url.strip()}
         elif pdf_file and pdf_file.filename:
+            if pdf_file.size and pdf_file.size > MAX_UPLOAD_BYTES:
+                return HTMLResponse('<div class="error">File too large (max 20 MB).</div>')
             input_bytes = await pdf_file.read()
             input_label = "application/pdf"
             sig_info = _check_pdf_signatures(input_bytes)

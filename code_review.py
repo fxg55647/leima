@@ -167,7 +167,8 @@ if not result:
     sys.exit(1)
 
 print(result)
-compliant = "OVERALL: COMPLIANT" in result
+_last_line = next((l.strip() for l in reversed(result.splitlines()) if l.strip()), "")
+compliant = _last_line == "OVERALL: COMPLIANT"
 
 # --- New dependency check ---
 new_packages = get_new_packages(root)
