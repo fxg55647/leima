@@ -2,12 +2,12 @@
   "ok": true,
   "deployment_ok": false,
   "review_ok": false,
-  "deploying": true,
-  "deploying_commit": "378842930458eb596253a5826dbe48b99a64555f",
-  "deploying_commit_ok": true,
-  "deployed_commit": null,
+  "deploying": false,
+  "deploying_commit": null,
+  "deploying_commit_ok": false,
+  "deployed_commit": "e33b31157489542763118708ae1005ee7e3fcb55",
   "expected_commit": "378842930458eb596253a5826dbe48b99a64555f",
-  "deploy_status": "no_live_deploy",
+  "deploy_status": "live",
   "review_conclusion": "in_progress",
   "cron_fresh": true,
   "workflow_states": {
@@ -24,18 +24,18 @@
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-25 16:41:16 UTC",
+  "checked_at": "2026-05-25 16:41:51 UTC",
   "monitor_files": {
     ".github/workflows/poide-a.yml": "b57ee4f08c3cd31bde7e15c13707ec2fc7c36f19d61f45548b7cd395989bcf03",
     ".github/workflows/poide-run.yml": "7d8db4bc305a24391234b9ec0733267726148801af26a93df315c0e73d4e817a",
     ".github/workflows/monthly-audit.yml": "05b3b6d6a2c1ff304e3815b6bafce8496a842283da855f14b46ac821e88d79b3",
     ".github/workflows/code_review.yml": "9b5cedfb6422a9d5442a2286f27200f829073c953b86b2639a4b7548289f6c39",
-    "poide_check.py": "b3071f4a5e1083816a9ff98e052ac05cf0bf69323282c2e995941cb536675d54",
+    "poide_check.py": "f151eaba61705376d7d96ffe141f337d1193513b2325f6569ee9b61c2b3f3a96",
     "poide_arweave.py": "d64682638a2dbf6760784fc2c42f025d6822aac68fdf3aea57bc63d502ac55e7",
     "monthly_audit.py": "5f4c197c3ee55e5bc3b22cd6ad77d0e12b454ac41b898526a002c8f33f2a08c2",
     "code_review.py": "c25601bc6a25c5f8b53e21d4bbb006d891f1d052f8f44c8da251121e408f816f",
     "POLICY.md": "d4d7dc33b8a94a6834d267ffd0e2f6bc6a5cdfaa1c5c8d17c469f0df37291f26"
   },
-  "actions_run_id": "26410682414",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26410682414"
+  "actions_run_id": "26410701357",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26410701357"
 }
