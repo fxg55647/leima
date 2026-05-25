@@ -45,7 +45,6 @@ function failReason(d) {
     if (d.deploying && !d.deploying_commit_ok) return "VAROITUS: tuotantoon ajetaan commit joka ei täsmää GitHubiin";
     if (d.deploying)            return "deploy käynnissä — odota hetki";
     if (!d.deployment_ok)       return "deployed commit ei täsmää GitHubiin";
-    if (!d.review_ok)           return "policy-katselmus epäonnistui";
     if (d.cron_fresh === false)  return "monitorointi myöhässä — GitHub Actions ruuhka?";
     return "tila tuntematon";
 }

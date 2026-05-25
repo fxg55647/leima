@@ -470,7 +470,6 @@
         } else {
           const reason = d.deploying ? 'deploying'
             : !d.deployment_ok ? 'commit mismatch'
-            : !d.review_ok ? 'review failed'
             : !d.cron_fresh ? 'crons stale'
             : 'check failed';
           fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
