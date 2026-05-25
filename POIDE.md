@@ -84,6 +84,8 @@ pip install requests
 python verify.py
 ```
 
+([`verify.py`](verify.py))
+
 It uses two independent sources for each monitored file:
 
 **Git history (GitHub API).** For each file in the monitoring infrastructure — the five cron workflows, `poide_check.py`, `poide_arweave.py`, `code_review.py`, and `POLICY.md` — it queries GitHub's commit history API to find when the file was last changed. This record is maintained by GitHub, not by Leima. A service operator cannot alter it without leaving a visible trace in the git history, which is append-only on GitHub's infrastructure.
