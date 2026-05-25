@@ -54,4 +54,8 @@ for f in ["pages-output/status.json", "pages-output/status-log.jsonl"]:
     if p.exists():
         ok = push_file(p) and ok
 
+audit = Path("audit.html")
+if audit.exists():
+    push_file(audit)
+
 sys.exit(0 if ok else 1)
