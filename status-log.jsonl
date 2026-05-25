@@ -251,4 +251,4 @@
 {"ts": "2026-05-25 01:18:26 UTC", "tx": "7axW7todbhob9p6fExwRFrfS7ocGHuWNavQPsSPPzHGa", "ok": true, "commit": "23a8925", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": false}
 {"ts": "2026-05-25 01:20:17 UTC", "tx": "HN8yEHwztFSJjkcHmY1vcnDm88Q8XD2ZbPXeUyzsk7a7", "ok": true, "commit": "23a8925", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": false}
 {"ts": "2026-05-25 01:22:23 UTC", "tx": "9GeJ8yMzGnbfbH86PvV5csRgYtJnypVrmTe2ex6zpYLA", "ok": false, "commit": "23a8925", "deploy_status": "live", "deployment_ok": false, "review_ok": false, "rapid_deploy_warning": false}
-{"ts": "2026-05-25 01:23:13 UTC", "tx": "E6SyQNtk1offwrEDHFavfzcQavHMUbb1nU2ujRRwCctx", "ok": false, "commit": "fa58cad", "deploy_status": "live", "deployment_ok": false, "review_ok": false, "rapid_deploy_warning": false}
+{"ts": "2026-05-25 01:23:35 UTC", "tx": "6L3u1uMbK8FiU96rNL9ixYW9RR5WkWcBY4x3hWJGrasa", "ok": false, "commit": "fa58cad", "deploy_status": "live", "deployment_ok": false, "review_ok": false, "rapid_deploy_warning": false}
