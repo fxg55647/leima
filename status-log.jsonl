@@ -254,4 +254,4 @@
 {"ts": "2026-05-25 01:23:43 UTC", "tx": "7UjHCbD8GX7ZTcNm2hzy65jyqsLiF1ELWbUcz4PSvJCG", "ok": false, "commit": "fa58cad", "deploy_status": "live", "deployment_ok": false, "review_ok": true, "rapid_deploy_warning": false}
 {"ts": "2026-05-25 01:24:45 UTC", "tx": "EfBkr5BuYrg2y96v1nmZotPryV66GXrq4cDuxpgUnLfY", "ok": false, "commit": "9304461", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": true}
 {"ts": "2026-05-25 01:25:25 UTC", "tx": "7Xrt4wWuGXJhPwHisMEXwZtMXMBAeywFj6iNv6ZZ53M7", "ok": true, "commit": "9304461", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": false}
-{"ts": "2026-05-25 01:26:12 UTC", "tx": "7ufzQSuoegZtjgrjQoRPRjMJZJNRaWzoKPSqB3JbUYc5", "ok": true, "commit": "9304461", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": false}
+{"ts": "2026-05-25 01:26:11 UTC", "tx": "9smHMscELFmM6oRJjPkJDKNYDdggHYkLoXiFy8XechQn", "ok": true, "commit": "9304461", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": false}
