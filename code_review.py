@@ -146,8 +146,17 @@ def call_ai(client, prompt: str, label: str) -> str:
     return ""
 
 
+if not GEMINI_API_KEY:
+    print("::error title=Code review error::GEMINI_API_KEY is not set", flush=True)
+    sys.exit(1)
+
 root = Path(__file__).parent
-policy = (root / "POLICY.md").read_text(encoding="utf-8")
+try:
+    policy = (root / "POLICY.md").read_text(encoding="utf-8")
+except FileNotFoundError:
+    print("::error title=Code review error::POLICY.md not found", flush=True)
+    sys.exit(1)
+
 sources = collect_sources(root)
 client = genai.Client(api_key=GEMINI_API_KEY)
 
