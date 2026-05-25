@@ -69,7 +69,7 @@
         const table = document.createElement('table');
         const thead = table.createTHead();
         const hr = thead.insertRow();
-        ['Timestamp', 'Commit', 'Status', 'Deploy', 'Actions run', 'Arweave'].forEach(h => {
+        ['Timestamp', 'Commit', 'Status', 'Reason', 'Deploy', 'Actions run', 'Arweave'].forEach(h => {
           const th = document.createElement('th');
           th.textContent = h;
           hr.appendChild(th);
@@ -93,6 +93,22 @@
           span.className = ok ? 'ok' : 'fail';
           span.textContent = ok ? '✓ OK' : '✗ Fail';
           st.appendChild(span);
+
+          const rs = tr.insertCell();
+          if (!ok) {
+            const reasons = [];
+            if (e.deployment_ok === false) reasons.push('commit mismatch');
+            if (e.review_ok === false) reasons.push('review failed');
+            if (e.rapid_deploy_warning) reasons.push('rapid deploy');
+            if (e.cron_fresh === false) reasons.push('stale cron');
+            if (e.disabled_workflows && e.disabled_workflows.length) reasons.push('workflow disabled');
+            if (e.error) reasons.push(e.error.slice(0, 60));
+            rs.textContent = reasons.join(', ') || '—';
+            rs.style.color = '#e74c3c';
+            rs.style.fontSize = '0.78rem';
+          } else {
+            rs.textContent = '';
+          }
 
           const ds = tr.insertCell();
           ds.textContent = e.deploy_status || '—';
