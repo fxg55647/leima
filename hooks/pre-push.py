@@ -63,25 +63,35 @@ def main() -> int:
 
             return 0
 
-        deploying     = entry.get("deploying", False)
-        deployment_ok = entry.get("deployment_ok", True)
+        deploying         = entry.get("deploying", False)
+        deployment_ok     = entry.get("deployment_ok", True)
+        deploying_commit_ok = entry.get("deploying_commit_ok", False)
+        review_conclusion = entry.get("review_conclusion", "")
 
-        if deploying:
+        # Mismatch is only dangerous if unexplained -- review running/failed means
+        # old safe code is still live and the new commit is gated.
+        deployment_safe = (
+            deployment_ok
+            or deploying_commit_ok
+            or review_conclusion in ("in_progress", "failure", "")
+        )
+
+        if deploying and not deploying_commit_ok:
+            # Wrong commit deploying -- wait and recheck
             elapsed = time.time() - start
             if elapsed >= POLL_MAX:
-                print(f"[POIDE] Deploy on ollut kesken jo {POLL_MAX}s -- sallitaan push.", flush=True)
-    
+                print(f"[POIDE] Epa-review deploy on ollut kesken jo {POLL_MAX}s -- sallitaan push.", flush=True)
                 return 0
             remaining = int(POLL_MAX - elapsed)
-            print(f"[POIDE] Deploy kesken -- odotetaan {POLL_INT}s... (max {remaining}s jaljella)", flush=True)
+            print(f"[POIDE] Deploy kesken (tarkistetaan commit) -- odotetaan {POLL_INT}s... (max {remaining}s jaljella)", flush=True)
             time.sleep(POLL_INT)
             continue
 
-        if deployment_ok is False:
+        if not deployment_safe:
             commit = entry.get("commit", "?")[:7]
             ts     = entry.get("ts", "?")
             print(
-                f"\n[POIDE] !! PUSH ESTETTY -- commit mismatch havaittu!\n"
+                f"\n[POIDE] !! PUSH ESTETTY -- selittamaton commit mismatch!\n"
                 f"  Aika   : {ts}\n"
                 f"  Commit : {commit}\n"
                 f"\n"
