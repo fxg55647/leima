@@ -28,6 +28,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Deployment](#deployment)
 - [Deployment integrity (POIDE)](#deployment-integrity-poide)
 - [Independent verification (verify.py)](#independent-verification-verifypy)
+- [Developer pre-push hook](#developer-pre-push-hook)
 - [Data policy](POLICY.md)
 
 ---
@@ -421,3 +422,16 @@ python verify.py <tx_id>
 ```
 
 Arweave records cannot be altered retroactively. A TX you trusted six months ago is still exactly what it was then — and if the current files match it, nothing has changed in between.
+
+---
+
+## Developer pre-push hook
+
+A git hook prevents accidentally pushing during an active commit mismatch or mid-deploy, which would widen the mismatch window:
+
+```bash
+cp hooks/pre-push .git/hooks/pre-push
+chmod +x .git/hooks/pre-push   # Linux/macOS only
+```
+
+Before every `git push`, the hook fetches the latest POIDE status. If a deploy is in progress it waits (up to 3 minutes). If a mismatch is active it blocks the push and explains why. Override with `git push --no-verify` if needed.
