@@ -2,16 +2,16 @@
   "ok": true,
   "deployment_ok": true,
   "review_ok": false,
-  "review_consecutive_failures": 5,
-  "review_stuck": true,
+  "review_consecutive_failures": 0,
+  "review_stuck": false,
   "deploying": false,
   "deploying_commit": null,
   "deploying_commit_ok": false,
   "deployed_commit": "8d68900396c942893608b985f88c2b52d81a02a5",
   "expected_commit": "8d68900396c942893608b985f88c2b52d81a02a5",
   "deploy_status": "live",
-  "review_conclusion": "failure",
-  "cron_fresh": true,
+  "review_conclusion": null,
+  "cron_fresh": null,
   "workflow_states": {
     "poide-a.yml": "active"
   },
@@ -38,6 +38,6 @@
     "code_review.py": "c25601bc6a25c5f8b53e21d4bbb006d891f1d052f8f44c8da251121e408f816f",
     "POLICY.md": "5d67c9adaa6e9b043a6b90b0cedd0237d6bedd5113e7ee03797f7ff8143ac338"
   },
-  "actions_run_id": "26421026986",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26421026986"
+  "actions_run_id": "26421026974",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26421026974"
 }
