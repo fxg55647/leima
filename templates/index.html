@@ -948,8 +948,6 @@
           ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime()
           : null;
 
-        const staleSecs = lastCheckedAt ? (Date.now() - lastCheckedAt) / 1000 : 9999;
-        const isStale = staleSecs > 600;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
 
@@ -967,8 +965,6 @@
             );
           }
           fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
-        } else if (isStale) {
-          fadeSet(row('Danger', '#ff6b6b', 'checks stale'), 'danger');
         } else if (!unknownCommit && verified && !commitMatch) {
           fadeSet(row('Please notify', '#f0a030', 'verifying deploy'), 'warning');
         } else if (p.ok) {
