@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leima — POIDE audit log</title>
+  <style>
+    body { font-family: "Segoe UI", system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; color: #212529; }
+    h1 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .sub { font-size: 0.82rem; color: #6c757d; margin-bottom: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 2px solid #dee2e6; color: #6c757d; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #f1f3f5; vertical-align: middle; }
+    tr:hover td { background: #f8f9fa; }
+    .ok   { color: #2ecc71; font-weight: 700; }
+    .fail { color: #e74c3c; font-weight: 700; }
+    .warn { color: #f0a030; font-weight: 700; }
+    code { font-family: "Segoe UI Mono", "Courier New", monospace; font-size: 0.8rem; }
+    a { color: #0d6efd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .loading { color: #6c757d; font-size: 0.9rem; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <h1>Leima — POIDE audit log</h1>
+  <p class="sub">Every deployment integrity check, permanently recorded. Each entry links to its Arweave record.</p>
+  <div id="content"><p class="loading">Loading…</p></div>
+
+  <script>
+    const GATEWAY = 'https://gateway.irys.xyz';
+
+    fetch('status-log.jsonl')
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to fetch status-log.jsonl');
+        return r.text();
+      })
+      .then(text => {
+        const rows = text.trim().split('\n')
+          .filter(l => l.trim())
+          .map(l => { try { return JSON.parse(l); } catch { return null; } })
+          .filter(Boolean)
+          .reverse();
+
+        if (!rows.length) {
+          document.getElementById('content').textContent = 'No entries found.';
+          return;
+        }
+
+        const table = document.createElement('table');
+        const thead = table.createTHead();
+        const hr = thead.insertRow();
+        ['Timestamp', 'Commit', 'Status', 'Deploy', 'Arweave'].forEach(h => {
+          const th = document.createElement('th');
+          th.textContent = h;
+          hr.appendChild(th);
+        });
+
+        const tbody = table.createTBody();
+        rows.forEach(e => {
+          const tr = tbody.insertRow();
+
+          const ts = tr.insertCell(); ts.textContent = e.ts || e.timestamp || '—';
+
+          const cm = tr.insertCell();
+          const commit = (e.commit || e.verified_commit || '').slice(0, 7);
+          const code = document.createElement('code');
+          code.textContent = commit || '—';
+          cm.appendChild(code);
+
+          const st = tr.insertCell();
+          const ok = e.ok === true;
+          const span = document.createElement('span');
+          span.className = ok ? 'ok' : 'fail';
+          span.textContent = ok ? '✓ OK' : '✗ Fail';
+          st.appendChild(span);
+
+          const ds = tr.insertCell();
+          ds.textContent = e.deploy_status || '—';
+
+          const ar = tr.insertCell();
+          const tx = e.tx || e.arweave_tx;
+          if (tx) {
+            const a = document.createElement('a');
+            a.href = GATEWAY + '/' + tx;
+            a.textContent = tx.slice(0, 12) + '…';
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            ar.appendChild(a);
+          } else {
+            ar.textContent = '—';
+          }
+        });
+
+        document.getElementById('content').replaceChildren(table);
+      })
+      .catch(err => {
+        const p = document.createElement('p');
+        p.textContent = 'Could not load audit log: ' + err.message;
+        document.getElementById('content').replaceChildren(p);
+      });
+  </script>
+</body>
+</html>
