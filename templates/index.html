@@ -1111,23 +1111,8 @@
           fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
         } else if (p.deploying) {
           fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
-        } else if (staleSecs > 600) {
-          if (p.commit_matches_poide === true) {
-            fadeSet(row('OK', '#fff'), 'ok');
-          } else {
-            if (p.commit_matches_poide === false) {
-              const key = 'stale_mismatch_' + (running || '').slice(0, 7);
-              showWarning(key,
-                'A commit is live that POIDE has not verified:\n' +
-                'Live: ' + (running || '?').slice(0, 7) + '  Verified: ' + (verified || '?').slice(0, 7) + '\n\n' +
-                'Monitoring checks are overdue. The integrity of the running code cannot be confirmed.\n' +
-                'Do not submit sensitive documents until this is resolved.'
-              );
-            }
-            fadeSet(row('Danger', '#ff6b6b', 'checks stale — commit unverified'), 'danger');
-          }
         } else if (!unknownCommit && verified && !commitMatch) {
-          fadeSet(row('Please note', '#f0a030', 'verifying deploy'), 'warning');
+          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
         } else if (p.ok) {
           fadeSet(row('OK', '#fff'), 'ok');
         } else if (p.ok === false) {
