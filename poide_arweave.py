@@ -74,7 +74,6 @@ entry = {
     "deployment_ok":        status.get("deployment_ok", False),
     "deploying":            status.get("deploying", False),
     "review_ok":            status.get("review_ok", False),
-    "rapid_deploy_warning": status.get("rapid_deploy_warning", False),
     "cron_fresh":           status.get("cron_fresh"),
     "disabled_workflows":   status.get("disabled_workflows", []),
     "actions_run_id":       status.get("actions_run_id", ""),

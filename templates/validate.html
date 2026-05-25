@@ -467,8 +467,6 @@
         lastCheckedAt = d.checked_at ? new Date(d.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
         if (d.ok) {
           fadeSet(row('OK', '#fff'), 'ok');
-        } else if (d.rapid_deploy_warning) {
-          fadeSet(row('Warning', '#f0a030', 'rapid deploys'), 'warning');
         } else {
           const reason = d.deploying ? 'deploying'
             : !d.deployment_ok ? 'commit mismatch'

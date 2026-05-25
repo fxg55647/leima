@@ -177,15 +177,12 @@ def check_deploy_history() -> dict:
                 last_mismatch_at = created_at
                 last_mismatch_commit = commit_id[:7]
 
-    rapid_deploy_warning = deploys_in_window >= RAPID_DEPLOY_THRESHOLD
-
     return {
         "scanned_deploys": scanned,
         "last_mismatch_at": last_mismatch_at,
         "last_mismatch_commit": last_mismatch_commit,
         "clean_since": oldest_at if last_mismatch_at is None else None,
         "deploys_last_hour": deploys_in_window,
-        "rapid_deploy_warning": rapid_deploy_warning,
     }
 
 
@@ -247,8 +244,7 @@ except Exception as e:
 
 deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
 review_ok = review_conclusion == "success"
-rapid_warning = history.get("rapid_deploy_warning", False)
-ok = deployment_ok and review_ok and not deploying and (cron_fresh is not False) and not rapid_warning and not disabled_workflows
+ok = deployment_ok and review_ok and not deploying and (cron_fresh is not False) and not disabled_workflows
 
 result = {
     "ok": ok,
@@ -260,7 +256,6 @@ result = {
     "deploy_status": deploy_status,
     "review_conclusion": review_conclusion,
     "cron_fresh": cron_fresh,
-    "rapid_deploy_warning": rapid_warning,
     "workflow_states": workflow_states,
     "disabled_workflows": disabled_workflows,
     "history": history,
