@@ -139,7 +139,8 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
     content_only = (source_context or {}).get("type") == "content_only"
     own_note = (
         " If your own knowledge adds relevant context beyond what the document states, "
-        "you may include it — clearly distinguished from document evidence."
+        "include it at the end of your analysis under a short heading in bold, "
+        "e.g. **Own assessment:** or **Note:** — clearly separated from document evidence."
     ) if not content_only else ""
     language = (
         f'The user\'s claim is: "{question}". '
