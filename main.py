@@ -90,6 +90,7 @@ def _poide_dispatcher():
         time.sleep(30 if cache_populated else 5)
 
 threading.Thread(target=_poide_dispatcher, daemon=True).start()
+threading.Thread(target=_session_eviction_loop, daemon=True).start()
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -115,6 +116,12 @@ def _evict_old_sessions() -> None:
             del d[k]
 
 
+def _session_eviction_loop() -> None:
+    while True:
+        time.sleep(300)
+        _evict_old_sessions()
+
+
 def _imap_server(user_email: str) -> str:
     domain = user_email.split("@")[-1].lower()
     known = {
@@ -125,7 +132,13 @@ def _imap_server(user_email: str) -> str:
         "live.com": "imap-mail.outlook.com",
         "yahoo.com": "imap.mail.yahoo.com",
     }
-    return known.get(domain, f"imap.{domain}")
+    host = known.get(domain, f"imap.{domain}")
+    if domain not in known:
+        try:
+            _check_ssrf(f"https://{host}/")
+        except ValueError as e:
+            raise ValueError(f"IMAP host not allowed: {e}") from None
+    return host
 
 
 def _decode_header_value(value) -> str:
@@ -1276,8 +1289,8 @@ async def ask(
                                email_meta, web_meta, source_context)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
-    except Exception as e:
-        return HTMLResponse(f'<div class="error">Analysis failed: {e}</div>')
+    except Exception:
+        return HTMLResponse('<div class="error">Analysis failed. Please try again.</div>')
 
     if active_tab == "image" and c2pa_info:
         store[result["session_id"]]["manifest"]["c2pa"] = c2pa_info
@@ -1321,6 +1334,8 @@ async def api_stamp(body: StampRequest):
             if len(body.source) > 20 * 1024 * 1024 * 4 // 3:
                 return JSONResponse({"error": "File too large (max 20 MB)"}, status_code=400)
             input_bytes = base64.b64decode(body.source)
+            if not input_bytes.startswith(b"%PDF-"):
+                return JSONResponse({"error": "source is not a valid PDF"}, status_code=400)
             input_label = "api-upload.pdf"
             contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
         elif body.source_type == "pdf_url":
