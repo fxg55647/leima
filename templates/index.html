@@ -970,6 +970,19 @@
           if (p.commit_matches_poide === true) {
             fadeSet(row('Warning', '#f0a030', 'checks overdue — commit unchanged'), 'warning');
           } else {
+            if (p.commit_matches_poide === false) {
+              const key = 'poide_stale_mismatch_' + (p.verified_commit || '').slice(0, 7);
+              if (!sessionStorage.getItem(key)) {
+                sessionStorage.setItem(key, '1');
+                alert(
+                  '⚠ POIDE WARNING ⚠\n\n' +
+                  'A commit is live that POIDE has not verified:\n' +
+                  'Live: ' + (running || '?').slice(0, 7) + '  Verified: ' + (verified || '?').slice(0, 7) + '\n\n' +
+                  'Monitoring checks are overdue. The integrity of the running code cannot be confirmed.\n' +
+                  'Do not submit sensitive documents until this is resolved.'
+                );
+              }
+            }
             fadeSet(row('Danger', '#ff6b6b', 'checks stale — commit unverified'), 'danger');
           }
         } else if (staleSecs > 180) {
