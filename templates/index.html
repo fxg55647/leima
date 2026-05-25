@@ -1113,7 +1113,7 @@
           fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
         } else if (staleSecs > 600) {
           if (p.commit_matches_poide === true) {
-            fadeSet(row('Please note', '#f0a030', 'checks overdue'), 'warning');
+            fadeSet(row('OK', '#fff'), 'ok');
           } else {
             if (p.commit_matches_poide === false) {
               const key = 'stale_mismatch_' + (running || '').slice(0, 7);
