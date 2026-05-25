@@ -927,8 +927,8 @@ async def ask(
     elif active_tab == "text":
         if not text_input.strip():
             return HTMLResponse('<div class="error">Please paste some text.</div>')
-        if len(text_input) > 20_000:
-            return HTMLResponse('<div class="error">Text is too long (max 20 000 characters). Please shorten it and try again.</div>')
+        if len(text_input) > 500_000:
+            return HTMLResponse('<div class="error">Text is too long (max 500 000 characters).</div>')
         input_bytes = _text_to_input_pdf(text_input)
         input_label = "text-input"
         source_context = None
