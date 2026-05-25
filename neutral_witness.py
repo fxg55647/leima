@@ -191,7 +191,7 @@ def _synthesis_prompt(question: str, support: str, refutation: str, independent:
     else:
         scope_note = ""
 
-    independent_block = f"\nINDEPENDENT ANALYST:\n{independent}\n" if independent else ""
+    independent_block = f"\nCRITICAL REVIEWER (factual errors and flawed assumptions found in the document):\n{independent}\n" if independent else ""
 
     return f"""You are the final judge for Leima, a legal evidence tool.
 
@@ -205,7 +205,7 @@ SUPPORT ANALYST:
 REFUTATION ANALYST:
 {refutation}
 {independent_block}
-Your task: weigh all analyses and deliver a verdict. First check whether the refutation actually addresses the specific claim — a refutation that is technically true but does not contradict the claim should be discounted. Then assess which had stronger evidence. Factor in the independent analyst's assessment of credibility and factual soundness.
+Your task: weigh all analyses and deliver a verdict. First check whether the refutation actually addresses the specific claim — a refutation that is technically true but does not contradict the claim should be discounted. Then assess which had stronger evidence. For each error or flaw raised by the critical reviewer, assess whether it is accurate and whether it actually undermines the claim — a genuine factual error that is central to the claim should reduce your confidence; an error on a peripheral point should not.
 {scope_note}
 If the evidence clearly favours one side, say so directly. Do not hedge. A clear verdict is more useful than a balanced non-answer.
 
