@@ -163,24 +163,11 @@ PASS_PROMPTS = _build_pass_prompts(source_context=None, question="the claim")
 PASS_LABELS = [
     "Supporting evidence",
     "Contradicting evidence",
-    "Critical review",
     "Verdict",
 ]
 
 
-def _independent_prompt(question: str) -> str:
-    return (
-        "You are a critical reviewer for Leima.\n\n"
-        "Your task: find at most five factual errors, unsupported assumptions, or significant logical flaws in this document. "
-        f'The claim "{question}" defines where to focus — if it names a specific aspect, topic, or section of the document, concentrate your critique there first before considering the rest.\n\n'
-        "For each finding, state briefly what the document claims and why it is incorrect, unsupported, or misleading. "
-        "If the document is factually sound with no significant errors in the relevant area, say so explicitly. "
-        "Be specific and direct. Do not summarise what the document says — only flag what is wrong or questionable.\n\n"
-        "Respond entirely in the same language as the claim."
-    )
-
-
-def _synthesis_prompt(question: str, support: str, refutation: str, independent: str | None = None, source_context: dict | None = None) -> str:
+def _synthesis_prompt(question: str, support: str, refutation: str, source_context: dict | None = None) -> str:
     content_only = (source_context or {}).get("type") == "content_only"
     if content_only:
         scope_note = (
@@ -188,23 +175,24 @@ def _synthesis_prompt(question: str, support: str, refutation: str, independent:
             "Frame your verdict in terms of what the document states or contains.\n"
         )
     else:
-        scope_note = ""
-
-    independent_block = f"\nCRITICAL REVIEWER (factual errors and flawed assumptions found in the document):\n{independent}\n" if independent else ""
+        scope_note = (
+            "\nYou may draw on your own training data and reasoning to assess the claim — not just what the document says. "
+            "If you know something relevant that the document does not cover, or if the document's content is consistent or inconsistent with established facts, say so.\n"
+        )
 
     return f"""You are the final judge for Leima, a legal evidence tool.
 
 The claim being evaluated: "{question}"
 
-Three analysts have reviewed the document:
+Two independent analysts have reviewed the document:
 
 SUPPORT ANALYST:
 {support}
 
 REFUTATION ANALYST:
 {refutation}
-{independent_block}
-Your task: weigh all analyses and deliver a verdict. First check whether the refutation actually addresses the specific claim — a refutation that is technically true but does not contradict the claim should be discounted. Then assess which had stronger evidence. For each error or flaw raised by the critical reviewer, assess whether it is accurate and whether it actually undermines the claim — a genuine factual error that is central to the claim should reduce your confidence; an error on a peripheral point should not.
+
+Your task: weigh the two analyses and deliver a verdict. First check whether the refutation actually addresses the specific claim — a refutation that is technically true but does not contradict the claim should be discounted. Then assess which had stronger evidence.
 {scope_note}
 If the evidence clearly favours one side, say so directly. Do not hedge. A clear verdict is more useful than a balanced non-answer.
 
@@ -238,7 +226,6 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
     if not scope_text.startswith("APPROVED"):
         raise ValueError(scope_text or "Model returned no response during scope check")
 
-    content_only = (source_context or {}).get("type") == "content_only"
     pass_prompts = _build_pass_prompts(source_context, question)
     passes = []
     for prompt, label in zip(pass_prompts, PASS_LABELS):
@@ -249,19 +236,7 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
         )
         passes.append((label, resp.text or ""))
 
-    independent_text = None
-    if not content_only:
-        ind_prompt = _independent_prompt(question)
-        ind_resp = client.models.generate_content(
-            model=MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(system_instruction=ind_prompt),
-        )
-        independent_text = ind_resp.text or ""
-        passes.append((PASS_LABELS[2], independent_text))
-
-    verdict_label = PASS_LABELS[3] if not content_only else PASS_LABELS[2]
-    synth = _synthesis_prompt(question, passes[0][1], passes[1][1], independent_text, source_context)
+    synth = _synthesis_prompt(question, passes[0][1], passes[1][1], source_context)
     synth_resp = client.models.generate_content(
         model=MODEL,
         contents=contents,
@@ -286,12 +261,11 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
     else:
         summary_verdict = synth_text.split(".")[0].strip() + "."
         synthesis_body = synth_text
-    passes.append((verdict_label, synthesis_body))
+    passes.append((PASS_LABELS[2], synthesis_body))
 
     prompt_log = (
         list(zip(PASS_LABELS[:2], pass_prompts))
-        + ([(PASS_LABELS[2], ind_prompt)] if not content_only else [])
-        + [(verdict_label, synth)]
+        + [(PASS_LABELS[2], synth)]
     )
 
     return {
