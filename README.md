@@ -27,6 +27,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Validation](#validation)
 - [Deployment](#deployment)
 - [Deployment integrity (POIDE)](#deployment-integrity-poide)
+- [Independent verification (verify.py)](#independent-verification-verifypy)
 - [Data policy](POLICY.md)
 
 ---
@@ -392,3 +393,31 @@ To enable the email notary, add a **Cron Job** service pointing at `POST /notary
 Five GitHub Actions workflows run on a staggered schedule and together poll deployment status every minute. Each run checks three conditions: the live Render commit matches the GitHub repository HEAD, the latest automated code review passed, and the deploy history contains no commits absent from git. Results are published to the `gh-pages` branch as `status.json`.
 
 Before submitting sensitive documents, verify that the POIDE Code Review and the five POIDE A–E workflows show green on the [Actions tab](../../actions). See [POIDE.md](POIDE.md) for the full protocol description.
+
+---
+
+## Independent verification (verify.py)
+
+`verify.py` is a standalone script you can run from anywhere — on your own machine, without contacting the Leima service at all — to confirm that the monitoring infrastructure has not been tampered with.
+
+```bash
+pip install requests
+python verify.py
+```
+
+It checks two independent sources for each monitored file:
+
+1. **Git history (GitHub API)** — confirms when each file was last changed. This record is maintained by GitHub, not by Leima, and cannot be altered by the service operator.
+2. **Arweave record** — fetches the latest POIDE check result from Arweave (permanent, immutable) and compares the stored file hashes to what is currently on GitHub.
+
+If both sources agree and the files are unchanged, this provides a meaningful guarantee: the monitoring code has been auditable and consistent, any commit mismatch since the last change would have been detected and recorded, and the monitoring code itself has passed automated AI code review on every push.
+
+The output also shows the last commit mismatch — when it occurred, which commit was involved, and when it resolved — so you can assess at a glance whether anything unexpected happened while you were away.
+
+**Pinning to a specific trusted moment.** If you note down the Arweave TX from a run you personally verified, you can compare the current state against that exact historical snapshot:
+
+```bash
+python verify.py <tx_id>
+```
+
+Arweave records cannot be altered retroactively. A TX you trusted six months ago is still exactly what it was then — and if the current files match it, nothing has changed in between.
