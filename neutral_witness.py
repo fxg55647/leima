@@ -136,11 +136,6 @@ def _scope_prompt(question: str) -> str:
 
 def _build_pass_prompts(source_context: dict | None, question: str = "") -> list[str]:
     source_block = _source_block(source_context) + "\n\n"
-    content_only = (source_context or {}).get("type") == "content_only"
-    own_assessment = (
-        " End with a brief note (1–2 sentences) on whether what you found in the document "
-        "aligns with your own knowledge and reasoning about the subject."
-    ) if not content_only else ""
     language = (
         f'The user\'s claim is: "{question}". '
         'Detect the language of this claim and respond entirely in that language — '
@@ -151,16 +146,14 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
         "You are a document analyst for Leima, a legal evidence tool.\n\n"
         "Identify ONLY what in the document supports the claim, and under which assumptions. "
         "Be specific. Quote directly from the document using quotation marks. "
-        "Do not consider contradictions or gaps."
-        + own_assessment + "\n\n"
+        "Do not consider contradictions or gaps.\n\n"
         + source_block + language
     )
     p2 = (
         "You are a document analyst for Leima, a legal evidence tool.\n\n"
         "Identify ONLY what in the document contradicts the claim, or fails to support it. "
         "Note what is absent, inconsistent, or requires assumptions not stated in the document. "
-        "Quote directly when relevant. Do not consider supporting evidence."
-        + own_assessment + "\n\n"
+        "Quote directly when relevant. Do not consider supporting evidence.\n\n"
         + source_block + language
     )
     return [p1, p2]
@@ -176,13 +169,18 @@ PASS_LABELS = [
 
 def _synthesis_prompt(question: str, support: str, refutation: str, source_context: dict | None = None) -> str:
     content_only = (source_context or {}).get("type") == "content_only"
-    content_only_note = (
-        "\nThis is a content analysis — do not assert whether the claim is true in an absolute sense. "
-        "Frame your verdict in terms of what the document states or contains.\n"
-    ) if content_only else (
-        "\nYou may draw on your own training data and reasoning to assess the claim — not just what the document says. "
-        "If you know something relevant that the document does not cover, or if the document's content is consistent or inconsistent with established facts, say so.\n"
-    )
+    if content_only:
+        own_knowledge = (
+            "\nThis is a content analysis — do not assert whether the claim is true in an absolute sense. "
+            "Frame your verdict in terms of what the document states or contains.\n"
+        )
+    else:
+        own_knowledge = (
+            "\nBeyond weighing the two analyses, bring your own knowledge and reasoning. "
+            "Ask yourself: does this claim make sense given what you know about the world? "
+            "Is the overall picture credible? If you have relevant knowledge the document does not cover, say so. "
+            "Your own assessment should be a distinct part of the verdict, not just a summary of the analysts.\n"
+        )
     return f"""You are the final judge for Leima, a legal evidence tool.
 
 The claim being evaluated: "{question}"
@@ -195,10 +193,10 @@ SUPPORT ANALYST:
 REFUTATION ANALYST:
 {refutation}
 
-Your task: compare the two analyses objectively. First, check whether the refutation actually addresses the specific claim — not a related issue, not a broader context, but the exact claim as stated. A refutation that is technically true but does not contradict the claim should be discounted. Then assess which side had stronger direct evidence for or against the claim itself.
-
+Your task: weigh the two analyses and deliver a verdict. First check whether the refutation actually addresses the specific claim — a refutation that is technically true but does not contradict the claim should be discounted. Then assess which side had stronger direct evidence.
+{own_knowledge}
 If the evidence clearly favours one side, say so directly. Do not hedge. A clear verdict is more useful than a balanced non-answer.
-{content_only_note}
+
 Start your response with exactly two lines in this format:
 CATEGORY: <exactly one of: Strongly matches / Mostly matches / Equally supports and contradicts / Mostly does not match / Does not match>
 VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
