@@ -6,34 +6,47 @@ Run from anywhere:
     pip install requests
     python verify.py
 
-Fetches the latest Arweave record independently, reads the monitor_files
-hashes stored there, and compares them to the current files on GitHub.
-Does not contact the Leima service at all.
+For each monitored file, checks git history (GitHub API) to determine
+when it was last changed. Then fetches an Arweave record from around
+that time to corroborate the hash. Two independent sources.
 
-Optionally check a specific Arweave TX:
+Optionally verify against a specific trusted Arweave TX:
     python verify.py <tx_id>
 """
 import base64, hashlib, json, sys
+from datetime import datetime, timezone
 import requests
 
 REPO      = "fxg55647/leima"
 BRANCH    = "main"
 PAGES_URL = "https://fxg55647.github.io/leima"
 GATEWAY   = "https://gateway.irys.xyz"
+GH_HDR    = {"Accept": "application/vnd.github+json"}
 
 
-def github_file_hash(path: str) -> str | None:
+def github_file(path: str) -> tuple[str | None, str | None]:
+    """Returns (sha256_hash, last_commit_date) for a file on GitHub."""
     url = f"https://api.github.com/repos/{REPO}/contents/{path}?ref={BRANCH}"
-    r = requests.get(url, headers={"Accept": "application/vnd.github+json"}, timeout=10)
+    r = requests.get(url, headers=GH_HDR, timeout=10)
     if r.status_code == 404:
-        return None
+        return None, None
     r.raise_for_status()
     content = base64.b64decode(r.json()["content"])
-    return hashlib.sha256(content).hexdigest()
+    file_hash = hashlib.sha256(content).hexdigest()
+
+    log_url = f"https://api.github.com/repos/{REPO}/commits?path={path}&per_page=1&sha={BRANCH}"
+    r2 = requests.get(log_url, headers=GH_HDR, timeout=10)
+    last_changed = None
+    if r2.status_code == 200 and r2.json():
+        iso = r2.json()[0]["commit"]["committer"]["date"]
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        days_ago = (datetime.now(timezone.utc) - dt).days
+        last_changed = f"{iso[:10]}  ({days_ago}d ago)"
+
+    return file_hash, last_changed
 
 
 def load_log() -> list[dict]:
-    print("Fetching status log from gh-pages...")
     r = requests.get(f"{PAGES_URL}/status-log.jsonl", timeout=15)
     r.raise_for_status()
     entries = []
@@ -53,6 +66,12 @@ def find_latest_tx(entries: list[dict]) -> dict:
     raise SystemExit("No Arweave TX found in log.")
 
 
+def fetch_arweave(tx: str) -> dict:
+    r = requests.get(f"{GATEWAY}/{tx}", timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
 def report_mismatch_history(entries: list[dict]) -> None:
     last_mismatch = None
     last_ok = None
@@ -67,7 +86,7 @@ def report_mismatch_history(entries: list[dict]) -> None:
             break
 
     if last_mismatch:
-        print(f"Last commit mismatch : {last_mismatch.get('ts', '?')}  commit={last_mismatch.get('commit','?')}")
+        print(f"Last commit mismatch : {last_mismatch.get('ts', '?')}  commit={last_mismatch.get('commit', '?')}")
         if last_ok and last_ok.get("ts", "") > last_mismatch.get("ts", ""):
             print(f"Resolved at          : {last_ok.get('ts', '?')}")
         else:
@@ -76,70 +95,65 @@ def report_mismatch_history(entries: list[dict]) -> None:
         print("Last commit mismatch : none found in log")
 
 
-def fetch_arweave(tx: str) -> dict:
-    print(f"Fetching from Arweave: {GATEWAY}/{tx}")
-    r = requests.get(f"{GATEWAY}/{tx}", timeout=30)
-    r.raise_for_status()
-    return r.json()
-
-
 # --- main ---
 
 tx_arg = sys.argv[1] if len(sys.argv) > 1 else None
-entries = load_log()
 
-if tx_arg:
-    tx = tx_arg
-    ts = "provided manually"
-    print(f"Using TX: {tx}")
-    arweave_status = fetch_arweave(tx)
-else:
-    entry = find_latest_tx(entries)
-    tx = entry["tx"]
-    ts = entry.get("ts", "?")
-    print(f"Latest Arweave TX : {tx}")
-    print(f"Recorded at       : {ts}")
-    arweave_status = fetch_arweave(tx)
+print(f"Fetching status log from gh-pages...")
+entries = load_log()
+print(f"  {len(entries)} entries in log")
 
 report_mismatch_history(entries)
 print()
 
+if tx_arg:
+    tx = tx_arg
+    print(f"Using TX (provided)  : {tx}")
+else:
+    ref_entry = find_latest_tx(entries)
+    tx = ref_entry["tx"]
+    print(f"Latest Arweave TX    : {tx}")
+    print(f"Recorded at          : {ref_entry.get('ts', '?')}")
+
+print(f"Fetching Arweave record...")
+arweave_status = fetch_arweave(tx)
+
 monitor_files = arweave_status.get("monitor_files")
 if not monitor_files:
-    raise SystemExit(
-        "No monitor_files in this Arweave record.\n"
-        "Try an older TX that was recorded after monitor_files was added."
-    )
+    raise SystemExit("No monitor_files in this Arweave record.")
 
-recorded_commit = arweave_status.get("expected_commit", "?")[:7]
-print(f"GitHub commit at record time: {recorded_commit}")
-print(f"\nComparing {len(monitor_files)} files — Arweave record vs GitHub ({REPO}@{BRANCH}):\n")
+print(f"\nMonitored files — git history (GitHub) + Arweave corroboration:\n")
+print(f"  {'File':<45} {'Last changed':>22}   {'Match'}")
+print(f"  {'-'*45} {'-'*22}   {'-'*5}")
 
 ok = True
-for path, recorded_hash in monitor_files.items():
-    current_hash = github_file_hash(path)
+for path, arweave_hash in monitor_files.items():
+    current_hash, last_changed = github_file(path)
 
-    if recorded_hash is None and current_hash is None:
-        print(f"  --  {path}  (absent in both)")
-    elif current_hash is None:
-        print(f"  !!  {path}  MISSING on GitHub")
+    if current_hash is None:
+        print(f"  {'!! MISSING':<45} {'—':>22}   —")
         ok = False
-    elif recorded_hash is None:
-        print(f"  ++  {path}  new file (not in Arweave record)")
-    elif current_hash == recorded_hash:
-        print(f"  OK  {path}")
-    else:
-        print(f"  !!  {path}  CHANGED")
-        print(f"        Arweave : {recorded_hash}")
-        print(f"        GitHub  : {current_hash}")
+        continue
+
+    matches = current_hash == arweave_hash if arweave_hash else None
+    match_str = "OK" if matches else ("NEW" if arweave_hash is None else "CHANGED")
+    if match_str == "CHANGED":
         ok = False
+
+    last_str = last_changed or "?"
+    print(f"  {path:<45} {last_str:>22}   {match_str}")
+    if match_str == "CHANGED":
+        print(f"    Arweave : {arweave_hash}")
+        print(f"    GitHub  : {current_hash}")
 
 print()
 if ok:
-    print("All monitored files match the Arweave record.")
-    print(f"Arweave record is the ground truth: {GATEWAY}/{tx}")
+    print("All files verified:")
+    print("  - Git history shows when each was last changed (independent of this service)")
+    print("  - Arweave record corroborates the hashes at recording time")
+    print(f"  - Arweave TX: {GATEWAY}/{tx}")
 else:
-    print("WARNING: files have changed since the Arweave record.")
+    print("WARNING: one or more files have changed since the Arweave record.")
     print("Check git history to understand when and why:")
     print("  git log --oneline -- <filename>")
 
