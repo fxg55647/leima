@@ -142,6 +142,32 @@ def _source_block(source_context: dict | None) -> str:
             "There is no cryptographic proof of origin or that the document has not been altered. "
             "Assess based on content and internal consistency alone."
         )
+    elif t == "github_commit":
+        repo = source_context.get("repo", "unknown")
+        commit = source_context.get("commit_short", source_context.get("commit", "?")[:7])
+        paths = source_context.get("paths", [])
+        all_verified = source_context.get("all_verified", False)
+        unverified = source_context.get("unverified_paths", [])
+        paths_str = ", ".join(paths) if paths else "unknown files"
+        if all_verified:
+            verified_str = (
+                "All files have been cryptographically verified: their git blob SHA hashes match the "
+                "commit record on GitHub. This confirms the file contents are exactly what was committed — "
+                "they have not been altered after the fact."
+            )
+        else:
+            verified_str = (
+                f"WARNING: {len(unverified)} file(s) failed git blob SHA verification: {unverified}. "
+                "Their contents may not match what was committed. Treat unverified files with caution."
+            )
+        return (
+            f"Source type: GitHub repository files from {repo} at commit {commit}. "
+            f"Files included: {paths_str}. "
+            f"{verified_str} "
+            "Assess the code or file content against the claim. "
+            "Note that this is a specific point-in-time snapshot of the repository — "
+            "the commit hash ties these exact file contents to a specific moment in version control history."
+        )
     else:
         return (
             "Content analysis mode: assess only what the document contains or states. "

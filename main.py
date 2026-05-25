@@ -280,6 +280,53 @@ def build_manifest(
     return manifest
 
 
+def _github_resolve_commit(repo: str, ref: str, token: str = "") -> str:
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    r = http_requests.get(
+        f"https://api.github.com/repos/{repo}/commits/{ref}",
+        headers=headers, timeout=10,
+    )
+    if r.status_code == 404:
+        raise ValueError(f"Repository or ref not found: {repo}@{ref}")
+    if r.status_code == 401:
+        raise ValueError("Invalid or missing GitHub token for private repository")
+    r.raise_for_status()
+    return r.json()["sha"]
+
+
+def _github_fetch_files(repo: str, commit_sha: str, paths: list[str], token: str = "") -> list[dict]:
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    results = []
+    for path in paths:
+        r = http_requests.get(
+            f"https://api.github.com/repos/{repo}/contents/{path}?ref={commit_sha}",
+            headers=headers, timeout=10,
+        )
+        if r.status_code == 404:
+            raise ValueError(f"File not found in commit: {path}")
+        r.raise_for_status()
+        data = r.json()
+        if data.get("type") != "file":
+            raise ValueError(f"Path is not a file: {path}")
+        if data.get("size", 0) > 500_000:
+            raise ValueError(f"File too large (max 500 kB): {path}")
+        content = base64.b64decode(data["content"])
+        blob = b"blob " + str(len(content)).encode() + b"\0" + content
+        computed_sha = hashlib.sha1(blob).hexdigest()
+        verified = computed_sha == data["sha"]
+        results.append({
+            "path": path,
+            "content": content.decode("utf-8", errors="replace"),
+            "blob_sha": data["sha"],
+            "verified": verified,
+        })
+    return results
+
+
 def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
@@ -1017,6 +1064,10 @@ async def ask(
     web_url: str = Form(""),
     image_file: UploadFile = File(None),
     assess_credibility: str = Form(""),
+    gh_repo: str = Form(""),
+    gh_ref: str = Form("main"),
+    gh_token: str = Form(""),
+    gh_paths: str = Form(""),
 ):
     contents = []
     email_meta = None
@@ -1098,6 +1149,43 @@ async def ask(
         parsed = urlparse(fetched_url)
         source_context = {"type": "web", "domain": parsed.netloc, "fetched_at": fetched_at, "url": fetched_url}
         contents.append(f"Web page from: {fetched_url}\nFetched at: {fetched_at}\n\n{page_text}")
+
+    elif active_tab == "github":
+        gh_repo  = gh_repo.strip().removeprefix("https://github.com/").strip("/")
+        gh_ref   = gh_ref.strip() or "main"
+        gh_token = gh_token.strip()
+        gh_paths_list = [p.strip() for p in gh_paths.splitlines() if p.strip()]
+        gh_paths = gh_paths_list
+        if not gh_repo or "/" not in gh_repo:
+            return HTMLResponse('<div class="error">Enter a valid repository (owner/repo).</div>')
+        if not gh_paths:
+            return HTMLResponse('<div class="error">Enter at least one file path.</div>')
+        if len(gh_paths) > 20:
+            return HTMLResponse('<div class="error">Maximum 20 files per request.</div>')
+        try:
+            commit_sha = _github_resolve_commit(gh_repo, gh_ref, gh_token)
+            files = _github_fetch_files(gh_repo, commit_sha, gh_paths, gh_token)
+        except Exception as e:
+            return HTMLResponse(f'<div class="error">GitHub error: {e}</div>')
+        all_verified = all(f["verified"] for f in files)
+        unverified = [f["path"] for f in files if not f["verified"]]
+        blob_hashes = {f["path"]: f["blob_sha"] for f in files}
+        bundled = "\n\n".join(
+            f"### {f['path']}\n```\n{f['content']}\n```" for f in files
+        )
+        input_label = f"github:{gh_repo}@{commit_sha[:7]}"
+        input_bytes = bundled.encode("utf-8")
+        source_context = {
+            "type": "github_commit",
+            "repo": gh_repo,
+            "commit": commit_sha,
+            "commit_short": commit_sha[:7],
+            "paths": gh_paths,
+            "all_verified": all_verified,
+            "unverified_paths": unverified,
+            "blob_hashes": blob_hashes,
+        }
+        contents.append(bundled)
 
     elif active_tab == "email":
         _entry = email_sessions.get(email_session_id)

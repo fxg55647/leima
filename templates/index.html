@@ -688,6 +688,7 @@
         <button type="button" class="tab-btn" onclick="switchTab('text', this)">Text</button>
         <button type="button" class="tab-btn" onclick="switchTab('web', this)">Web</button>
         <button type="button" class="tab-btn" onclick="switchTab('email', this)">IMAP</button>
+        <button type="button" class="tab-btn" onclick="switchTab('github', this)">GitHub</button>
       </div>
 
       <div id="tab-pdf" class="tab-panel active">
@@ -740,6 +741,25 @@
 
       <input type="hidden" name="email_session_id" id="email-session-id" value="">
       <input type="hidden" name="email_idx" id="email-idx" value="">
+
+      <div id="tab-github" class="tab-panel">
+        <div class="field-group">
+          <label class="field-label">Repository</label>
+          <input type="text" name="gh_repo" id="gh-repo" class="field-input" placeholder="owner/repo or https://github.com/owner/repo">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Commit / branch / tag</label>
+          <input type="text" name="gh_ref" id="gh-ref" class="field-input" placeholder="main" value="main">
+        </div>
+        <div class="field-group">
+          <label class="field-label">File paths <span style="font-weight:400;color:#6c757d;">(one per line, max 20)</span></label>
+          <textarea name="gh_paths" id="gh-paths" placeholder="src/main.py&#10;README.md" style="height:6rem;"></textarea>
+        </div>
+        <div class="field-group">
+          <label class="field-label">GitHub token <span style="font-weight:400;color:#6c757d;">(optional — required for private repos)</span></label>
+          <input type="password" name="gh_token" id="gh-token" class="field-input" placeholder="ghp_...">
+        </div>
+      </div>
 
       <div id="tab-email" class="tab-panel">
         <div class="field-group">
@@ -851,6 +871,7 @@
     if (tab === 'image') return document.getElementById('image-input').files.length > 0;
     if (tab === 'web') return document.getElementById('web-url').value.trim() !== '';
     if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
+    if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
     if (tab === 'email') {
       return ['email_user','email_password','email_sender','email_start','email_end']
         .some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
@@ -893,6 +914,11 @@
     } else if (tab === 'text') {
       document.getElementById('text-input').value = '';
       document.getElementById('txt-file-input').value = '';
+    } else if (tab === 'github') {
+      document.getElementById('gh-repo').value = '';
+      document.getElementById('gh-ref').value = 'main';
+      document.getElementById('gh-paths').value = '';
+      document.getElementById('gh-token').value = '';
     } else if (tab === 'email') {
       ['email-user','email-password','email-sender','email-start','email-end']
         .forEach(id => document.getElementById(id).value = '');
