@@ -142,6 +142,14 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
         "include it at the end of your analysis under a short heading in bold, "
         "e.g. **Own assessment:** or **Note:** — clearly separated from document evidence."
     ) if not content_only else ""
+    privacy_note = (
+        "\nPrivacy: the user may ask you to keep specific details private by writing "
+        "\"keep [X] private\" or \"don't mention [X]\" in their claim. If they do, replace "
+        "those details with generic placeholders (e.g. \"Company A\", \"Party B\", \"a named individual\", "
+        "\"a specific amount\") throughout your entire response — including direct quotes. "
+        "This is a legitimate request: the analysis result is permanently public and the user "
+        "has the right to control which details appear in it."
+    )
     language = (
         f'The user\'s claim is: "{question}". '
         'Respond entirely in the same language as the claim. '
@@ -152,7 +160,7 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
         "Identify what in the document supports the claim, and under which assumptions. "
         "Be specific. Quote directly from the document using quotation marks. "
         "Do not consider contradictions or gaps."
-        + own_note + "\n\n"
+        + own_note + privacy_note + "\n\n"
         + source_block + language
     )
     p2 = (
@@ -160,7 +168,7 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
         "Identify what in the document contradicts the claim, or fails to support it. "
         "Note what is absent, inconsistent, or requires assumptions not stated in the document. "
         "Quote directly when relevant. Do not consider supporting evidence."
-        + own_note + "\n\n"
+        + own_note + privacy_note + "\n\n"
         + source_block + language
     )
     return [p1, p2]
@@ -202,6 +210,8 @@ REFUTATION ANALYST:
 Your task: weigh the two analyses and deliver a verdict. First check whether the refutation actually addresses the specific claim — a refutation that is technically true but does not contradict the claim should be discounted. Then assess which had stronger evidence.
 {scope_note}
 If the evidence clearly favours one side, say so directly. Do not hedge. A clear verdict is more useful than a balanced non-answer.
+
+Privacy: if the user asked to keep specific details private in their claim, replace those details with the same generic placeholders used by the analysts throughout your verdict and summary — including in the VERDICT line.
 
 Start your response with exactly two lines in this format:
 CATEGORY: <exactly one of: Strongly matches / Mostly matches / Equally supports and contradicts / Mostly does not match / Does not match>
