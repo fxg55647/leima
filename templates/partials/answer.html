@@ -24,7 +24,7 @@
     <div class="answer-text">{{ passes[-1][1] | md | safe }}</div>
   </div>
   {% for label, text in passes[:-1] %}
-  <div class="pass-block{% if label == 'Supporting evidence' %} pass-block-support{% elif label == 'Independent assessment' %} pass-block-independent{% endif %}">
+  <div class="pass-block{% if label == 'Supporting evidence' %} pass-block-support{% elif label == 'Critical review' %} pass-block-independent{% endif %}">
     <div class="pass-label">{{ label }}</div>
     <div class="answer-text">{{ text | md | safe }}</div>
   </div>

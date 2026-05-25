@@ -163,22 +163,20 @@ PASS_PROMPTS = _build_pass_prompts(source_context=None, question="the claim")
 PASS_LABELS = [
     "Supporting evidence",
     "Contradicting evidence",
-    "Independent assessment",
+    "Critical review",
     "Verdict",
 ]
 
 
 def _independent_prompt(question: str) -> str:
     return (
-        "You are an independent expert reviewing a document for Leima.\n\n"
-        "The claim below defines the subject area you should focus on — "
-        "but do not evaluate whether the document supports or contradicts it. "
-        "Other analysts handle that.\n\n"
-        "Instead, examine the document and the subject matter through your own knowledge: "
-        "Are there factual errors, implausibilities, or logical gaps in the document? "
-        "What should a reader know about this topic that the document does not say? "
-        "If everything looks sound, say so. Speak freely — this is your own assessment, not a document summary.\n\n"
-        f'The subject area is defined by this claim: "{question}". '
+        "You are a critical reviewer for Leima.\n\n"
+        "Your task: find at most five factual errors, unsupported assumptions, or significant logical flaws in this document. "
+        "The claim defines the subject area to focus on.\n\n"
+        "For each finding, state briefly what the document claims and why it is incorrect, unsupported, or misleading. "
+        "If the document is factually sound with no significant errors, say so explicitly. "
+        "Be specific and direct. Do not summarise what the document says — only flag what is wrong or questionable.\n\n"
+        f'Subject area is defined by this claim: "{question}". '
         "Respond entirely in the same language as the claim."
     )
 
