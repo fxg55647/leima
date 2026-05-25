@@ -279,6 +279,32 @@ A future option will allow switching to AI providers that operate under strict, 
 
 ---
 
+## Economic case
+
+Deployment transparency has historically required either expensive infrastructure or accepting "trust us" as the answer. This has had a real cost.
+
+**Lost opportunity.** Small operators have had no mechanism to demonstrate that the code they claim to run is the code actually running. Large players substitute brand reputation for technical transparency. This locks small operators out of trust-sensitive markets — legal, financial, medical, research — not because their code is worse, but because they lack the tools to prove it. Use cases that could be automated have stayed manual. Services that could exist have not been built.
+
+**Why not TEE?** Hardware-level trusted execution environments (Intel SGX, AMD SEV) provide the strongest possible guarantee: cryptographic proof of what code is executing in memory. They also cost orders of magnitude more to implement and require hosting provider cooperation. The question is whether that cost is justified by the risk it covers.
+
+The realistic threat hierarchy is not symmetrical. Maintainer credential theft — phishing, SIM-swapping, malware, insider action — is a routine occurrence across the software industry. For a small project, the realistic annual probability is 1–5%. A hosting provider infrastructure breach deep enough to silently swap running code is a different category of event: it has not been publicly documented at major managed hosting providers, and would require capabilities well beyond opportunistic attacks. The realistic annual probability is orders of magnitude lower — and deliberate collusion by a company with investors, legal obligations, and hundreds of other customers is lower still.
+
+POIDE covers the large realistic risk. TEE would additionally cover the small theoretical one — at roughly 1000x the cost, to address a threat that is roughly 100–1000x less likely. The marginal cost per covered risk unit is prohibitive.
+
+**Comparison.**
+
+| Approach | Cost | What it proves |
+|---|---|---|
+| Fully on-chain (Ethereum) | Very high per operation | Execution is public and deterministic — but LLMs cannot run on-chain |
+| TEE (SGX/SEV) | 50k–500k+ to implement | Code executing in memory matches the published source |
+| Formal audit | 20k–100k+, one-time snapshot | Code complies with stated policy at a point in time |
+| POIDE | Near zero | Hosting provider was instructed to run the audited commit; continuous, permanent record |
+| Nothing | Zero | "Trust us" |
+
+For AI applications specifically, fully on-chain execution is not a realistic option: language models cannot run in the EVM, and document processing at this scale is impossible on-chain. Given that off-chain computation is unavoidable, POIDE represents the practical optimum — meaningful attestation with existing building blocks, deployable over a weekend, with a permanent audit trail that no retroactive action can alter.
+
+---
+
 ## Stack
 
 - **Backend** — FastAPI + Uvicorn
