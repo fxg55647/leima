@@ -117,7 +117,6 @@
         if (e.deploying) reasons.push('deploy in progress');
         else if (e.deployment_ok === false) reasons.push('commit mismatch');
         if (e.review_ok === false) reasons.push('review failed');
-        if (e.rapid_deploy_warning) reasons.push('rapid deploy');
         if (e.cron_fresh === false) reasons.push('stale cron');
         if (e.disabled_workflows && e.disabled_workflows.length) reasons.push('workflow disabled');
         if (e.error) reasons.push(e.error.slice(0, 60));
