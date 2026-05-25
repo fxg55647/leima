@@ -1,5 +1,7 @@
 name: POIDE A
 on:
+  schedule:
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 permissions:
   contents: write

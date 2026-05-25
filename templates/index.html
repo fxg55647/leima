@@ -985,6 +985,10 @@
     let lastCheckedAt = null;
 
     const SUPPRESS_DURATION_MS = 60 * 60 * 1000; // 1 hour
+    const REPEAT_INTERVAL_MS   = 60 * 1000;       // re-show at most once per minute
+
+    let lastModalShownAt = 0;
+    let lastModalKey = '';
 
     function isSuppressed(key) {
       try {
@@ -996,6 +1000,10 @@
 
     function showWarning(key, message) {
       if (isSuppressed(key)) return;
+      const now = Date.now();
+      if (lastModalKey === key && now - lastModalShownAt < REPEAT_INTERVAL_MS) return;
+      lastModalShownAt = now;
+      lastModalKey = key;
       suppressCb.checked = false;
       modalBody.textContent = message;
       overlay.classList.add('visible');
@@ -1006,6 +1014,10 @@
         overlay.classList.remove('visible');
       };
     }
+
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) { lastModalShownAt = 0; update(); }
+    });
 
     function timeAgo() {
       if (!lastCheckedAt) return '';
