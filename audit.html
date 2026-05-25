@@ -136,6 +136,12 @@
             a.target = '_blank';
             a.rel = 'noopener noreferrer';
             ar.appendChild(a);
+          } else if (e.arweave_error) {
+            const s = document.createElement('span');
+            s.className = 'warn';
+            s.title = e.arweave_error;
+            s.textContent = '⚠ upload failed';
+            ar.appendChild(s);
           } else {
             ar.textContent = '—';
           }
