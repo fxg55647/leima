@@ -945,7 +945,7 @@
           fadeSet(row('OK', '#fff'), 'ok');
         } else if (p.ok === false) {
           if (!p.deployment_ok) {
-            fadeSet(row('Please notify — Deploying', '#fff', ''), 'loading');
+            fadeSet(row('Please notify — Deploying', '#f0a030', ''), 'warning');
           } else if (p.rapid_deploy_warning) {
             fadeSet(row('Please notify', '#f0a030', 'rapid deploys'), 'warning');
           } else {
