@@ -19,15 +19,35 @@
     a { color: #0d6efd; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .loading { color: #6c757d; font-size: 0.9rem; margin-top: 2rem; }
+    .monthly-box { font-size: 0.85rem; background: #f0f5ff; border: 1px solid #c7d7fa; border-radius: 6px; padding: 0.5rem 0.875rem; margin-bottom: 1.25rem; color: #212529; }
   </style>
 </head>
 <body>
   <h1>Leima — POIDE audit log</h1>
   <p class="sub">Every deployment integrity check, permanently recorded. Each entry links to its Arweave record.</p>
+  <div id="monthly-summary"></div>
   <div id="content"><p class="loading">Loading…</p></div>
 
   <script>
     const GATEWAY = 'https://gateway.irys.xyz';
+
+    fetch('monthly-summary.json')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d || !d.month) return;
+        const box = document.getElementById('monthly-summary');
+        const a = document.createElement('a');
+        a.href = d.url || (GATEWAY + '/' + d.tx);
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = d.tx ? d.tx.slice(0, 12) + '…' : d.url;
+        const p = document.createElement('p');
+        p.className = 'monthly-box';
+        p.appendChild(document.createTextNode('Latest monthly Arweave summary (' + d.month + '): '));
+        p.appendChild(a);
+        box.appendChild(p);
+      })
+      .catch(() => {});
 
     fetch('status-log.jsonl')
       .then(r => {
