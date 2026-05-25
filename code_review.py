@@ -38,9 +38,10 @@ def build_prompt(policy: str, sources: dict[str, str]) -> str:
 
 Your task: verify that the source code below complies with the data policy in POLICY.md.
 
-Architecture note: the codebase has two distinct parts:
+Architecture note: the codebase has three distinct parts:
 - User-data path: main.py, neutral_witness.py, notary.py — these handle user documents and emails
 - Infrastructure path: poide_check.py, poide_arweave.py, monthly_audit.py — these are deployment integrity monitors that never touch user data
+- Developer tools: hooks/pre-push.py — a local git pre-push hook that fetches POIDE status from gh-pages before allowing a push; runs only on the developer's machine, never on the server
 
 Check each of the following, citing specific file and line where relevant:
 
@@ -51,7 +52,7 @@ Check each of the following, citing specific file and line where relevant:
 5. Does the Arweave/Irys upload in the user-data path contain anything beyond hashes and metadata?
 6. Are there any external HTTP calls in the user-data path not described in POLICY.md?
 
-Note: infrastructure scripts (poide_check.py, poide_arweave.py, monthly_audit.py) make HTTP calls to Render API, GitHub API, and Arweave — these are deployment monitoring calls, not user-data calls, and are not in scope for POLICY.md compliance.
+Note: infrastructure scripts (poide_check.py, poide_arweave.py, monthly_audit.py) make HTTP calls to Render API, GitHub API, and Arweave — these are deployment monitoring calls, not user-data calls, and are not in scope for POLICY.md compliance. hooks/pre-push.py makes one HTTP call to the gh-pages status log and is a developer tool, not server code.
 
 For each check write one line: PASS or FAIL — and a brief explanation.
 
