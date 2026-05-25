@@ -144,22 +144,25 @@
       const tbody = table.createTBody();
       slice.forEach(e => tbody.appendChild(buildRow(e)));
 
-      const nav = document.createElement('div');
-      nav.className = 'pagination';
-      const prevBtn = document.createElement('button');
-      prevBtn.textContent = '← Newer';
-      prevBtn.disabled = page === 0;
-      prevBtn.onclick = () => { renderPage(page - 1); window.scrollTo(0, 0); };
-      const info = document.createElement('span');
-      info.className = 'page-info';
-      info.textContent = `Page ${page + 1} of ${totalPages} (${allRows.length} entries)`;
-      const nextBtn = document.createElement('button');
-      nextBtn.textContent = 'Older →';
-      nextBtn.disabled = page >= totalPages - 1;
-      nextBtn.onclick = () => { renderPage(page + 1); window.scrollTo(0, 0); };
-      nav.append(prevBtn, info, nextBtn);
+      function makeNav(scrollTop) {
+        const nav = document.createElement('div');
+        nav.className = 'pagination';
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '← Newer';
+        prevBtn.disabled = page === 0;
+        prevBtn.onclick = () => { renderPage(page - 1); if (scrollTop) window.scrollTo(0, 0); };
+        const info = document.createElement('span');
+        info.className = 'page-info';
+        info.textContent = `Page ${page + 1} of ${totalPages} (${allRows.length} entries)`;
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Older →';
+        nextBtn.disabled = page >= totalPages - 1;
+        nextBtn.onclick = () => { renderPage(page + 1); if (scrollTop) window.scrollTo(0, 0); };
+        nav.append(prevBtn, info, nextBtn);
+        return nav;
+      }
 
-      document.getElementById('content').replaceChildren(nav, table);
+      document.getElementById('content').replaceChildren(makeNav(true), table, makeNav(false));
     }
 
     fetch('status-log.jsonl')
