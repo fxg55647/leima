@@ -1,5 +1,5 @@
 """POIDE pre-push check -- called by hooks/pre-push shell wrapper."""
-import json, sys, time
+import json, os, subprocess, sys, time
 from pathlib import Path
 import urllib.request as req
 
@@ -40,6 +40,31 @@ def fetch_latest() -> dict | None:
     return None
 
 
+def run_code_review() -> bool:
+    """Ajaa code_review.py paikallisesti. Palauttaa True jos OK tai avain puuttuu."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        print("[POIDE] GEMINI_API_KEY ei asetettu -- code review skipataan.", flush=True)
+        return True
+    print("[POIDE] Ajetaan code review paikallisesti...", flush=True)
+    root = Path(__file__).parent.parent
+    result = subprocess.run(
+        [sys.executable, str(root / "code_review.py")],
+        cwd=root,
+        env={**os.environ, "GEMINI_API_KEY": api_key},
+    )
+    if result.returncode != 0:
+        print(
+            "\n[POIDE] !! PUSH ESTETTY -- code review epaonnistui!\n"
+            "  Korjaa policy-rikkomus tai suspicious dependency ennen pushia.\n"
+            "  Hatatilanteessa: git push --no-verify\n",
+            flush=True,
+        )
+        return False
+    print("[POIDE] Code review OK.", flush=True)
+    return True
+
+
 def main() -> int:
     # --- Cooldown-tarkistus ---
     last = read_last_push()
@@ -54,6 +79,10 @@ def main() -> int:
                 flush=True,
             )
             return 1
+
+    # --- Code review (jos GEMINI_API_KEY asetettu) ---
+    if not run_code_review():
+        return 1
 
     # --- POIDE-statustarkistus ---
     print("[POIDE] Tarkistetaan deployment-status ennen pushausta...", flush=True)
