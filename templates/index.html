@@ -1113,7 +1113,7 @@
           fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
         } else if (!unknownCommit && verified && !commitMatch) {
           fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
-        } else if (p.ok) {
+        } else if (p.ok || commitMatch) {
           fadeSet(row('OK', '#fff'), 'ok');
         } else if (p.ok === false) {
           const reason = p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed';
