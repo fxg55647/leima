@@ -499,8 +499,8 @@ async def fetch_emails(
                 "body": body,
             })
         imap.logout()
-    except Exception as e:
-        return HTMLResponse(f'<p class="fetch-error">Connection failed: {e}</p>')
+    except Exception:
+        return HTMLResponse('<p class="fetch-error">Could not connect to the email server. Check your settings and try again.</p>')
 
     if not messages:
         return HTMLResponse('<p class="fetch-error">No emails found for this period.</p>')
@@ -690,6 +690,19 @@ async def validate(
 ):
     if tx_id:
         return await _validate_notary(request, tx_id, eml_file)
+    if not source_file or not source_file.filename:
+        return HTMLResponse('<p class="error">Please upload a source file.</p>')
+    if not verdict_file or not verdict_file.filename:
+        return HTMLResponse('<p class="error">Please upload a verdict file.</p>')
+    if not manifest_file or not manifest_file.filename:
+        return HTMLResponse('<p class="error">Please upload a manifest file.</p>')
+    _validate_max = 50 * 1024 * 1024
+    if source_file.size and source_file.size > _validate_max:
+        return HTMLResponse('<p class="error">Source file too large (max 50 MB).</p>')
+    if verdict_file.size and verdict_file.size > _validate_max:
+        return HTMLResponse('<p class="error">Verdict file too large (max 50 MB).</p>')
+    if manifest_file.size and manifest_file.size > _validate_max:
+        return HTMLResponse('<p class="error">Manifest file too large (max 50 MB).</p>')
     source_bytes = await source_file.read()
     verdict_bytes = await verdict_file.read()
     manifest_bytes = await manifest_file.read()
@@ -959,7 +972,10 @@ def build_verdict_txt(question: str, passes: list[tuple[str, str]], timestamp: s
 def build_verdict_html_export(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str) -> bytes:
     pass_html = ""
     for label, text in passes:
-        content = _md.markdown(text or "", extensions=["nl2br"])
+        content = bleach.clean(
+            _md.markdown(text or "", extensions=["nl2br"]),
+            tags=_MD_ALLOWED_TAGS, strip=True,
+        )
         pass_html += f"<section><h2>{label}</h2>{content}</section>\n"
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1302,6 +1318,8 @@ async def api_stamp(body: StampRequest):
     contents = []
     try:
         if body.source_type == "pdf_base64":
+            if len(body.source) > 20 * 1024 * 1024 * 4 // 3:
+                return JSONResponse({"error": "File too large (max 20 MB)"}, status_code=400)
             input_bytes = base64.b64decode(body.source)
             input_label = "api-upload.pdf"
             contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
