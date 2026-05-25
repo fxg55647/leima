@@ -949,7 +949,7 @@
           : null;
 
         const staleSecs = lastCheckedAt ? (Date.now() - lastCheckedAt) / 1000 : 9999;
-        const isStale = staleSecs > 150;
+        const isStale = staleSecs > 600;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
 
