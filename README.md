@@ -53,13 +53,20 @@ After analysis you download three files:
 
 **The document is not stored on the blockchain or anywhere permanently.** It is processed server-side for AI analysis and then discarded. A stamp record — containing SHA-256 hashes of both files — is published to Arweave via Irys. The `manifest.json` you download contains this stamp record plus the Arweave transaction ID pointing to it. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
 
-Leima produces two guarantees that work independently of each other:
+Leima produces guarantees that work independently of each other:
 
-**Hash commitment — the cryptographic layer.** The SHA-256 hash of your document is sealed on Arweave at the moment of stamping. If anyone later claims the document said something different, or substitutes a different version, the hash mismatch is provable. This does not require trusting AI — it requires only that SHA-256 is collision-resistant, which is a mathematical fact. A hash mismatch after the fact is evidence of tampering: at minimum a contractual breach, potentially fraud.
+**Cryptographic source integrity — where the document comes from.** For documents that carry their own cryptographic provenance, Leima verifies it at submission time:
+- **PDF with digital signature (RFC 3161):** the document's integrity is proven from the moment of signing. Leima extracts the signer certificate, the RFC 3161 trusted timestamp, and the Timestamp Authority. If the document was modified after signing, this is detected and flagged immediately — not discovered months later in a review.
+- **Image with C2PA signature:** origin and capture authenticity are cryptographically established from the camera or device.
+- **Email with DKIM:** the sender's domain is verified against their published DNS records.
+
+For unsigned documents there is no pre-existing provenance to verify — but the next layer still applies.
+
+**Hash commitment — the submission layer.** The SHA-256 hash of your document is sealed on Arweave at the moment of stamping. If anyone later claims the document said something different, or substitutes a different version, the hash mismatch is provable. This does not require trusting AI — it requires only that SHA-256 is collision-resistant, which is a mathematical fact. A hash mismatch after the fact is evidence of tampering: at minimum a contractual breach, potentially fraud.
 
 **AI verdict — the practical layer.** The analysis characterises what the document actually says about the claim, captured before either party had an incentive to misrepresent it. An insurance adjuster, a lender, or a due diligence analyst can use this to guide their work and accelerate decisions — not as a legal authority, but as an independent first opinion made before any dispute arose. Its value comes from timing and independence, not from being infallible.
 
-These layers serve different purposes and can be relied on for different things. The hash commitment is a hard guarantee regardless of whether the AI analysis was correct.
+These layers serve different purposes and can be relied on for different things. The hash commitment is a hard guarantee regardless of whether the AI analysis was correct. For signed documents, the source integrity layer adds a further guarantee that predates the submission itself.
 
 ---
 
@@ -178,7 +185,7 @@ To get involved: open an issue or pull request on GitHub, or contact via the rep
 
 | Source | Notes |
 |--------|-------|
-| PDF upload | Direct file upload |
+| PDF upload | Direct file upload. If the PDF contains a digital signature, Leima verifies it using RFC 3161: signer identity, trusted timestamp, and document integrity are extracted and included in the verdict |
 | PDF URL | Fetched server-side, max 10 MB, SSRF-protected |
 | Image | JPG, PNG, GIF, WebP, HEIC, HEIF — analysed directly, original file preserved |
 | Text paste | Converted to PDF for hashing |

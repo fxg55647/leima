@@ -6,6 +6,10 @@
 
 Due diligence involves one party evaluating another's claims before committing to a transaction. The fundamental problem is that the party being evaluated has an incentive to present their situation favourably, while the evaluating party needs enough information to make a judgment without necessarily receiving everything. Leima addresses both sides of this problem.
 
+**Immediate cryptographic verification.** Due diligence has traditionally meant collecting documents and verifying their authenticity weeks or months later — a manual process with significant lag. Leima compresses this into seconds.
+
+For documents that carry cryptographic provenance, verification happens at submission: a PDF with a digital signature is checked against its RFC 3161 trusted timestamp, the signer's certificate is extracted, and any post-signing modification is detected immediately. The verdict states whether the document is intact or tampered — a hard cryptographic finding, not an AI opinion. For documents without signatures, the Arweave hash commitment means there is no dispute later about what was submitted: the exact content is sealed at the moment of analysis. Both paths eliminate the gap between "documents received" and "documents verified."
+
 **Partial disclosure with hash commitment.** Any material — a contract, a financial statement, a codebase, a patent application — can be partially disclosed. The submitting party shows the evaluating party a redacted or summarised version, and Leima stamps an AI verdict characterising what the document contains: its nature, scope, and the specific claim being evaluated. The cryptographic hash of the full, unredacted document is recorded in the stamp.
 
 If the submitting party later claims they provided different information, or if it emerges that the disclosed version misrepresented the full document, the hash exposes the fraud: the stamp proves exactly what was shown, when, and what the AI concluded from it. The evaluator cannot later claim they were not informed; the submitter cannot later claim they showed something different.
