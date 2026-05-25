@@ -21,6 +21,9 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python code_review.py
 
+      - name: Deploy to Render
+        run: curl -s "${{ secrets.RENDER_DEPLOY_HOOK }}" > /dev/null
+
       - name: Wake up POIDE cron after deploy
         continue-on-error: true
         env:
