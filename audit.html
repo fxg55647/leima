@@ -19,6 +19,11 @@
     a { color: #0d6efd; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .loading { color: #6c757d; font-size: 0.9rem; margin-top: 2rem; }
+    .pagination { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
+    .pagination button { background: #0d6efd; color: #fff; border: none; border-radius: 5px; padding: 0.3rem 0.9rem; font-size: 0.82rem; cursor: pointer; }
+    .pagination button:disabled { background: #dee2e6; color: #adb5bd; cursor: default; }
+    .pagination button:not(:disabled):hover { background: #0b5ed7; }
+    .page-info { font-size: 0.8rem; color: #6c757d; }
     .monthly-box { font-size: 0.85rem; background: #f0f5ff; border: 1px solid #c7d7fa; border-radius: 6px; padding: 0.5rem 0.875rem; margin-bottom: 1.25rem; color: #212529; }
   </style>
 </head>
@@ -49,105 +54,130 @@
       })
       .catch(() => {});
 
+    const PAGE_SIZE = 100;
+    let allRows = [];
+    let currentPage = 0;
+
+    function buildRow(e) {
+      const tr = document.createElement('tr');
+
+      const ts = tr.insertCell(); ts.textContent = e.ts || e.timestamp || '—';
+
+      const cm = tr.insertCell();
+      const commit = (e.commit || e.verified_commit || '').slice(0, 7);
+      const code = document.createElement('code');
+      code.textContent = commit || '—';
+      cm.appendChild(code);
+
+      const st = tr.insertCell();
+      const ok = e.ok === true;
+      const span = document.createElement('span');
+      span.className = ok ? 'ok' : 'fail';
+      span.textContent = ok ? '✓ OK' : '✗ Fail';
+      st.appendChild(span);
+
+      const rs = tr.insertCell();
+      if (!ok) {
+        const reasons = [];
+        if (e.deploying) reasons.push('deploy in progress');
+        else if (e.deployment_ok === false) reasons.push('commit mismatch');
+        if (e.review_ok === false) reasons.push('review failed');
+        if (e.rapid_deploy_warning) reasons.push('rapid deploy');
+        if (e.cron_fresh === false) reasons.push('stale cron');
+        if (e.disabled_workflows && e.disabled_workflows.length) reasons.push('workflow disabled');
+        if (e.error) reasons.push(e.error.slice(0, 60));
+        rs.textContent = reasons.join(', ') || '—';
+        rs.style.color = '#e74c3c';
+        rs.style.fontSize = '0.78rem';
+      }
+
+      const ds = tr.insertCell();
+      ds.textContent = e.deploy_status || '—';
+
+      const run = tr.insertCell();
+      const runUrl = e.actions_run_url;
+      if (runUrl) {
+        const a = document.createElement('a');
+        a.href = runUrl;
+        a.textContent = e.actions_run_id || 'run';
+        a.target = '_blank'; a.rel = 'noopener noreferrer';
+        run.appendChild(a);
+      } else {
+        run.textContent = '—';
+      }
+
+      const ar = tr.insertCell();
+      const tx = e.tx || e.arweave_tx;
+      if (tx) {
+        const a = document.createElement('a');
+        a.href = GATEWAY + '/' + tx;
+        a.textContent = tx.slice(0, 12) + '…';
+        a.target = '_blank'; a.rel = 'noopener noreferrer';
+        ar.appendChild(a);
+      } else if (e.arweave_error) {
+        const s = document.createElement('span');
+        s.className = 'warn';
+        s.title = e.arweave_error;
+        s.textContent = '⚠ upload failed';
+        ar.appendChild(s);
+      } else {
+        ar.textContent = '—';
+      }
+
+      return tr;
+    }
+
+    function renderPage(page) {
+      currentPage = page;
+      const totalPages = Math.ceil(allRows.length / PAGE_SIZE);
+      const start = page * PAGE_SIZE;
+      const slice = allRows.slice(start, start + PAGE_SIZE);
+
+      const table = document.createElement('table');
+      const thead = table.createTHead();
+      const hr = thead.insertRow();
+      ['Timestamp', 'Commit', 'Status', 'Reason', 'Deploy', 'Actions run', 'Arweave'].forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        hr.appendChild(th);
+      });
+      const tbody = table.createTBody();
+      slice.forEach(e => tbody.appendChild(buildRow(e)));
+
+      const nav = document.createElement('div');
+      nav.className = 'pagination';
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = '← Newer';
+      prevBtn.disabled = page === 0;
+      prevBtn.onclick = () => { renderPage(page - 1); window.scrollTo(0, 0); };
+      const info = document.createElement('span');
+      info.className = 'page-info';
+      info.textContent = `Page ${page + 1} of ${totalPages} (${allRows.length} entries)`;
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = 'Older →';
+      nextBtn.disabled = page >= totalPages - 1;
+      nextBtn.onclick = () => { renderPage(page + 1); window.scrollTo(0, 0); };
+      nav.append(prevBtn, info, nextBtn);
+
+      document.getElementById('content').replaceChildren(nav, table);
+    }
+
     fetch('status-log.jsonl')
       .then(r => {
         if (!r.ok) throw new Error('Failed to fetch status-log.jsonl');
         return r.text();
       })
       .then(text => {
-        const rows = text.trim().split('\n')
+        allRows = text.trim().split('\n')
           .filter(l => l.trim())
           .map(l => { try { return JSON.parse(l); } catch { return null; } })
           .filter(Boolean)
           .reverse();
-
-        if (!rows.length) {
+        if (!allRows.length) {
           document.getElementById('content').textContent = 'No entries found.';
           return;
         }
-
-        const table = document.createElement('table');
-        const thead = table.createTHead();
-        const hr = thead.insertRow();
-        ['Timestamp', 'Commit', 'Status', 'Reason', 'Deploy', 'Actions run', 'Arweave'].forEach(h => {
-          const th = document.createElement('th');
-          th.textContent = h;
-          hr.appendChild(th);
-        });
-
-        const tbody = table.createTBody();
-        rows.forEach(e => {
-          const tr = tbody.insertRow();
-
-          const ts = tr.insertCell(); ts.textContent = e.ts || e.timestamp || '—';
-
-          const cm = tr.insertCell();
-          const commit = (e.commit || e.verified_commit || '').slice(0, 7);
-          const code = document.createElement('code');
-          code.textContent = commit || '—';
-          cm.appendChild(code);
-
-          const st = tr.insertCell();
-          const ok = e.ok === true;
-          const span = document.createElement('span');
-          span.className = ok ? 'ok' : 'fail';
-          span.textContent = ok ? '✓ OK' : '✗ Fail';
-          st.appendChild(span);
-
-          const rs = tr.insertCell();
-          if (!ok) {
-            const reasons = [];
-            if (e.deploying) reasons.push('deploy in progress');
-            else if (e.deployment_ok === false) reasons.push('commit mismatch');
-            if (e.review_ok === false) reasons.push('review failed');
-            if (e.rapid_deploy_warning) reasons.push('rapid deploy');
-            if (e.cron_fresh === false) reasons.push('stale cron');
-            if (e.disabled_workflows && e.disabled_workflows.length) reasons.push('workflow disabled');
-            if (e.error) reasons.push(e.error.slice(0, 60));
-            rs.textContent = reasons.join(', ') || '—';
-            rs.style.color = '#e74c3c';
-            rs.style.fontSize = '0.78rem';
-          } else {
-            rs.textContent = '';
-          }
-
-          const ds = tr.insertCell();
-          ds.textContent = e.deploy_status || '—';
-
-          const run = tr.insertCell();
-          const runUrl = e.actions_run_url;
-          if (runUrl) {
-            const a = document.createElement('a');
-            a.href = runUrl;
-            a.textContent = e.actions_run_id || 'run';
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            run.appendChild(a);
-          } else {
-            run.textContent = '—';
-          }
-
-          const ar = tr.insertCell();
-          const tx = e.tx || e.arweave_tx;
-          if (tx) {
-            const a = document.createElement('a');
-            a.href = GATEWAY + '/' + tx;
-            a.textContent = tx.slice(0, 12) + '…';
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            ar.appendChild(a);
-          } else if (e.arweave_error) {
-            const s = document.createElement('span');
-            s.className = 'warn';
-            s.title = e.arweave_error;
-            s.textContent = '⚠ upload failed';
-            ar.appendChild(s);
-          } else {
-            ar.textContent = '—';
-          }
-        });
-
-        document.getElementById('content').replaceChildren(table);
+        renderPage(0);
       })
       .catch(err => {
         const p = document.createElement('p');

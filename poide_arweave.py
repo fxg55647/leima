@@ -51,12 +51,17 @@ else:
         arweave_error = str(e)
         print(f"Arweave upload failed: {e}", file=sys.stderr)
 
+MAX_LOG_ENTRIES = 500
+
 # Fetch existing log from gh-pages if not already present locally
 if not log_path.exists():
     try:
         r = http.get(f"{PAGES_URL}/status-log.jsonl", timeout=10)
         if r.status_code == 200 and r.text.strip():
-            log_path.write_bytes(r.content)
+            lines = [l for l in r.text.strip().splitlines() if l]
+            if len(lines) > MAX_LOG_ENTRIES:
+                lines = lines[-MAX_LOG_ENTRIES:]
+            log_path.write_text("\n".join(lines) + "\n")
     except Exception:
         pass
 
