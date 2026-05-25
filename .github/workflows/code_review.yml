@@ -4,6 +4,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  actions: write
+
 jobs:
   review:
     runs-on: ubuntu-latest
