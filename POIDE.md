@@ -32,19 +32,23 @@ Each workflow runs `poide_check.py`, which checks three conditions and publishes
 
 `ok: true` requires all three to pass simultaneously.
 
-The code review (`code_review.py`) runs automatically on every push to `main`. It sends all Python and JavaScript source files together with `POLICY.md` to an AI model, which checks whether the code complies with the stated data policy. If a violation is found, the workflow fails and `review_ok` stays false until a corrected commit is pushed and passes.
+The code review (`code_review.py`) runs automatically on every push to `main`. It sends all Python and JavaScript source files together with `POLICY.md` to an AI model, which checks whether the code complies with the stated data policy. If a violation is found, the workflow fails and the deployment is blocked — the server continues running the previous commit. Only when the review passes does the workflow trigger a Render deploy via a deploy hook, after which the new commit goes live.
+
+This means code that fails the AI audit never reaches production. The deployment gate is the review itself.
 
 The full trust chain on every commit:
 ```
-push → code_review.yml → Gemini audits code vs POLICY.md → pass/fail
-                                                                  ↓
+push → code_review.yml → Gemini audits code vs POLICY.md
+                                    ↓ pass only
+                              Render deploy hook → new commit live
+                                    ↓
 cron (every minute) → poide_check.py → deployment match?
                                       → review passed?
                                       → no deploy in progress?
                                                  → status.json → gh-pages (public)
 ```
 
-The check passes if the deployed commit matches the GitHub HEAD and the code review is green. If a deploy is in progress, or if an unauthorised deployment has occurred, the check fails and the GitHub Actions badge turns red.
+The check passes if the deployed commit matches the GitHub HEAD and the code review is green. If an unauthorised deployment has occurred — a commit that did not go through the review gate — the check fails and the GitHub Actions badge turns red.
 
 **The result is public and independently verifiable.** Anyone can visit the [Actions tab](../../actions) to see the continuous check history, or fetch `status.json` directly. The checks run on GitHub's infrastructure — not Render's — so they cannot be influenced by a compromise of the hosting environment.
 
