@@ -19,8 +19,12 @@
     <span class="meta-label">🕐 {{ timestamp }}</span>
   </div>
 
-  {% for label, text in [passes[2], passes[0], passes[1]] %}
-  <div class="pass-block{% if label == 'Supporting evidence' %} pass-block-support{% endif %}">
+  <div class="pass-block">
+    <div class="pass-label">{{ passes[-1][0] }}</div>
+    <div class="answer-text">{{ passes[-1][1] | md | safe }}</div>
+  </div>
+  {% for label, text in passes[:-1] %}
+  <div class="pass-block{% if label == 'Supporting evidence' %} pass-block-support{% elif label == 'Independent assessment' %} pass-block-independent{% endif %}">
     <div class="pass-label">{{ label }}</div>
     <div class="answer-text">{{ text | md | safe }}</div>
   </div>
@@ -145,6 +149,13 @@
   .pass-block-support {
     background: #f8f9fa;
     border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 0.875rem 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .pass-block-independent {
+    background: #f0f5ff;
+    border: 1px solid #c7d9fd;
     border-radius: 6px;
     padding: 0.875rem 1rem;
     margin-bottom: 1.25rem;

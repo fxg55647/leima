@@ -163,43 +163,57 @@ PASS_PROMPTS = _build_pass_prompts(source_context=None, question="the claim")
 PASS_LABELS = [
     "Supporting evidence",
     "Contradicting evidence",
+    "Independent assessment",
     "Verdict",
 ]
 
 
-def _synthesis_prompt(question: str, support: str, refutation: str, source_context: dict | None = None) -> str:
+def _independent_prompt(question: str) -> str:
+    return (
+        "You are an independent expert reviewing a document for Leima.\n\n"
+        "The claim below defines the subject area you should focus on — "
+        "but do not evaluate whether the document supports or contradicts it. "
+        "Other analysts handle that.\n\n"
+        "Instead, examine the document and the subject matter through your own knowledge: "
+        "Are there factual errors, implausibilities, or logical gaps in the document? "
+        "What should a reader know about this topic that the document does not say? "
+        "If everything looks sound, say so. Speak freely — this is your own assessment, not a document summary.\n\n"
+        f'The subject area is defined by this claim: "{question}". '
+        "Respond entirely in the same language as the claim."
+    )
+
+
+def _synthesis_prompt(question: str, support: str, refutation: str, independent: str | None = None, source_context: dict | None = None) -> str:
     content_only = (source_context or {}).get("type") == "content_only"
     if content_only:
-        own_knowledge = (
+        scope_note = (
             "\nThis is a content analysis — do not assert whether the claim is true in an absolute sense. "
             "Frame your verdict in terms of what the document states or contains.\n"
         )
     else:
-        own_knowledge = (
-            "\nBeyond weighing the two analyses, bring your own knowledge and reasoning. "
-            "Ask yourself: does this claim make sense given what you know about the world? "
-            "Is the overall picture credible? If you have relevant knowledge the document does not cover, say so. "
-            "Your own assessment should be a distinct part of the verdict, not just a summary of the analysts.\n"
-        )
+        scope_note = ""
+
+    independent_block = f"\nINDEPENDENT ANALYST:\n{independent}\n" if independent else ""
+
     return f"""You are the final judge for Leima, a legal evidence tool.
 
 The claim being evaluated: "{question}"
 
-Two independent analysts have reviewed the document:
+Three analysts have reviewed the document:
 
 SUPPORT ANALYST:
 {support}
 
 REFUTATION ANALYST:
 {refutation}
-
-Your task: weigh the two analyses and deliver a verdict. First check whether the refutation actually addresses the specific claim — a refutation that is technically true but does not contradict the claim should be discounted. Then assess which side had stronger direct evidence.
-{own_knowledge}
+{independent_block}
+Your task: weigh all analyses and deliver a verdict. First check whether the refutation actually addresses the specific claim — a refutation that is technically true but does not contradict the claim should be discounted. Then assess which had stronger evidence. Factor in the independent analyst's assessment of credibility and factual soundness.
+{scope_note}
 If the evidence clearly favours one side, say so directly. Do not hedge. A clear verdict is more useful than a balanced non-answer.
 
 Start your response with exactly two lines in this format:
 CATEGORY: <exactly one of: Strongly matches / Mostly matches / Equally supports and contradicts / Mostly does not match / Does not match>
-VERDICT: <one sentence in the same language as the claim, max 15 words, e.g. "The document strongly supports the claim." or "The refutation is more convincing — the claim lacks direct support.">
+VERDICT: <one sentence in the same language as the claim, max 15 words>
 
 Then on a new line, explain your reasoning: which arguments were stronger and why. Be direct.
 
@@ -227,6 +241,7 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
     if not scope_text.startswith("APPROVED"):
         raise ValueError(scope_text or "Model returned no response during scope check")
 
+    content_only = (source_context or {}).get("type") == "content_only"
     pass_prompts = _build_pass_prompts(source_context, question)
     passes = []
     for prompt, label in zip(pass_prompts, PASS_LABELS):
@@ -237,7 +252,19 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
         )
         passes.append((label, resp.text or ""))
 
-    synth = _synthesis_prompt(question, passes[0][1], passes[1][1], source_context)
+    independent_text = None
+    if not content_only:
+        ind_prompt = _independent_prompt(question)
+        ind_resp = client.models.generate_content(
+            model=MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(system_instruction=ind_prompt),
+        )
+        independent_text = ind_resp.text or ""
+        passes.append((PASS_LABELS[2], independent_text))
+
+    verdict_label = PASS_LABELS[3] if not content_only else PASS_LABELS[2]
+    synth = _synthesis_prompt(question, passes[0][1], passes[1][1], independent_text, source_context)
     synth_resp = client.models.generate_content(
         model=MODEL,
         contents=contents,
@@ -262,11 +289,12 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
     else:
         summary_verdict = synth_text.split(".")[0].strip() + "."
         synthesis_body = synth_text
-    passes.append((PASS_LABELS[2], synthesis_body))
+    passes.append((verdict_label, synthesis_body))
 
     prompt_log = (
         list(zip(PASS_LABELS[:2], pass_prompts))
-        + [(PASS_LABELS[2], synth)]
+        + ([(PASS_LABELS[2], ind_prompt)] if not content_only else [])
+        + [(verdict_label, synth)]
     )
 
     return {
