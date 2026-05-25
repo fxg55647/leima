@@ -16,7 +16,7 @@ from pathlib import Path
 
 SKIP_DIRS  = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
 SOURCE_EXT = {".py", ".js"}
-DOCS       = {"README.md", "POLICY.md"}
+DOCS       = {"README.md", "POLICY.md", "requirements.txt"}
 
 ref = sys.argv[1] if len(sys.argv) > 1 else "HEAD"
 root = Path(__file__).parent
