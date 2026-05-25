@@ -237,4 +237,4 @@
 {"ts": "2026-05-25 00:43:03 UTC", "tx": "D9UgYNJEEePZbu3MPXAq2zNgKy2UowiAXapVMg6L7LXp", "ok": true, "commit": "54697f2", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": false}
 {"ts": "2026-05-25 00:44:04 UTC", "tx": "9mAyVkZtKdhQvthfNLgGUhXPKHbsyKTJFfeaRz2g87pK", "ok": true, "commit": "54697f2", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": false}
 {"ts": "2026-05-25 00:45:12 UTC", "tx": "9rRYmTQe8QEkwjwU7k7WJd8M2fCvuMzooBPeXSRgv99H", "ok": true, "commit": "54697f2", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": false}
-{"ts": "2026-05-25 00:51:38 UTC", "tx": "EEGmomvs3iVdjwpphApuXYfiw6YXvfUQfFSRtrzJmyV4", "ok": true, "commit": "54697f2", "deploy_status": "live", "deployment_ok": true, "review_ok": true, "rapid_deploy_warning": false}
+{"ts": "2026-05-25 00:52:07 UTC", "tx": "87R6EBHmTPk3wJTkr8aaZUfxpXSNm9XnFmR1NgrNVs7o", "ok": false, "commit": "54697f2", "deploy_status": "live", "deployment_ok": false, "review_ok": false, "rapid_deploy_warning": false}
