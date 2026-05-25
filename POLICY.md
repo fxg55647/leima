@@ -78,7 +78,7 @@ This is more than fingerprints — it includes the sender and recipient addresse
 ## What the AI is instructed to do
 
 The full AI prompt logic is in `neutral_witness.py`. Before any analysis, a scope-check pass evaluates whether the request falls within permitted use. If rejected, no further AI calls are made and no stamp is created. If approved, the model is instructed to:
-- Analyse the document against the claim in three independent passes
+- Analyse the document against the claim in two independent passes (one identifying supporting evidence, one identifying contradicting evidence), followed by a synthesis pass that weighs the two
 - Refuse requests intended for surveillance, stalking, or harassment
 - Respond in the language of the claim
 
@@ -99,6 +99,8 @@ The model is not instructed to retain, summarise, or report your data for any ot
 ## Deployment integrity
 
 Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [POIDE.md](POIDE.md) for details.
+
+The server makes background HTTP calls to the GitHub API and GitHub Pages CDN to fetch deployment verification status. These calls contain no user data — they fetch only the POIDE status log used to display the integrity indicator in the UI.
 
 ---
 
