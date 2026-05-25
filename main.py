@@ -920,7 +920,7 @@ async def ask(
         elif pdf_file and pdf_file.filename:
             input_bytes = await pdf_file.read()
             input_label = pdf_file.filename
-            source_context = {"type": "content_only"}
+            source_context = None
         else:
             return HTMLResponse('<div class="error">Please upload a PDF or enter a URL.</div>')
         contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
@@ -932,7 +932,7 @@ async def ask(
             return HTMLResponse('<div class="error">Text is too long (max 20 000 characters). Please shorten it and try again.</div>')
         input_bytes = _text_to_input_pdf(text_input)
         input_label = "text-input"
-        source_context = {"type": "content_only"}
+        source_context = None
         contents.append(f"Document content:\n{text_input}")
 
     elif active_tab == "web":
