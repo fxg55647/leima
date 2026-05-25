@@ -328,6 +328,9 @@ async def version():
             "deploy_status": cache.get("deploy_status"),
             "deployment_ok":        cache.get("deployment_ok"),
             "review_ok":            cache.get("review_ok"),
+            "deploying":            cache.get("deploying"),
+            "deploying_commit":     cache.get("deploying_commit"),
+            "deploying_commit_ok":  cache.get("deploying_commit_ok"),
         },
     }
 

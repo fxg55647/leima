@@ -953,14 +953,28 @@
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
 
-        if (isStale) {
+        const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
+        if (dangerousDeploy) {
+          const key = 'poide_alert_' + (p.deploying_commit || '').slice(0, 7);
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, '1');
+            alert(
+              '⚠ POIDE WARNING ⚠\n\n' +
+              'An unauthorized commit is being deployed to production:\n' +
+              (p.deploying_commit || '?').slice(0, 7) + ' ≠ ' + (p.verified_commit || '?').slice(0, 7) + '\n\n' +
+              'Do not submit sensitive documents until this is resolved.\n' +
+              'Check GitHub Actions and the Render dashboard.'
+            );
+          }
+          fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
+        } else if (isStale) {
           fadeSet(row('Danger', '#ff6b6b', 'checks stale'), 'danger');
         } else if (!unknownCommit && verified && !commitMatch) {
           fadeSet(row('Please notify', '#f0a030', 'verifying deploy'), 'warning');
         } else if (p.ok) {
           fadeSet(row('OK', '#fff'), 'ok');
         } else if (p.ok === false) {
-          if (!p.deployment_ok || p.deploying) {
+          if (p.deploying) {
             fadeSet(row('Please notify — Deploying', '#f0a030', ''), 'warning');
           } else {
             const reason = p.deploy_status === 'not_configured' ? 'API key missing'
