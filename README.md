@@ -28,6 +28,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Deployment](#deployment)
 - [Deployment integrity (POIDE)](#deployment-integrity-poide)
 - [Independent verification (verify.py)](#independent-verification-verifypy)
+- [Self-characterisation for due diligence (bundle_source.py)](#self-characterisation-for-due-diligence-bundle_sourcepy)
 - [Developer pre-push hook](#developer-pre-push-hook)
 - [Data policy](POLICY.md)
 
@@ -422,6 +423,27 @@ python verify.py <tx_id>
 ```
 
 Arweave records cannot be altered retroactively. A TX you trusted six months ago is still exactly what it was then — and if the current files match it, nothing has changed in between.
+
+---
+
+## Self-characterisation for due diligence (bundle_source.py)
+
+`bundle_source.py` bundles the entire codebase — source files, `README.md`, `POLICY.md`, and `requirements.txt` — into a single `source_bundle.txt` ready for Leima upload.
+
+```bash
+python bundle_source.py          # HEAD
+python bundle_source.py abc1234  # specific commit
+```
+
+Upload `source_bundle.txt` to Leima with a claim such as:
+
+> *"This application source code does not send user documents to any third-party service other than Google Gemini."*
+
+Leima produces a hash of the bundle, an AI characterisation, and a permanent Arweave stamp. The stamp can be shared with investors, partners, or auditors as independently verifiable evidence of what the code does — without revealing the source itself.
+
+Because `README.md` and `POLICY.md` are included first, the AI reviewer has full context about the project's architecture and data policy before reading the code.
+
+The claim and AI analysis are permanently public on Arweave. To anonymise specific details in the result — company names, individuals, amounts — add a privacy directive to your claim: *"keep [company name] private"*. The AI will replace those details with generic placeholders throughout its analysis.
 
 ---
 
