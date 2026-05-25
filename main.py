@@ -55,20 +55,29 @@ def _poide_dispatcher():
     global _poide_cache
     token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
     dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/poide-a.yml/dispatches"
-    # Fetch via GitHub API to bypass gh-pages CDN propagation delay
     api_log_url = "https://api.github.com/repos/fxg55647/leima/contents/status-log.jsonl?ref=gh-pages"
-    hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    cdn_log_url = "https://fxg55647.github.io/leima/status-log.jsonl"
+    api_hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
     cache_populated = False
     while True:
         try:
-            r = http_requests.get(api_log_url, headers=hdrs, timeout=10)
-            if r.status_code == 200:
-                content = base64.b64decode(r.json()["content"]).decode()
-                lines = [l for l in content.strip().splitlines() if l]
-                if lines:
-                    _poide_cache = json.loads(lines[-1])
-                    _poide_cache_ready.set()
-                    cache_populated = True
+            if token:
+                r = http_requests.get(api_log_url, headers=api_hdrs, timeout=10)
+                if r.status_code == 200:
+                    content = base64.b64decode(r.json()["content"]).decode()
+                    lines = [l for l in content.strip().splitlines() if l]
+                    if lines:
+                        _poide_cache = json.loads(lines[-1])
+                        _poide_cache_ready.set()
+                        cache_populated = True
+            else:
+                r = http_requests.get(cdn_log_url, timeout=10)
+                if r.status_code == 200:
+                    lines = [l for l in r.text.strip().splitlines() if l]
+                    if lines:
+                        _poide_cache = json.loads(lines[-1])
+                        _poide_cache_ready.set()
+                        cache_populated = True
         except Exception:
             pass
         if token:
