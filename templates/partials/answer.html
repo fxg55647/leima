@@ -58,11 +58,26 @@
       <span class="hash-label">Verdict PDF SHA-256</span>
       <code class="hash-value">{{ verdict_hash }}</code>
     </div>
-    {% if poide_snap and poide_snap.tx %}
+    {% if poide_snap %}
     <div class="hash-row">
-      <span class="hash-label">Deployment proof on Arweave ({{ poide_snap.ts }})</span>
+      <span class="hash-label">Deployment check ({{ poide_snap.ts }})</span>
+      {% if poide_snap.ok %}
+        <span class="poide-ok">✓ deployment verified — commit {{ poide_snap.commit }}</span>
+      {% else %}
+        <span class="poide-fail">✗ deployment check failed</span>
+      {% endif %}
+    </div>
+    {% if poide_snap.tx %}
+    <div class="hash-row">
+      <span class="hash-label">Permanently recorded on Arweave</span>
       <a class="hash-value" href="{{ irys_gateway }}/{{ poide_snap.tx }}" target="_blank" rel="noopener">{{ poide_snap.tx }}</a>
     </div>
+    {% elif poide_snap.arweave_error %}
+    <div class="hash-row">
+      <span class="hash-label">Arweave recording</span>
+      <span class="poide-warn">⚠ upload failed — not permanently recorded</span>
+    </div>
+    {% endif %}
     {% endif %}
   </div>
 
@@ -253,6 +268,10 @@
     transition: background 0.15s;
   }
   .generate-btn:hover { background: #0b5ed7; }
+
+  .poide-ok   { font-size: 0.82rem; color: #065f46; font-weight: 600; }
+  .poide-fail { font-size: 0.82rem; color: #991b1b; font-weight: 600; }
+  .poide-warn { font-size: 0.82rem; color: #92400e; font-weight: 600; }
 
   .c2pa-block {
     display: flex;
