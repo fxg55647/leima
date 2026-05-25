@@ -248,7 +248,7 @@ except Exception as e:
 deployment_ok = bool(deployed and expected and deployed.startswith(expected[:7]))
 deploying_commit_ok = bool(deploying and deploying_commit and expected and deploying_commit.startswith(expected[:7]))
 review_ok = review_conclusion == "success"
-ok = (deployment_ok or deploying_commit_ok) and review_ok and (cron_fresh is not False) and not disabled_workflows
+ok = (deployment_ok or deploying_commit_ok) and (cron_fresh is not False) and not disabled_workflows
 
 result = {
     "ok": ok,

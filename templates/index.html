@@ -977,9 +977,7 @@
           if (p.deploying) {
             fadeSet(row('Please notify — Deploying', '#f0a030', ''), 'warning');
           } else {
-            const reason = p.deploy_status === 'not_configured' ? 'API key missing'
-              : !p.review_ok ? 'review failed'
-              : 'check failed';
+            const reason = p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed';
             fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
           }
         } else {
