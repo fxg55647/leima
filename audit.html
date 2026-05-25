@@ -60,21 +60,27 @@
 
     function renderMismatchStatus(rows) {
       const box = document.getElementById('mismatch-status');
-      // rows are newest-first; find last real mismatch (not deploying)
-      let mismatch = null, resolved = null;
+      // rows are newest-first; track last ok seen — when we hit a real mismatch,
+      // that last ok is the resolution (the first ok after the mismatch in time).
+      let mismatch = null, resolved = null, lastOk = null;
       for (const e of rows) {
-        if (!mismatch && e.deployment_ok === false && !e.deploying) {
-          mismatch = e;
-        } else if (mismatch && !resolved && e.deployment_ok === true) {
-          resolved = e;
+        if (!mismatch) {
+          if (e.deployment_ok === true) lastOk = e;
+          else if (e.deployment_ok === false && !e.deploying) {
+            mismatch = e;
+            resolved = lastOk;
+          }
+        } else {
           break;
         }
       }
       if (!mismatch) return;
 
+      function toDate(ts) {
+        return new Date(ts.replace(' UTC', 'Z').replace(' ', 'T'));
+      }
       function minsApart(a, b) {
-        const diff = Math.abs(new Date(a.ts.replace(' UTC','Z')) - new Date(b.ts.replace(' UTC','Z')));
-        return Math.round(diff / 60000);
+        return Math.round(Math.abs(toDate(a.ts) - toDate(b.ts)) / 60000);
       }
 
       const p = document.createElement('p');
