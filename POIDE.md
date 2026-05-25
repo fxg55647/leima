@@ -75,6 +75,37 @@ If any workflow is red, either a policy violation was detected in the code or a 
 
 ---
 
+## Independent verification with verify.py
+
+The checks above rely on GitHub's UI and the Actions tab — which are legitimate independent sources, but require navigating to a browser. `verify.py` is a standalone script that can be run from any machine, without logging in to anything, and without contacting the Leima service at all.
+
+```bash
+pip install requests
+python verify.py
+```
+
+It uses two independent sources for each monitored file:
+
+**Git history (GitHub API).** For each file in the monitoring infrastructure — the five cron workflows, `poide_check.py`, `poide_arweave.py`, `code_review.py`, and `POLICY.md` — it queries GitHub's commit history API to find when the file was last changed. This record is maintained by GitHub, not by Leima. A service operator cannot alter it without leaving a visible trace in the git history, which is append-only on GitHub's infrastructure.
+
+**Arweave record.** It fetches the latest POIDE check result directly from Arweave and reads the `monitor_files` hashes stored there. Since Arweave records are permanent and cannot be retroactively altered, the hashes represent what the monitoring system observed at that moment — independently of any code the Leima service runs today.
+
+If both sources agree and the files are unchanged, the monitoring infrastructure has been consistent and auditable: any commit mismatch during that period would have been detected and recorded, and every change to the monitoring code itself would be visible in git history.
+
+The script also reports the last commit mismatch — when it occurred and when it resolved — so a returning user can assess at a glance whether anything unexpected happened during their absence.
+
+**Pinning to a trusted moment.** If you note the Arweave TX from a run you personally verified, you can compare the current state against that exact historical snapshot:
+
+```bash
+python verify.py <tx_id>
+```
+
+A TX you trusted six months ago cannot be altered. If the current files match it, nothing relevant has changed since that moment.
+
+**Why this matters for the trust model.** `audit.html` and the Tampermonkey userscript both fetch data served by or through Leima's infrastructure. A sufficiently motivated attacker who had compromised the service could potentially alter what those pages display. `verify.py` does not use Leima's infrastructure at all — it goes directly to GitHub and Arweave, both of which are controlled by independent third parties. It is the closest thing to a trust-free verification path available without hardware attestation.
+
+---
+
 ## Real-world incidents
 
 These three attacks illustrate different points in the supply chain where code can be silently replaced — and where deployment transparency would have made the manipulation harder to hide.
