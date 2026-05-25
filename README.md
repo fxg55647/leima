@@ -427,7 +427,9 @@ Arweave records cannot be altered retroactively. A TX you trusted six months ago
 
 ## Developer pre-push hook
 
-A git hook prevents accidentally pushing during an active commit mismatch or mid-deploy, which would widen the mismatch window:
+A git hook prevents accidentally pushing during an active commit mismatch or mid-deploy, which would widen the mismatch window.
+
+Two files: `hooks/pre-push` is a shell wrapper that finds Python automatically (tries the project venv first), and `hooks/pre-push.py` contains the logic.
 
 ```bash
 cp hooks/pre-push .git/hooks/pre-push
