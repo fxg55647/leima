@@ -8,3 +8,4 @@ __pycache__/
 .DS_Store
 .claude/*
 !.claude/commands
+source_bundle.txt
