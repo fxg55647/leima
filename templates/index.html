@@ -653,7 +653,12 @@
       </div>
 
       <div id="tab-text" class="tab-panel">
-        <textarea name="text_input" placeholder="Paste document text here..."></textarea>
+        <textarea name="text_input" id="text-input" placeholder="Paste document text here..."></textarea>
+        <div style="margin-top:0.5rem; font-size:0.82rem; color:#6c757d;">
+          Or upload a .txt file:
+          <input type="file" id="txt-file-input" accept=".txt,text/plain" style="margin-left:0.4rem;"
+                 onchange="handleTxtUpload(this)">
+        </div>
       </div>
 
       <input type="hidden" name="email_session_id" id="email-session-id" value="">
@@ -754,11 +759,21 @@
 </footer>
 
 <script>
+  function handleTxtUpload(input) {
+    if (!input.files.length) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('text-input').value = e.target.result;
+      input.value = '';
+    };
+    reader.readAsText(input.files[0], 'utf-8');
+  }
+
   function tabHasContent(tab) {
     if (tab === 'pdf') return document.getElementById('pdf-input').files.length > 0;
     if (tab === 'image') return document.getElementById('image-input').files.length > 0;
     if (tab === 'web') return document.getElementById('web-url').value.trim() !== '';
-    if (tab === 'text') return document.querySelector('[name="text_input"]').value.trim() !== '';
+    if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
     if (tab === 'email') {
       return ['email_user','email_password','email_sender','email_start','email_end']
         .some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
@@ -799,7 +814,8 @@
     } else if (tab === 'web') {
       document.getElementById('web-url').value = '';
     } else if (tab === 'text') {
-      document.querySelector('[name="text_input"]').value = '';
+      document.getElementById('text-input').value = '';
+      document.getElementById('txt-file-input').value = '';
     } else if (tab === 'email') {
       ['email-user','email-password','email-sender','email-start','email-end']
         .forEach(id => document.getElementById(id).value = '');
