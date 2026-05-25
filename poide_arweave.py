@@ -19,30 +19,37 @@ IRYS_RPC_URL     = os.environ.get("IRYS_RPC_URL", "")
 PAGES_URL        = os.environ.get("GITHUB_PAGES_URL", "https://fxg55647.github.io/leima")
 GATEWAY          = "https://devnet.irys.xyz" if IRYS_NETWORK == "devnet" else "https://gateway.irys.xyz"
 
-if not IRYS_PRIVATE_KEY:
-    print("IRYS_PRIVATE_KEY not set — skipping Arweave upload", file=sys.stderr)
-    sys.exit(0)
-
 status_path = Path("pages-output/status.json")
 log_path    = Path("pages-output/status-log.jsonl")
 
 status = json.loads(status_path.read_text())
 
-builder = Builder("ethereum").wallet(IRYS_PRIVATE_KEY).network(IRYS_NETWORK)
-if IRYS_RPC_URL:
-    builder = builder.rpc_url(IRYS_RPC_URL)
-uploader = builder.build()
+# Attempt Arweave upload — always write log entry regardless of outcome
+tx_id        = ""
+arweave_error = ""
 
-tags = tags_from_dict({
-    "Content-Type":    "application/json",
-    "App-Name":        "Leima",
-    "Leima-Type":      "poide-status",
-    "Checked-At":      status.get("checked_at", ""),
-    "Deploy-Ok":       str(status.get("ok", False)).lower(),
-})
-
-result = uploader.upload(bytearray(status_path.read_bytes()), tags)
-tx_id  = result["id"]
+if not IRYS_PRIVATE_KEY:
+    arweave_error = "IRYS_PRIVATE_KEY not set"
+    print(arweave_error, file=sys.stderr)
+else:
+    try:
+        builder = Builder("ethereum").wallet(IRYS_PRIVATE_KEY).network(IRYS_NETWORK)
+        if IRYS_RPC_URL:
+            builder = builder.rpc_url(IRYS_RPC_URL)
+        uploader = builder.build()
+        tags = tags_from_dict({
+            "Content-Type":    "application/json",
+            "App-Name":        "Leima",
+            "Leima-Type":      "poide-status",
+            "Checked-At":      status.get("checked_at", ""),
+            "Deploy-Ok":       str(status.get("ok", False)).lower(),
+        })
+        result = uploader.upload(bytearray(status_path.read_bytes()), tags)
+        tx_id  = result["id"]
+        print(f"Uploaded: {GATEWAY}/{tx_id}")
+    except Exception as e:
+        arweave_error = str(e)
+        print(f"Arweave upload failed: {e}", file=sys.stderr)
 
 # Fetch existing log from gh-pages if not already present locally
 if not log_path.exists():
@@ -69,7 +76,11 @@ entry = {
     "actions_run_url":      status.get("actions_run_url", ""),
     "error":                status.get("error", ""),
 }
+if arweave_error:
+    entry["arweave_error"] = arweave_error
+
 with log_path.open("a") as f:
     f.write(json.dumps(entry) + "\n")
 
-print(f"Uploaded: {GATEWAY}/{tx_id}")
+if arweave_error:
+    sys.exit(1)
