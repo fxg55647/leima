@@ -136,6 +136,11 @@ def _scope_prompt(question: str) -> str:
 
 def _build_pass_prompts(source_context: dict | None, question: str = "") -> list[str]:
     source_block = _source_block(source_context) + "\n\n"
+    content_only = (source_context or {}).get("type") == "content_only"
+    own_assessment = (
+        " End with a brief note (1–2 sentences) on whether what you found in the document "
+        "aligns with your own knowledge and reasoning about the subject."
+    ) if not content_only else ""
     language = (
         f'The user\'s claim is: "{question}". '
         'Detect the language of this claim and respond entirely in that language — '
@@ -146,14 +151,16 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
         "You are a document analyst for Leima, a legal evidence tool.\n\n"
         "Identify ONLY what in the document supports the claim, and under which assumptions. "
         "Be specific. Quote directly from the document using quotation marks. "
-        "Do not consider contradictions or gaps.\n\n"
+        "Do not consider contradictions or gaps."
+        + own_assessment + "\n\n"
         + source_block + language
     )
     p2 = (
         "You are a document analyst for Leima, a legal evidence tool.\n\n"
         "Identify ONLY what in the document contradicts the claim, or fails to support it. "
         "Note what is absent, inconsistent, or requires assumptions not stated in the document. "
-        "Quote directly when relevant. Do not consider supporting evidence.\n\n"
+        "Quote directly when relevant. Do not consider supporting evidence."
+        + own_assessment + "\n\n"
         + source_block + language
     )
     return [p1, p2]
