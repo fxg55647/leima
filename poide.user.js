@@ -42,11 +42,28 @@ function checkMonitorFiles(current) {
 }
 
 function failReason(d) {
-    if (d.deploying)            return "deploy käynnissä";
+    if (d.deploying && !d.deploying_commit_ok) return "VAROITUS: tuotantoon ajetaan commit joka ei täsmää GitHubiin";
+    if (d.deploying)            return "deploy käynnissä — odota hetki";
     if (!d.deployment_ok)       return "deployed commit ei täsmää GitHubiin";
     if (!d.review_ok)           return "policy-katselmus epäonnistui";
     if (d.cron_fresh === false)  return "monitorointi myöhässä — GitHub Actions ruuhka?";
     return "tila tuntematon";
+}
+
+const ALERT_COOLDOWN_MS = 5 * 60 * 1000;
+
+function alertIfDangerousDeploy(d) {
+    if (!d.deploying || d.deploying_commit_ok !== false || !d.deploying_commit) return;
+    const last = GM_getValue("last_deploy_alert", 0);
+    if (Date.now() - last < ALERT_COOLDOWN_MS) return;
+    GM_setValue("last_deploy_alert", Date.now());
+    alert(
+        "⚠ POIDE VAROITUS ⚠\n\n" +
+        "Renderiin ajetaan commit joka EI täsmää GitHub-repoon:\n" +
+        (d.deploying_commit || "?").slice(0, 7) + " ≠ " + (d.expected_commit || "?").slice(0, 7) + "\n\n" +
+        "Älä lähetä arkaluonteisia dokumentteja ennen kuin tilanne selviää.\n" +
+        "Tarkista GitHub Actions ja Render dashboard."
+    );
 }
 
 function historyLabel(h) {
@@ -73,6 +90,8 @@ GM_xmlhttpRequest({
 
         const changed = checkMonitorFiles(d.monitor_files || {});
         const hist = historyLabel(d.history);
+
+        alertIfDangerousDeploy(d);
 
         if (!d.ok) {
             banner("#c0392b", "POIDE ✗ — tarkista GitHub Actions ennen käyttöä", failReason(d));
