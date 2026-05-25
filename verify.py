@@ -32,16 +32,48 @@ def github_file_hash(path: str) -> str | None:
     return hashlib.sha256(content).hexdigest()
 
 
-def find_latest_tx() -> dict:
+def load_log() -> list[dict]:
     print("Fetching status log from gh-pages...")
     r = requests.get(f"{PAGES_URL}/status-log.jsonl", timeout=15)
     r.raise_for_status()
-    lines = [l for l in r.text.strip().splitlines() if l]
-    for line in reversed(lines):
-        entry = json.loads(line)
+    entries = []
+    for line in r.text.strip().splitlines():
+        if line.strip():
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    return entries
+
+
+def find_latest_tx(entries: list[dict]) -> dict:
+    for entry in reversed(entries):
         if entry.get("tx"):
             return entry
     raise SystemExit("No Arweave TX found in log.")
+
+
+def report_mismatch_history(entries: list[dict]) -> None:
+    last_mismatch = None
+    last_ok = None
+    for e in reversed(entries):
+        if e.get("deployment_ok") is False and not e.get("deploying"):
+            if last_mismatch is None:
+                last_mismatch = e
+        if e.get("deployment_ok") is True:
+            if last_ok is None:
+                last_ok = e
+        if last_mismatch and last_ok:
+            break
+
+    if last_mismatch:
+        print(f"Last commit mismatch : {last_mismatch.get('ts', '?')}  commit={last_mismatch.get('commit','?')}")
+        if last_ok and last_ok.get("ts", "") > last_mismatch.get("ts", ""):
+            print(f"Resolved at          : {last_ok.get('ts', '?')}")
+        else:
+            print("  (not yet resolved in log)")
+    else:
+        print("Last commit mismatch : none found in log")
 
 
 def fetch_arweave(tx: str) -> dict:
@@ -54,6 +86,7 @@ def fetch_arweave(tx: str) -> dict:
 # --- main ---
 
 tx_arg = sys.argv[1] if len(sys.argv) > 1 else None
+entries = load_log()
 
 if tx_arg:
     tx = tx_arg
@@ -61,12 +94,15 @@ if tx_arg:
     print(f"Using TX: {tx}")
     arweave_status = fetch_arweave(tx)
 else:
-    entry = find_latest_tx()
+    entry = find_latest_tx(entries)
     tx = entry["tx"]
     ts = entry.get("ts", "?")
     print(f"Latest Arweave TX : {tx}")
     print(f"Recorded at       : {ts}")
     arweave_status = fetch_arweave(tx)
+
+report_mismatch_history(entries)
+print()
 
 monitor_files = arweave_status.get("monitor_files")
 if not monitor_files:
