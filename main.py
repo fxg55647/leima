@@ -196,15 +196,12 @@ def _source_assessment_text(source_context: dict | None) -> str:
         if source_context.get("fetched_at"):
             parts.append(f"Fetched: {source_context['fetched_at']}")
         return " — ".join(parts)
-    elif t == "pdf_signed_intact":
+    elif t == "pdf_signed":
         signer = source_context.get("sig_signer") or source_context.get("sig_signer_org") or "unknown"
         ts = source_context.get("sig_timestamp", "")
-        rfc = " — RFC 3161 timestamp" if source_context.get("sig_rfc3161") else " — claimed time only"
+        rfc = " — RFC 3161 timestamp" if source_context.get("sig_rfc3161") else " — claimed time"
         tsa = f" via {source_context['sig_tsa']}" if source_context.get("sig_tsa") else ""
-        return f"PDF — Digital signature: INTACT — Signer: {signer} — Signed: {ts}{rfc}{tsa}"
-    elif t == "pdf_signed_tampered":
-        signer = source_context.get("sig_signer") or "unknown"
-        return f"PDF — Digital signature: TAMPERED — Signer: {signer} — Document modified after signing"
+        return f"PDF — Digital signature detected — Signer: {signer} — Signed: {ts}{rfc}{tsa}"
     elif t == "pdf_unsigned":
         return "PDF — No digital signature detected"
     else:
@@ -745,77 +742,115 @@ def _check_c2pa(image_bytes: bytes, mime: str) -> dict | None:
 
 
 def _check_pdf_signatures(pdf_bytes: bytes) -> dict | None:
-    """Check PDF for digital signatures and RFC 3161 timestamps. Returns None if pyhanko unavailable."""
+    """Check PDF for digital signatures and RFC 3161 timestamps."""
     try:
         import io as _io
-        from pyhanko.pdf_utils.reader import PdfFileReader
+        from pypdf import PdfReader
     except ImportError:
         return None
     try:
-        reader = PdfFileReader(_io.BytesIO(pdf_bytes))
-        sigs = reader.embedded_signatures
-        if not sigs:
+        reader = PdfReader(_io.BytesIO(pdf_bytes))
+        root = reader.trailer["/Root"]
+        acroform = root.get("/AcroForm")
+        if not acroform:
             return {"signed": False}
+        if hasattr(acroform, "get_object"):
+            acroform = acroform.get_object()
+        fields = acroform.get("/Fields", [])
     except Exception:
         return {"signed": False}
 
     results = []
-    for sig in sigs:
-        entry: dict = {}
+    for field_ref in fields:
         try:
-            from pyhanko.sign.validation import validate_pdf_signature
-            from pyhanko_certvalidator import ValidationContext
-            vc = ValidationContext(allow_fetching=False)
-            status = validate_pdf_signature(sig, vc)
-            entry["intact"] = bool(status.intact)
-            cert = status.signing_cert
-            if cert:
-                try:
-                    entry["signer_cn"] = cert.subject["common_name"].value
-                except Exception:
-                    pass
-                try:
-                    entry["signer_org"] = cert.subject["organization_name"].value
-                except Exception:
-                    pass
-                entry["signer"] = cert.subject.human_friendly
-            ts_val = getattr(status, "timestamp_validity", None)
-            if ts_val and getattr(ts_val, "timestamp", None):
-                entry["timestamp"] = ts_val.timestamp.isoformat()
-                entry["timestamp_rfc3161"] = True
-                entry["timestamp_intact"] = bool(getattr(ts_val, "intact", False))
-                tsa_cert = getattr(ts_val, "signing_cert", None)
-                if tsa_cert:
-                    try:
-                        entry["tsa"] = tsa_cert.subject["common_name"].value
-                    except Exception:
-                        try:
-                            entry["tsa"] = tsa_cert.subject.human_friendly
-                        except Exception:
-                            pass
-            elif getattr(status, "signer_reported_dt", None):
-                entry["timestamp"] = status.signer_reported_dt.isoformat()
+            field = field_ref.get_object() if hasattr(field_ref, "get_object") else field_ref
+            if field.get("/FT") != "/Sig" or "/V" not in field:
+                continue
+            sig = field["/V"]
+            if hasattr(sig, "get_object"):
+                sig = sig.get_object()
+            entry: dict = {}
+            # Claimed signing time and name from PDF dict
+            if "/M" in sig:
+                raw_m = str(sig["/M"]).strip("D:'")
+                entry["timestamp"] = raw_m
                 entry["timestamp_rfc3161"] = False
-                entry["timestamp_intact"] = False
-        except Exception as e:
-            entry["error"] = str(e)[:120]
-        results.append(entry)
+            if "/Name" in sig:
+                entry["signer_cn"] = str(sig["/Name"])
+            # Parse CMS bytes for richer info
+            if "/Contents" in sig:
+                cms_bytes = sig["/Contents"]
+                if isinstance(cms_bytes, bytes):
+                    _enrich_from_cms(cms_bytes, entry)
+            results.append(entry)
+        except Exception:
+            pass
 
     if not results:
         return {"signed": False}
     first = results[0]
     return {
         "signed": True,
-        "intact": first.get("intact", False),
         "rfc3161": first.get("timestamp_rfc3161", False),
         "count": len(results),
-        "signer": first.get("signer_cn") or first.get("signer_org") or first.get("signer", ""),
+        "signer": first.get("signer_cn") or first.get("signer_org") or "",
         "signer_org": first.get("signer_org", ""),
         "timestamp": first.get("timestamp"),
-        "timestamp_intact": first.get("timestamp_intact", False),
         "tsa": first.get("tsa", ""),
         "signatures": results,
     }
+
+
+def _enrich_from_cms(raw: bytes, entry: dict) -> None:
+    """Parse CMS/PKCS7 bytes to extract signer cert info and RFC 3161 timestamp."""
+    try:
+        from asn1crypto import cms, tsp
+        ci = cms.ContentInfo.load(raw)
+        if ci["content_type"].native != "signed_data":
+            return
+        sd = ci["content"]
+        # Signer certificate — first cert in the bag is usually the leaf
+        certs = sd.get("certificates")
+        if certs:
+            for cc in certs:
+                try:
+                    cert = cc.chosen
+                    subj = cert.subject
+                    for rdn in subj.chosen:
+                        for atv in rdn:
+                            oid = atv["type"].dotted
+                            if oid == "2.5.4.3":
+                                entry["signer_cn"] = atv["value"].native
+                            elif oid == "2.5.4.10":
+                                entry["signer_org"] = atv["value"].native
+                    break
+                except Exception:
+                    pass
+        # RFC 3161 timestamp in unsigned attributes
+        for si in sd["signer_infos"]:
+            try:
+                for attr in si["unsigned_attrs"]:
+                    if attr["type"].native != "signature_time_stamp_token":
+                        continue
+                    for v in attr["values"]:
+                        try:
+                            tst_ci = cms.ContentInfo.load(v.dump())
+                            tst_sd = tst_ci["content"]
+                            encap = tst_sd["encap_content_info"]
+                            tst_info = tsp.TSTInfo.load(
+                                encap["content"].parsed.dump()
+                            )
+                            entry["timestamp"] = tst_info["gen_time"].native.isoformat()
+                            entry["timestamp_rfc3161"] = True
+                            tsa_field = tst_info["tsa"]
+                            if tsa_field.name != "absent":
+                                entry["tsa"] = str(tsa_field.chosen.human_friendly)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 
 def build_verdict_txt(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str) -> bytes:
@@ -1019,12 +1054,11 @@ async def ask(
             sig_info = _check_pdf_signatures(input_bytes)
             if sig_info and sig_info.get("signed"):
                 source_context = {
-                    "type": "pdf_signed_intact" if sig_info.get("intact") else "pdf_signed_tampered",
+                    "type": "pdf_signed",
                     "sig_signer": sig_info.get("signer", ""),
                     "sig_signer_org": sig_info.get("signer_org", ""),
                     "sig_timestamp": sig_info.get("timestamp"),
                     "sig_rfc3161": sig_info.get("rfc3161", False),
-                    "sig_timestamp_intact": sig_info.get("timestamp_intact", False),
                     "sig_tsa": sig_info.get("tsa", ""),
                     "sig_count": sig_info.get("count", 1),
                 }

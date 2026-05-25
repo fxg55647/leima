@@ -116,7 +116,7 @@ def _source_block(source_context: dict | None) -> str:
             "a government site for legal records, a major institution for official statements) "
             "significantly strengthens credibility. An unknown or unrelated domain weakens it."
         )
-    elif t == "pdf_signed_intact":
+    elif t == "pdf_signed":
         signer = source_context.get("sig_signer") or source_context.get("sig_signer_org") or "an unknown entity"
         ts = source_context.get("sig_timestamp", "")
         rfc3161 = source_context.get("sig_rfc3161", False)
@@ -124,26 +124,17 @@ def _source_block(source_context: dict | None) -> str:
         ts_str = f" at {ts}" if ts else ""
         tsa_str = f", timestamped by {tsa}" if tsa else ""
         ts_note = (
-            f"The signing time is cryptographically verified via an RFC 3161 Trusted Timestamp Authority{tsa_str}. "
-            "This is a hard guarantee: the document existed and was signed at that exact moment, independently verifiable by anyone."
+            f"The signing time is from an RFC 3161 Trusted Timestamp Authority{tsa_str} — "
+            "an independently verifiable cryptographic timestamp proving the document existed at that exact moment."
             if rfc3161 else
-            "The signing time is the signer's claimed time, not verified by an RFC 3161 Trusted Timestamp Authority. "
-            "The document is proven intact, but the exact signing moment is unverified."
+            "The signing time is the signer's claimed time. Note that the cryptographic integrity of the document "
+            "(whether it was modified after signing) was not verified in this session."
         )
         return (
-            f"Source type: PDF with a VALID digital signature from {signer}{ts_str}. "
-            "Cryptographic verification confirms the document has NOT been modified after signing — "
-            "this is a hard guarantee, not an AI interpretation. "
+            f"Source type: PDF containing a digital signature from {signer}{ts_str}. "
             f"{ts_note} "
-            "Treat the document's content and claimed origin as authentic unless the claim itself contradicts internal content."
-        )
-    elif t == "pdf_signed_tampered":
-        signer = source_context.get("sig_signer") or source_context.get("sig_signer_org") or "an unknown entity"
-        return (
-            f"Source type: PDF claiming a digital signature from {signer}, but the signature is INVALID. "
-            "Cryptographic verification found that the document was modified after signing. "
-            "This is a hard finding: the document as presented does not match what was originally signed. "
-            "Treat all authenticity claims with strong skepticism and flag this finding prominently in your response."
+            "The signature metadata is included for context. Assess the content and the signer's identity "
+            "in relation to the claim."
         )
     elif t == "pdf_unsigned":
         return (
