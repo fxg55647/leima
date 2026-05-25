@@ -952,6 +952,11 @@
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
 
+        if (p.review_stuck) {
+          const n = p.review_consecutive_failures || '';
+          fadeSet(row('Warning', '#f0a030', 'code review failing — ' + n + ' commits not deployed'), 'warning');
+        } else {
+
         const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
         if (dangerousDeploy) {
           const key = 'poide_alert_' + (p.deploying_commit || '').slice(0, 7);
@@ -1005,6 +1010,8 @@
         } else {
           fadeSet(row('Checking…', '#555', ''), 'loading');
         }
+
+        } // end review_stuck else
       }).catch(() => {
         lastCheckedAt = null;
         fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">POIDE</span>', 'loading');

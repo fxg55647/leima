@@ -345,9 +345,17 @@ async def version():
             "deploy_status": cache.get("deploy_status"),
             "deployment_ok":        cache.get("deployment_ok"),
             "review_ok":            cache.get("review_ok"),
+            "review_stuck":         cache.get("review_stuck"),
+            "review_consecutive_failures": cache.get("review_consecutive_failures", 0),
             "deploying":            cache.get("deploying"),
             "deploying_commit":     cache.get("deploying_commit"),
             "deploying_commit_ok":  cache.get("deploying_commit_ok"),
+            "commit_matches_poide": (
+                bool(running_commit and cache.get("commit") and
+                     running_commit.startswith(cache["commit"][:7]))
+                if (running_commit := os.getenv("RENDER_GIT_COMMIT", ""))
+                else None
+            ),
         },
     }
 
