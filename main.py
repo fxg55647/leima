@@ -45,9 +45,9 @@ NOTARY_SMTP_HOST = os.getenv("NOTARY_SMTP_HOST", "smtp.gmail.com")
 NOTARY_SMTP_PORT = int(os.getenv("NOTARY_SMTP_PORT", "587"))
 NOTARY_SMTP_USER = os.getenv("NOTARY_SMTP_USER")
 NOTARY_SMTP_PASSWORD = os.getenv("NOTARY_SMTP_PASSWORD")
-NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.ai>")
+NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.io>")
 NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
-LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.ai")
+LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.io")
 
 _poide_cache: dict | None = None
 _poide_cache_ready = threading.Event()

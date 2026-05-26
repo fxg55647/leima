@@ -170,7 +170,7 @@ Any project — open or closed source — can wire POIDE with a small amount of 
        RESULT=$(curl -s -X POST \
          -H "Content-Type: application/json" \
          -d '{"repo":"owner/repo","ref":"${{ github.sha }}","rules_url":"https://gateway.irys.xyz/YOUR_POLICY_TX"}' \
-         https://leima.ai/api/code-review)
+         https://leima.io/api/code-review)
        compliant=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['compliant'])")
        if [ "$compliant" != "True" ]; then exit 1; fi
    ```

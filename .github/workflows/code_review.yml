@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Leima code review
         env:
-          LEIMA_URL: https://leima.ai
+          LEIMA_URL: https://leima.io
           RULES_URL: https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR
         run: |
           RESULT=$(curl -s --max-time 300 -X POST \
