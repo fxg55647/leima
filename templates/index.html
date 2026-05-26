@@ -259,8 +259,11 @@
       gap: 0.5rem;
     }
 
-    .question-row input[type="text"] {
+    .question-row input[type="text"],
+    #question-input {
       flex: 1;
+      width: 100%;
+      box-sizing: border-box;
       background: #fff;
       border: 1px solid #dee2e6;
       border-radius: 6px;
@@ -272,12 +275,14 @@
       transition: border-color 0.15s, box-shadow 0.15s;
     }
 
-    .question-row input[type="text"]:focus {
+    .question-row input[type="text"]:focus,
+    #question-input:focus {
       border-color: #86b7fe;
       box-shadow: 0 0 0 3px rgba(13,110,253,.15);
     }
 
     .question-row input[type="text"]::placeholder,
+    #question-input::placeholder,
     textarea::placeholder { color: #adb5bd; }
 
     .credibility-options {
@@ -682,6 +687,12 @@
     <div id="form-wrap">
       <input type="hidden" name="active_tab" id="active-tab" value="web">
 
+      <div class="question-label">
+        <span class="question-title">What do you want to prove about this document?</span>
+        <span class="question-sub" id="question-sub">e.g. <em>"Apple announced Vision Pro on this page"</em></span>
+      </div>
+      <input type="text" name="question" id="question-input" placeholder="this website advertises free worldwide shipping" required>
+
       <div class="tabs">
         <button type="button" class="tab-btn active" onclick="switchTab('web', this)">Web</button>
         <button type="button" class="tab-btn" onclick="switchTab('pdf', this)">PDF</button>
@@ -806,17 +817,10 @@
         <div id="email-fetch-results"></div>
       </div>
 
-      <div class="question-label">
-        <span class="question-sub" id="question-sub">e.g. <em>"Apple announced Vision Pro on this page"</em> or <em>"this website advertises free worldwide shipping"</em></span>
-      </div>
-
-      <div class="question-row">
-        <input type="text" name="question" placeholder="this bicycle appears to be high quality" required>
-        <button type="submit" id="submit-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Analyse
-        </button>
-      </div>
+      <button type="submit" id="submit-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Analyse
+      </button>
 
       <div class="credibility-options">
         <label class="credibility-option">
@@ -950,22 +954,28 @@
     const isCR = document.getElementById('gh-mode-cr').checked;
     document.getElementById('gh-paths-group').style.display = isCR ? 'none' : '';
     document.getElementById('gh-rules-group').style.display = isCR ? '' : 'none';
-    const qSection = document.querySelector('.question-label').parentElement || document.querySelector('.question-label').closest('form');
     document.querySelector('.question-label').style.display = isCR ? 'none' : '';
-    document.querySelector('.question-row').style.display = isCR ? 'none' : '';
-    document.querySelector('[name="question"]').required = !isCR;
+    document.getElementById('question-input').style.display = isCR ? 'none' : '';
+    document.getElementById('question-input').required = !isCR;
     document.querySelector('.credibility-options').style.display = isCR ? 'none' : '';
   }
 
-  const TAB_EXAMPLES = {
-    pdf:    'e.g. <em>"this invoice shows the payment was completed"</em> or <em>"this contract was signed by both parties"</em>',
-    image:  'e.g. <em>"this image shows a cut-down tree at 60.1699, 24.9384"</em> or <em>"this book page states that Napoleon was born in 1769"</em>',
-    text:   'e.g. <em>"the source claims that X"</em> or <em>"this text contains a refund promise"</em>',
-    web:    'e.g. <em>"Apple announced Vision Pro on this page"</em> or <em>"this website advertises free worldwide shipping"</em>',
-    email:  'e.g. <em>"Tesla offered me a job in this email"</em> or <em>"the sender promised delivery before Friday"</em>',
-    github: 'e.g. <em>"this code follows best security practices"</em> or <em>"this repository contains hardcoded secrets"</em>',
+  const TAB_HINTS = {
+    pdf:    'e.g. <em>"this invoice shows the payment was completed"</em>',
+    image:  'e.g. <em>"this image shows a cut-down tree at 60.1699, 24.9384"</em>',
+    text:   'e.g. <em>"the source claims that X"</em>',
+    web:    'e.g. <em>"Apple announced Vision Pro on this page"</em>',
+    email:  'e.g. <em>"Tesla offered me a job in this email"</em>',
+    github: 'e.g. <em>"this code follows best security practices"</em>',
   };
-  const QUESTION_SUB_SUFFIX = '';
+  const TAB_PLACEHOLDERS = {
+    pdf:    'this contract was signed by both parties',
+    image:  'this book page states that Napoleon was born in 1769',
+    text:   'this text contains a refund promise',
+    web:    'this website advertises free worldwide shipping',
+    email:  'the sender promised delivery before Friday',
+    github: 'this repository contains hardcoded secrets',
+  };
 
   function switchTab(newTab, btn) {
     const current = document.getElementById('active-tab').value;
@@ -979,8 +989,9 @@
     document.getElementById('tab-' + newTab).classList.add('active');
     btn.classList.add('active');
     document.getElementById('active-tab').value = newTab;
-    if (TAB_EXAMPLES[newTab]) {
-      document.getElementById('question-sub').innerHTML = TAB_EXAMPLES[newTab] + QUESTION_SUB_SUFFIX;
+    if (TAB_HINTS[newTab]) {
+      document.getElementById('question-sub').innerHTML = TAB_HINTS[newTab];
+      document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[newTab] || '';
     }
     if (newTab !== 'github') {
       document.getElementById('gh-mode-claim').checked = true;
