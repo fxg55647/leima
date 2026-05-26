@@ -10,6 +10,8 @@ POIDE (Proof of Intended Deployment) is a protocol for closing this gap. The ide
 
 **Closed source projects.** POIDE is equally applicable to proprietary software. An organisation can use it to prove internally — to management, a compliance team, a business partner, or a regulatory authority — which version of their software was running at a given time. The audit trail on Arweave is permanent and cannot be retroactively altered, making it useful for post-incident analysis, regulatory reporting, or contractual obligations.
 
+The code never needs to be public. The policy file is public. The verdict is public. The fact that a specific commit was reviewed against a specific policy and deployed is public. What the code actually contains remains private. This is the closed-source trust model: not "read the code and decide", but "an independent auditor checked it, the result is permanent, and the deployed version is monitored continuously."
+
 ---
 
 ## How Leima implements POIDE
@@ -141,6 +143,47 @@ The problem POIDE addresses is recognised but underserved. Existing approaches f
 **An underserved gap.** Most proposals focus on client-side JavaScript — the code the browser downloads and runs. POIDE focuses on server-side code — the code that runs on the hosting provider and processes user data. For AI services, server-side code is the only relevant surface: models cannot process encrypted data, so there is no E2E architecture to fall back on. Trust rests entirely on what the server code does. This remains an underrepresented problem space.
 
 POIDE's differentiator is that it works with existing building blocks — a hosting provider API, GitHub API, GitHub Actions, and a cron schedule. No browser changes, no hardware enclaves, no new standardisation processes, no partnership agreements. Any open source project can adopt it over a weekend. The guarantee is weaker than SGX attestation, but meaningfully stronger than "trust us because we're open source" — and it is deployable today.
+
+---
+
+## Adopting POIDE for any project
+
+Any project — open or closed source — can wire POIDE with a small amount of GitHub Actions configuration. No separate infrastructure is needed. Leima exposes a public API that handles the code review step.
+
+**How it works in practice**
+
+1. **Write a policy file.** Describe in plain language what the code is and is not allowed to do: which external services it may call, what data it may store, what it must never transmit. Publish the policy file permanently on Arweave so its contents cannot be changed retroactively.
+
+2. **Add a GitHub Actions workflow.** On each push to `main`, call Leima's `/api/code-review` endpoint with the repository name, the commit SHA, and the URL of your policy file. Leima fetches the source tree from GitHub, reviews it against the policy using AI, and returns a `compliant` result with a permanent Arweave stamp.
+
+   ```yaml
+   - name: Code review
+     run: |
+       RESULT=$(curl -s -X POST \
+         -H "Content-Type: application/json" \
+         -d '{"repo":"owner/repo","ref":"${{ github.sha }}","rules_url":"https://gateway.irys.xyz/YOUR_POLICY_TX"}' \
+         https://leima.ai/api/code-review)
+       compliant=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['compliant'])")
+       if [ "$compliant" != "True" ]; then exit 1; fi
+   ```
+
+3. **Gate the deploy.** Place the deploy step after the review step. If the review fails, the workflow exits and the deploy does not run. The code that failed the policy check never reaches production.
+
+4. **Add POIDE monitoring.** Add cron workflows that periodically compare the live commit (via the hosting provider's API) against the GitHub HEAD. Publish the result publicly. Anyone — a regulator, a business partner, a user — can check the status at any time without credentials.
+
+**What this achieves for a closed-source project**
+
+An independent third party (Leima) reviewed the code against a policy that was publicly committed to in advance. The review result is permanently recorded on Arweave and cannot be altered. The deployed version is continuously monitored. The code itself remains private; the process is transparent.
+
+A regulator, auditor, or customer does not need to read the code. They can verify that: a review happened, the policy the review was measured against, whether the code passed, and that the version currently running is the same one that passed. That is a meaningfully stronger claim than "trust us."
+
+**Minimal requirements**
+
+- A GitHub repository (private repositories work; Leima uses a token you supply or the repository's own `GITHUB_TOKEN`)
+- A hosting provider with a deployment API (Render, Railway, Fly.io, or others)
+- A policy file — a plain text document describing what the code is allowed to do
+
+The policy file is the only thing that needs to be written from scratch. The rest is configuration.
 
 ---
 
