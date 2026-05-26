@@ -285,11 +285,17 @@
     #question-input::placeholder,
     textarea::placeholder { color: #adb5bd; }
 
+    .submit-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+    }
     .credibility-options {
       display: flex;
       flex-direction: column;
       gap: 0.3rem;
-      margin-top: 0.5rem;
     }
     .credibility-option {
       display: flex;
@@ -816,20 +822,21 @@
         <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
       </div>
 
-      <button type="submit" id="submit-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        Analyse
-      </button>
-
-      <div class="credibility-options">
-        <label class="credibility-option">
-          <input type="radio" name="assess_credibility" value="1" checked>
-          Evaluate whether the claim is true
-        </label>
-        <label class="credibility-option">
-          <input type="radio" name="assess_credibility" value="0">
-          Evaluate only what the source says about the claim
-        </label>
+      <div class="submit-row">
+        <button type="submit" id="submit-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Analyse
+        </button>
+        <div class="credibility-options">
+          <label class="credibility-option">
+            <input type="radio" name="assess_credibility" value="1" checked>
+            Evaluate whether the claim is true
+          </label>
+          <label class="credibility-option">
+            <input type="radio" name="assess_credibility" value="0">
+            Evaluate only what the source says about the claim
+          </label>
+        </div>
       </div>
 
       <div class="htmx-indicator">
@@ -956,7 +963,7 @@
     document.querySelector('.question-label').style.display = isCR ? 'none' : '';
     document.getElementById('question-input').style.display = isCR ? 'none' : '';
     document.getElementById('question-input').required = !isCR;
-    document.querySelector('.credibility-options').style.display = isCR ? 'none' : '';
+    document.querySelector('.submit-row').style.display = isCR ? 'none' : '';
   }
 
   const TAB_HINTS = {
