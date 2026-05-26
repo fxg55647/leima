@@ -1419,6 +1419,13 @@ class StampRequest(BaseModel):
     source: str       # base64-encoded PDF, URL, or plain text
 
 
+class CodeReviewRequest(BaseModel):
+    repo: str          # owner/repo
+    ref: str = "main"  # branch, tag, or commit SHA
+    rules_url: str     # URL to policy/rules document (raw text)
+    token: str = ""    # GitHub token for private repos
+
+
 @app.post("/api/stamp")
 async def api_stamp(body: StampRequest):
     claim = body.claim.strip()
@@ -1478,4 +1485,70 @@ async def api_stamp(body: StampRequest):
         "model": MODEL,
         "stamp": {"tx_id": tx_id, "url": irys_url},
         "manifest": full_manifest,
+    })
+
+
+@app.post("/api/code-review")
+async def api_code_review(body: CodeReviewRequest):
+    repo = body.repo.strip().removeprefix("https://github.com/").strip("/")
+    if not repo or "/" not in repo:
+        return JSONResponse({"error": "repo must be owner/repo"}, status_code=400)
+    if not body.rules_url.strip():
+        return JSONResponse({"error": "rules_url is required"}, status_code=400)
+
+    try:
+        _check_ssrf(body.rules_url.strip())
+        rules_resp = _safe_get(body.rules_url.strip(), timeout=15)
+        rules_text = rules_resp.text
+    except Exception as e:
+        return JSONResponse({"error": f"Could not fetch rules: {e}"}, status_code=400)
+
+    try:
+        commit_sha = _github_resolve_commit(repo, body.ref.strip() or "main", body.token)
+        files = _github_fetch_tree(repo, commit_sha, body.token)
+    except Exception as e:
+        return JSONResponse({"error": f"GitHub error: {e}"}, status_code=400)
+
+    if not files:
+        return JSONResponse({"error": "No source files found in repository"}, status_code=400)
+
+    bundled = "\n\n".join(
+        f"### {f['path']}\n```\n{f['content']}\n```" for f in files
+    )
+
+    try:
+        cr = analyse_code_review(bundled, rules_text, repo, commit_sha)
+    except Exception:
+        return JSONResponse({"error": "Analysis failed"}, status_code=500)
+
+    manifest = {
+        "type": "code_review",
+        "repo": repo,
+        "commit": commit_sha,
+        "rules_url": body.rules_url.strip(),
+        "compliant": cr["compliant"],
+        "timestamp": cr["timestamp"],
+        "verdict": cr["verdict"],
+        "files_reviewed": len(files),
+        "blob_hashes": {f["path"]: f["blob_sha"] for f in files},
+    }
+    try:
+        tx_id = _irys_upload(
+            json.dumps(manifest, ensure_ascii=False, indent=2).encode(),
+            "application/json",
+            {"Leima-Type": "code-review"},
+        )
+        arweave_url = f"{IRYS_GATEWAY}/{tx_id}"
+    except Exception:
+        tx_id = ""
+        arweave_url = ""
+
+    return JSONResponse({
+        "compliant": cr["compliant"],
+        "verdict": cr["verdict"],
+        "commit": commit_sha,
+        "files_reviewed": len(files),
+        "timestamp": cr["timestamp"],
+        "rules_url": body.rules_url.strip(),
+        **({"stamp": {"tx_id": tx_id, "url": arweave_url}} if tx_id else {}),
     })
