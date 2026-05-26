@@ -337,7 +337,7 @@
     }
 
     .htmx-request .htmx-indicator { display: block; }
-    .htmx-request #submit-btn { background: #6c757d; cursor: not-allowed; }
+    .htmx-request #submit-btn, #submit-btn:disabled { background: #6c757d; cursor: not-allowed; }
 
     .spinner {
       display: inline-block;
@@ -738,7 +738,6 @@
       <div id="tab-web" class="tab-panel active">
         <input type="url" name="web_url" id="web-url" class="url-input"
           placeholder="https://example.com/article">
-        <div class="url-hint">HTML fetched server-side — URL and timestamp recorded in manifest</div>
       </div>
 
       <div id="tab-text" class="tab-panel">
@@ -814,7 +813,7 @@
           hx-include="#tab-email">
           Fetch emails
         </button>
-        <div id="email-fetch-results"></div>
+        <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
       </div>
 
       <button type="submit" id="submit-btn">
@@ -989,6 +988,8 @@
     document.getElementById('tab-' + newTab).classList.add('active');
     btn.classList.add('active');
     document.getElementById('active-tab').value = newTab;
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = (newTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
     if (TAB_HINTS[newTab]) {
       document.getElementById('question-sub').innerHTML = TAB_HINTS[newTab];
       document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[newTab] || '';
