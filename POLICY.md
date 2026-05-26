@@ -1,5 +1,7 @@
 # Leima Data Policy
 
+> **Canonical version:** The binding copy of this policy — the one the production code review audits against — is permanently stored on Arweave at [`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR). The repository version below is kept for human readability and as a model example for other projects adopting POIDE. The Arweave version is what binds.
+
 This document describes exactly what Leima does with the data you submit. It is written to be verifiable: each claim here can be checked against the source code by anyone, including an automated auditor.
 
 This policy is tied to a specific version of the code. If a future deployment changes any of the behaviours described here, you will be notified before continuing to use the application.
