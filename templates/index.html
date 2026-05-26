@@ -693,12 +693,6 @@
     <div id="form-wrap">
       <input type="hidden" name="active_tab" id="active-tab" value="web">
 
-      <div class="question-label">
-        <span class="question-title">What do you want to prove about this document?</span>
-        <span class="question-sub" id="question-sub">e.g. <em>"Apple announced Vision Pro on this page"</em></span>
-      </div>
-      <input type="text" name="question" id="question-input" placeholder="this website advertises free worldwide shipping" required>
-
       <div class="tabs">
         <button type="button" class="tab-btn active" onclick="switchTab('web', this)">Web</button>
         <button type="button" class="tab-btn" onclick="switchTab('pdf', this)">PDF</button>
@@ -707,6 +701,12 @@
         <button type="button" class="tab-btn" onclick="switchTab('email', this)">IMAP</button>
         <button type="button" class="tab-btn" onclick="switchTab('github', this)">GitHub</button>
       </div>
+
+      <div class="question-label">
+        <span class="question-title">What do you want to prove about this document?</span>
+        <span class="question-sub" id="question-sub">e.g. <em>"Apple announced Vision Pro on this page"</em></span>
+      </div>
+      <input type="text" name="question" id="question-input" placeholder="this website advertises free worldwide shipping" required>
 
       <div id="tab-pdf" class="tab-panel">
         <div id="drop-zone-wrap">
