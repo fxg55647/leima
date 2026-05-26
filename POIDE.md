@@ -26,6 +26,8 @@ poide-d: 3-59/5 * * * *    ← minutes 3, 8, 13 ...
 poide-e: 4-59/5 * * * *    ← minutes 4, 9, 14 ...
 ```
 
+The policy file (`POLICY.md`) is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy that governs each review cannot be changed retroactively.
+
 Each workflow runs `poide_check.py`, which checks three conditions and publishes a combined `status.json` to the `gh-pages` branch:
 
 1. **Deployment match** — calls the Render API and the GitHub API, verifies the live commit matches the repository HEAD
@@ -184,6 +186,18 @@ A regulator, auditor, or customer does not need to read the code. They can verif
 - A policy file — a plain text document describing what the code is allowed to do
 
 The policy file is the only thing that needs to be written from scratch. The rest is configuration.
+
+**What this enables beyond end-user trust**
+
+Continuous code review against a fixed policy opens up use cases beyond user-facing trust:
+
+- **Due diligence.** An investor or acquirer can verify, for any commit in the repository's history, whether the code was compliant with the stated policy at that time. The review results are permanently on Arweave — they cannot be produced retroactively to look better than they were. This is a near-real-time audit trail that would normally require a dedicated security team and weeks of work per engagement.
+
+- **Continuous security monitoring.** Every commit is reviewed before it can be deployed. Any change that introduces data exfiltration, an unauthorised external call, or a violation of the stated data handling policy is caught at the gate. The monitoring is not a periodic snapshot — it is continuous and tied to the deployment pipeline. A security team or regulator can check the current status, and the full history, at any time.
+
+- **Compliance reporting.** For regulated industries — fintech, healthcare, legal — the permanent Arweave record provides a timestamped compliance trail without additional tooling. "The code was reviewed against policy X at commit Y on date Z, and passed" is a statement that can be independently verified.
+
+The gap between "we have a security policy" and "we can prove the running code follows it" is normally bridged by expensive audits and manual processes. POIDE closes that gap for code-level compliance continuously and automatically.
 
 ---
 
