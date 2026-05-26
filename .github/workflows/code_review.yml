@@ -15,6 +15,30 @@ jobs:
         env:
           LEIMA_URL: https://leima.io
           RULES_URL: https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR
+          CR_CHECK: |
+            import sys, json, os
+            with open('/tmp/cr_result.json') as f:
+                try:
+                    d = json.load(f)
+                except Exception as e:
+                    print(f'::warning title=Code review error::Invalid response from Leima: {e}')
+                    sys.exit(0)
+            if 'error' in d:
+                print(f'::warning title=Code review error::{d["error"]}')
+                sys.exit(0)
+            compliant = d.get('compliant', False)
+            tx_url = d.get('stamp', {}).get('url', '')
+            status = 'COMPLIANT' if compliant else 'VIOLATION'
+            summary_file = os.environ.get('GITHUB_STEP_SUMMARY', '')
+            if summary_file:
+                with open(summary_file, 'w') as f:
+                    f.write(f'# Leima Code Review -- {status}\n\n')
+                    if tx_url:
+                        f.write(f'Arweave: {tx_url}\n\n')
+                    f.write(f'```\n{d.get("verdict", "")}\n```\n')
+            if not compliant:
+                print(f'::error title=Policy violation::{d.get("verdict","")[:300]}')
+            sys.exit(0 if compliant else 1)
         run: |
           RESULT=$(curl -s --max-time 300 -X POST \
             -H "Content-Type: application/json" \
@@ -22,31 +46,7 @@ jobs:
             "$LEIMA_URL/api/code-review")
           echo "$RESULT"
           echo "$RESULT" > /tmp/cr_result.json
-          python3 - <<'PYEOF'
-import sys, json, os
-with open('/tmp/cr_result.json') as f:
-    try:
-        d = json.load(f)
-    except Exception as e:
-        print(f'::warning title=Code review error::Invalid response from Leima: {e}')
-        sys.exit(0)
-if 'error' in d:
-    print(f'::warning title=Code review error::{d["error"]}')
-    sys.exit(0)
-compliant = d.get('compliant', False)
-tx_url = d.get('stamp', {}).get('url', '')
-status = '✅ COMPLIANT' if compliant else '❌ VIOLATION'
-summary_file = os.environ.get('GITHUB_STEP_SUMMARY', '')
-if summary_file:
-    with open(summary_file, 'w') as f:
-        f.write(f'# Leima Code Review — {status}\n\n')
-        if tx_url:
-            f.write(f'Arweave: {tx_url}\n\n')
-        f.write(f'```\n{d.get("verdict", "")}\n```\n')
-if not compliant:
-    print(f'::error title=Policy violation::{d.get("verdict","")[:300]}')
-sys.exit(0 if compliant else 1)
-PYEOF
+          python3 <<< "$CR_CHECK"
 
       - name: Deploy to Render and wait
         env:
