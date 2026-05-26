@@ -11,7 +11,7 @@ import requests as http
 from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
 
-IRYS_PRIVATE_KEY = os.environ["IRYS_PRIVATE_KEY"]
+IRYS_PRIVATE_KEY = os.environ.get("IRYS_PRIVATE_KEY", "")
 IRYS_NETWORK     = os.environ.get("IRYS_NETWORK", "mainnet")
 IRYS_RPC_URL     = os.environ.get("IRYS_RPC_URL", "")
 PAGES_URL        = os.environ.get("GITHUB_PAGES_URL", "https://fxg55647.github.io/leima")

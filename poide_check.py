@@ -276,7 +276,7 @@ review_ok = review_conclusion == "success"
 deployment_safe = deployment_ok or deploying_commit_ok or review_conclusion in ("in_progress", "failure")
 # review_stuck: code review has failed repeatedly — commits are not deploying
 REVIEW_STUCK_THRESHOLD = 3
-review_stuck = review_consecutive_failures >= REVIEW_STUCK_THRESHOLD
+review_stuck = (review_consecutive_failures or 0) >= REVIEW_STUCK_THRESHOLD
 rapid_deploy_warning = history.get("deploys_last_hour", 0) >= RAPID_DEPLOY_THRESHOLD
 ok = deployment_safe and (cron_fresh is not False) and not disabled_workflows
 

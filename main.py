@@ -112,7 +112,7 @@ def _evict_old_sessions() -> None:
     for d in (store, email_sessions):
         stale = [k for k, v in d.items() if v.get("_stored_at", 0) < cutoff]
         for k in stale:
-            del d[k]
+            d.pop(k, None)
 
 
 def _session_eviction_loop() -> None:
@@ -1098,7 +1098,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
                   source_ext: str = "pdf", source_mime: str = "application/pdf",
                   email_meta: dict | None = None, web_meta: dict | None = None,
                   source_context: dict | None = None) -> dict:
-    _poide_cache_ready.wait()
+    _poide_cache_ready.wait(timeout=10)
     poide_snap = _poide_cache.copy() if _poide_cache else None
 
     result = analyse(question, contents, source_context=source_context)
