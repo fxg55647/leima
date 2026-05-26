@@ -23,7 +23,7 @@
 ## code_review.py
 
 - line 83 — No early check that `GEMINI_API_KEY` is non-empty. When the env var is absent the script crashes with an unhelpful SDK auth error.
-- line 80 — `POLICY.md` is read without error handling. If the file is missing, the script raises an unhandled `FileNotFoundError` in CI.
+- line 80 — `POLICY.example.md` is read without error handling. If the file is missing, the script raises an unhandled `FileNotFoundError` in CI.
 
 ## pode.user.js
 

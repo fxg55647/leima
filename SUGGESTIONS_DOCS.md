@@ -1,4 +1,4 @@
-## POLICY.md
+## POLICY.example.md
 
 - "Where your document goes" — States "Neither is stored permanently by Leima" early on, but later documents that the email notary flow permanently stores sender address, recipient, and subject to Arweave. Should clearly mark the email notary as an exception to this rule.
 

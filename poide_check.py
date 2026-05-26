@@ -14,7 +14,7 @@ MONITOR_FILES = [
     "poide_arweave.py",
     "monthly_audit.py",
     "code_review.py",
-    "POLICY.md",
+    "POLICY.example.md",
 ]
 
 

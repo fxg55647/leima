@@ -30,7 +30,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Independent verification (verify.py)](#independent-verification-verifypy)
 - [Self-characterisation for due diligence (bundle_source.py)](#self-characterisation-for-due-diligence-bundle_sourcepy)
 - [Developer pre-push hook](#developer-pre-push-hook)
-- [Data policy](POLICY.md)
+- [Data policy](POLICY.example.md)
 
 ---
 
@@ -231,7 +231,7 @@ Response:
 
 ## Trust model
 
-For a complete description of what data Leima collects, where it goes, and what triggers re-consent when code changes, see [POLICY.md](POLICY.md).
+For a complete description of what data Leima collects, where it goes, and what triggers re-consent when code changes, see [POLICY.example.md](POLICY.example.md).
 
 **Two layers: hash commitment and AI verdict**
 Leima's legal and practical weight comes from two mechanisms that work independently. The hash commitment is a hard guarantee: if anyone alters a document after it has been stamped, the SHA-256 mismatch is provable without any reliance on AI. A mismatch is grounds for a contractual or fraud claim regardless of whether the AI analysis was correct. The AI verdict is the practical layer: an independent opinion made before any dispute arose, useful for guiding human decisions — an insurance adjuster's assessment, a lender's judgment, a due diligence review — without needing to be treated as a legal authority. Do not conflate the two: the hash commitment stands on its own.
@@ -258,9 +258,9 @@ The blockchain record proves that a specific analysis of a specific document exi
 Leima is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
 **Deployment integrity monitoring (POIDE)**
-Open source code is auditable — but only if the running code is the same as the published code. Leima implements POIDE (Proof of Intended Deployment): every push to `main` triggers an automated code review against `POLICY.md`; Render auto-deploy is disabled, so the deploy hook fires only if the review passes. Five GitHub Actions workflows then run on a staggered schedule, together achieving one-minute polling resolution. Each workflow queries the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishes the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
+Open source code is auditable — but only if the running code is the same as the published code. Leima implements POIDE (Proof of Intended Deployment): every push to `main` triggers an automated code review against `POLICY.example.md`; Render auto-deploy is disabled, so the deploy hook fires only if the review passes. Five GitHub Actions workflows then run on a staggered schedule, together achieving one-minute polling resolution. Each workflow queries the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishes the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
 
-`POLICY.md` is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy the AI uses cannot be quietly changed after the fact.
+`POLICY.example.md` is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy the AI uses cannot be quietly changed after the fact.
 
 See [POIDE.md](POIDE.md) for a full description of the protocol, the current implementation, the longer-term vision, real-world incidents where deployment transparency would have helped (XZ Utils, PHP git compromise, Picreel), and how POIDE relates to existing approaches such as Sigstore and Meta Code Verify.
 
@@ -278,7 +278,7 @@ A future option will allow switching to AI providers that operate under strict, 
 | Verdict modified after creation | Yes | Hash mismatch detected on validation |
 | Source file modified after creation | Yes | Hash mismatch detected on validation |
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
-| Code violates stated data policy | Yes | AI audits all source files against POLICY.md on every commit; workflow fails and POIDE turns red if a violation is found |
+| Code violates stated data policy | Yes | AI audits all source files against POLICY.example.md on every commit; workflow fails and POIDE turns red if a violation is found |
 | Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render auto-deploy is disabled — deploy hook fires only on review success; POIDE polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
 | Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
 | Hosting provider (Render) swaps running code silently | Partly | POIDE detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
@@ -406,7 +406,7 @@ To enable the email notary, add a **Cron Job** service pointing at `POST /notary
 The full trust chain on every commit:
 
 ```
-push → code_review.yml → AI audits code vs POLICY.md
+push → code_review.yml → AI audits code vs POLICY.example.md
                                    ↓ pass only
                              RENDER_DEPLOY_HOOK → new commit live on Render
                                    ↓
@@ -452,7 +452,7 @@ Arweave records cannot be altered retroactively. A TX you trusted six months ago
 
 ## Self-characterisation for due diligence (bundle_source.py)
 
-`bundle_source.py` bundles the entire codebase — source files, `README.md`, `POLICY.md`, and `requirements.txt` — into a single `source_bundle.txt` ready for Leima upload.
+`bundle_source.py` bundles the entire codebase — source files, `README.md`, `POLICY.example.md`, and `requirements.txt` — into a single `source_bundle.txt` ready for Leima upload.
 
 ```bash
 python bundle_source.py          # HEAD
@@ -465,7 +465,7 @@ Upload `source_bundle.txt` to Leima with a claim such as:
 
 Leima produces a hash of the bundle, an AI characterisation, and a permanent Arweave stamp. The stamp can be shared with investors, partners, or auditors as independently verifiable evidence of what the code does — without revealing the source itself.
 
-Because `README.md` and `POLICY.md` are included first, the AI reviewer has full context about the project's architecture and data policy before reading the code.
+Because `README.md` and `POLICY.example.md` are included first, the AI reviewer has full context about the project's architecture and data policy before reading the code.
 
 The claim and AI analysis are permanently public on Arweave. To anonymise specific details in the result — company names, individuals, amounts — add a privacy directive to your claim: *"keep [company name] private"*. The AI will replace those details with generic placeholders throughout its analysis.
 

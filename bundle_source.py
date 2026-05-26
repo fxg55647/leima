@@ -1,7 +1,7 @@
 """
 Bundle source files and documentation into a single text file for Leima upload.
 
-Includes all .py and .js source files plus README.md and POLICY.md so the
+Includes all .py and .js source files plus README.md and POLICY.example.md so the
 AI reviewer has full context about the project's architecture and data policy.
 
 Usage:

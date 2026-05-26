@@ -26,7 +26,7 @@ poide-d: 3-59/5 * * * *    ← minutes 3, 8, 13 ...
 poide-e: 4-59/5 * * * *    ← minutes 4, 9, 14 ...
 ```
 
-The policy file (`POLICY.md`) is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy that governs each review cannot be changed retroactively.
+The policy file (`POLICY.example.md`) is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy that governs each review cannot be changed retroactively.
 
 Each workflow runs `poide_check.py`, which checks three conditions and publishes a combined `status.json` to the `gh-pages` branch:
 
@@ -36,13 +36,13 @@ Each workflow runs `poide_check.py`, which checks three conditions and publishes
 
 `ok: true` requires all three to pass simultaneously.
 
-The code review (`code_review.py`) runs automatically on every push to `main`. It sends all Python and JavaScript source files together with `POLICY.md` to an AI model, which checks whether the code complies with the stated data policy. If a violation is found, the workflow fails and the deployment is blocked — the server continues running the previous commit. Only when the review passes does the workflow trigger a Render deploy via a deploy hook, after which the new commit goes live.
+The code review (`code_review.py`) runs automatically on every push to `main`. It sends all Python and JavaScript source files together with `POLICY.example.md` to an AI model, which checks whether the code complies with the stated data policy. If a violation is found, the workflow fails and the deployment is blocked — the server continues running the previous commit. Only when the review passes does the workflow trigger a Render deploy via a deploy hook, after which the new commit goes live.
 
 This means code that fails the AI audit never reaches production. The deployment gate is the review itself.
 
 The full trust chain on every commit:
 ```
-push → code_review.yml → Gemini audits code vs POLICY.md
+push → code_review.yml → Gemini audits code vs POLICY.example.md
                                     ↓ pass only
                               Render deploy hook → new commit live
                                     ↓
@@ -56,7 +56,7 @@ The check passes if the deployed commit matches the GitHub HEAD and the code rev
 
 **The result is public and independently verifiable.** Anyone can visit the [Actions tab](../../actions) to see the continuous check history, or fetch `status.json` directly. The checks run on GitHub's infrastructure — not Render's — so they cannot be influenced by a compromise of the hosting environment.
 
-**Monitor files are hashed.** `status.json` includes SHA-256 hashes of all monitoring-related files: the five cron workflows, the code review workflow, `poide_check.py`, `code_review.py`, and `POLICY.md`. A user or browser extension can compare these hashes across sessions. If a hash has changed, it is a signal to check what changed and why — before submitting any documents. This closes the meta-loop: the monitoring infrastructure is itself monitored by the same mechanism. An attacker who wants to slip in malicious application code must do so in a way that passes the AI code review against an unchanged `POLICY.md` — changing both simultaneously is significantly harder and more visible.
+**Monitor files are hashed.** `status.json` includes SHA-256 hashes of all monitoring-related files: the five cron workflows, the code review workflow, `poide_check.py`, `code_review.py`, and `POLICY.example.md`. A user or browser extension can compare these hashes across sessions. If a hash has changed, it is a signal to check what changed and why — before submitting any documents. This closes the meta-loop: the monitoring infrastructure is itself monitored by the same mechanism. An attacker who wants to slip in malicious application code must do so in a way that passes the AI code review against an unchanged `POLICY.example.md` — changing both simultaneously is significantly harder and more visible.
 
 **Deploy history check.** Each cron run fetches the 20 most recent Render deployments and verifies that every commit hash exists in the GitHub repository. A commit that was deployed but does not appear in git is a strong indicator of tampering. The result is published in `status.json` as `history.last_mismatch_at` and `history.clean_since`. The Tampermonkey userscript shows this as a human-readable label — "puhdas historia 47 pv" on a clean run, or an orange/red warning if a mismatch was found recently. This builds a verifiable track record: the longer the clean history, the stronger the reputation.
 
@@ -75,7 +75,7 @@ It is worth stating the threat hierarchy explicitly, because security analysis o
 Before using Leima, you can verify the full trust chain in one place:
 
 1. Open the [Actions tab](../../actions) in this repository
-2. Check that **POIDE Code Review** is green on the latest commit — the code has been audited against `POLICY.md`
+2. Check that **POIDE Code Review** is green on the latest commit — the code has been audited against `POLICY.example.md`
 3. Check that the five **POIDE A–E** workflows show green on their most recent runs — the running code matches the audited source
 4. Optionally fetch [`status.json`](../../raw/refs/heads/gh-pages/status.json) and compare the `monitor_files` hashes against your previous session — if any hash has changed, check what changed and why before submitting documents
 
@@ -96,7 +96,7 @@ python verify.py
 
 It uses two independent sources for each monitored file:
 
-**Git history (GitHub API).** For each file in the monitoring infrastructure — the five cron workflows, `poide_check.py`, `poide_arweave.py`, `code_review.py`, and `POLICY.md` — it queries GitHub's commit history API to find when the file was last changed. This record is maintained by GitHub, not by Leima. A service operator cannot alter it without leaving a visible trace in the git history, which is append-only on GitHub's infrastructure.
+**Git history (GitHub API).** For each file in the monitoring infrastructure — the five cron workflows, `poide_check.py`, `poide_arweave.py`, `code_review.py`, and `POLICY.example.md` — it queries GitHub's commit history API to find when the file was last changed. This record is maintained by GitHub, not by Leima. A service operator cannot alter it without leaving a visible trace in the git history, which is append-only on GitHub's infrastructure.
 
 **Arweave record.** It fetches the latest POIDE check result directly from Arweave and reads the `monitor_files` hashes stored there. Since Arweave records are permanent and cannot be retroactively altered, the hashes represent what the monitoring system observed at that moment — independently of any code the Leima service runs today.
 
