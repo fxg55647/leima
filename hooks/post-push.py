@@ -1,20 +1,16 @@
-"""Post-push hook -- waits for GitHub Actions to deploy the new commit to Render."""
-import io, json, os, sys, time
+"""Post-push hook -- seuraa POIDE-statuslogia koodiarvion ja deployn varmistamiseksi."""
+import io, json, sys, time
 import urllib.request as req
 import subprocess
-from pathlib import Path
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-GITHUB_REPO   = "fxg55647/leima"
-GITHUB_BRANCH = "main"
-LOG_URL       = "https://fxg55647.github.io/leima/status-log.jsonl"
-GH_API_BASE   = f"https://api.github.com/repos/{GITHUB_REPO}"
+LOG_URL = "https://fxg55647.github.io/leima/status-log.jsonl"
 
-POLL_INT         = 15   # sekuntia pollausvälillä
-REVIEW_TIMEOUT   = 300  # 5 min code review max
-DEPLOY_TIMEOUT   = 240  # 4 min deploy max
+POLL_INT       = 30   # sekuntia POIDE-pollausvälillä
+REVIEW_TIMEOUT = 600  # 10 min code reviewlle (POIDE-cron voi lagata)
+DEPLOY_TIMEOUT = 600  # 10 min deploylle
 
 
 def pushed_commit() -> str:
@@ -22,44 +18,14 @@ def pushed_commit() -> str:
     return r.stdout.strip()
 
 
-def gh_get(path: str, token: str) -> dict | None:
-    url = f"{GH_API_BASE}{path}"
-    headers = {"Accept": "application/vnd.github+json"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    try:
-        r = req.Request(url, headers=headers)
-        with req.urlopen(r, timeout=10) as resp:
-            return json.loads(resp.read())
-    except Exception:
-        return None
-
-
-def wait_for_review(commit: str, token: str) -> str | None:
-    """Odottaa code review -ajoa commitille. Palauttaa 'success'/'failure'/None."""
-    print(f"[deploy] Odotetaan code review -ajoa commitille {commit[:7]}...", flush=True)
-    deadline = time.time() + REVIEW_TIMEOUT
-    while time.time() < deadline:
-        data = gh_get(
-            f"/actions/workflows/code_review.yml/runs?per_page=10&branch={GITHUB_BRANCH}",
-            token,
-        )
-        if data:
-            for run in data.get("workflow_runs", []):
-                if run.get("head_sha", "").startswith(commit[:20]):
-                    status     = run.get("status")
-                    conclusion = run.get("conclusion")
-                    if status == "completed":
-                        return conclusion
-                    print(f"[deploy] Code review: {status}...", flush=True)
-                    break
-            else:
-                print("[deploy] Ajo ei ole vielä alkanut...", flush=True)
-        time.sleep(POLL_INT)
-    return None
+def sha_match(a: str, b: str) -> bool:
+    """Tosi jos SHA-merkkijonot jakavat saman prefiksin (min 7 merkkia)."""
+    n = min(len(a), len(b))
+    return n >= 7 and a[:n] == b[:n]
 
 
 def fetch_poide() -> dict | None:
+    """Hakee POIDE-statuslogin viimeisimman rivin. Nayttaa virheen jos haku epäonnistuu."""
     try:
         with req.urlopen(LOG_URL, timeout=10) as r:
             lines = r.read().decode().strip().splitlines()
@@ -67,47 +33,132 @@ def fetch_poide() -> dict | None:
             line = line.strip()
             if line:
                 return json.loads(line)
-    except Exception:
-        return None
+    except Exception as e:
+        print(f"[deploy] Varoitus: POIDE-lokin haku epaonnistui: {e}", flush=True)
+    return None
+
+
+def wait_for_review(commit: str) -> bool | None:
+    """Odottaa POIDE-lokin review_ok=True kommitille.
+
+    Palauttaa:
+      True  -- koodiarvio hyvaksytty
+      False -- koodiarvio epaonnistui (2 POIDE-paivitysta perakkaain samalle commitille)
+      None  -- timeout
+    """
+    print(f"[deploy] Odotetaan code review commit {commit[:7]}...", flush=True)
+    print(f"[deploy] (Pollaan {LOG_URL} joka {POLL_INT}s)", flush=True)
+    deadline = time.time() + REVIEW_TIMEOUT
+    last_ts = None
+    false_new_entries = 0
+
+    while time.time() < deadline:
+        entry = fetch_poide()
+        if entry:
+            entry_commit = (entry.get("commit") or "").strip()
+            ts = entry.get("ts") or entry.get("timestamp", "")
+
+            if sha_match(commit, entry_commit):
+                review_ok = entry.get("review_ok")
+                run_url = entry.get("actions_run_url", "")
+
+                if review_ok is True:
+                    return True
+
+                if ts != last_ts:
+                    last_ts = ts
+                    if review_ok is False:
+                        false_new_entries += 1
+                        if false_new_entries >= 2:
+                            print(f"[deploy] FAIL Code review epaonnistui.", flush=True)
+                            if run_url:
+                                print(f"[deploy] Ajo: {run_url}", flush=True)
+                            return False
+                        print(
+                            f"[deploy] Code review False "
+                            f"(POIDE-paivitys {false_new_entries}/2, ajo saattaa olla kesken)...",
+                            flush=True,
+                        )
+                    else:
+                        print(f"[deploy] Code review: {review_ok}...", flush=True)
+                # else: sama POIDE-entry uudelleen, ei tulosteta
+
+            else:
+                if ts != last_ts:
+                    last_ts = ts
+                    print(
+                        f"[deploy] POIDE: commit {entry_commit or '?'},"
+                        f" odotetaan {commit[:7]}...",
+                        flush=True,
+                    )
+
+        time.sleep(POLL_INT)
+
     return None
 
 
 def wait_for_deploy(commit: str) -> bool:
-    """Odottaa että Render on live commit-SHA:lla. Palauttaa True jos onnistuu."""
-    print(f"[deploy] Odotetaan deployta commitille {commit[:7]}...", flush=True)
+    """Odottaa POIDE-lokin deployment_ok=True. Palauttaa True jos onnistuu."""
+    print(f"[deploy] Odotetaan deployta commit {commit[:7]}...", flush=True)
     deadline = time.time() + DEPLOY_TIMEOUT
+    last_ts = None
+
     while time.time() < deadline:
         entry = fetch_poide()
         if entry:
-            live = entry.get("deployed_commit", "") or ""
-            if live.startswith(commit[:20]):
-                return True
-            deploying = entry.get("deploying", False)
-            status = "deploy käynnissä" if deploying else "odottaa"
-            print(f"[deploy] Live: {live[:7] or '?'} → tavoite: {commit[:7]} ({status})", flush=True)
+            entry_commit = (entry.get("commit") or "").strip()
+            ts = entry.get("ts") or entry.get("timestamp", "")
+
+            if sha_match(commit, entry_commit):
+                if entry.get("deployment_ok"):
+                    return True
+                if ts != last_ts:
+                    last_ts = ts
+                    deploying = entry.get("deploying", False)
+                    status = "kaynnissa" if deploying else "odottaa"
+                    print(f"[deploy] Deploy: {status}...", flush=True)
+
+            else:
+                if ts != last_ts:
+                    last_ts = ts
+                    print(
+                        f"[deploy] POIDE: commit {entry_commit or '?'},"
+                        f" odotetaan {commit[:7]}...",
+                        flush=True,
+                    )
+
         time.sleep(POLL_INT)
+
     return False
 
 
 def main() -> int:
-    token = os.environ.get("GITHUB_TOKEN", "")
     commit = pushed_commit()
+    print(f"[deploy] Commit: {commit[:7]}", flush=True)
 
-    conclusion = wait_for_review(commit, token)
+    result = wait_for_review(commit)
 
-    if conclusion is None:
-        print(f"[deploy] !! Code review ei valmistunut {REVIEW_TIMEOUT}s sisällä.", flush=True)
+    if result is None:
+        print(
+            f"[deploy] !! Code review ei valmistunut {REVIEW_TIMEOUT}s sisalla"
+            f" -- tarkista GitHub Actions.",
+            flush=True,
+        )
         return 0
-    if conclusion != "success":
-        print(f"[deploy] FAIL Code review epäonnistui ({conclusion}) — deploy peruuntui.", flush=True)
+    if result is False:
+        print(f"[deploy] Deploy peruuntui.", flush=True)
         return 0
 
-    print("[deploy] OK Code review hyväksytty.", flush=True)
+    print("[deploy] OK Code review hyvaksytty.", flush=True)
 
     if wait_for_deploy(commit):
-        print(f"[deploy] OK Deploy valmis — {commit[:7]} on live.", flush=True)
+        print(f"[deploy] OK Deploy valmis -- {commit[:7]} on live.", flush=True)
     else:
-        print(f"[deploy] !! Deploy ei valmistunut {DEPLOY_TIMEOUT}s sisällä — tarkista Render.", flush=True)
+        print(
+            f"[deploy] !! Deploy ei valmistunut {DEPLOY_TIMEOUT}s sisalla"
+            f" -- tarkista Render.",
+            flush=True,
+        )
 
     return 0
 
