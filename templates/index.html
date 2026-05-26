@@ -669,7 +669,10 @@
     <div>
       <p style="font-size: 0.95rem; font-weight: 600; color: #212529;">AI evaluation of documents — forever sealed on Arweave</p>
     </div>
-    <a href="/validate" class="validate-btn">Validate</a>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <a href="https://fxg55647.github.io/leima/" target="_blank" rel="noopener" class="validate-btn">POIDE</a>
+      <a href="/validate" class="validate-btn">Validate</a>
+    </div>
   </header>
   <form
     hx-post="/ask"
@@ -1107,8 +1110,8 @@
            + (reason ? ' <span style="color:#fff;font-weight:400">— ' + reason + '</span>' : '')
            + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">POIDE</span>'
            + ' <span id="poide-ago-inner" style="color:#fff">' + timeAgo() + '</span>'
-           + ' <a href="https://github.com/fxg55647/leima#poide" target="_blank" rel="noopener"'
-           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>';
+           + ' <a href="https://fxg55647.github.io/leima/" target="_blank" rel="noopener"'
+           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">POIDE</a>';
     }
 
     function fadeSet(html, dotMode) {
