@@ -258,7 +258,7 @@ The blockchain record proves that a specific analysis of a specific document exi
 Leima is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
 **Deployment integrity monitoring (POIDE)**
-Open source code is auditable — but only if the running code is the same as the published code. Leima implements POIDE (Proof of Intended Deployment): every push to `main` triggers an automated code review against `POLICY.example.md`; Render auto-deploy is disabled, so the deploy hook fires only if the review passes. A GitHub Actions workflow then runs every 5 minutes, querying the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishing the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
+Open source code is auditable — but only if the running code is the same as the published code. Leima implements POIDE (Proof of Intended Deployment): every push to `main` triggers an automated code review against `POLICY.example.md`; Render auto-deploy is disabled, so the deploy hook fires only if the review passes. Five GitHub Actions workflows then run on a staggered schedule, together achieving one-minute polling resolution, querying the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishing the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
 
 `POLICY.example.md` is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy the AI uses cannot be quietly changed after the fact.
 
@@ -281,7 +281,7 @@ A future option will allow switching to AI providers that operate under strict, 
 | Code violates stated data policy | Yes | AI audits all source files against POLICY.example.md on every commit; workflow fails and POIDE turns red if a violation is found |
 | Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render auto-deploy is disabled — deploy hook fires only on review success; POIDE polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
 | Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
-| Hosting provider (Render) swaps running code silently | Partly | POIDE detects mismatches within ~5 minutes; Render API reporting the actual running commit honestly is a residual trust assumption |
+| Hosting provider (Render) swaps running code silently | Partly | POIDE detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
 | Leima lies during original run | Partly | Full prompt logic is isolated in `neutral_witness.py` and audited on every commit |
 | AI verdict is wrong | Partly | The hash commitment stands regardless — document tampering is still provable. The AI analysis is a first opinion, not a legal authority |
 | Document is fake before upload | No | Leima timestamps existence, does not authenticate origin |
@@ -414,11 +414,11 @@ cron (every minute) → deployment match? → review passed? → no deploy in pr
                                                         → status.json → gh-pages (public)
 ```
 
-A GitHub Actions workflow (`poide-a.yml`) runs every 5 minutes and polls deployment status. Each run checks three conditions: the live Render commit matches the GitHub repository HEAD, the latest automated code review passed, and the deploy history contains no commits absent from git. Results are published to the `gh-pages` branch as `status.json`.
+Five GitHub Actions workflows run on a staggered schedule and together poll deployment status every minute. Each run checks three conditions: the live Render commit matches the GitHub repository HEAD, the latest automated code review passed, and the deploy history contains no commits absent from git. Results are published to the `gh-pages` branch as `status.json`.
 
 Because Render auto-deploy is disabled, a commit that fails the code review is never deployed — the server continues running the previous commit until a passing commit is pushed.
 
-Before submitting sensitive documents, verify that the POIDE Code Review and the POIDE A workflow show green on the [Actions tab](../../actions). See [POIDE.md](POIDE.md) for the full protocol description.
+Before submitting sensitive documents, verify that the POIDE Code Review and the five POIDE A–E workflows show green on the [Actions tab](../../actions). See [POIDE.md](POIDE.md) for the full protocol description.
 
 ---
 

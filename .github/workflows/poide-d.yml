@@ -1,0 +1,13 @@
+name: POIDE D
+on:
+  schedule:
+    - cron: '3-59/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/poide-run.yml
+    secrets: inherit
