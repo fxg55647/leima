@@ -1394,8 +1394,10 @@ async def ask(
                                email_meta, web_meta, source_context)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
-    except Exception:
-        return HTMLResponse('<div class="error">Analysis failed. Please try again.</div>')
+    except Exception as _exc:
+        import traceback, logging
+        logging.exception("Analysis failed")
+        return HTMLResponse(f'<div class="error">Analysis failed: {type(_exc).__name__}: {_exc}</div>')
 
     if active_tab == "image" and c2pa_info:
         store[result["session_id"]]["manifest"]["c2pa"] = c2pa_info
