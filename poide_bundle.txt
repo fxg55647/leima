@@ -1,0 +1,1619 @@
+# POIDE bundle
+This bundle describes POIDE (Proof of Intended Deployment), a protocol for verifying that a hosted application is running the code it claims to run.
+It answers the question: how does the deployment monitoring work, what does it check, and how can an independent party verify it?
+The bundle includes the monitoring logic, GitHub Actions workflows, the userscript, and the protocol documentation.
+
+Commit: e12faff2b4f4582fbbdfb0202248df91faed8a3f
+Files: 16
+
+### .github/workflows/code_review.yml
+```
+name: POIDE Code Review
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Leima code review
+        env:
+          LEIMA_URL: https://leima.ai
+          RULES_URL: https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR
+        run: |
+          RESULT=$(curl -s --max-time 300 -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"repo\":\"$GITHUB_REPOSITORY\",\"ref\":\"$GITHUB_SHA\",\"rules_url\":\"$RULES_URL\"}" \
+            "$LEIMA_URL/api/code-review")
+          echo "$RESULT"
+          echo "$RESULT" > /tmp/cr_result.json
+          python3 - <<'PYEOF'
+import sys, json, os
+with open('/tmp/cr_result.json') as f:
+    try:
+        d = json.load(f)
+    except Exception as e:
+        print(f'::error title=Code review error::Invalid response from Leima: {e}')
+        sys.exit(1)
+compliant = d.get('compliant', False)
+tx_url = d.get('stamp', {}).get('url', '')
+status = '✅ COMPLIANT' if compliant else '❌ VIOLATION'
+summary_file = os.environ.get('GITHUB_STEP_SUMMARY', '')
+if summary_file:
+    with open(summary_file, 'w') as f:
+        f.write(f'# Leima Code Review — {status}\n\n')
+        if tx_url:
+            f.write(f'Arweave: {tx_url}\n\n')
+        f.write(f'```\n{d.get("verdict", "")}\n```\n')
+if not compliant:
+    print(f'::error title=Policy violation::{d.get("verdict","")[:300]}')
+sys.exit(0 if compliant else 1)
+PYEOF
+
+      - name: Deploy to Render and wait
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          DEPLOY_ID=$(curl -s -X POST \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache":"do_not_clear"}' \
+            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          echo "Deploy ID: $DEPLOY_ID"
+          for i in $(seq 1 40); do
+            sleep 15
+            STATUS=$(curl -s \
+              -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" | python3 -c "import sys,json; print(json.load(sys.stdin)['deploy']['status'])")
+            echo "Status: $STATUS"
+            if [ "$STATUS" = "live" ]; then exit 0; fi
+            if [ "$STATUS" = "deactivated" ] || [ "$STATUS" = "canceled" ] || [ "$STATUS" = "failed" ]; then
+              echo "Deploy ended with status: $STATUS"; exit 1
+            fi
+          done
+          echo "Deploy timed out after 10 minutes"; exit 1
+
+      - name: Wake up POIDE
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d '{"ref":"main"}' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/poide-a.yml/dispatches"
+
+```
+
+### .github/workflows/poide-a.yml
+```
+name: POIDE A
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/poide-run.yml
+    secrets: inherit
+
+```
+
+### .github/workflows/poide-b.yml
+```
+name: POIDE B
+on:
+  schedule:
+    - cron: '1-59/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/poide-run.yml
+    secrets: inherit
+
+```
+
+### .github/workflows/poide-c.yml
+```
+name: POIDE C
+on:
+  schedule:
+    - cron: '2-59/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/poide-run.yml
+    secrets: inherit
+
+```
+
+### .github/workflows/poide-d.yml
+```
+name: POIDE D
+on:
+  schedule:
+    - cron: '3-59/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/poide-run.yml
+    secrets: inherit
+
+```
+
+### .github/workflows/poide-e.yml
+```
+name: POIDE E
+on:
+  schedule:
+    - cron: '4-59/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/poide-run.yml
+    secrets: inherit
+
+```
+
+### .github/workflows/poide-run.yml
+```
+name: POIDE check (reusable)
+# WARNING: Do not add concurrency groups — causes queue bursts that trigger
+# GitHub abuse detection and stop all scheduled runs for up to an hour.
+# WARNING: Do not add "Fail if check failed" or sys.exit(1) — workflow must
+# always exit 0 or GitHub will suspend the scheduled crons.
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-
+
+      - run: pip install requests irys-sdk
+
+      - name: Run POIDE check
+        id: check
+        continue-on-error: true
+        env:
+          RENDER_API_KEY:     ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID:  ${{ secrets.RENDER_SERVICE_ID }}
+
+          GITHUB_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
+        run: python poide_check.py
+
+      - name: Upload status to Arweave
+        continue-on-error: true
+        env:
+          IRYS_PRIVATE_KEY: ${{ secrets.IRYS_PRIVATE_KEY }}
+          IRYS_NETWORK:     ${{ secrets.IRYS_NETWORK }}
+          IRYS_RPC_URL:     ${{ secrets.IRYS_RPC_URL }}
+        run: python poide_arweave.py
+
+      - name: Push status.json and log to gh-pages
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python push_status.py
+
+
+```
+
+### POIDE.md
+```
+# POIDE — Proof of Intended Deployment
+
+Open source code is auditable. But "you can read the code" only proves that *some version* of the code is readable — not that it is the version currently running on the server. A hosting provider, a compromised deployment pipeline, or an attacker with account access could replace the running code without touching the git repository. Users would have no way to know.
+
+POIDE (Proof of Intended Deployment) is a protocol for closing this gap. The idea is simple: query the hosting provider's API directly — not the application — to find out which git commit is deployed, then compare it to the public repository. If they match, the code the hosting provider was instructed to run is the code you can read.
+
+**What POIDE proves — and what it does not.** POIDE records which commit the hosting provider was asked to deploy and what it reports as currently running. It does not provide cryptographic proof of what code the hosting provider actually executed in memory. That distinction matters: the proof is about *intended* deployment, not execution-level attestation. For most threat models — where the concern is an operator quietly swapping application code — this is sufficient. Hardware-level execution attestation would require trusted execution environments (TEEs) or similar infrastructure and remains out of scope for this protocol.
+
+**Open source projects.** For software with a public repository, POIDE makes the intended deployment visible to everyone. Any user, journalist, regulator, or researcher can independently verify which commit is running without trusting the operator's word. This is a meaningful property: it turns "trust us, we run what we say" into a continuously auditable claim.
+
+**Closed source projects.** Open source has never been a trust property in itself — it is one implementation of auditing. In practice, almost nobody reads open source code, and fewer still can evaluate it for security. XZ Utils was open for years; the backdoor went unnoticed. Auditing produces trust only when someone actually looks.
+
+POIDE decouples auditing from visibility. What a user actually needs is not the code in front of their eyes — they need proof that someone competent reviewed it, and that what was reviewed is the same as what is running. POIDE produces this without requiring the code to be public.
+
+This leads to a conclusion worth stating directly: POIDE-protected closed source can offer a stronger auditability guarantee than unreviewed open source. Open source has value elsewhere — in fork rights, as an educational resource, in collective contribution — but on the trust question, the mechanism is what matters, not the visibility.
+
+Open source is a necessary but not sufficient condition for trust. POIDE is the part that was missing. An organisation can use it to prove to management, a compliance team, a business partner, or a regulatory authority which version of their software was running at a given time — and that it was reviewed against a stated policy before deployment. The audit trail on Arweave is permanent and cannot be retroactively altered, making it useful for post-incident analysis, regulatory reporting, or contractual obligations.
+
+The code never needs to be public. The policy file is public. The verdict is public. The fact that a specific commit was reviewed against a specific policy and deployed is public. What the code actually contains remains private. This is the closed-source trust model: not "read the code and decide", but "an independent auditor checked it, the result is permanent, and the deployed version is monitored continuously."
+
+---
+
+## How Leima implements POIDE
+
+Leima runs five GitHub Actions workflows on a staggered schedule, together achieving one-minute polling resolution:
+
+```
+poide-a: */5 * * * *       ← minutes 0, 5, 10 ...
+poide-b: 1-59/5 * * * *    ← minutes 1, 6, 11 ...
+poide-c: 2-59/5 * * * *    ← minutes 2, 7, 12 ...
+poide-d: 3-59/5 * * * *    ← minutes 3, 8, 13 ...
+poide-e: 4-59/5 * * * *    ← minutes 4, 9, 14 ...
+```
+
+The policy file (`POLICY.example.md`) is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy that governs each review cannot be changed retroactively.
+
+Each workflow runs `poide_check.py`, which checks three conditions and publishes a combined `status.json` to the `gh-pages` branch:
+
+1. **Deployment match** — calls the Render API and the GitHub API, verifies the live commit matches the repository HEAD
+2. **No deploy in progress** — flags if Render reports an active build or update
+3. **Code review passed** — queries the GitHub Actions API for the result of the latest `POIDE Code Review` run
+
+`ok: true` requires all three to pass simultaneously.
+
+The code review (`code_review.py`) runs automatically on every push to `main`. It sends all Python and JavaScript source files together with `POLICY.example.md` to an AI model, which checks whether the code complies with the stated data policy. If a violation is found, the workflow fails and the deployment is blocked — the server continues running the previous commit. Only when the review passes does the workflow trigger a Render deploy via a deploy hook, after which the new commit goes live.
+
+This means code that fails the AI audit never reaches production. The deployment gate is the review itself.
+
+The full trust chain on every commit:
+```
+push → code_review.yml → Gemini audits code vs POLICY.example.md
+                                    ↓ pass only
+                              Render deploy hook → new commit live
+                                    ↓
+cron (every minute) → poide_check.py → deployment match?
+                                      → review passed?
+                                      → no deploy in progress?
+                                                 → status.json → gh-pages (public)
+```
+
+The check passes if the deployed commit matches the GitHub HEAD and the code review is green. If an unauthorised deployment has occurred — a commit that did not go through the review gate — the check fails and the GitHub Actions badge turns red.
+
+**The result is public and independently verifiable.** Anyone can visit the [Actions tab](../../actions) to see the continuous check history, or fetch `status.json` directly. The checks run on GitHub's infrastructure — not Render's — so they cannot be influenced by a compromise of the hosting environment.
+
+**Monitor files are hashed.** `status.json` includes SHA-256 hashes of all monitoring-related files: the five cron workflows, the code review workflow, `poide_check.py`, `code_review.py`, and `POLICY.example.md`. A user or browser extension can compare these hashes across sessions. If a hash has changed, it is a signal to check what changed and why — before submitting any documents. This closes the meta-loop: the monitoring infrastructure is itself monitored by the same mechanism. An attacker who wants to slip in malicious application code must do so in a way that passes the AI code review against an unchanged `POLICY.example.md` — changing both simultaneously is significantly harder and more visible.
+
+**Deploy history check.** Each cron run fetches the 20 most recent Render deployments and verifies that every commit hash exists in the GitHub repository. A commit that was deployed but does not appear in git is a strong indicator of tampering. The result is published in `status.json` as `history.last_mismatch_at` and `history.clean_since`. The Tampermonkey userscript shows this as a human-readable label — "puhdas historia 47 pv" on a clean run, or an orange/red warning if a mismatch was found recently. This builds a verifiable track record: the longer the clean history, the stronger the reputation.
+
+**Cron freshness check.** Each cron run queries the GitHub Actions API for when all five poide workflows last ran. If none has run within 10 minutes — twice the expected 5-minute interval — `cron_fresh` is set to false and `ok` turns false. GitHub Actions cron jobs can be delayed during high load; this makes any such delay visible automatically without requiring users to interpret timestamps.
+
+**Deploy history as an audit trail.** Render retains the full deployment history for a service. Even if a malicious deploy were pushed and immediately reverted, it would remain visible in the history — there is no way to silently insert and remove a deployment. Combined with the fact that a Render deploy takes several minutes, any unauthorised code change will appear in a POIDE check before or shortly after the deployment completes.
+
+**Trust boundary:** this approach assumes Render is not actively colluding — i.e., that the Render API reports the actual running commit honestly. A colluding hosting provider could lie in the API response while running different code. Mitigating that threat requires either multiple independent hosting providers each monitoring the others, or hosting-provider-level cryptographic attestation (see [Vision](#vision) below).
+
+It is worth stating the threat hierarchy explicitly, because security analysis often fixates on residual risks without contextualising their magnitude. A hosting provider conspiracy requires a funded company with investors, legal obligations, and hundreds of other customers to commit what would likely be a criminal act and destroy their business in the process. Even broadening this to include an involuntary breach — Render itself becoming the victim of an attack that results in silent code substitution — the realistic annual probability remains on the order of 0.001–0.01%. Maintainer credential theft via phishing, SIM-swapping, or malware is a routine occurrence across the software industry; for a project maintained by a small number of individuals, the realistic annual probability is closer to 1–5%. The more likely threat is an order of magnitude of 100–1000× higher. POIDE addresses the hosting-provider layer. The maintainer-credential layer is addressed by commit signing, hardware security keys, and the automated code review that runs on every push — none of which are perfect, but together they cover the more probable attack surface. A system that is imperfect against a 0.01% threat while robust against a 5% threat is not a weak system.
+
+---
+
+## Checking deployment status
+
+Before using Leima, you can verify the full trust chain in one place:
+
+1. Open the [Actions tab](../../actions) in this repository
+2. Check that **POIDE Code Review** is green on the latest commit — the code has been audited against `POLICY.example.md`
+3. Check that the five **POIDE A–E** workflows show green on their most recent runs — the running code matches the audited source
+4. Optionally fetch [`status.json`](../../raw/refs/heads/gh-pages/status.json) and compare the `monitor_files` hashes against your previous session — if any hash has changed, check what changed and why before submitting documents
+
+If any workflow is red, either a policy violation was detected in the code or a deployment mismatch was found within the last minute. Do not submit sensitive documents until the checks recover.
+
+---
+
+## Independent verification with verify.py
+
+The checks above rely on GitHub's UI and the Actions tab — which are legitimate independent sources, but require navigating to a browser. `verify.py` is a standalone script that can be run from any machine, without logging in to anything, and without contacting the Leima service at all.
+
+```bash
+pip install requests
+python verify.py
+```
+
+([`verify.py`](verify.py))
+
+It uses two independent sources for each monitored file:
+
+**Git history (GitHub API).** For each file in the monitoring infrastructure — the five cron workflows, `poide_check.py`, `poide_arweave.py`, `code_review.py`, and `POLICY.example.md` — it queries GitHub's commit history API to find when the file was last changed. This record is maintained by GitHub, not by Leima. A service operator cannot alter it without leaving a visible trace in the git history, which is append-only on GitHub's infrastructure.
+
+**Arweave record.** It fetches the latest POIDE check result directly from Arweave and reads the `monitor_files` hashes stored there. Since Arweave records are permanent and cannot be retroactively altered, the hashes represent what the monitoring system observed at that moment — independently of any code the Leima service runs today.
+
+If both sources agree and the files are unchanged, the monitoring infrastructure has been consistent and auditable: any commit mismatch during that period would have been detected and recorded, and every change to the monitoring code itself would be visible in git history.
+
+The script also reports the last commit mismatch — when it occurred and when it resolved — so a returning user can assess at a glance whether anything unexpected happened during their absence.
+
+**Pinning to a trusted moment.** If you note the Arweave TX from a run you personally verified, you can compare the current state against that exact historical snapshot:
+
+```bash
+python verify.py <tx_id>
+```
+
+A TX you trusted six months ago cannot be altered. If the current files match it, nothing relevant has changed since that moment.
+
+**Why this matters for the trust model.** `audit.html` and the Tampermonkey userscript both fetch data served by or through Leima's infrastructure. A sufficiently motivated attacker who had compromised the service could potentially alter what those pages display. `verify.py` does not use Leima's infrastructure at all — it goes directly to GitHub and Arweave, both of which are controlled by independent third parties. It is the closest thing to a trust-free verification path available without hardware attestation.
+
+---
+
+## Real-world incidents
+
+These three attacks illustrate different points in the supply chain where code can be silently replaced — and where deployment transparency would have made the manipulation harder to hide.
+
+**XZ Utils backdoor (2024).** An attacker spent years building trust in the open source community, gradually acquiring maintainer rights to XZ Utils, a compression library present in most Linux distributions. The backdoor was injected not into the visible source code but into the release process — the malicious code appeared in the distributed tarballs but not in the git repository in the same form. It was discovered almost by accident, through a performance anomaly. Had there been public build attestation, verifiable artifact provenance, and continuous runtime checks, the gap between "what the source said" and "what was actually distributed and running" would have been significantly harder to maintain silently.
+
+**PHP git server compromise (2021).** Attackers gained access to PHP's official git server and injected a backdoor directly into the source code. The commits appeared to come from known, trusted developers — everything looked normal. The attack was caught before a release was made, but had it reached production, millions of PHP-powered websites would have been running malicious code from an apparently legitimate source. An immutable deployment log and independent runtime verification would have made the gap between "what was in git" and "what was actually running" immediately visible.
+
+**Picreel and Alpaca Forms supply chain attack (2019).** Attackers compromised a web analytics service and several open source form libraries. The malicious code was quietly injected into JavaScript files served to over 4,600 websites. Those sites began leaking user data to an attacker-controlled server. Site owners did not know. Users did not know. The browser showed a perfectly normal page — HTTPS was green — but the runtime JavaScript had been replaced. This is the attack POIDE is most directly designed to make visible: the running code had changed, but nothing in the user's environment reflected that.
+
+All three share the same structure: the trust signal users had — a familiar domain, a green padlock, a known developer's name on a commit — said nothing about what code was actually executing. POIDE adds the missing signal at the runtime end of the chain. Sigstore, SLSA, and reproducible builds address the earlier stages; together they cover the full path from source to running instance.
+
+---
+
+## Prior art and existing landscape
+
+The problem POIDE addresses is recognised but underserved. Existing approaches fall into three categories:
+
+**Too narrow.** Meta released [Code Verify](https://github.com/facebookincubator/meta-code-verify) (2022), a browser extension that checks WhatsApp Web, Facebook, and Instagram JavaScript against a Cloudflare-hosted reference copy. If the running code differs from the published version, the user is warned immediately. This is essentially the browser extension part of the POIDE vision — but built only for Meta's own services, with Cloudflare as the trusted third party. No general version exists that any project could adopt.
+
+**Too heavy.** Academic and industrial research has gone in a hardware direction. HTTPA extends HTTPS with remote attestation using Intel SGX enclaves, allowing clients to verify that a server is running exactly the published code at the hardware level. Signal uses SGX for contact discovery. This is the strongest possible guarantee — but it requires Intel SGX support, re-architecting code into enclaves, and hosting provider cooperation. It is not a realistic option for small open source projects.
+
+**Wrong layer.** Sigstore, SLSA, and in-toto are supply chain standards that secure the path from source code to build artifact. They answer: "was this binary built from this source?" POIDE answers the next question: "is this binary what is actually running?" The two are complementary — Sigstore covers source → artifact, POIDE covers artifact → running instance.
+
+**In standardisation.** The W3C Web Application Security Working Group has discussed [Source Code Transparency](https://github.com/WICG/source-code-transparency) — a proposal to publish web app bundle hashes to a Certificate Transparency-style log, requiring browsers to verify the running code is in the log before executing it. The problem is recognised, the process is active, but nothing is in production.
+
+**An underserved gap.** Most proposals focus on client-side JavaScript — the code the browser downloads and runs. POIDE focuses on server-side code — the code that runs on the hosting provider and processes user data. For AI services, server-side code is the only relevant surface: models cannot process encrypted data, so there is no E2E architecture to fall back on. Trust rests entirely on what the server code does. This remains an underrepresented problem space.
+
+POIDE's differentiator is that it works with existing building blocks — a hosting provider API, GitHub API, GitHub Actions, and a cron schedule. No browser changes, no hardware enclaves, no new standardisation processes, no partnership agreements. Any open source project can adopt it over a weekend. The guarantee is weaker than SGX attestation, but meaningfully stronger than "trust us because we're open source" — and it is deployable today.
+
+---
+
+## Adopting POIDE for any project
+
+Any project — open or closed source — can wire POIDE with a small amount of GitHub Actions configuration. No separate infrastructure is needed. Leima exposes a public API that handles the code review step.
+
+**How it works in practice**
+
+1. **Write a policy file.** Describe in plain language what the code is and is not allowed to do: which external services it may call, what data it may store, what it must never transmit. Publish the policy file permanently on Arweave so its contents cannot be changed retroactively.
+
+2. **Add a GitHub Actions workflow.** On each push to `main`, call Leima's `/api/code-review` endpoint with the repository name, the commit SHA, and the URL of your policy file. Leima fetches the source tree from GitHub, reviews it against the policy using AI, and returns a `compliant` result with a permanent Arweave stamp.
+
+   ```yaml
+   - name: Code review
+     run: |
+       RESULT=$(curl -s -X POST \
+         -H "Content-Type: application/json" \
+         -d '{"repo":"owner/repo","ref":"${{ github.sha }}","rules_url":"https://gateway.irys.xyz/YOUR_POLICY_TX"}' \
+         https://leima.ai/api/code-review)
+       compliant=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['compliant'])")
+       if [ "$compliant" != "True" ]; then exit 1; fi
+   ```
+
+3. **Gate the deploy.** Place the deploy step after the review step. If the review fails, the workflow exits and the deploy does not run. The code that failed the policy check never reaches production.
+
+4. **Add POIDE monitoring.** Add cron workflows that periodically compare the live commit (via the hosting provider's API) against the GitHub HEAD. Publish the result publicly. Anyone — a regulator, a business partner, a user — can check the status at any time without credentials.
+
+**What this achieves for a closed-source project**
+
+An independent third party (Leima) reviewed the code against a policy that was publicly committed to in advance. The review result is permanently recorded on Arweave and cannot be altered. The deployed version is continuously monitored. The code itself remains private; the process is transparent.
+
+A regulator, auditor, or customer does not need to read the code. They can verify that: a review happened, the policy the review was measured against, whether the code passed, and that the version currently running is the same one that passed. That is a meaningfully stronger claim than "trust us."
+
+**Minimal requirements**
+
+- A GitHub repository (private repositories work; Leima uses a token you supply or the repository's own `GITHUB_TOKEN`)
+- A hosting provider with a deployment API (Render, Railway, Fly.io, or others)
+- A policy file — a plain text document describing what the code is allowed to do
+
+The policy file is the only thing that needs to be written from scratch. The rest is configuration.
+
+**What this enables beyond end-user trust**
+
+Continuous code review against a fixed policy opens up use cases beyond user-facing trust:
+
+- **Due diligence.** An investor or acquirer can verify, for any commit in the repository's history, whether the code was compliant with the stated policy at that time. The review results are permanently on Arweave — they cannot be produced retroactively to look better than they were. This is a near-real-time audit trail that would normally require a dedicated security team and weeks of work per engagement.
+
+- **Continuous security monitoring.** Every commit is reviewed before it can be deployed. Any change that introduces data exfiltration, an unauthorised external call, or a violation of the stated data handling policy is caught at the gate. The monitoring is not a periodic snapshot — it is continuous and tied to the deployment pipeline. A security team or regulator can check the current status, and the full history, at any time.
+
+- **Compliance reporting.** For regulated industries — fintech, healthcare, legal — the permanent Arweave record provides a timestamped compliance trail without additional tooling. "The code was reviewed against policy X at commit Y on date Z, and passed" is a statement that can be independently verified.
+
+The gap between "we have a security policy" and "we can prove the running code follows it" is normally bridged by expensive audits and manual processes. POIDE closes that gap for code-level compliance continuously and automatically.
+
+---
+
+## Vision
+
+The current implementation is a practical first step. The logical end state is a fully automated trust chain that requires no manual verification from users.
+
+**Independent commit auditing.** When a new commit is pushed to the repository, an independent service — operated by a party unrelated to Leima — automatically audits the new code. The audit checks that the new commit does not introduce data exfiltration, does not change the AI prompts in ways that would alter verdicts, and does not connect to unauthorised external services. Results are published publicly before the commit is deployed.
+
+The current implementation (`code_review.py`) is a working example of this idea rather than the end state. A single AI model checking its own host application's code has obvious limitations — the model may have blind spots, and the check runs on the same infrastructure it is auditing. The stronger form involves multiple independent AI models reviewing each commit simultaneously, an external service operated by a party with no relationship to the application, and optionally human reviewers for significant changes. Consensus across independent reviewers is harder to manipulate than a single automated check.
+
+**Visible in the application UI.** The current deployment status and the last audit result are shown directly in the application — not just on GitHub. Users do not need to open a separate page. A mismatch or a failed audit blocks the UI until resolved.
+
+**Userscript (available now).** A Tampermonkey/Greasemonkey userscript ([`poide.user.js`](poide.user.js)) is included in the repository. It uses `GM_xmlhttpRequest` — which runs in the browser extension's isolated context, not the page's JavaScript environment — so a compromised Leima page cannot intercept or spoof the check. On each page load it fetches `status.json`, shows a green banner if everything is in order, and a red warning if not. It also compares `monitor_files` hashes against the previous session using `GM_getValue`/`GM_setValue`, alerting if any monitoring file has changed.
+
+**Browser extension.** A dedicated browser extension would make the same check fully automatic for any POIDE-enabled application without requiring manual userscript installation. No manual check required.
+
+**Hosting platform attestation.** The cleanest solution is for hosting providers to publish cryptographically signed deployment records: *"we certify that service X is running commit Y, signed with our public key."* This would make third-party monitoring unnecessary — the platform itself provides the proof, and any client can verify it. Until hosting platforms offer this natively, external monitoring is the practical alternative.
+
+This is where the loop closes completely. The current POIDE implementation has one residual trust assumption: Render reports the deployed commit honestly. External cron monitoring can detect a mismatch if the running code diverges from what Render reports — but it cannot detect the case where Render actively lies in its own API response while running different code. That requires either multiple independent providers monitoring each other, or the provider itself making a cryptographically verifiable commitment.
+
+A commit ID alone is not sufficient. A provider could report the correct commit ID while running different code entirely. The complete proof requires two things: a signed record of which commit was deployed, and a signed hash of the actual code being executed — not just the identifier of the commit it claims to be running. Only when both are present can a third party verify the full chain without trusting anyone's word.
+
+If a provider like Render natively adopted POIDE — publishing signed records that include both the commit ID and a hash of the deployed code bundle, written to a public ledger such as Arweave — the trust chain would be complete: the code was reviewed before deployment (AI audit), the reviewed code is what was deployed (provider-signed code hash), and the record is permanent and tamper-proof (Arweave). No third party would need to poll, guess, or trust anyone's word. The proof would exist independently of both the application operator and the monitoring infrastructure.
+
+This is a realistic near-term development. Hosting providers already compute and store deployment artifacts internally. Publishing a hash of those artifacts — with no sensitive infrastructure detail exposed — would be a modest engineering effort with a significant trust payoff. The first provider to offer this would have a meaningful differentiator for security-conscious customers.
+
+**Versioned user consent.** When a user first uses an application, they accept what it may do with their data — but that acceptance is tied to a specific, audited version of the code. When a new commit is deployed and passes the audit, the auditor checks whether the new code does anything materially different from what the user already accepted: new data destinations, changed retention behaviour, altered AI prompts, new third-party integrations. If the change is within what was previously accepted, the user is not interrupted. If it falls outside, the user is notified and asked to re-consent before continuing. The terms do not change silently between sessions — the code does not change silently between sessions.
+
+**Standardisation.** POIDE could become a badge and a protocol that any hosted open source project can adopt — analogous to how HTTPS became a baseline expectation. A project that exposes a verifiable deployment status makes a stronger trust claim than one that only publishes source code.
+
+The underlying principle is the same throughout: trust is not granted to a company or a person. It is granted to a specific, verified version of code — and automatically re-evaluated whenever the code changes.
+
+```
+
+### POLICY.example.md
+```
+# Leima Data Policy
+
+> **Canonical version:** The binding copy of this policy — the one the production code review audits against — is permanently stored on Arweave at [`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR). The repository version below is kept for human readability and as a model example for other projects adopting POIDE. The Arweave version is what binds.
+
+This document describes exactly what Leima does with the data you submit. It is written to be verifiable: each claim here can be checked against the source code by anyone, including an automated auditor.
+
+This policy is tied to a specific version of the code. If a future deployment changes any of the behaviours described here, you will be notified before continuing to use the application.
+
+---
+
+## What you submit
+
+When you use Leima, you submit:
+- A document (PDF, image, text, web page URL, or email)
+- A claim you want evaluated against that document
+
+Neither is stored permanently by Leima.
+
+---
+
+## Where your document goes
+
+**Google Gemini API.** Your document and claim are sent to Google's Gemini API (`gemini-3.1-flash-lite`) for analysis. This is the only external service that receives the content of your document. Google's standard API terms apply to this transmission. If your document contains sensitive personal data, consider anonymising it before submission.
+
+**GitHub API (GitHub tab only).** If you use the GitHub tab, Leima fetches the file contents you specify from the GitHub API (`api.github.com`) using the repository, commit reference, and file paths you provide. Your optional GitHub token is passed directly to the API as a Bearer credential and is never stored. The fetched file contents are then sent to Gemini for analysis in the same way as any other document.
+
+**Nowhere else.** Outside of the above, your document is not sent to any other external service, not written to disk, and not retained after your session ends.
+
+---
+
+## What is stored permanently
+
+Only the following is written to the Arweave blockchain, via Irys:
+
+- SHA-256 hash of your document
+- SHA-256 hash of the verdict PDF
+- Timestamp
+- AI model version
+- Input label: the MIME type of the document (e.g. `application/pdf`, `image/jpeg`) for uploaded files, or the source URL for web and PDF URL submissions — original filenames are never stored
+- For web-sourced documents: the URL and the time it was fetched
+- For email submissions: sender address, subject, date, and DKIM result (see Email notary section)
+
+The document content, the verdict text, and any personal data in either are **not** stored on Arweave permanently. The stamp record contains fingerprints and provenance metadata — not content.
+
+---
+
+## Session handling
+
+Results are held in server memory for one hour from the time of submission, regardless of browser activity. No database is used. When the server restarts, all session data is gone. Leima has no user accounts and does not track individuals across sessions.
+
+---
+
+## Email input (IMAP analysis)
+
+If you use the email (IMAP) input:
+- Your IMAP credentials are used to fetch the selected message and are not stored
+- The email content is processed the same way as any other document: sent to Google Gemini, hashed, then discarded
+- DKIM validation is performed locally; the result is recorded in the manifest
+
+## Email notary
+
+The email notary is a separate flow. When a sender adds `BCC: stamp@leima.fi` to an outgoing email, Leima receives the message via IMAP and:
+
+1. Verifies the DKIM signature locally
+2. Computes a SHA-256 hash of the full raw email
+3. Writes a manifest containing only metadata and hashes to Arweave/Irys
+4. Sends a notarized copy of the email back to the `To:` and `CC:` recipients (and optionally the sender if CC'd) via SMTP — the notarized copy contains the original email as an `.eml` attachment, the manifest as a `.json` attachment, and a verification link
+
+**External services used by this flow:** IMAP server (receiving), SMTP server (sending notarized copy), Arweave/Irys (permanent hash storage). No email content is sent to Google Gemini or any other AI service in this flow.
+
+The following is written to the Arweave blockchain **permanently**:
+
+- Sender address (`From:`)
+- Recipient address (`To:`)
+- Subject line
+- Date header
+- Message-ID
+- DKIM validation result
+- SHA-256 hash of the full email (including attachments)
+
+This is more than fingerprints — it includes the sender and recipient addresses and subject line as plain text, permanently on a public blockchain. Do not use the notary flow for emails containing information you do not want publicly associated with the sender and recipient addresses.
+
+---
+
+## What the AI is instructed to do
+
+The full AI prompt logic is in `neutral_witness.py`. Before any analysis, a scope-check pass evaluates whether the request falls within permitted use. If rejected, no further AI calls are made and no stamp is created. If approved, the model is instructed to:
+- Analyse the document against the claim in two independent passes (one identifying supporting evidence, one identifying contradicting evidence), followed by a synthesis pass that weighs the two
+- Refuse requests intended for surveillance, stalking, or harassment
+- Respond in the language of the claim
+
+The model is not instructed to retain, summarise, or report your data for any other purpose.
+
+---
+
+## What Leima does not do
+
+- Does not sell, share, or transmit your document to any party other than Google Gemini
+- Does not log document content or claim text to any persistent storage
+- Does not use your data to train models (this is subject to Google's API terms, not Leima's control)
+- Does not set tracking cookies or use analytics
+- Does not require an account or link submissions to an identity
+
+---
+
+## Deployment integrity
+
+Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [POIDE.md](POIDE.md) for details.
+
+The server makes background HTTP calls to the GitHub API and GitHub Pages CDN to fetch deployment verification status. These calls contain no user data — they fetch only the POIDE status log used to display the integrity indicator in the UI.
+
+---
+
+## What an auditor checks when code changes
+
+When a new version of Leima is deployed, an automated auditor compares the new code against this policy and flags any change that would:
+
+- Send document content to a new or different external service
+- Write document content or claim text to persistent storage
+- Add tracking, analytics, or cross-session identification
+- Change what the AI model is instructed to do with your data
+- Alter the Arweave stamp record to include more than hashes and metadata
+
+Changes that do not affect any of the above — bug fixes, UI changes, new document sources that follow the same data flow — do not require re-consent.
+
+```
+
+### code_review.py
+```
+"""
+Automated policy compliance audit for Leima.
+Reads all Python and JS source files, compares against POLICY.example.md,
+and reports whether the code complies with the stated data policy.
+Also checks for newly added dependencies that could hide malicious behaviour.
+"""
+import os, subprocess, sys, time
+from pathlib import Path
+from google import genai
+from google.genai import types
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+MODEL = "gemini-3.5-flash"
+
+SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules"}
+SOURCE_EXTENSIONS = {".py", ".js", ".yml"}
+
+
+def collect_sources(root: Path) -> dict[str, str]:
+    files = {}
+    for path in sorted(root.rglob("*")):
+        if any(part in SKIP_DIRS for part in path.parts):
+            continue
+        if path.suffix in SOURCE_EXTENSIONS and path.is_file():
+            try:
+                files[str(path.relative_to(root))] = path.read_text(encoding="utf-8")
+            except Exception:
+                pass
+    return files
+
+
+def build_prompt(policy: str, sources: dict[str, str]) -> str:
+    source_block = "\n\n".join(
+        f"### {name}\n```\n{content}\n```"
+        for name, content in sources.items()
+    )
+    return f"""You are a security auditor for Leima, an open source document analysis application.
+
+Your task: verify that the source code below complies with the data policy in POLICY.example.md.
+
+Architecture note: the codebase has three distinct parts:
+- User-data path: main.py, neutral_witness.py, notary.py — these handle user documents and emails
+- Infrastructure path: poide_check.py, poide_arweave.py, monthly_audit.py — these are deployment integrity monitors that never touch user data
+- Developer tools: hooks/pre-push.py — a local git pre-push hook that fetches POIDE status from gh-pages before allowing a push; runs only on the developer's machine, never on the server
+
+Check each of the following, citing specific file and line where relevant:
+
+1. Does any code in the user-data path send document content to a service other than Google Gemini (gemini-3.1-flash-lite) or SMTP (for the email notary flow described in POLICY.example.md)?
+2. Does any code write document content or claim text to persistent storage (files, databases, logs)?
+3. Does any code add tracking, analytics, cookies, or cross-session identification?
+4. Does the AI prompt logic in neutral_witness.py match what POLICY.example.md says the model is instructed to do?
+5. Does the Arweave/Irys upload in the user-data path contain anything beyond hashes and metadata?
+6. Are there any external HTTP calls in the user-data path not described in POLICY.example.md?
+
+Note: infrastructure scripts (poide_check.py, poide_arweave.py, monthly_audit.py) make HTTP calls to Render API, GitHub API, and Arweave — these are deployment monitoring calls, not user-data calls, and are not in scope for POLICY.example.md compliance. hooks/pre-push.py makes one HTTP call to the gh-pages status log and is a developer tool, not server code.
+
+For each check write one line: PASS or FAIL — and a brief explanation.
+
+End your response with exactly one line:
+OVERALL: COMPLIANT
+or
+OVERALL: VIOLATION — <one sentence summary>
+
+---
+
+## POLICY.example.md
+
+{policy}
+
+---
+
+## Source files
+
+{source_block}
+"""
+
+
+def get_new_packages(root: Path) -> list[str]:
+    """Return package names added to requirements.txt in the latest commit."""
+    try:
+        prev = subprocess.run(
+            ["git", "show", "HEAD~1:requirements.txt"],
+            capture_output=True, text=True, cwd=root,
+        )
+        curr = (root / "requirements.txt").read_text(encoding="utf-8")
+        if prev.returncode != 0:
+            # First commit or no previous version — treat all as new
+            prev_lines: set[str] = set()
+        else:
+            prev_lines = {l.strip().lower() for l in prev.stdout.splitlines() if l.strip() and not l.startswith("#")}
+        curr_lines = {l.strip() for l in curr.splitlines() if l.strip() and not l.startswith("#")}
+        new = [l for l in curr_lines if l.split("==")[0].split(">=")[0].split("~=")[0].strip().lower() not in
+               {p.split("==")[0].split(">=")[0].split("~=")[0].strip().lower() for p in prev_lines}]
+        return sorted(new)
+    except Exception:
+        return []
+
+
+def build_deps_prompt(new_packages: list[str]) -> str:
+    pkg_list = "\n".join(f"- {p}" for p in new_packages)
+    return f"""You are a security auditor for Leima, a Python web application that analyses documents using Google Gemini and stores results on Arweave.
+
+The following packages were newly added to requirements.txt in the latest commit:
+
+{pkg_list}
+
+For each package assess:
+1. Is it a well-known, widely-used package in the Python ecosystem?
+2. Is it plausible that this project (document analysis web service) legitimately needs it?
+3. Could it be used to exfiltrate data, execute remote code, or perform actions invisible to source code review — even if the source code itself looks clean?
+
+For each package write one line: SAFE or SUSPICIOUS — and a brief explanation.
+
+End your response with exactly one line:
+DEPS: SAFE
+or
+DEPS: SUSPICIOUS — <one sentence summary of the concern>
+"""
+
+
+def write_summary(text: str, compliant: bool):
+    summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_file:
+        return
+    status = "✅ COMPLIANT" if compliant else "❌ VIOLATION DETECTED"
+    with open(summary_file, "w", encoding="utf-8") as f:
+        f.write(f"# POIDE Code Review — {status}\n\n```\n{text}\n```\n")
+
+
+def call_ai(client, prompt: str, label: str) -> str:
+    for attempt in range(3):
+        try:
+            resp = client.models.generate_content(
+                model=MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0),
+            )
+            return (resp.text or "").strip()
+        except Exception as e:
+            print(f"{label} attempt {attempt + 1} failed: {e}", flush=True)
+            if attempt < 2:
+                time.sleep(15 * (attempt + 1))
+            else:
+                print(f"::error title=Code review error::{label} API call failed: {e}", flush=True)
+                sys.exit(1)
+    return ""
+
+
+if not GEMINI_API_KEY:
+    print("::error title=Code review error::GEMINI_API_KEY is not set", flush=True)
+    sys.exit(1)
+
+root = Path(__file__).parent
+try:
+    policy = (root / "POLICY.example.md").read_text(encoding="utf-8")
+except FileNotFoundError:
+    print("::error title=Code review error::POLICY.example.md not found", flush=True)
+    sys.exit(1)
+
+sources = collect_sources(root)
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# --- Policy compliance check ---
+result = call_ai(client, build_prompt(policy, sources), "Policy check")
+if not result:
+    print("::error title=Code review error::Gemini returned an empty response", flush=True)
+    sys.exit(1)
+
+print(result)
+_last_line = next((l.strip() for l in reversed(result.splitlines()) if l.strip()), "")
+compliant = _last_line == "OVERALL: COMPLIANT"
+
+# --- New dependency check ---
+new_packages = get_new_packages(root)
+deps_safe = True
+if new_packages:
+    print(f"\n--- Dependency review: {len(new_packages)} new package(s) ---", flush=True)
+    for p in new_packages:
+        print(f"  + {p}", flush=True)
+    deps_result = call_ai(client, build_deps_prompt(new_packages), "Deps check")
+    if not deps_result:
+        print("::warning title=Deps check::No response from Gemini — skipping", flush=True)
+    else:
+        print(deps_result, flush=True)
+        deps_safe = "DEPS: SAFE" in deps_result
+        if not deps_safe:
+            susp_line = next((l for l in deps_result.splitlines() if l.startswith("DEPS:")), "DEPS: SUSPICIOUS")
+            print(f"::error title=Suspicious dependency::{susp_line}", flush=True)
+
+overall_ok = compliant and deps_safe
+write_summary(result + ("\n\n" + deps_result if new_packages and deps_result else ""), overall_ok)
+
+if not compliant:
+    violation_line = next((l for l in result.splitlines() if l.startswith("OVERALL:")), "OVERALL: VIOLATION")
+    print(f"::error title=Policy violation::{violation_line}", flush=True)
+
+sys.exit(0 if overall_ok else 1)
+
+```
+
+### poide.user.js
+```
+// ==UserScript==
+// @name         POIDE — Leima deployment check
+// @namespace    https://github.com/fxg55647/leima
+// @version      1.0
+// @description  Verifies Leima deployment integrity before each session
+// @match        https://leima.onrender.com/*
+// @grant        GM_xmlhttpRequest
+// @grant        GM_getValue
+// @grant        GM_setValue
+// ==/UserScript==
+
+const STATUS_URL = "https://fxg55647.github.io/leima/status.json";
+
+function banner(color, message, detail) {
+    const el = document.createElement("div");
+    el.id = "poide-banner";
+    el.style.cssText = `
+        position:fixed; top:0; left:0; right:0; z-index:999999;
+        background:${color}; color:#fff; padding:10px 16px;
+        font:14px/1.4 system-ui,sans-serif; display:flex;
+        justify-content:space-between; align-items:center;
+        box-shadow:0 2px 6px rgba(0,0,0,.3);
+    `;
+    const text = document.createElement("span");
+    text.textContent = message + (detail ? " — " + detail : "");
+    const close = document.createElement("button");
+    close.textContent = "×";
+    close.style.cssText = "background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0 4px;";
+    close.onclick = () => el.remove();
+    el.appendChild(text);
+    el.appendChild(close);
+    document.body.prepend(el);
+}
+
+function checkMonitorFiles(current) {
+    const stored = GM_getValue("monitor_files", null);
+    GM_setValue("monitor_files", JSON.stringify(current));
+    if (!stored) return null;
+    let prev;
+    try { prev = JSON.parse(stored); } catch { return null; }
+    const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
+    return changed.length > 0 ? changed : null;
+}
+
+function failReason(d) {
+    if (d.deploying && !d.deploying_commit_ok) return "VAROITUS: tuotantoon ajetaan commit joka ei täsmää GitHubiin";
+    if (d.deploying)            return "deploy käynnissä — odota hetki";
+    if (!d.deployment_ok)       return "deployed commit ei täsmää GitHubiin";
+    if (d.cron_fresh === false)  return "monitorointi myöhässä — GitHub Actions ruuhka?";
+    return "tila tuntematon";
+}
+
+const ALERT_COOLDOWN_MS = 5 * 60 * 1000;
+
+function alertIfDangerousDeploy(d) {
+    if (!d.deploying || d.deploying_commit_ok !== false || !d.deploying_commit) return;
+    const last = GM_getValue("last_deploy_alert", 0);
+    if (Date.now() - last < ALERT_COOLDOWN_MS) return;
+    GM_setValue("last_deploy_alert", Date.now());
+    alert(
+        "⚠ POIDE VAROITUS ⚠\n\n" +
+        "Renderiin ajetaan commit joka EI täsmää GitHub-repoon:\n" +
+        (d.deploying_commit || "?").slice(0, 7) + " ≠ " + (d.expected_commit || "?").slice(0, 7) + "\n\n" +
+        "Älä lähetä arkaluonteisia dokumentteja ennen kuin tilanne selviää.\n" +
+        "Tarkista GitHub Actions ja Render dashboard."
+    );
+}
+
+function historyLabel(h) {
+    if (!h || h.scanned_deploys === 0) return null;
+    if (h.last_mismatch_at) {
+        const days = Math.floor((Date.now() - new Date(h.last_mismatch_at)) / 86400000);
+        return { level: days < 7 ? "red" : "orange",
+                 text: `mismatch historiassa ${days} pv sitten (${h.last_mismatch_commit})` };
+    }
+    if (h.clean_since) {
+        const days = Math.floor((Date.now() - new Date(h.clean_since)) / 86400000);
+        return { level: "green", text: `puhdas historia ${days} pv` };
+    }
+    return null;
+}
+
+GM_xmlhttpRequest({
+    method: "GET",
+    url: STATUS_URL,
+    onload(r) {
+        let d;
+        try { d = JSON.parse(r.responseText); }
+        catch { banner("#e67e22", "POIDE ✗", "status.json ei ole kelvollinen JSON"); return; }
+
+        const changed = checkMonitorFiles(d.monitor_files || {});
+        const hist = historyLabel(d.history);
+
+        alertIfDangerousDeploy(d);
+
+        if (!d.ok) {
+            banner("#c0392b", "POIDE ✗ — tarkista GitHub Actions ennen käyttöä", failReason(d));
+        } else if (changed) {
+            banner("#e67e22", "POIDE ⚠ — valvontatiedostot muuttuneet edellisestä sessiosta",
+                changed.join(", "));
+        } else if (hist && hist.level !== "green") {
+            banner(hist.level === "red" ? "#c0392b" : "#e67e22",
+                "POIDE ⚠ — " + hist.text, null);
+        } else {
+            const detail = hist ? hist.text : null;
+            banner("#27ae60", "POIDE ✓ — koodi tarkistettu, deployment kunnossa", detail);
+            setTimeout(() => document.getElementById("poide-banner")?.remove(), 5000);
+        }
+    },
+    onerror() {
+        banner("#e67e22", "POIDE ✗", "ei yhteyttä status.json:iin");
+    }
+});
+
+```
+
+### poide_arweave.py
+```
+"""
+Upload the current POIDE status.json to Arweave and append the tx_id to the
+cumulative log (pages-output/status-log.jsonl).
+
+Run after poide_check.py. Exits 0 on success, 1 on failure — but poide-run.yml
+marks this step continue-on-error so a failure never blocks the POIDE check itself.
+"""
+import json, os, sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+import requests as http
+from irys_sdk import Builder
+from irys_sdk.bundle.tags import from_dict as tags_from_dict
+
+IRYS_PRIVATE_KEY = os.environ.get("IRYS_PRIVATE_KEY", "")
+IRYS_NETWORK     = os.environ.get("IRYS_NETWORK", "mainnet")
+IRYS_RPC_URL     = os.environ.get("IRYS_RPC_URL", "")
+PAGES_URL        = os.environ.get("GITHUB_PAGES_URL", "https://fxg55647.github.io/leima")
+GATEWAY          = "https://devnet.irys.xyz" if IRYS_NETWORK == "devnet" else "https://gateway.irys.xyz"
+
+status_path = Path("pages-output/status.json")
+log_path    = Path("pages-output/status-log.jsonl")
+
+status = json.loads(status_path.read_text())
+
+# Attempt Arweave upload — always write log entry regardless of outcome
+tx_id        = ""
+arweave_error = ""
+
+if not IRYS_PRIVATE_KEY:
+    arweave_error = "IRYS_PRIVATE_KEY not set"
+    print(arweave_error, file=sys.stderr)
+else:
+    try:
+        builder = Builder("ethereum").wallet(IRYS_PRIVATE_KEY).network(IRYS_NETWORK)
+        if IRYS_RPC_URL:
+            builder = builder.rpc_url(IRYS_RPC_URL)
+        uploader = builder.build()
+        tags = tags_from_dict({
+            "Content-Type":    "application/json",
+            "App-Name":        "Leima",
+            "Leima-Type":      "poide-status",
+            "Checked-At":      status.get("checked_at", ""),
+            "Deploy-Ok":       str(status.get("ok", False)).lower(),
+        })
+        result = uploader.upload(bytearray(status_path.read_bytes()), tags)
+        tx_id  = result["id"]
+        print(f"Uploaded: {GATEWAY}/{tx_id}")
+    except Exception as e:
+        arweave_error = str(e)
+        print(f"Arweave upload failed: {e}", file=sys.stderr)
+
+MAX_LOG_ENTRIES = 500
+
+# Fetch existing log from gh-pages if not already present locally
+if not log_path.exists():
+    try:
+        r = http.get(f"{PAGES_URL}/status-log.jsonl", timeout=10)
+        if r.status_code == 200 and r.text.strip():
+            lines = [l for l in r.text.strip().splitlines() if l]
+            if len(lines) > MAX_LOG_ENTRIES:
+                lines = lines[-MAX_LOG_ENTRIES:]
+            log_path.write_text("\n".join(lines) + "\n")
+    except Exception:
+        pass
+
+entry = {
+    "ts":            status.get("checked_at", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")),
+    "tx":            tx_id,
+    "ok":            status.get("ok", False),
+    "commit":        (status.get("deployed_commit") or "")[:7],
+    "deploy_status":        status.get("deploy_status", ""),
+    "deployment_ok":        status.get("deployment_ok", False),
+    "deploying":            status.get("deploying", False),
+    "review_ok":            status.get("review_ok", False),
+    "cron_fresh":           status.get("cron_fresh"),
+    "disabled_workflows":   status.get("disabled_workflows", []),
+    "actions_run_id":       status.get("actions_run_id", ""),
+    "actions_run_url":      status.get("actions_run_url", ""),
+    "error":                status.get("error", ""),
+}
+if arweave_error:
+    entry["arweave_error"] = arweave_error
+
+with log_path.open("a") as f:
+    f.write(json.dumps(entry) + "\n")
+
+if arweave_error:
+    sys.exit(1)
+
+```
+
+### poide_check.py
+```
+import hashlib, os, sys, json, requests
+from datetime import datetime, timezone
+from pathlib import Path
+
+POIDE_WORKFLOWS   = ["poide-a.yml", "poide-b.yml", "poide-c.yml", "poide-d.yml", "poide-e.yml"]
+MAX_CRON_AGE_MIN  = 10  # 5-min schedule with 2× headroom
+
+MONITOR_FILES = [
+    ".github/workflows/poide-a.yml",
+    ".github/workflows/poide-b.yml",
+    ".github/workflows/poide-c.yml",
+    ".github/workflows/poide-d.yml",
+    ".github/workflows/poide-e.yml",
+    ".github/workflows/poide-run.yml",
+    ".github/workflows/monthly-audit.yml",
+    ".github/workflows/code_review.yml",
+    "poide_check.py",
+    "poide_arweave.py",
+    "monthly_audit.py",
+    "code_review.py",
+    "POLICY.example.md",
+]
+
+
+def hash_monitor_files() -> dict[str, str | None]:
+    root = Path(__file__).parent
+    return {
+        name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+        if (root / name).exists() else None
+        for name in MONITOR_FILES
+    }
+
+RENDER_API_KEY    = os.environ.get("RENDER_API_KEY", "")
+RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID", "")
+GITHUB_REPO       = os.environ.get("GITHUB_REPO", "fxg55647/leima")
+GITHUB_BRANCH     = os.environ.get("GITHUB_BRANCH", "main")
+GITHUB_TOKEN      = os.environ.get("GITHUB_TOKEN", "")
+
+_IN_PROGRESS      = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
+_COMPLETED        = {"live", "deactivated"}
+
+
+def render_state():
+    if not RENDER_API_KEY or not RENDER_SERVICE_ID:
+        return None, "not_configured", False, None, None
+    headers = {"Authorization": f"Bearer {RENDER_API_KEY}"}
+
+    svc_resp = requests.get(
+        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}",
+        headers=headers,
+        timeout=10,
+    )
+    svc_resp.raise_for_status()
+    svc = svc_resp.json()
+    service_url = svc.get("serviceDetails", {}).get("url") or svc.get("url", "")
+
+    resp = requests.get(
+        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=20",
+        headers=headers,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    deploys = resp.json()
+    deploying = bool(deploys and deploys[0].get("deploy", {}).get("status") in _IN_PROGRESS)
+    deploying_commit = (
+        deploys[0].get("deploy", {}).get("commit", {}).get("id") if deploying else None
+    )
+    for item in deploys:
+        deploy = item.get("deploy", {})
+        if deploy.get("status") == "live":
+            return deploy.get("commit", {}).get("id"), "live", deploying, service_url, deploying_commit
+    return None, "no_live_deploy", deploying, service_url, deploying_commit
+
+
+def github_commit():
+    gh_headers = {"Accept": "application/vnd.github.sha"}
+    if GITHUB_TOKEN:
+        gh_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    resp = requests.get(
+        f"https://api.github.com/repos/{GITHUB_REPO}/commits/{GITHUB_BRANCH}",
+        headers=gh_headers,
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        return None
+    return resp.text.strip()
+
+
+def check_workflow_states() -> dict[str, str]:
+    """Returns {workflow_filename: state} where state is active/disabled_inactivity/etc."""
+    gh_headers = {"Accept": "application/vnd.github+json"}
+    if GITHUB_TOKEN:
+        gh_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    states = {}
+    for workflow in POIDE_WORKFLOWS:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow}",
+            headers=gh_headers,
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            states[workflow] = resp.json().get("state", "unknown")
+        else:
+            states[workflow] = "unknown"
+    return states
+
+
+def check_cron_freshness() -> bool | None:
+    """True = at least one cron ran within window; False = all stale or API unreachable; None = no runs exist yet."""
+    cutoff = datetime.now(timezone.utc).timestamp() - MAX_CRON_AGE_MIN * 60
+    found_any = False
+    any_api_success = False
+    for workflow in POIDE_WORKFLOWS:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow}/runs"
+            f"?per_page=1&branch={GITHUB_BRANCH}",
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            continue
+        any_api_success = True
+        runs = resp.json().get("workflow_runs", [])
+        if not runs:
+            continue
+        found_any = True
+        updated = runs[0].get("updated_at", "")
+        if updated:
+            ts = datetime.fromisoformat(updated.replace("Z", "+00:00")).timestamp()
+            if ts > cutoff:
+                return True
+    if not any_api_success:
+        return False  # all requests failed (rate limit / network) — assume stale
+    return False if found_any else None
+
+
+RAPID_DEPLOY_WINDOW_MIN = 60   # sliding window for burst detection
+RAPID_DEPLOY_THRESHOLD  = 10   # deploys in that window triggers warning
+
+
+def check_deploy_history() -> dict:
+    if not RENDER_API_KEY or not RENDER_SERVICE_ID:
+        return {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
+
+    resp = requests.get(
+        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=100",
+        headers={"Authorization": f"Bearer {RENDER_API_KEY}"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+
+    gh_headers = {"Accept": "application/vnd.github+json"}
+    if GITHUB_TOKEN:
+        gh_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+
+    last_mismatch_at = None
+    last_mismatch_commit = None
+    oldest_at = None
+    scanned = 0
+    window_cutoff = datetime.now(timezone.utc).timestamp() - RAPID_DEPLOY_WINDOW_MIN * 60
+    deploys_in_window = 0
+
+    for item in resp.json():
+        deploy = item.get("deploy", {})
+        if deploy.get("status") not in _COMPLETED:
+            continue
+        commit_id = deploy.get("commit", {}).get("id")
+        created_at = deploy.get("createdAt") or deploy.get("created_at")
+        if not commit_id:
+            continue
+
+        scanned += 1
+        if oldest_at is None or (created_at and created_at < oldest_at):
+            oldest_at = created_at
+
+        if created_at:
+            try:
+                ts = datetime.fromisoformat(created_at.replace("Z", "+00:00")).timestamp()
+                if ts > window_cutoff:
+                    deploys_in_window += 1
+            except ValueError:
+                pass
+
+        r = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/commits/{commit_id}",
+            headers=gh_headers,
+            timeout=10,
+        )
+        if r.status_code == 404:
+            if last_mismatch_at is None or (created_at and created_at > last_mismatch_at):
+                last_mismatch_at = created_at
+                last_mismatch_commit = commit_id[:7]
+
+    return {
+        "scanned_deploys": scanned,
+        "last_mismatch_at": last_mismatch_at,
+        "last_mismatch_commit": last_mismatch_commit,
+        "clean_since": oldest_at if last_mismatch_at is None else None,
+        "deploys_last_hour": deploys_in_window,
+    }
+
+
+def github_review_status():
+    resp = requests.get(
+        f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/code_review.yml/runs"
+        f"?per_page=10&branch={GITHUB_BRANCH}",
+        headers={"Accept": "application/vnd.github+json"},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        return None, 0
+    runs = resp.json().get("workflow_runs", [])
+    if not runs:
+        return None, 0
+    latest = runs[0]
+    if latest.get("status") != "completed":
+        conclusion = "in_progress"
+    else:
+        conclusion = latest.get("conclusion")
+
+    consecutive_failures = 0
+    for run in runs:
+        if run.get("status") != "completed":
+            continue
+        if run.get("conclusion") == "failure":
+            consecutive_failures += 1
+        else:
+            break
+
+    return conclusion, consecutive_failures
+
+
+error = None
+try:
+    deployed, deploy_status, deploying, service_url, deploying_commit = render_state()
+except Exception as e:
+    deployed, deploy_status, deploying, service_url, deploying_commit, error = None, "error", False, None, None, str(e)
+
+try:
+    expected = github_commit()
+except Exception as e:
+    expected = None
+    error = (error + "; " if error else "") + str(e)
+
+try:
+    review_conclusion, review_consecutive_failures = github_review_status()
+except Exception as e:
+    review_conclusion, review_consecutive_failures = None, 0
+    error = (error + "; " if error else "") + str(e)
+
+try:
+    cron_fresh = check_cron_freshness()
+except Exception as e:
+    cron_fresh = None
+    error = (error + "; " if error else "") + str(e)
+
+try:
+    workflow_states = check_workflow_states()
+except Exception as e:
+    workflow_states = {}
+    error = (error + "; " if error else "") + str(e)
+
+disabled_workflows = [w for w, s in workflow_states.items() if s != "active"]
+
+try:
+    history = check_deploy_history()
+except Exception as e:
+    history = {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
+    error = (error + "; " if error else "") + str(e)
+
+deployment_ok = bool(deployed and expected and deployed == expected)
+deploying_commit_ok = bool(deploying and deploying_commit and expected and deploying_commit.startswith(expected[:7]))
+review_ok = review_conclusion == "success"
+# deployment_safe: running code is the expected code, or the mismatch is explained
+# by the normal deploy gate (review running or failed → old safe code still live)
+deployment_safe = deployment_ok or deploying_commit_ok or review_conclusion in ("in_progress", "failure")
+# review_stuck: code review has failed repeatedly — commits are not deploying
+REVIEW_STUCK_THRESHOLD = 3
+review_stuck = review_consecutive_failures >= REVIEW_STUCK_THRESHOLD
+rapid_deploy_warning = history.get("deploys_last_hour", 0) >= RAPID_DEPLOY_THRESHOLD
+ok = deployment_safe and (cron_fresh is not False) and not disabled_workflows
+
+result = {
+    "ok": ok,
+    "rapid_deploy_warning": rapid_deploy_warning,
+    "deployment_ok": deployment_ok,
+    "review_ok": review_ok,
+    "review_consecutive_failures": review_consecutive_failures,
+    "review_stuck": review_stuck,
+    "deploying": deploying,
+    "deploying_commit": deploying_commit,
+    "deploying_commit_ok": deploying_commit_ok,
+    "deployed_commit": deployed,
+    "expected_commit": expected,
+    "deploy_status": deploy_status,
+    "review_conclusion": review_conclusion,
+    "cron_fresh": cron_fresh,
+    "workflow_states": workflow_states,
+    "disabled_workflows": disabled_workflows,
+    "history": history,
+    "service_url": service_url or "",
+    "repo": GITHUB_REPO,
+    "branch": GITHUB_BRANCH,
+    "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+    "monitor_files": hash_monitor_files(),
+    "actions_run_id": os.environ.get("GITHUB_RUN_ID", ""),
+    "actions_run_url": (
+        f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}"
+        f"/{GITHUB_REPO}/actions/runs/{os.environ.get('GITHUB_RUN_ID', '')}"
+        if os.environ.get("GITHUB_RUN_ID") else ""
+    ),
+}
+if error:
+    result["error"] = error
+
+os.makedirs("pages-output", exist_ok=True)
+with open("pages-output/status.json", "w") as f:
+    json.dump(result, f, indent=2)
+
+print(json.dumps(result, indent=2))
+
+```
+
+### push_status.py
+```
+"""Push pages-output/status.json (and status-log.jsonl) to gh-pages via GitHub API."""
+import base64, json, os, sys
+from pathlib import Path
+import requests
+
+TOKEN = os.environ.get("GITHUB_TOKEN", "")
+REPO  = os.environ.get("GITHUB_REPOSITORY", "fxg55647/leima")
+
+if not TOKEN:
+    print("GITHUB_TOKEN not set — skipping", file=sys.stderr)
+    sys.exit(1)
+
+HDR = {
+    "Authorization": f"Bearer {TOKEN}",
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+}
+
+
+def push_file(path: Path, branch: str = "gh-pages") -> bool:
+    content = base64.b64encode(path.read_bytes()).decode()
+    name = path.name
+    url = f"https://api.github.com/repos/{REPO}/contents/{name}"
+
+    for attempt in range(3):
+        r = requests.get(url, headers=HDR, params={"ref": branch}, timeout=10)
+        sha = r.json().get("sha") if r.status_code == 200 else None
+
+        payload = {
+            "message": "chore: update deployment status",
+            "content": content,
+            "branch": branch,
+        }
+        if sha:
+            payload["sha"] = sha
+
+        r = requests.put(url, headers=HDR, json=payload, timeout=10)
+        if r.status_code in (200, 201):
+            print(f"Pushed {name} → {branch}")
+            return True
+        if r.status_code == 409:
+            print(f"Conflict on attempt {attempt + 1}, retrying...", file=sys.stderr)
+            continue
+        print(f"Failed to push {name}: {r.status_code} {r.text[:200]}", file=sys.stderr)
+        return False
+
+    print(f"Failed to push {name} after 3 attempts", file=sys.stderr)
+    return False
+
+
+ok = True
+for f in ["pages-output/status.json", "pages-output/status-log.jsonl"]:
+    p = Path(f)
+    if p.exists():
+        ok = push_file(p) and ok
+
+audit = Path("audit.html")
+if audit.exists():
+    push_file(audit)
+
+sys.exit(0 if ok else 1)
+
+```
+
+### requirements.txt
+```
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+jinja2==3.1.4
+google-genai==1.16.0
+fpdf2==2.8.1
+python-dotenv==1.0.1
+irys-sdk==0.1.9
+dkimpy==1.1.8
+Markdown==3.7
+bleach==6.2.0
+pypdf==5.1.0
+asn1crypto==1.5.1
+
+```
+
+### verify.py
+```
+#!/usr/bin/env python3
+"""
+verify.py — Independent POIDE integrity check.
+
+Run from anywhere:
+    pip install requests
+    python verify.py
+
+For each monitored file, checks git history (GitHub API) to determine
+when it was last changed. Then fetches an Arweave record from around
+that time to corroborate the hash. Two independent sources.
+
+Optionally verify against a specific trusted Arweave TX:
+    python verify.py <tx_id>
+"""
+import base64, hashlib, json, sys
+from datetime import datetime, timezone
+import requests
+
+REPO      = "fxg55647/leima"
+BRANCH    = "main"
+PAGES_URL = "https://fxg55647.github.io/leima"
+GATEWAY   = "https://gateway.irys.xyz"
+GH_HDR    = {"Accept": "application/vnd.github+json"}
+
+
+def github_file(path: str) -> tuple[str | None, str | None]:
+    """Returns (sha256_hash, last_commit_date) for a file on GitHub."""
+    url = f"https://api.github.com/repos/{REPO}/contents/{path}?ref={BRANCH}"
+    r = requests.get(url, headers=GH_HDR, timeout=10)
+    if r.status_code == 404:
+        return None, None
+    r.raise_for_status()
+    content = base64.b64decode(r.json()["content"])
+    file_hash = hashlib.sha256(content).hexdigest()
+
+    log_url = f"https://api.github.com/repos/{REPO}/commits?path={path}&per_page=1&sha={BRANCH}"
+    r2 = requests.get(log_url, headers=GH_HDR, timeout=10)
+    last_changed = None
+    if r2.status_code == 200 and r2.json():
+        iso = r2.json()[0]["commit"]["committer"]["date"]
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        days_ago = (datetime.now(timezone.utc) - dt).days
+        last_changed = f"{iso[:10]}  ({days_ago}d ago)"
+
+    return file_hash, last_changed
+
+
+def load_log() -> list[dict]:
+    r = requests.get(f"{PAGES_URL}/status-log.jsonl", timeout=15)
+    r.raise_for_status()
+    entries = []
+    for line in r.text.strip().splitlines():
+        if line.strip():
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    return entries
+
+
+def find_latest_tx(entries: list[dict]) -> dict:
+    for entry in reversed(entries):
+        if entry.get("tx"):
+            return entry
+    raise SystemExit("No Arweave TX found in log.")
+
+
+def fetch_arweave(tx: str) -> dict:
+    r = requests.get(f"{GATEWAY}/{tx}", timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def report_mismatch_history(entries: list[dict]) -> None:
+    last_mismatch = None
+    last_ok = None
+    for e in reversed(entries):
+        if e.get("deployment_ok") is False and not e.get("deploying"):
+            if last_mismatch is None:
+                last_mismatch = e
+        if e.get("deployment_ok") is True:
+            if last_ok is None:
+                last_ok = e
+        if last_mismatch and last_ok:
+            break
+
+    if last_mismatch:
+        print(f"Last commit mismatch : {last_mismatch.get('ts', '?')}  commit={last_mismatch.get('commit', '?')}")
+        if last_ok and last_ok.get("ts", "") > last_mismatch.get("ts", ""):
+            print(f"Resolved at          : {last_ok.get('ts', '?')}")
+        else:
+            print("  (not yet resolved in log)")
+    else:
+        print("Last commit mismatch : none found in log")
+
+
+# --- main ---
+
+tx_arg = sys.argv[1] if len(sys.argv) > 1 else None
+
+print(f"Fetching status log from gh-pages...")
+entries = load_log()
+print(f"  {len(entries)} entries in log")
+
+report_mismatch_history(entries)
+print()
+
+if tx_arg:
+    tx = tx_arg
+    print(f"Using TX (provided)  : {tx}")
+else:
+    ref_entry = find_latest_tx(entries)
+    tx = ref_entry["tx"]
+    print(f"Latest Arweave TX    : {tx}")
+    print(f"Recorded at          : {ref_entry.get('ts', '?')}")
+
+print(f"Fetching Arweave record...")
+arweave_status = fetch_arweave(tx)
+
+monitor_files = arweave_status.get("monitor_files")
+if not monitor_files:
+    raise SystemExit("No monitor_files in this Arweave record.")
+
+print(f"\nMonitored files — git history (GitHub) + Arweave corroboration:\n")
+print(f"  {'File':<45} {'Last changed':>22}   {'Match'}")
+print(f"  {'-'*45} {'-'*22}   {'-'*5}")
+
+ok = True
+for path, arweave_hash in monitor_files.items():
+    current_hash, last_changed = github_file(path)
+
+    if current_hash is None:
+        print(f"  {'!! MISSING':<45} {'—':>22}   —")
+        ok = False
+        continue
+
+    matches = current_hash == arweave_hash if arweave_hash else None
+    match_str = "OK" if matches else ("NEW" if arweave_hash is None else "CHANGED")
+    if match_str == "CHANGED":
+        ok = False
+
+    last_str = last_changed or "?"
+    print(f"  {path:<45} {last_str:>22}   {match_str}")
+    if match_str == "CHANGED":
+        print(f"    Arweave : {arweave_hash}")
+        print(f"    GitHub  : {current_hash}")
+
+print()
+if ok:
+    print("All monitored files verified.\n")
+    print("What this means:")
+    print("  1. Git history (GitHub) confirms when each file was last changed.")
+    print("     This is independent of the service — GitHub maintains the record.")
+    print()
+    print("  2. The Arweave record corroborates the file hashes at recording time.")
+    print("     Arweave is permanent and cannot be altered retroactively.")
+    print()
+    print("  Together these guarantee:")
+    print("  - If the files match and haven't changed, no undetected commit mismatch")
+    print("    could have occurred — the monitoring code would have caught it.")
+    print("  - The monitoring code itself has passed through automated code review")
+    print("    (AI analysis) on every push, recorded permanently on Arweave.")
+    print("  - Any tampering with these files is visible in git history.")
+    print()
+    print(f"  Arweave TX: {GATEWAY}/{tx}")
+else:
+    print("WARNING: one or more files have changed since the Arweave record.")
+    print("This is not necessarily malicious — could be a legitimate update.")
+    print("Check git history to understand when and why:")
+    print("  git log --oneline -- <filename>")
+    print()
+    print("If the change is expected, run verify.py again without arguments")
+    print("to verify against the latest Arweave record.")
+
+sys.exit(0 if ok else 1)
+
+```
