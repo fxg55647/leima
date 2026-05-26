@@ -102,9 +102,10 @@ def check_workflow_states() -> dict[str, str]:
 
 
 def check_cron_freshness() -> bool | None:
-    """True = at least one cron ran within window; False = all stale; None = no data yet."""
+    """True = at least one cron ran within window; False = all stale or API unreachable; None = no runs exist yet."""
     cutoff = datetime.now(timezone.utc).timestamp() - MAX_CRON_AGE_MIN * 60
     found_any = False
+    any_api_success = False
     for workflow in POIDE_WORKFLOWS:
         resp = requests.get(
             f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow}/runs"
@@ -114,6 +115,7 @@ def check_cron_freshness() -> bool | None:
         )
         if resp.status_code != 200:
             continue
+        any_api_success = True
         runs = resp.json().get("workflow_runs", [])
         if not runs:
             continue
@@ -123,6 +125,8 @@ def check_cron_freshness() -> bool | None:
             ts = datetime.fromisoformat(updated.replace("Z", "+00:00")).timestamp()
             if ts > cutoff:
                 return True
+    if not any_api_success:
+        return False  # all requests failed (rate limit / network) — assume stale
     return False if found_any else None
 
 

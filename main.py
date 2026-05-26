@@ -396,10 +396,11 @@ def _check_ssrf(url: str) -> None:
         if "Private" in str(e) or "internal" in str(e) or "loopback" in str(e) or "reserved" in str(e):
             raise
     try:
-        _, _, addrs = socket.gethostbyname_ex(host)
+        infos = socket.getaddrinfo(host, None)
     except OSError:
         raise ValueError(f"Cannot resolve hostname: {host}")
-    for ip_str in addrs:
+    for info in infos:
+        ip_str = info[4][0]
         addr = ipaddress.ip_address(ip_str)
         if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
             raise ValueError(f"URL resolves to private/internal address: {ip_str}")
@@ -512,14 +513,15 @@ async def fetch_emails(
 ):
     if not all([email_user, email_password, email_sender, email_start, email_end]):
         return HTMLResponse('<p class="fetch-error">Please fill in all fields.</p>')
+    if not re.fullmatch(r"[a-zA-Z0-9._%+\-@]+", email_sender):
+        return HTMLResponse('<p class="fetch-error">Invalid sender email address.</p>')
+    imap = None
     try:
         imap = imaplib.IMAP4_SSL(_imap_server(email_user))
         imap.login(email_user, email_password)
         imap.select("INBOX")
         since = datetime.strptime(email_start, "%Y-%m-%d").strftime("%d-%b-%Y")
         before = (datetime.strptime(email_end, "%Y-%m-%d") + timedelta(days=1)).strftime("%d-%b-%Y")
-        if not re.fullmatch(r"[a-zA-Z0-9._%+\-@]+", email_sender):
-            return HTMLResponse('<p class="fetch-error">Invalid sender email address.</p>')
         _, nums = imap.search(None, "FROM", email_sender, "SINCE", since, "BEFORE", before)
         messages = []
         for num in (nums[0].split() or [])[-50:]:
@@ -544,9 +546,14 @@ async def fetch_emails(
                 "dkim": dkim_status,
                 "body": body,
             })
-        imap.logout()
     except Exception:
         return HTMLResponse('<p class="fetch-error">Could not connect to the email server. Check your settings and try again.</p>')
+    finally:
+        if imap:
+            try:
+                imap.logout()
+            except Exception:
+                pass
 
     if not messages:
         return HTMLResponse('<p class="fetch-error">No emails found for this period.</p>')
@@ -1055,13 +1062,12 @@ def _fetch_pdf_from_url(url: str) -> tuple[bytes, str]:
     _check_ssrf(url)
     parsed = urlparse(url)
 
-    head = _safe_get(url, timeout=10)
-    content_length = head.headers.get("Content-Length")
-    if content_length and int(content_length) > PDF_URL_MAX_BYTES:
-        raise ValueError(f"File too large (max {PDF_URL_MAX_BYTES // 1024 // 1024} MB)")
-
     resp = _safe_get(url, timeout=30, stream=True)
     resp.raise_for_status()
+    content_length = resp.headers.get("Content-Length")
+    if content_length and int(content_length) > PDF_URL_MAX_BYTES:
+        resp.close()
+        raise ValueError(f"File too large (max {PDF_URL_MAX_BYTES // 1024 // 1024} MB)")
 
     content_type = resp.headers.get("Content-Type", "")
     if "pdf" not in content_type and not url.lower().endswith(".pdf"):
@@ -1193,6 +1199,7 @@ async def ask(
                 "type": "image_c2pa_valid" if c2pa_info.get("valid") else "image_c2pa_invalid",
                 "c2pa_generator": c2pa_info.get("generator", ""),
                 "c2pa_signer": c2pa_info.get("signer", ""),
+                "c2pa_location": c2pa_info.get("location"),
                 "c2pa_location_present": bool(c2pa_info.get("location")),
             }
         else:
