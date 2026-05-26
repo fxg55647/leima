@@ -90,7 +90,6 @@ def _poide_dispatcher():
         time.sleep(30 if cache_populated else 5)
 
 threading.Thread(target=_poide_dispatcher, daemon=True).start()
-threading.Thread(target=_session_eviction_loop, daemon=True).start()
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -120,6 +119,8 @@ def _session_eviction_loop() -> None:
     while True:
         time.sleep(300)
         _evict_old_sessions()
+
+threading.Thread(target=_session_eviction_loop, daemon=True).start()
 
 
 def _imap_server(user_email: str) -> str:
