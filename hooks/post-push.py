@@ -1,8 +1,11 @@
-"""Post-push hook — odottaa että GitHub Actions deployaa uuden commitin Renderille."""
-import json, os, sys, time
+"""Post-push hook -- waits for GitHub Actions to deploy the new commit to Render."""
+import io, json, os, sys, time
 import urllib.request as req
 import subprocess
 from pathlib import Path
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 GITHUB_REPO   = "fxg55647/leima"
 GITHUB_BRANCH = "main"
@@ -93,18 +96,18 @@ def main() -> int:
     conclusion = wait_for_review(commit, token)
 
     if conclusion is None:
-        print(f"[deploy] ⚠ Code review ei valmistunut {REVIEW_TIMEOUT}s sisällä.", flush=True)
+        print(f"[deploy] !! Code review ei valmistunut {REVIEW_TIMEOUT}s sisällä.", flush=True)
         return 0
     if conclusion != "success":
-        print(f"[deploy] ✗ Code review epäonnistui ({conclusion}) — deploy peruuntui.", flush=True)
+        print(f"[deploy] FAIL Code review epäonnistui ({conclusion}) — deploy peruuntui.", flush=True)
         return 0
 
-    print("[deploy] ✓ Code review hyväksytty.", flush=True)
+    print("[deploy] OK Code review hyväksytty.", flush=True)
 
     if wait_for_deploy(commit):
-        print(f"[deploy] ✓ Deploy valmis — {commit[:7]} on live.", flush=True)
+        print(f"[deploy] OK Deploy valmis — {commit[:7]} on live.", flush=True)
     else:
-        print(f"[deploy] ⚠ Deploy ei valmistunut {DEPLOY_TIMEOUT}s sisällä — tarkista Render.", flush=True)
+        print(f"[deploy] !! Deploy ei valmistunut {DEPLOY_TIMEOUT}s sisällä — tarkista Render.", flush=True)
 
     return 0
 
