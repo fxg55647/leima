@@ -301,7 +301,7 @@ def build_manifest(
 
 
 _CR_SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
-_CR_SOURCE_EXT = {".py", ".js", ".html", ".md"}
+_CR_SOURCE_EXT = {".py", ".js"}
 
 
 def _github_fetch_tree(repo: str, commit_sha: str, token: str = "") -> list[dict]:
