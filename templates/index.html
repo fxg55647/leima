@@ -997,6 +997,7 @@
     document.getElementById('active-tab').value = newTab;
     const submitBtn = document.getElementById('submit-btn');
     submitBtn.disabled = (newTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
+    document.querySelector('.credibility-options').style.display = newTab === 'github' ? 'none' : '';
     if (TAB_HINTS[newTab]) {
       document.getElementById('question-sub').innerHTML = TAB_HINTS[newTab];
       document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[newTab] || '';
