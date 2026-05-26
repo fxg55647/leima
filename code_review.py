@@ -12,8 +12,8 @@ from google.genai import types
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 MODEL = "gemini-3.5-flash"
 
-SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github"}
-SOURCE_EXTENSIONS = {".py", ".js"}
+SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules"}
+SOURCE_EXTENSIONS = {".py", ".js", ".yml"}
 
 
 def collect_sources(root: Path) -> dict[str, str]:
