@@ -759,14 +759,7 @@
       <input type="hidden" name="email_idx" id="email-idx" value="">
 
       <div id="tab-github" class="tab-panel">
-        <div class="field-group" style="display:flex;gap:1rem;align-items:center;margin-bottom:.25rem">
-          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.9rem">
-            <input type="radio" name="review_mode" value="claim" id="gh-mode-claim" checked onchange="ghModeSwitch()"> Claim analysis
-          </label>
-          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.9rem">
-            <input type="radio" name="review_mode" value="code_review" id="gh-mode-cr" onchange="ghModeSwitch()"> Code review
-          </label>
-        </div>
+        <input type="hidden" name="review_mode" value="claim">
         <div class="field-group">
           <label class="field-label">Repository</label>
           <input type="text" name="gh_repo" id="gh-repo" class="field-input" placeholder="owner/repo or https://github.com/owner/repo">
@@ -775,13 +768,9 @@
           <label class="field-label">Commit / branch / tag</label>
           <input type="text" name="gh_ref" id="gh-ref" class="field-input" placeholder="main" value="main">
         </div>
-        <div class="field-group" id="gh-paths-group">
+        <div class="field-group">
           <label class="field-label">File paths <span style="font-weight:400;color:#6c757d;">(one per line, max 20)</span></label>
           <textarea name="gh_paths" id="gh-paths" placeholder="src/main.py&#10;README.md" style="height:6rem;"></textarea>
-        </div>
-        <div class="field-group" id="gh-rules-group" style="display:none">
-          <label class="field-label">Rules URL <span style="font-weight:400;color:#6c757d;">(policy document — raw text or Arweave link)</span></label>
-          <input type="text" name="rules_url" id="gh-rules-url" class="field-input" placeholder="https://arweave.net/...">
         </div>
         <div class="field-group">
           <label class="field-label">GitHub token <span style="font-weight:400;color:#6c757d;">(optional — required for private repos)</span></label>
@@ -956,17 +945,7 @@
     document.getElementById('email-idx').value = idx;
   }
 
-  function ghModeSwitch() {
-    const isCR = document.getElementById('gh-mode-cr').checked;
-    document.getElementById('gh-paths-group').style.display = isCR ? 'none' : '';
-    document.getElementById('gh-rules-group').style.display = isCR ? '' : 'none';
-    document.querySelector('.question-label').style.display = isCR ? 'none' : '';
-    document.getElementById('question-input').style.display = isCR ? 'none' : '';
-    document.getElementById('question-input').required = !isCR;
-    document.querySelector('.submit-row').style.display = isCR ? 'none' : '';
-  }
-
-  const TAB_HINTS = {
+const TAB_HINTS = {
     pdf:    'e.g. <em>"this invoice shows the payment was completed"</em>',
     image:  'e.g. <em>"this image shows a cut-down tree at 60.1699, 24.9384"</em>',
     text:   'e.g. <em>"the source claims that X"</em>',
@@ -1001,10 +980,6 @@
     if (TAB_HINTS[newTab]) {
       document.getElementById('question-sub').innerHTML = TAB_HINTS[newTab];
       document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[newTab] || '';
-    }
-    if (newTab !== 'github') {
-      document.getElementById('gh-mode-claim').checked = true;
-      ghModeSwitch();
     }
   }
 
