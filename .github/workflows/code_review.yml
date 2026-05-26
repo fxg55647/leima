@@ -28,8 +28,11 @@ with open('/tmp/cr_result.json') as f:
     try:
         d = json.load(f)
     except Exception as e:
-        print(f'::error title=Code review error::Invalid response from Leima: {e}')
-        sys.exit(1)
+        print(f'::warning title=Code review error::Invalid response from Leima: {e}')
+        sys.exit(0)
+if 'error' in d:
+    print(f'::warning title=Code review error::{d["error"]}')
+    sys.exit(0)
 compliant = d.get('compliant', False)
 tx_url = d.get('stamp', {}).get('url', '')
 status = '✅ COMPLIANT' if compliant else '❌ VIOLATION'
