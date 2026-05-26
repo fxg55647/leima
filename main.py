@@ -1143,7 +1143,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
 @app.post("/ask", response_class=HTMLResponse)
 async def ask(
     request: Request,
-    question: str = Form(...),
+    question: str = Form(""),
     active_tab: str = Form("pdf"),
     text_input: str = Form(""),
     email_session_id: str = Form(""),
@@ -1160,6 +1160,9 @@ async def ask(
     review_mode: str = Form("claim"),
     rules_url: str = Form(""),
 ):
+    if review_mode != "code_review" and not question.strip():
+        return HTMLResponse('<div class="error">Please enter a claim.</div>')
+
     contents = []
     email_meta = None
     web_meta = None
@@ -1369,7 +1372,8 @@ async def ask(
     else:
         return HTMLResponse('<div class="error">Unknown input type.</div>')
 
-    contents.append(question)
+    if question.strip():
+        contents.append(question)
 
     if assess_credibility != "1":
         source_context = {"type": "content_only"}
