@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from google.genai import types
-from neutral_witness import analyse, PASS_LABELS, MODEL
+from neutral_witness import analyse, analyse_code_review, PASS_LABELS, MODEL
 from notary import poll_and_process as _notary_poll
 from fpdf import FPDF
 from irys_sdk import Builder
@@ -297,6 +297,37 @@ def build_manifest(
     if web_meta:
         manifest["web"] = web_meta
     return manifest
+
+
+_CR_SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
+_CR_SOURCE_EXT = {".py", ".js", ".html", ".md"}
+
+
+def _github_fetch_tree(repo: str, commit_sha: str, token: str = "") -> list[dict]:
+    """Fetch all source and doc files from the repo tree at commit_sha."""
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    commit_r = http_requests.get(
+        f"https://api.github.com/repos/{repo}/commits/{commit_sha}",
+        headers=headers, timeout=10,
+    )
+    commit_r.raise_for_status()
+    tree_sha = commit_r.json()["commit"]["tree"]["sha"]
+    tree_r = http_requests.get(
+        f"https://api.github.com/repos/{repo}/git/trees/{tree_sha}?recursive=1",
+        headers=headers, timeout=15,
+    )
+    tree_r.raise_for_status()
+    from pathlib import Path as _P
+    paths = [
+        item["path"] for item in tree_r.json().get("tree", [])
+        if item["type"] == "blob"
+        and _P(item["path"]).suffix in _CR_SOURCE_EXT
+        and not any(part in _CR_SKIP_DIRS for part in _P(item["path"]).parts)
+        and item.get("size", 0) <= 500_000
+    ]
+    return _github_fetch_files(repo, commit_sha, paths, token)
 
 
 def _github_resolve_commit(repo: str, ref: str, token: str = "") -> str:
@@ -1126,6 +1157,8 @@ async def ask(
     gh_ref: str = Form("main"),
     gh_token: str = Form(""),
     gh_paths: str = Form(""),
+    review_mode: str = Form("claim"),
+    rules_url: str = Form(""),
 ):
     contents = []
     email_meta = None
@@ -1222,13 +1255,16 @@ async def ask(
         gh_paths = gh_paths_list
         if not gh_repo or "/" not in gh_repo:
             return HTMLResponse('<div class="error">Enter a valid repository (owner/repo).</div>')
-        if not gh_paths:
-            return HTMLResponse('<div class="error">Enter at least one file path.</div>')
-        if len(gh_paths) > 20:
-            return HTMLResponse('<div class="error">Maximum 20 files per request.</div>')
         try:
             commit_sha = _github_resolve_commit(gh_repo, gh_ref, gh_token)
-            files = _github_fetch_files(gh_repo, commit_sha, gh_paths, gh_token)
+            if review_mode == "code_review":
+                files = _github_fetch_tree(gh_repo, commit_sha, gh_token)
+            else:
+                if not gh_paths:
+                    return HTMLResponse('<div class="error">Enter at least one file path.</div>')
+                if len(gh_paths) > 20:
+                    return HTMLResponse('<div class="error">Maximum 20 files per request.</div>')
+                files = _github_fetch_files(gh_repo, commit_sha, gh_paths, gh_token)
         except Exception as e:
             return HTMLResponse(f'<div class="error">GitHub error: {e}</div>')
         all_verified = all(f["verified"] for f in files)
@@ -1250,6 +1286,62 @@ async def ask(
             "blob_hashes": blob_hashes,
         }
         contents.append(bundled)
+
+        if review_mode == "code_review":
+            if not rules_url.strip():
+                return HTMLResponse('<div class="error">Enter a rules URL for code review.</div>')
+            try:
+                _check_ssrf(rules_url.strip())
+                rules_resp = _safe_get(rules_url.strip(), timeout=15)
+                rules_text = rules_resp.text
+            except Exception as e:
+                return HTMLResponse(f'<div class="error">Could not fetch rules: {e}</div>')
+            try:
+                cr = analyse_code_review(bundled, rules_text, gh_repo, commit_sha)
+            except Exception:
+                return HTMLResponse('<div class="error">Code review analysis failed. Please try again.</div>')
+            manifest_cr = {
+                "type": "code_review",
+                "repo": gh_repo,
+                "commit": commit_sha,
+                "rules_url": rules_url.strip(),
+                "compliant": cr["compliant"],
+                "timestamp": cr["timestamp"],
+                "verdict": cr["verdict"],
+                "blob_hashes": blob_hashes,
+            }
+            try:
+                tx_id = _irys_upload(
+                    json.dumps(manifest_cr, ensure_ascii=False, indent=2).encode(),
+                    "application/json",
+                    {"Leima-Type": "code-review"},
+                )
+                arweave_url = f"{IRYS_GATEWAY}/{tx_id}"
+            except Exception:
+                tx_id = ""
+                arweave_url = ""
+            status_color = "#198754" if cr["compliant"] else "#dc3545"
+            status_label = "COMPLIANT" if cr["compliant"] else "VIOLATION"
+            checks_html = "".join(
+                f'<li style="margin:.3rem 0">{_html_escape(l)}</li>'
+                for l in cr["verdict"].splitlines() if l.strip()
+            )
+            arweave_html = (
+                f'<p style="margin-top:1rem">Arweave: <a href="{_html_escape(arweave_url)}" target="_blank">{_html_escape(arweave_url)}</a></p>'
+                if arweave_url else ""
+            )
+            return HTMLResponse(f"""
+<div style="border-left:4px solid {status_color};padding:.75rem 1rem;margin-bottom:1rem;background:#f8f9fa;border-radius:4px">
+  <strong style="color:{status_color};font-size:1.1rem">{status_label}</strong>
+  <span style="color:#6c757d;font-size:.85rem;margin-left:.75rem">{_html_escape(cr["timestamp"])}</span>
+</div>
+<ul style="list-style:none;padding:0;font-size:.9rem">{checks_html}</ul>
+<p style="font-size:.8rem;color:#6c757d;margin-top:.5rem">
+  Repo: {_html_escape(gh_repo)} · Commit: {_html_escape(commit_sha[:12])} ·
+  Rules: <a href="{_html_escape(rules_url.strip())}" target="_blank">{_html_escape(rules_url.strip())}</a>
+</p>
+{arweave_html}
+""")
 
     elif active_tab == "email":
         _entry = email_sessions.get(email_session_id)

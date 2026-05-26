@@ -277,6 +277,61 @@ Then on a new line, explain your reasoning: which arguments were stronger and wh
 """ + f'The user\'s claim is: "{question}". Use exactly one of the five English CATEGORY strings listed above (Strongly matches / Mostly matches / Equally supports and contradicts / Mostly does not match / Does not match). Respond to VERDICT and the explanation entirely in the same language as this claim.'
 
 
+def analyse_code_review(bundle: str, rules: str, repo: str, commit: str) -> dict:
+    """
+    Check whether the source code in `bundle` complies with `rules`.
+    Returns a dict with verdict text, compliant bool, checks list, timestamp.
+    """
+    client = _get_client()
+    prompt = f"""You are a neutral code compliance auditor. Your only job is to check whether the source code matches what the policy document says the software does.
+
+Repository: {repo}
+Commit: {commit[:12]}
+
+For each check below write exactly one line: PASS or FAIL — and a brief explanation.
+
+1. Does any code transmit user data to services not mentioned in the policy?
+2. Does any code write user data to persistent storage not described in the policy?
+3. Does any code make external network calls not described in the policy?
+4. Does any code include tracking, analytics, or cross-session identification not described?
+5. Does anything in the code contradict what the policy explicitly states?
+
+End your response with exactly one line:
+OVERALL: COMPLIANT
+or
+OVERALL: VIOLATION — <one sentence summary>
+
+---
+
+## Policy
+
+{rules}
+
+---
+
+## Source code
+
+{bundle}
+"""
+    resp = client.models.generate_content(
+        model=MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(temperature=0),
+    )
+    text = (resp.text or "").strip()
+    last_line = next((l.strip() for l in reversed(text.splitlines()) if l.strip()), "")
+    compliant = last_line == "OVERALL: COMPLIANT"
+    checks = [l for l in text.splitlines() if l.startswith(("1.", "2.", "3.", "4.", "5.", "PASS", "FAIL", "OVERALL"))]
+    return {
+        "verdict": text,
+        "compliant": compliant,
+        "checks": checks,
+        "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "repo": repo,
+        "commit": commit,
+    }
+
+
 def analyse(question: str, contents: list, source_context: dict | None = None) -> dict:
     """
     Run three-pass neutral witness analysis on a document.
