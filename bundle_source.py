@@ -14,9 +14,9 @@ Output: source_bundle.txt
 import subprocess, sys
 from pathlib import Path
 
-SKIP_DIRS  = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
-SOURCE_EXT = {".py", ".js", ".html"}
-DOCS       = {"README.md", "POLICY.md", "requirements.txt"}
+SKIP_DIRS  = {".venv", "__pycache__", ".git", "node_modules", "hooks", ".claude"}
+SOURCE_EXT = {".py", ".js", ".html", ".yml", ".md"}
+DOCS       = {"requirements.txt"}
 
 ref = sys.argv[1] if len(sys.argv) > 1 else "HEAD"
 root = Path(__file__).parent
