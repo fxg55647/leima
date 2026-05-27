@@ -8,9 +8,9 @@
   "deploying": false,
   "deploying_commit": null,
   "deploying_commit_ok": false,
-  "deployed_commit": "18e5f6d05d5d87fa601649682b66f3d48ee74154",
+  "deployed_commit": null,
   "expected_commit": null,
-  "deploy_status": "live",
+  "deploy_status": "error",
   "review_conclusion": "success",
   "cron_fresh": true,
   "workflow_states": {
@@ -28,10 +28,10 @@
     "clean_since": "2026-05-25T01:32:54.979587Z",
     "deploys_last_hour": 0
   },
-  "service_url": "https://leima.onrender.com",
+  "service_url": "",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-27 21:20:43 UTC",
+  "checked_at": "2026-05-27 21:21:30 UTC",
   "monitor_files": {
     ".github/workflows/poide-a.yml": "2e53724d90311ab5e9c70e37bed15d51d31210cf45440edd0aff05588b697dcc",
     ".github/workflows/poide-b.yml": "3069efcfca3e1186638e772a42d1849d296b3fcc139eaa74242bae082e1197aa",
@@ -47,6 +47,7 @@
     "code_review.py": "58ad869541825e02e5469cd74d81f81157a2ae51ea87b425e9d44b136938a73e",
     "POLICY.example.md": "3ba1d05ddb2b7c17c62d0b6ebe553f8aee02a26151e9d4db17f82045a72cc305"
   },
-  "actions_run_id": "26539412298",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26539412298"
+  "actions_run_id": "26539438130",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26539438130",
+  "error": "HTTPSConnectionPool(host='api.render.com', port=443): Read timed out. (read timeout=10)"
 }
