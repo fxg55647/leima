@@ -166,6 +166,8 @@ TREAD's differentiator is that it works with existing building blocks — a host
 
 ## Statistical proof and the ZK analogy
 
+*For a deeper discussion of how SAIA relates to zero-knowledge proof systems — including the zkLLM paper, the Zero-Knowledge Semantic Evaluation concept, and why this approach may have been underexplored by the security research community — see [ZKSE.md](ZKSE.md).*
+
 *This section covers the broader Leima trust model — both the AI document analysis and the TREAD deployment layer — and how they relate to cryptographic proof systems.*
 
 Zero-knowledge proofs establish a fact to a verifier without requiring trust in the prover and without revealing the underlying evidence. The guarantee is mathematical: either the proof is valid or it is not, with no probability involved. This is the gold standard for trustless verification, and it is expensive — computationally, architecturally, and operationally.

@@ -4,7 +4,7 @@
 
 Due diligence, notarisation, and source verification have always been expensive — not because they are technically complex, but because they require a trusted human to read, judge, and attest. That bottleneck is no longer absolute. AI can read any document with consistent attention, and a blockchain can seal the result permanently. Together they make it possible, for the first time, to produce credible, tamper-proof verdicts on documents for cents rather than hundreds of euros — available to anyone, not just those with legal budgets.
 
-Leima is built on this insight. You provide a document and a claim. Leima analyses it, seals the verdict cryptographically, and publishes a permanent record to Arweave. The document is processed server-side and discarded — only a cryptographic fingerprint goes to the blockchain. The result is independently verifiable by anyone, without trusting Leima itself.
+Leima is built on this insight. You provide a document and a claim. Leima analyses it, seals the verdict cryptographically, and publishes a permanent record to Arweave. This pattern — AI-assisted semantic evaluation with cryptographically anchored, permanent results — is what we call SAIA: Sealed AI Attestations Architecture. See [ZKSE.md](ZKSE.md) for a discussion of how this relates to zero-knowledge proof systems. The document is processed server-side and discarded — only a cryptographic fingerprint goes to the blockchain. The result is independently verifiable by anyone, without trusting Leima itself.
 
 Leima produces two things at once: a cryptographic proof that a specific document existed and was analysed at a specific time, and an expert opinion on what that document actually says about your claim — both sealed together permanently.
 
@@ -31,6 +31,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Self-characterisation for due diligence (bundle_source.py)](#self-characterisation-for-due-diligence-bundle_sourcepy)
 - [Developer pre-push hook](#developer-pre-push-hook)
 - [Data policy](POLICY.example.md)
+- [SAIA and zero-knowledge systems (ZKSE.md)](ZKSE.md)
 
 ---
 
@@ -161,6 +162,10 @@ The natural form for this kind of infrastructure is a commons: open source, gove
 
 The goal is a service that is free or near-free to use, sustainable without a corporate owner, and governed by no one with an interest in its verdicts. That is the only governance model consistent with the role of a neutral witness.
 
+The protocol is open source and can be self-hosted — but self-hosting is not the intended path for most adopters. The value of a neutral witness depends on it being a known, consistently operated entity: a single service whose code is publicly audited, whose deployment is continuously monitored, and whose track record is long enough to establish trust. A proliferation of independent instances — each running its own version of the code, each with its own deployment history — makes it impossible to distinguish legitimate instances from compromised ones. Fragmentation defeats the purpose. The open source licence is there to enable auditability and community contribution, not to encourage everyone to run their own witness.
+
+A related risk: anyone can fork the codebase and run a version that does not respect user privacy. TREAD does not prevent this — it only proves that the running code matches the stated policy. A fork with a permissive policy that explicitly allows data collection or logging would pass its own code review. Users should verify they are using the official Leima instance, not an independently operated fork. The canonical instance is identified by its GitHub repository and its publicly auditable deployment record — the same record that cannot be retroactively altered. A fork cannot inherit this history — Arweave records are signed with the official instance's private key, and a fork operating under a different key produces records under a different on-chain identity. The audit trail is cryptographically bound to a specific key, not just to the codebase.
+
 ---
 
 ## Contributing
@@ -280,6 +285,7 @@ A future option will allow switching to AI providers that operate under strict, 
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
 | Code violates stated data policy | Yes | AI audits all source files against POLICY.example.md on every commit; workflow fails and TREAD turns red if a violation is found |
 | Malicious code change slipped in unnoticed | Partly | Every commit triggers a code review; Render auto-deploy is disabled — deploy hook fires only on review success; TREAD polls every minute; Render returns full deploy history so no deploy can be hidden retroactively. An external attacker who controls the code being reviewed could embed prompt injection to bypass the AI reviewer — see TREAD.md |
+| Maintainer credential theft or deliberate rug pull | Partly | TREAD offers meaningful protection against a maintainer who drifts toward policy violations or acts carelessly — every push is reviewed and every deployment is monitored. Protection is weaker if the maintainer loses repository credentials to an attacker, or decides to actively subvert the system: in either case, the threat actor has legitimate push access and can embed prompt injection to manipulate the AI reviewer's verdict. A careful user who notices an unexpected deployment in progress can pause usage until the record stabilises. Prompt injection hardening is under consideration as a mitigation; simultaneous review by multiple independent models requiring consensus is also planned, which would require a successful attack to fool several architectures at once. Even without full coverage of this scenario, users are significantly worse off without TREAD — any suspicious change is immediately visible in the permanent deployment record rather than going unnoticed entirely. |
 | Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
 | Hosting provider (Render) swaps running code silently | Partly | TREAD detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
 | Leima lies during original run | Partly | Full prompt logic is isolated in `neutral_witness.py` and audited on every commit |
