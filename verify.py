@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-verify.py — Independent POIDE integrity check.
+verify.py — Independent TREAD integrity check.
 
 Run from anywhere:
     pip install requests

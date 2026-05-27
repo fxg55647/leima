@@ -1,4 +1,4 @@
-"""POIDE pre-push check -- called by hooks/pre-push shell wrapper."""
+"""TREAD pre-push check -- called by hooks/pre-push shell wrapper."""
 import json, os, subprocess, sys, time
 from pathlib import Path
 import urllib.request as req
@@ -26,7 +26,7 @@ def run_code_review() -> bool:
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         return True
-    print("[POIDE] Ajetaan code review paikallisesti...", flush=True)
+    print("[TREAD] Ajetaan code review paikallisesti...", flush=True)
     root = Path(__file__).parent.parent
     result = subprocess.run(
         [sys.executable, str(root / "code_review.py")],
@@ -35,13 +35,13 @@ def run_code_review() -> bool:
     )
     if result.returncode != 0:
         print(
-            "\n[POIDE] !! PUSH ESTETTY -- code review epaonnistui!\n"
+            "\n[TREAD] !! PUSH ESTETTY -- code review epaonnistui!\n"
             "  Korjaa policy-rikkomus tai suspicious dependency ennen pushia.\n"
             "  Hatatilanteessa: git push --no-verify\n",
             flush=True,
         )
         return False
-    print("[POIDE] Code review OK.", flush=True)
+    print("[TREAD] Code review OK.", flush=True)
     return True
 
 
@@ -50,15 +50,15 @@ def main() -> int:
     if not run_code_review():
         return 1
 
-    # --- POIDE-statustarkistus ---
-    print("[POIDE] Tarkistetaan deployment-status ennen pushausta...", flush=True)
+    # --- TREAD-statustarkistus ---
+    print("[TREAD] Tarkistetaan deployment-status ennen pushausta...", flush=True)
 
     start = time.time()
     while True:
         entry = fetch_latest()
 
         if entry is None:
-            print("[POIDE] Statusta ei saatu -- sallitaan push (ei esteta verkon ongelmasta).", flush=True)
+            print("[TREAD] Statusta ei saatu -- sallitaan push (ei esteta verkon ongelmasta).", flush=True)
 
             return 0
 
@@ -79,10 +79,10 @@ def main() -> int:
             # Wrong commit deploying -- wait and recheck
             elapsed = time.time() - start
             if elapsed >= POLL_MAX:
-                print(f"[POIDE] Epa-review deploy on ollut kesken jo {POLL_MAX}s -- sallitaan push.", flush=True)
+                print(f"[TREAD] Epa-review deploy on ollut kesken jo {POLL_MAX}s -- sallitaan push.", flush=True)
                 return 0
             remaining = int(POLL_MAX - elapsed)
-            print(f"[POIDE] Deploy kesken (tarkistetaan commit) -- odotetaan {POLL_INT}s... (max {remaining}s jaljella)", flush=True)
+            print(f"[TREAD] Deploy kesken (tarkistetaan commit) -- odotetaan {POLL_INT}s... (max {remaining}s jaljella)", flush=True)
             time.sleep(POLL_INT)
             continue
 
@@ -90,17 +90,17 @@ def main() -> int:
             commit = entry.get("commit", "?")[:7]
             ts     = entry.get("ts", "?")
             print(
-                f"\n[POIDE] !! PUSH ESTETTY -- selittamaton commit mismatch!\n"
+                f"\n[TREAD] !! PUSH ESTETTY -- selittamaton commit mismatch!\n"
                 f"  Aika   : {ts}\n"
                 f"  Commit : {commit}\n"
                 f"\n"
-                f"  Odota kunnes POIDE-tarkistus menee vihreaksi, sitten pushaa uudelleen.\n"
+                f"  Odota kunnes TREAD-tarkistus menee vihreaksi, sitten pushaa uudelleen.\n"
                 f"  Hatatilanteessa: git push --no-verify\n",
                 flush=True,
             )
             return 1
 
-        print(f"[POIDE] OK -- commit {entry.get('commit','?')[:7]} -- push sallitaan.", flush=True)
+        print(f"[TREAD] OK -- commit {entry.get('commit','?')[:7]} -- push sallitaan.", flush=True)
         return 0
 
 

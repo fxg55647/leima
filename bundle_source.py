@@ -6,7 +6,7 @@ Usage:
 
 Output:
     leima_bundle.txt  — document analysis app (main.py, UI, stamping logic)
-    poide_bundle.txt  — deployment monitoring protocol (POIDE infra, workflows)
+    poide_bundle.txt  — deployment monitoring protocol (TREAD infra, workflows)
 """
 import subprocess, sys
 from pathlib import Path
@@ -18,7 +18,7 @@ LEIMA_INTRO = """This bundle describes Leima (leima.ai), a document analysis and
 It answers the question: what does this software do, how does it process documents, and what are its data handling guarantees?
 The bundle includes the application backend, AI analysis logic, email notary, UI templates, and data policy."""
 
-POIDE_INTRO = """This bundle describes POIDE (Proof of Intended Deployment), a protocol for verifying that a hosted application is running the code it claims to run.
+POIDE_INTRO = """This bundle describes TREAD (Transparent Record of Evaluation, Attestation and Deployment), a protocol for verifying that a hosted application is running the code it claims to run.
 It answers the question: how does the deployment monitoring work, what does it check, and how can an independent party verify it?
 The bundle includes the monitoring logic, GitHub Actions workflows, the userscript, and the protocol documentation."""
 
@@ -37,7 +37,7 @@ LEIMA_FILES = {
 LEIMA_DIRS = {"templates"}
 
 POIDE_FILES = {
-    "POIDE.md",
+    "TREAD.md",
     "POLICY.example.md",
     "requirements.txt",
     "poide_check.py",
@@ -95,7 +95,7 @@ tracked = git_ls()
 
 for name, intro, files, dirs, outfile in [
     ("Leima", LEIMA_INTRO, LEIMA_FILES, LEIMA_DIRS, "leima_bundle.txt"),
-    ("POIDE", POIDE_INTRO, POIDE_FILES, set(),      "poide_bundle.txt"),
+    ("TREAD", POIDE_INTRO, POIDE_FILES, set(),      "poide_bundle.txt"),
 ]:
     parts = build_bundle(tracked, files, dirs, intro, name)
     header = f"# {name} bundle\n{intro}\n\nCommit: {commit_sha}\nFiles: {len(parts)}\n\n"

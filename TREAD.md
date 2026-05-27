@@ -1,26 +1,26 @@
-# POIDE — Proof of Intended Deployment
+# TREAD — Transparent Record of Evaluation, Attestation and Deployment
 
 Open source code is auditable. But "you can read the code" only proves that *some version* of the code is readable — not that it is the version currently running on the server. A hosting provider, a compromised deployment pipeline, or an attacker with account access could replace the running code without touching the git repository. Users would have no way to know.
 
-POIDE (Proof of Intended Deployment) is a protocol for closing this gap. The idea is simple: query the hosting provider's API directly — not the application — to find out which git commit is deployed, then compare it to the public repository. If they match, the code the hosting provider was instructed to run is the code you can read.
+TREAD (Transparent Record of Evaluation, Attestation and Deployment) is a protocol for closing this gap. The idea is simple: query the hosting provider's API directly — not the application — to find out which git commit is deployed, then compare it to the public repository. If they match, the code the hosting provider was instructed to run is the code you can read.
 
-**What POIDE proves — and what it does not.** POIDE records which commit the hosting provider was asked to deploy and what it reports as currently running. It does not provide cryptographic proof of what code the hosting provider actually executed in memory. That distinction matters: the proof is about *intended* deployment, not execution-level attestation. For most threat models — where the concern is an operator quietly swapping application code — this is sufficient. Hardware-level execution attestation would require trusted execution environments (TEEs) or similar infrastructure and remains out of scope for this protocol.
+**What TREAD proves — and what it does not.** TREAD records which commit the hosting provider was asked to deploy and what it reports as currently running. It does not provide cryptographic proof of what code the hosting provider actually executed in memory. That distinction matters: the proof is about *intended* deployment, not execution-level attestation. For most threat models — where the concern is an operator quietly swapping application code — this is sufficient. Hardware-level execution attestation would require trusted execution environments (TEEs) or similar infrastructure and remains out of scope for this protocol.
 
-**Open source projects.** For software with a public repository, POIDE makes the intended deployment visible to everyone. Any user, journalist, regulator, or researcher can independently verify which commit is running without trusting the operator's word. This is a meaningful property: it turns "trust us, we run what we say" into a continuously auditable claim.
+**Open source projects.** For software with a public repository, TREAD makes the intended deployment visible to everyone. Any user, journalist, regulator, or researcher can independently verify which commit is running without trusting the operator's word. This is a meaningful property: it turns "trust us, we run what we say" into a continuously auditable claim.
 
 **Closed source projects.** Open source has never been a trust property in itself — it is one implementation of auditing. In practice, almost nobody reads open source code, and fewer still can evaluate it for security. XZ Utils was open for years; the backdoor went unnoticed. Auditing produces trust only when someone actually looks.
 
-POIDE decouples auditing from visibility. What a user actually needs is not the code in front of their eyes — they need proof that someone competent reviewed it, and that what was reviewed is the same as what is running. POIDE produces this without requiring the code to be public.
+TREAD decouples auditing from visibility. What a user actually needs is not the code in front of their eyes — they need proof that someone competent reviewed it, and that what was reviewed is the same as what is running. TREAD produces this without requiring the code to be public.
 
-This leads to a conclusion worth stating directly: POIDE-protected closed source can offer a stronger auditability guarantee than unreviewed open source. Open source has value elsewhere — in fork rights, as an educational resource, in collective contribution — but on the trust question, the mechanism is what matters, not the visibility.
+This leads to a conclusion worth stating directly: TREAD-protected closed source can offer a stronger auditability guarantee than unreviewed open source. Open source has value elsewhere — in fork rights, as an educational resource, in collective contribution — but on the trust question, the mechanism is what matters, not the visibility.
 
-Open source is a necessary but not sufficient condition for trust. POIDE is the part that was missing. An organisation can use it to prove to management, a compliance team, a business partner, or a regulatory authority which version of their software was running at a given time — and that it was reviewed against a stated policy before deployment. The audit trail on Arweave is permanent and cannot be retroactively altered, making it useful for post-incident analysis, regulatory reporting, or contractual obligations.
+Open source is a necessary but not sufficient condition for trust. TREAD is the part that was missing. An organisation can use it to prove to management, a compliance team, a business partner, or a regulatory authority which version of their software was running at a given time — and that it was reviewed against a stated policy before deployment. The audit trail on Arweave is permanent and cannot be retroactively altered, making it useful for post-incident analysis, regulatory reporting, or contractual obligations.
 
 The code never needs to be public. The policy file is public. The verdict is public. The fact that a specific commit was reviewed against a specific policy and deployed is public. What the code actually contains remains private. This is the closed-source trust model: not "read the code and decide", but "an independent auditor checked it, the result is permanent, and the deployed version is monitored continuously."
 
 ---
 
-## How Leima implements POIDE
+## How Leima implements TREAD
 
 Leima runs five GitHub Actions workflows on a staggered schedule, together achieving one-minute polling resolution:
 
@@ -34,17 +34,19 @@ poide-e: 4-59/5 * * * *    ← minutes 4, 9, 14 ...
 
 The policy file (`POLICY.example.md`) is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy that governs each review cannot be changed retroactively.
 
-Each workflow runs `poide_check.py`, which checks three conditions and publishes a combined `status.json` to the `gh-pages` branch:
+Each workflow runs `poide_check.py`, which checks three conditions and publishes a combined `status.json` to the `gh-pages` branch (the script name is unchanged):
 
 1. **Deployment match** — calls the Render API and the GitHub API, verifies the live commit matches the repository HEAD
 2. **No deploy in progress** — flags if Render reports an active build or update
-3. **Code review passed** — queries the GitHub Actions API for the result of the latest `POIDE Code Review` run
+3. **Code review passed** — queries the GitHub Actions API for the result of the latest `TREAD Code Review` run
 
 `ok: true` requires all three to pass simultaneously.
 
 The code review (`code_review.py`) runs automatically on every push to `main`. It sends all Python and JavaScript source files together with `POLICY.example.md` to an AI model, which checks whether the code complies with the stated data policy. If a violation is found, the workflow fails and the deployment is blocked — the server continues running the previous commit. Only when the review passes does the workflow trigger a Render deploy via a deploy hook, after which the new commit goes live.
 
 This means code that fails the AI audit never reaches production. The deployment gate is the review itself.
+
+**Limitation: prompt injection in the code review gate.** The review is most reliable when those who write the code have no incentive to deceive the reviewer — for instance, when detecting unintentional policy drift or commercial pressure to quietly weaken a privacy guarantee. Against a deliberately adversarial commit, the situation is different: comments, string literals, or documentation in the code could contain text specifically crafted to manipulate the AI reviewer's verdict. This is precisely the scenario where independent attestation is most valuable, and also where this mechanism is weakest. The deployment version check is unaffected by this — it is a deterministic comparison of commit hashes and cannot be influenced by code content. The AI analysis component should be understood as an independent evaluation, not a tamper-proof gate.
 
 The full trust chain on every commit:
 ```
@@ -60,19 +62,21 @@ cron (every minute) → poide_check.py → deployment match?
 
 The check passes if the deployed commit matches the GitHub HEAD and the code review is green. If an unauthorised deployment has occurred — a commit that did not go through the review gate — the check fails and the GitHub Actions badge turns red.
 
+(Script and workflow filenames — `poide_check.py`, `poide-a.yml` etc. — are unchanged; only the protocol name has been updated.)
+
 **The result is public and independently verifiable.** Anyone can visit the [Actions tab](../../actions) to see the continuous check history, or fetch `status.json` directly. The checks run on GitHub's infrastructure — not Render's — so they cannot be influenced by a compromise of the hosting environment.
 
 **Monitor files are hashed.** `status.json` includes SHA-256 hashes of all monitoring-related files: the five cron workflows, the code review workflow, `poide_check.py`, `code_review.py`, and `POLICY.example.md`. A user or browser extension can compare these hashes across sessions. If a hash has changed, it is a signal to check what changed and why — before submitting any documents. This closes the meta-loop: the monitoring infrastructure is itself monitored by the same mechanism. An attacker who wants to slip in malicious application code must do so in a way that passes the AI code review against an unchanged `POLICY.example.md` — changing both simultaneously is significantly harder and more visible.
 
 **Deploy history check.** Each cron run fetches the 20 most recent Render deployments and verifies that every commit hash exists in the GitHub repository. A commit that was deployed but does not appear in git is a strong indicator of tampering. The result is published in `status.json` as `history.last_mismatch_at` and `history.clean_since`. The Tampermonkey userscript shows this as a human-readable label — "puhdas historia 47 pv" on a clean run, or an orange/red warning if a mismatch was found recently. This builds a verifiable track record: the longer the clean history, the stronger the reputation.
 
-**Cron freshness check.** Each cron run queries the GitHub Actions API for when all five poide workflows last ran. If none has run within 10 minutes — twice the expected 5-minute interval — `cron_fresh` is set to false and `ok` turns false. GitHub Actions cron jobs can be delayed during high load; this makes any such delay visible automatically without requiring users to interpret timestamps.
+**Cron freshness check.** Each cron run queries the GitHub Actions API for when all five TREAD workflows last ran. If none has run within 10 minutes — twice the expected 5-minute interval — `cron_fresh` is set to false and `ok` turns false. GitHub Actions cron jobs can be delayed during high load; this makes any such delay visible automatically without requiring users to interpret timestamps.
 
-**Deploy history as an audit trail.** Render retains the full deployment history for a service. Even if a malicious deploy were pushed and immediately reverted, it would remain visible in the history — there is no way to silently insert and remove a deployment. Combined with the fact that a Render deploy takes several minutes, any unauthorised code change will appear in a POIDE check before or shortly after the deployment completes.
+**Deploy history as an audit trail.** Render retains the full deployment history for a service. Even if a malicious deploy were pushed and immediately reverted, it would remain visible in the history — there is no way to silently insert and remove a deployment. Combined with the fact that a Render deploy takes several minutes, any unauthorised code change will appear in a TREAD check before or shortly after the deployment completes.
 
 **Trust boundary:** this approach assumes Render is not actively colluding — i.e., that the Render API reports the actual running commit honestly. A colluding hosting provider could lie in the API response while running different code. Mitigating that threat requires either multiple independent hosting providers each monitoring the others, or hosting-provider-level cryptographic attestation (see [Vision](#vision) below).
 
-It is worth stating the threat hierarchy explicitly, because security analysis often fixates on residual risks without contextualising their magnitude. A hosting provider conspiracy requires a funded company with investors, legal obligations, and hundreds of other customers to commit what would likely be a criminal act and destroy their business in the process. Even broadening this to include an involuntary breach — Render itself becoming the victim of an attack that results in silent code substitution — the realistic annual probability remains on the order of 0.001–0.01%. Maintainer credential theft via phishing, SIM-swapping, or malware is a routine occurrence across the software industry; for a project maintained by a small number of individuals, the realistic annual probability is closer to 1–5%. The more likely threat is an order of magnitude of 100–1000× higher. POIDE addresses the hosting-provider layer. The maintainer-credential layer is addressed by commit signing, hardware security keys, and the automated code review that runs on every push — none of which are perfect, but together they cover the more probable attack surface. A system that is imperfect against a 0.01% threat while robust against a 5% threat is not a weak system.
+It is worth stating the threat hierarchy explicitly, because security analysis often fixates on residual risks without contextualising their magnitude. A hosting provider conspiracy requires a funded company with investors, legal obligations, and hundreds of other customers to commit what would likely be a criminal act and destroy their business in the process. Even broadening this to include an involuntary breach — Render itself becoming the victim of an attack that results in silent code substitution — the realistic annual probability remains on the order of 0.001–0.01%. Maintainer credential theft via phishing, SIM-swapping, or malware is a routine occurrence across the software industry; for a project maintained by a small number of individuals, the realistic annual probability is closer to 1–5%. The more likely threat is an order of magnitude of 100–1000× higher. TREAD addresses the hosting-provider layer. The maintainer-credential layer is addressed by commit signing, hardware security keys, and the automated code review that runs on every push — none of which are perfect, but together they cover the more probable attack surface. A system that is imperfect against a 0.01% threat while robust against a 5% threat is not a weak system.
 
 ---
 
@@ -81,8 +85,8 @@ It is worth stating the threat hierarchy explicitly, because security analysis o
 Before using Leima, you can verify the full trust chain in one place:
 
 1. Open the [Actions tab](../../actions) in this repository
-2. Check that **POIDE Code Review** is green on the latest commit — the code has been audited against `POLICY.example.md`
-3. Check that the five **POIDE A–E** workflows show green on their most recent runs — the running code matches the audited source
+2. Check that **TREAD Code Review** is green on the latest commit — the code has been audited against `POLICY.example.md`
+3. Check that the five **TREAD A–E** workflows show green on their most recent runs — the running code matches the audited source
 4. Optionally fetch [`status.json`](../../raw/refs/heads/gh-pages/status.json) and compare the `monitor_files` hashes against your previous session — if any hash has changed, check what changed and why before submitting documents
 
 If any workflow is red, either a policy violation was detected in the code or a deployment mismatch was found within the last minute. Do not submit sensitive documents until the checks recover.
@@ -104,7 +108,7 @@ It uses two independent sources for each monitored file:
 
 **Git history (GitHub API).** For each file in the monitoring infrastructure — the five cron workflows, `poide_check.py`, `poide_arweave.py`, `code_review.py`, and `POLICY.example.md` — it queries GitHub's commit history API to find when the file was last changed. This record is maintained by GitHub, not by Leima. A service operator cannot alter it without leaving a visible trace in the git history, which is append-only on GitHub's infrastructure.
 
-**Arweave record.** It fetches the latest POIDE check result directly from Arweave and reads the `monitor_files` hashes stored there. Since Arweave records are permanent and cannot be retroactively altered, the hashes represent what the monitoring system observed at that moment — independently of any code the Leima service runs today.
+**Arweave record.** It fetches the latest TREAD check result directly from Arweave and reads the `monitor_files` hashes stored there. Since Arweave records are permanent and cannot be retroactively altered, the hashes represent what the monitoring system observed at that moment — independently of any code the Leima service runs today.
 
 If both sources agree and the files are unchanged, the monitoring infrastructure has been consistent and auditable: any commit mismatch during that period would have been detected and recorded, and every change to the monitoring code itself would be visible in git history.
 
@@ -130,27 +134,27 @@ These three attacks illustrate different points in the supply chain where code c
 
 **PHP git server compromise (2021).** Attackers gained access to PHP's official git server and injected a backdoor directly into the source code. The commits appeared to come from known, trusted developers — everything looked normal. The attack was caught before a release was made, but had it reached production, millions of PHP-powered websites would have been running malicious code from an apparently legitimate source. An immutable deployment log and independent runtime verification would have made the gap between "what was in git" and "what was actually running" immediately visible.
 
-**Picreel and Alpaca Forms supply chain attack (2019).** Attackers compromised a web analytics service and several open source form libraries. The malicious code was quietly injected into JavaScript files served to over 4,600 websites. Those sites began leaking user data to an attacker-controlled server. Site owners did not know. Users did not know. The browser showed a perfectly normal page — HTTPS was green — but the runtime JavaScript had been replaced. This is the attack POIDE is most directly designed to make visible: the running code had changed, but nothing in the user's environment reflected that.
+**Picreel and Alpaca Forms supply chain attack (2019).** Attackers compromised a web analytics service and several open source form libraries. The malicious code was quietly injected into JavaScript files served to over 4,600 websites. Those sites began leaking user data to an attacker-controlled server. Site owners did not know. Users did not know. The browser showed a perfectly normal page — HTTPS was green — but the runtime JavaScript had been replaced. This is the attack TREAD is most directly designed to make visible: the running code had changed, but nothing in the user's environment reflected that.
 
-All three share the same structure: the trust signal users had — a familiar domain, a green padlock, a known developer's name on a commit — said nothing about what code was actually executing. POIDE adds the missing signal at the runtime end of the chain. Sigstore, SLSA, and reproducible builds address the earlier stages; together they cover the full path from source to running instance.
+All three share the same structure: the trust signal users had — a familiar domain, a green padlock, a known developer's name on a commit — said nothing about what code was actually executing. TREAD adds the missing signal at the runtime end of the chain. Sigstore, SLSA, and reproducible builds address the earlier stages; together they cover the full path from source to running instance.
 
 ---
 
 ## Prior art and existing landscape
 
-The problem POIDE addresses is recognised but underserved. Existing approaches fall into three categories:
+The problem TREAD addresses is recognised but underserved. Existing approaches fall into three categories:
 
-**Too narrow.** Meta released [Code Verify](https://github.com/facebookincubator/meta-code-verify) (2022), a browser extension that checks WhatsApp Web, Facebook, and Instagram JavaScript against a Cloudflare-hosted reference copy. If the running code differs from the published version, the user is warned immediately. This is essentially the browser extension part of the POIDE vision — but built only for Meta's own services, with Cloudflare as the trusted third party. No general version exists that any project could adopt.
+**Too narrow.** Meta released [Code Verify](https://github.com/facebookincubator/meta-code-verify) (2022), a browser extension that checks WhatsApp Web, Facebook, and Instagram JavaScript against a Cloudflare-hosted reference copy. If the running code differs from the published version, the user is warned immediately. This is essentially the browser extension part of the TREAD vision — but built only for Meta's own services, with Cloudflare as the trusted third party. No general version exists that any project could adopt.
 
 **Too heavy.** Academic and industrial research has gone in a hardware direction. HTTPA extends HTTPS with remote attestation using Intel SGX enclaves, allowing clients to verify that a server is running exactly the published code at the hardware level. Signal uses SGX for contact discovery. This is the strongest possible guarantee — but it requires Intel SGX support, re-architecting code into enclaves, and hosting provider cooperation. It is not a realistic option for small open source projects.
 
-**Wrong layer.** Sigstore, SLSA, and in-toto are supply chain standards that secure the path from source code to build artifact. They answer: "was this binary built from this source?" POIDE answers the next question: "is this binary what is actually running?" The two are complementary — Sigstore covers source → artifact, POIDE covers artifact → running instance.
+**Wrong layer.** Sigstore, SLSA, and in-toto are supply chain standards that secure the path from source code to build artifact. They answer: "was this binary built from this source?" TREAD answers the next question: "is this binary what is actually running?" The two are complementary — Sigstore covers source → artifact, TREAD covers artifact → running instance.
 
 **In standardisation.** The W3C Web Application Security Working Group has discussed [Source Code Transparency](https://github.com/WICG/source-code-transparency) — a proposal to publish web app bundle hashes to a Certificate Transparency-style log, requiring browsers to verify the running code is in the log before executing it. The problem is recognised, the process is active, but nothing is in production.
 
-**An underserved gap.** Most proposals focus on client-side JavaScript — the code the browser downloads and runs. POIDE focuses on server-side code — the code that runs on the hosting provider and processes user data. For AI services, server-side code is the only relevant surface: models cannot process encrypted data, so there is no E2E architecture to fall back on. Trust rests entirely on what the server code does. This remains an underrepresented problem space.
+**An underserved gap.** Most proposals focus on client-side JavaScript — the code the browser downloads and runs. TREAD focuses on server-side code — the code that runs on the hosting provider and processes user data. For AI services, server-side code is the only relevant surface: models cannot process encrypted data, so there is no E2E architecture to fall back on. Trust rests entirely on what the server code does. This remains an underrepresented problem space.
 
-POIDE's differentiator is that it works with existing building blocks — a hosting provider API, GitHub API, GitHub Actions, and a cron schedule. No browser changes, no hardware enclaves, no new standardisation processes, no partnership agreements. Any open source project can adopt it over a weekend. The guarantee is weaker than SGX attestation, but meaningfully stronger than "trust us because we're open source" — and it is deployable today.
+TREAD's differentiator is that it works with existing building blocks — a hosting provider API, GitHub API, GitHub Actions, and a cron schedule. No browser changes, no hardware enclaves, no new standardisation processes, no partnership agreements. Any open source project can adopt it over a weekend. The guarantee is weaker than SGX attestation, but meaningfully stronger than "trust us because we're open source" — and it is deployable today.
 
 ---
 
@@ -160,17 +164,19 @@ Zero-knowledge proofs establish a fact to a verifier without requiring trust in 
 
 Leima's approach occupies a different point on the same spectrum. The AI verdict is a probabilistic proof: a large language model is a statistical function over its training distribution, and its output on a given input reflects regularities across an enormous corpus of human reasoning. When the same model applies the same instructions to the same document, the results are not random — they are systematic, reproducible within the model's stochastic bounds, and independent of the interests of any human reviewer. That is a weaker guarantee than ZK, but it is a guarantee in the same family: structured, repeatable, and auditable.
 
-POIDE's code review layer makes this explicit. Every commit is evaluated by an AI against an immutable policy document stored on Arweave. The AI cannot be bribed, pressured, or distracted. It cannot forget to check a clause. The policy it evaluates against cannot be retroactively altered. The result — pass or fail — is recorded permanently. This is not a mathematical proof that the code is safe. It is a statistical proof that an independent reviewer, applying consistent criteria, found no violation. For the threat model it addresses — a small team under commercial pressure quietly weakening a privacy policy — the statistical proof is both sufficient and practical.
+TREAD's code review layer makes this explicit. Every commit is evaluated by an AI against an immutable policy document stored on Arweave. The AI cannot be bribed, pressured, or distracted. It cannot forget to check a clause. The policy it evaluates against cannot be retroactively altered. The result — pass or fail — is recorded permanently. This is not a mathematical proof that the code is safe. It is a statistical proof that an independent reviewer, applying consistent criteria, found no violation. For the threat model it addresses — a small team under commercial pressure quietly weakening a privacy policy — the statistical proof is both sufficient and practical.
 
 The conceptual lineage matters for understanding what Leima is. ZK proofs democratised one class of trustless verification by making it computationally feasible. Leima applies the same underlying ambition — verification without trust, at scale, without expensive infrastructure — to a class of problems ZK cannot reach: natural language documents, human-readable claims, and code that must be reviewed for intent rather than correctness. The mathematical foundation is different (statistical rather than algebraic), the cost is orders of magnitude lower, and the scope is broader. It is not a weaker ZK. It is a different tool solving an adjacent problem.
 
 One residual risk is worth naming: the AI evaluator can in principle be poisoned. A document crafted with adversarial intent — embedded instructions, misleading framing, or content designed to manipulate the model's output — could cause the verdict to misrepresent what the document actually says. In most practical use cases this risk is either negligible or detectable. Documents from official or institutional sources — court records, financial statements, authenticated emails — are not under the adversary's control at the time of stamping; there is no surface for injection. Where the document originates from the submitting party, adversarial manipulation would produce a verdict whose stated reasoning is inconsistent with the source document — visible to any human reviewer who checks the original. The claim submitted by the requester — including any interpretive preferences or instructions attached to it — is always reproduced verbatim in the verdict document. Any adversarial instruction embedded there would be immediately visible to anyone reading the verdict. Explicit prompt injection protection can be applied at the instruction level to reduce susceptibility further. Running multiple independent models simultaneously and requiring agreement across verdicts reduces the risk further still: a successful attack would need to fool several architectures with different training distributions at once. No single mitigation is absolute, but in combination they make undetected manipulation significantly harder than any single-reviewer process — human or automated.
 
+The code review use case has a different risk profile. Document analysis typically uses source material from third parties — official authorities, institutions, counterparties — that is not under the adversary's control, so there is little practical surface for injection. Code review is different: the code is always under the control of whoever committed it. A determined adversary can embed instructions in comments, string literals, or documentation specifically crafted to mislead the AI reviewer. The code review gate is therefore most effective as a safeguard against unintentional policy violations and well-intentioned but careless changes — not as a defence against a technically sophisticated actor whose goal is to deceive the reviewer. The deployment version matching provides a separate, stronger guarantee that is not affected by this attack.
+
 ---
 
-## Adopting POIDE for any project
+## Adopting TREAD for any project
 
-Any project — open or closed source — can wire POIDE with a small amount of GitHub Actions configuration. No separate infrastructure is needed. Leima exposes a public API that handles the code review step.
+Any project — open or closed source — can wire TREAD with a small amount of GitHub Actions configuration. No separate infrastructure is needed. Leima exposes a public API that handles the code review step.
 
 **How it works in practice**
 
@@ -191,7 +197,7 @@ Any project — open or closed source — can wire POIDE with a small amount of 
 
 3. **Gate the deploy.** Place the deploy step after the review step. If the review fails, the workflow exits and the deploy does not run. The code that failed the policy check never reaches production.
 
-4. **Add POIDE monitoring.** Add cron workflows that periodically compare the live commit (via the hosting provider's API) against the GitHub HEAD. Publish the result publicly. Anyone — a regulator, a business partner, a user — can check the status at any time without credentials.
+4. **Add TREAD monitoring.** Add cron workflows that periodically compare the live commit (via the hosting provider's API) against the GitHub HEAD. Publish the result publicly. Anyone — a regulator, a business partner, a user — can check the status at any time without credentials.
 
 **What this achieves for a closed-source project**
 
@@ -217,7 +223,7 @@ Continuous code review against a fixed policy opens up use cases beyond user-fac
 
 - **Compliance reporting.** For regulated industries — fintech, healthcare, legal — the permanent Arweave record provides a timestamped compliance trail without additional tooling. "The code was reviewed against policy X at commit Y on date Z, and passed" is a statement that can be independently verified.
 
-The gap between "we have a security policy" and "we can prove the running code follows it" is normally bridged by expensive audits and manual processes. POIDE closes that gap for code-level compliance continuously and automatically.
+The gap between "we have a security policy" and "we can prove the running code follows it" is normally bridged by expensive audits and manual processes. TREAD closes that gap for code-level compliance continuously and automatically.
 
 ---
 
@@ -233,20 +239,20 @@ The current implementation (`code_review.py`) is a working example of this idea 
 
 **Userscript (available now).** A Tampermonkey/Greasemonkey userscript ([`poide.user.js`](poide.user.js)) is included in the repository. It uses `GM_xmlhttpRequest` — which runs in the browser extension's isolated context, not the page's JavaScript environment — so a compromised Leima page cannot intercept or spoof the check. On each page load it fetches `status.json`, shows a green banner if everything is in order, and a red warning if not. It also compares `monitor_files` hashes against the previous session using `GM_getValue`/`GM_setValue`, alerting if any monitoring file has changed.
 
-**Browser extension.** A dedicated browser extension would make the same check fully automatic for any POIDE-enabled application without requiring manual userscript installation. No manual check required.
+**Browser extension.** A dedicated browser extension would make the same check fully automatic for any TREAD-enabled application without requiring manual userscript installation. No manual check required.
 
 **Hosting platform attestation.** The cleanest solution is for hosting providers to publish cryptographically signed deployment records: *"we certify that service X is running commit Y, signed with our public key."* This would make third-party monitoring unnecessary — the platform itself provides the proof, and any client can verify it. Until hosting platforms offer this natively, external monitoring is the practical alternative.
 
-This is where the loop closes completely. The current POIDE implementation has one residual trust assumption: Render reports the deployed commit honestly. External cron monitoring can detect a mismatch if the running code diverges from what Render reports — but it cannot detect the case where Render actively lies in its own API response while running different code. That requires either multiple independent providers monitoring each other, or the provider itself making a cryptographically verifiable commitment.
+This is where the loop closes completely. The current TREAD implementation has one residual trust assumption: Render reports the deployed commit honestly. External cron monitoring can detect a mismatch if the running code diverges from what Render reports — but it cannot detect the case where Render actively lies in its own API response while running different code. That requires either multiple independent providers monitoring each other, or the provider itself making a cryptographically verifiable commitment.
 
 A commit ID alone is not sufficient. A provider could report the correct commit ID while running different code entirely. The complete proof requires two things: a signed record of which commit was deployed, and a signed hash of the actual code being executed — not just the identifier of the commit it claims to be running. Only when both are present can a third party verify the full chain without trusting anyone's word.
 
-If a provider like Render natively adopted POIDE — publishing signed records that include both the commit ID and a hash of the deployed code bundle, written to a public ledger such as Arweave — the trust chain would be complete: the code was reviewed before deployment (AI audit), the reviewed code is what was deployed (provider-signed code hash), and the record is permanent and tamper-proof (Arweave). No third party would need to poll, guess, or trust anyone's word. The proof would exist independently of both the application operator and the monitoring infrastructure.
+If a provider like Render natively adopted TREAD — publishing signed records that include both the commit ID and a hash of the deployed code bundle, written to a public ledger such as Arweave — the trust chain would be complete: the code was reviewed before deployment (AI audit), the reviewed code is what was deployed (provider-signed code hash), and the record is permanent and tamper-proof (Arweave). No third party would need to poll, guess, or trust anyone's word. The proof would exist independently of both the application operator and the monitoring infrastructure.
 
 This is a realistic near-term development. Hosting providers already compute and store deployment artifacts internally. Publishing a hash of those artifacts — with no sensitive infrastructure detail exposed — would be a modest engineering effort with a significant trust payoff. The first provider to offer this would have a meaningful differentiator for security-conscious customers.
 
 **Versioned user consent.** When a user first uses an application, they accept what it may do with their data — but that acceptance is tied to a specific, audited version of the code. When a new commit is deployed and passes the audit, the auditor checks whether the new code does anything materially different from what the user already accepted: new data destinations, changed retention behaviour, altered AI prompts, new third-party integrations. If the change is within what was previously accepted, the user is not interrupted. If it falls outside, the user is notified and asked to re-consent before continuing. The terms do not change silently between sessions — the code does not change silently between sessions.
 
-**Standardisation.** POIDE could become a badge and a protocol that any hosted open source project can adopt — analogous to how HTTPS became a baseline expectation. A project that exposes a verifiable deployment status makes a stronger trust claim than one that only publishes source code.
+**Standardisation.** TREAD could become a badge and a protocol that any hosted open source project can adopt — analogous to how HTTPS became a baseline expectation. A project that exposes a verifiable deployment status makes a stronger trust claim than one that only publishes source code.
 
 The underlying principle is the same throughout: trust is not granted to a company or a person. It is granted to a specific, verified version of code — and automatically re-evaluated whenever the code changes.

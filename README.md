@@ -26,7 +26,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Setup](#setup)
 - [Validation](#validation)
 - [Deployment](#deployment)
-- [Deployment integrity (POIDE)](#deployment-integrity-poide)
+- [Deployment integrity (TREAD)](#deployment-integrity-tread)
 - [Independent verification (verify.py)](#independent-verification-verifypy)
 - [Self-characterisation for due diligence (bundle_source.py)](#self-characterisation-for-due-diligence-bundle_sourcepy)
 - [Developer pre-push hook](#developer-pre-push-hook)
@@ -257,14 +257,14 @@ The blockchain record proves that a specific analysis of a specific document exi
 **You do not need to trust the authors**
 Leima is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
-**Deployment integrity monitoring (POIDE)**
-Open source code is auditable — but only if the running code is the same as the published code. Leima implements POIDE (Proof of Intended Deployment): every push to `main` triggers an automated code review against `POLICY.example.md`; Render auto-deploy is disabled, so the deploy hook fires only if the review passes. Five GitHub Actions workflows then run on a staggered schedule, together achieving one-minute polling resolution, querying the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishing the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
+**Deployment integrity monitoring (TREAD)**
+Open source code is auditable — but only if the running code is the same as the published code. Leima implements TREAD (Transparent Record of Evaluation, Attestation and Deployment): every push to `main` triggers an automated code review against `POLICY.example.md`; Render auto-deploy is disabled, so the deploy hook fires only if the review passes. Five GitHub Actions workflows then run on a staggered schedule, together achieving one-minute polling resolution, querying the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishing the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
 
 `POLICY.example.md` is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy the AI uses cannot be quietly changed after the fact.
 
-See [POIDE.md](POIDE.md) for a full description of the protocol, the current implementation, the longer-term vision, real-world incidents where deployment transparency would have helped (XZ Utils, PHP git compromise, Picreel), and how POIDE relates to existing approaches such as Sigstore and Meta Code Verify.
+See [TREAD.md](TREAD.md) for a full description of the protocol, the current implementation, the longer-term vision, real-world incidents where deployment transparency would have helped (XZ Utils, PHP git compromise, Picreel), and how TREAD relates to existing approaches such as Sigstore and Meta Code Verify.
 
-One residual trust assumption remains: Render, as the hosting provider, could in principle report a false commit hash while running different code. This is a different category of risk than ordinary vulnerabilities — it requires the hosting provider to actively conspire against users. See POIDE.md for a discussion of how this could be mitigated.
+One residual trust assumption remains: Render, as the hosting provider, could in principle report a false commit hash while running different code. This is a different category of risk than ordinary vulnerabilities — it requires the hosting provider to actively conspire against users. See TREAD.md for a discussion of how this could be mitigated.
 
 **Planned: privacy-committed AI providers**
 A future option will allow switching to AI providers that operate under strict, publicly auditable privacy commitments — where documents are contractually guaranteed not to be used for training or retained after the request. The stamping and verification layer remains identical; only the AI backend changes. This preserves the trust model while reducing reliance on Google's standard API terms.
@@ -278,10 +278,10 @@ A future option will allow switching to AI providers that operate under strict, 
 | Verdict modified after creation | Yes | Hash mismatch detected on validation |
 | Source file modified after creation | Yes | Hash mismatch detected on validation |
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
-| Code violates stated data policy | Yes | AI audits all source files against POLICY.example.md on every commit; workflow fails and POIDE turns red if a violation is found |
-| Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render auto-deploy is disabled — deploy hook fires only on review success; POIDE polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
+| Code violates stated data policy | Yes | AI audits all source files against POLICY.example.md on every commit; workflow fails and TREAD turns red if a violation is found |
+| Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render auto-deploy is disabled — deploy hook fires only on review success; TREAD polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
 | Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
-| Hosting provider (Render) swaps running code silently | Partly | POIDE detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
+| Hosting provider (Render) swaps running code silently | Partly | TREAD detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
 | Leima lies during original run | Partly | Full prompt logic is isolated in `neutral_witness.py` and audited on every commit |
 | AI verdict is wrong | Partly | The hash commitment stands regardless — document tampering is still provable. The AI analysis is a first opinion, not a legal authority |
 | Document is fake before upload | No | Leima timestamps existence, does not authenticate origin |
@@ -295,7 +295,7 @@ A future option will allow switching to AI providers that operate under strict, 
 
 Deployment transparency has historically required either expensive infrastructure or accepting "trust us" as the answer. This has had a real cost.
 
-**A provable record of intent.** Every POIDE check is written permanently to Arweave. This means a small company can at any point in time prove — to a customer, a regulator, an auditor, or a court — exactly what source code they were asking their hosting provider to run, and when. They cannot prove that the hosting provider executed it exactly as instructed; that residual assumption is documented openly. But the record of intent is permanent, tamper-proof, and independently verifiable without asking the company for anything. For regulated industries or contractual disputes, this is a meaningful guarantee that previously required expensive third-party auditing infrastructure.
+**A provable record of intent.** Every TREAD check is written permanently to Arweave. This means a small company can at any point in time prove — to a customer, a regulator, an auditor, or a court — exactly what source code they were asking their hosting provider to run, and when. They cannot prove that the hosting provider executed it exactly as instructed; that residual assumption is documented openly. But the record of intent is permanent, tamper-proof, and independently verifiable without asking the company for anything. For regulated industries or contractual disputes, this is a meaningful guarantee that previously required expensive third-party auditing infrastructure.
 
 **Lost opportunity.** Small operators have had no mechanism to demonstrate that the code they claim to run is the code actually running. Large players substitute brand reputation for technical transparency. This locks small operators out of trust-sensitive markets — legal, financial, medical, research — not because their code is worse, but because they lack the tools to prove it. Use cases that could be automated have stayed manual. Services that could exist have not been built.
 
@@ -303,7 +303,7 @@ Deployment transparency has historically required either expensive infrastructur
 
 The realistic threat hierarchy is not symmetrical. Maintainer credential theft — phishing, SIM-swapping, malware, insider action — is a routine occurrence across the software industry. For a small project, the realistic annual probability is 1–5%. A hosting provider infrastructure breach deep enough to silently swap running code is a different category of event: it has not been publicly documented at major managed hosting providers, and would require capabilities well beyond opportunistic attacks. The realistic annual probability is orders of magnitude lower — and deliberate collusion by a company with investors, legal obligations, and hundreds of other customers is lower still.
 
-POIDE covers the large realistic risk. TEE would additionally cover the small theoretical one — at roughly 1000x the cost, to address a threat that is roughly 100–1000x less likely. The marginal cost per covered risk unit is prohibitive.
+TREAD covers the large realistic risk. TEE would additionally cover the small theoretical one — at roughly 1000x the cost, to address a threat that is roughly 100–1000x less likely. The marginal cost per covered risk unit is prohibitive.
 
 **Comparison.**
 
@@ -312,10 +312,10 @@ POIDE covers the large realistic risk. TEE would additionally cover the small th
 | Fully on-chain (Ethereum) | Very high per operation | Execution is public and deterministic — but LLMs cannot run on-chain |
 | TEE (SGX/SEV) | 50k–500k+ to implement | Code executing in memory matches the published source |
 | Formal audit | 20k–100k+, one-time snapshot | Code complies with stated policy at a point in time |
-| POIDE | Near zero | Hosting provider was instructed to run the audited commit; continuous, permanent record |
+| TREAD | Near zero | Hosting provider was instructed to run the audited commit; continuous, permanent record |
 | Nothing | Zero | "Trust us" |
 
-For AI applications specifically, fully on-chain execution is not a realistic option: language models cannot run in the EVM, and document processing at this scale is impossible on-chain. Given that off-chain computation is unavoidable, POIDE represents the practical optimum — meaningful attestation with existing building blocks, deployable over a weekend, with a permanent audit trail that no retroactive action can alter.
+For AI applications specifically, fully on-chain execution is not a realistic option: language models cannot run in the EVM, and document processing at this scale is impossible on-chain. Given that off-chain computation is unavoidable, TREAD represents the practical optimum — meaningful attestation with existing building blocks, deployable over a weekend, with a permanent audit trail that no retroactive action can alter.
 
 ---
 
@@ -401,7 +401,7 @@ To enable the email notary, add a **Cron Job** service pointing at `POST /notary
 
 ---
 
-## Deployment integrity (POIDE)
+## Deployment integrity (TREAD)
 
 The full trust chain on every commit:
 
@@ -418,7 +418,7 @@ Five GitHub Actions workflows run on a staggered schedule and together poll depl
 
 Because Render auto-deploy is disabled, a commit that fails the code review is never deployed — the server continues running the previous commit until a passing commit is pushed.
 
-Before submitting sensitive documents, verify that the POIDE Code Review and the five POIDE A–E workflows show green on the [Actions tab](../../actions). See [POIDE.md](POIDE.md) for the full protocol description.
+Before submitting sensitive documents, verify that the TREAD Code Review and the five TREAD A–E workflows show green on the [Actions tab](../../actions). See [TREAD.md](TREAD.md) for the full protocol description.
 
 ---
 
@@ -434,7 +434,7 @@ python verify.py
 It checks two independent sources for each monitored file:
 
 1. **Git history (GitHub API)** — confirms when each file was last changed. This record is maintained by GitHub, not by Leima, and cannot be altered by the service operator.
-2. **Arweave record** — fetches the latest POIDE check result from Arweave (permanent, immutable) and compares the stored file hashes to what is currently on GitHub.
+2. **Arweave record** — fetches the latest TREAD check result from Arweave (permanent, immutable) and compares the stored file hashes to what is currently on GitHub.
 
 If both sources agree and the files are unchanged, this provides a meaningful guarantee: the monitoring code has been auditable and consistent, any commit mismatch since the last change would have been detected and recorded, and the monitoring code itself has passed automated AI code review on every push.
 
@@ -482,4 +482,4 @@ cp hooks/pre-push .git/hooks/pre-push
 chmod +x .git/hooks/pre-push   # Linux/macOS only
 ```
 
-Before every `git push`, the hook fetches the latest POIDE status. If a deploy is in progress it waits (up to 3 minutes). If a mismatch is active it blocks the push and explains why. Override with `git push --no-verify` if needed.
+Before every `git push`, the hook fetches the latest TREAD status. If a deploy is in progress it waits (up to 3 minutes). If a mismatch is active it blocks the push and explains why. Override with `git push --no-verify` if needed.

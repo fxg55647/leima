@@ -1,6 +1,6 @@
 # Leima Data Policy
 
-> **Canonical version:** The binding copy of this policy — the one the production code review audits against — is permanently stored on Arweave at [`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR). The repository version below is kept for human readability and as a model example for other projects adopting POIDE. The Arweave version is what binds.
+> **Canonical version:** The binding copy of this policy — the one the production code review audits against — is permanently stored on Arweave at [`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR). The repository version below is kept for human readability and as a model example for other projects adopting TREAD. The Arweave version is what binds.
 
 This document describes exactly what Leima does with the data you submit. It is written to be verifiable: each claim here can be checked against the source code by anyone, including an automated auditor.
 
@@ -105,9 +105,9 @@ The model is not instructed to retain, summarise, or report your data for any ot
 
 ## Deployment integrity
 
-Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [POIDE.md](POIDE.md) for details.
+Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [TREAD.md](TREAD.md) for details.
 
-The server makes background HTTP calls to the GitHub API and GitHub Pages CDN to fetch deployment verification status. These calls contain no user data — they fetch only the POIDE status log used to display the integrity indicator in the UI.
+The server makes background HTTP calls to the GitHub API and GitHub Pages CDN to fetch deployment verification status. These calls contain no user data — they fetch only the TREAD status log used to display the integrity indicator in the UI.
 
 ---
 
