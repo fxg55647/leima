@@ -3,7 +3,7 @@ This bundle describes Leima (leima.ai), a document analysis and blockchain stamp
 It answers the question: what does this software do, how does it process documents, and what are its data handling guarantees?
 The bundle includes the application backend, AI analysis logic, email notary, UI templates, and data policy.
 
-Commit: e12faff2b4f4582fbbdfb0202248df91faed8a3f
+Commit: 460e2509b9f8f4a4577e1efb259a2ecebe4520a0
 Files: 18
 
 ### .github/workflows/code_review.yml
@@ -23,8 +23,32 @@ jobs:
     steps:
       - name: Leima code review
         env:
-          LEIMA_URL: https://leima.ai
+          LEIMA_URL: https://leima.io
           RULES_URL: https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR
+          CR_CHECK: |
+            import sys, json, os
+            with open('/tmp/cr_result.json') as f:
+                try:
+                    d = json.load(f)
+                except Exception as e:
+                    print(f'::warning title=Code review error::Invalid response from Leima: {e}')
+                    sys.exit(0)
+            if 'error' in d:
+                print(f'::warning title=Code review error::{d["error"]}')
+                sys.exit(0)
+            compliant = d.get('compliant', False)
+            tx_url = d.get('stamp', {}).get('url', '')
+            status = 'COMPLIANT' if compliant else 'VIOLATION'
+            summary_file = os.environ.get('GITHUB_STEP_SUMMARY', '')
+            if summary_file:
+                with open(summary_file, 'w') as f:
+                    f.write(f'# Leima Code Review -- {status}\n\n')
+                    if tx_url:
+                        f.write(f'Arweave: {tx_url}\n\n')
+                    f.write(f'```\n{d.get("verdict", "")}\n```\n')
+            if not compliant:
+                print(f'::error title=Policy violation::{d.get("verdict","")[:300]}')
+            sys.exit(0 if compliant else 1)
         run: |
           RESULT=$(curl -s --max-time 300 -X POST \
             -H "Content-Type: application/json" \
@@ -32,52 +56,57 @@ jobs:
             "$LEIMA_URL/api/code-review")
           echo "$RESULT"
           echo "$RESULT" > /tmp/cr_result.json
-          python3 - <<'PYEOF'
-import sys, json, os
-with open('/tmp/cr_result.json') as f:
-    try:
-        d = json.load(f)
-    except Exception as e:
-        print(f'::error title=Code review error::Invalid response from Leima: {e}')
-        sys.exit(1)
-compliant = d.get('compliant', False)
-tx_url = d.get('stamp', {}).get('url', '')
-status = '✅ COMPLIANT' if compliant else '❌ VIOLATION'
-summary_file = os.environ.get('GITHUB_STEP_SUMMARY', '')
-if summary_file:
-    with open(summary_file, 'w') as f:
-        f.write(f'# Leima Code Review — {status}\n\n')
-        if tx_url:
-            f.write(f'Arweave: {tx_url}\n\n')
-        f.write(f'```\n{d.get("verdict", "")}\n```\n')
-if not compliant:
-    print(f'::error title=Policy violation::{d.get("verdict","")[:300]}')
-sys.exit(0 if compliant else 1)
-PYEOF
+          python3 <<< "$CR_CHECK"
 
       - name: Deploy to Render and wait
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
         run: |
-          DEPLOY_ID=$(curl -s -X POST \
-            -H "Authorization: Bearer $RENDER_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{"clearCache":"do_not_clear"}' \
-            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-          echo "Deploy ID: $DEPLOY_ID"
-          for i in $(seq 1 40); do
-            sleep 15
-            STATUS=$(curl -s \
+          if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_SERVICE_ID" ]; then
+            echo "RENDER_API_KEY or RENDER_SERVICE_ID secret not set"; exit 1
+          fi
+
+          deploy_and_wait() {
+            RESP=$(curl -s -X POST \
               -H "Authorization: Bearer $RENDER_API_KEY" \
-              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" | python3 -c "import sys,json; print(json.load(sys.stdin)['deploy']['status'])")
-            echo "Status: $STATUS"
-            if [ "$STATUS" = "live" ]; then exit 0; fi
-            if [ "$STATUS" = "deactivated" ] || [ "$STATUS" = "canceled" ] || [ "$STATUS" = "failed" ]; then
-              echo "Deploy ended with status: $STATUS"; exit 1
+              -H "Content-Type: application/json" \
+              -d '{"clearCache":"do_not_clear"}' \
+              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys")
+            echo "Render response: $RESP"
+            DEPLOY_ID=$(echo "$RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('deploy',d).get('id',''))")
+            if [ -z "$DEPLOY_ID" ]; then
+              echo "Could not get deploy ID from response above"; return 1
             fi
-          done
-          echo "Deploy timed out after 10 minutes"; exit 1
+            echo "Deploy ID: $DEPLOY_ID"
+            for i in $(seq 1 40); do
+              sleep 15
+              DEPLOY_JSON=$(curl -s \
+                -H "Authorization: Bearer $RENDER_API_KEY" \
+                "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID")
+              STATUS=$(echo "$DEPLOY_JSON" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('deploy',d).get('status','unknown'))")
+              echo "Status: $STATUS"
+              if [ "$STATUS" = "live" ]; then
+                LIVE_COMMIT=$(echo "$DEPLOY_JSON" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('deploy',d).get('commit',{}).get('id',''))")
+                echo "Live commit: $LIVE_COMMIT"
+                echo "Expected:    $GITHUB_SHA"
+                if [ -n "$LIVE_COMMIT" ] && [ "${LIVE_COMMIT}" != "${GITHUB_SHA}" ]; then
+                  echo "Commit mismatch after deploy — Render is running a different commit"; return 1
+                fi
+                return 0
+              fi
+              if [ "$STATUS" = "deactivated" ] || [ "$STATUS" = "canceled" ] || [ "$STATUS" = "failed" ]; then
+                echo "Deploy ended with status: $STATUS"; return 1
+              fi
+            done
+            echo "Deploy timed out after 10 minutes"; return 1
+          }
+
+          if ! deploy_and_wait; then
+            echo "First attempt failed, retrying in 30 seconds..."
+            sleep 30
+            deploy_and_wait
+          fi
 
       - name: Wake up POIDE
         continue-on-error: true
@@ -96,7 +125,7 @@ PYEOF
 ```
 # Leima Data Policy
 
-> **Canonical version:** The binding copy of this policy — the one the production code review audits against — is permanently stored on Arweave at [`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR). The repository version below is kept for human readability and as a model example for other projects adopting POIDE. The Arweave version is what binds.
+> **Canonical version:** The binding copy of this policy — the one the production code review audits against — is permanently stored on Arweave at [`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR). The repository version below is kept for human readability and as a model example for other projects adopting TREAD. The Arweave version is what binds.
 
 This document describes exactly what Leima does with the data you submit. It is written to be verifiable: each claim here can be checked against the source code by anyone, including an automated auditor.
 
@@ -201,9 +230,9 @@ The model is not instructed to retain, summarise, or report your data for any ot
 
 ## Deployment integrity
 
-Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [POIDE.md](POIDE.md) for details.
+Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [TREAD.md](TREAD.md) for details.
 
-The server makes background HTTP calls to the GitHub API and GitHub Pages CDN to fetch deployment verification status. These calls contain no user data — they fetch only the POIDE status log used to display the integrity indicator in the UI.
+The server makes background HTTP calls to the GitHub API and GitHub Pages CDN to fetch deployment verification status. These calls contain no user data — they fetch only the TREAD status log used to display the integrity indicator in the UI.
 
 ---
 
@@ -229,7 +258,7 @@ Changes that do not affect any of the above — bug fixes, UI changes, new docum
 
 Due diligence, notarisation, and source verification have always been expensive — not because they are technically complex, but because they require a trusted human to read, judge, and attest. That bottleneck is no longer absolute. AI can read any document with consistent attention, and a blockchain can seal the result permanently. Together they make it possible, for the first time, to produce credible, tamper-proof verdicts on documents for cents rather than hundreds of euros — available to anyone, not just those with legal budgets.
 
-Leima is built on this insight. You provide a document and a claim. Leima analyses it, seals the verdict cryptographically, and publishes a permanent record to Arweave. The document is processed server-side and discarded — only a cryptographic fingerprint goes to the blockchain. The result is independently verifiable by anyone, without trusting Leima itself.
+Leima is built on this insight. You provide a document and a claim. Leima analyses it, seals the verdict cryptographically, and publishes a permanent record to Arweave. This pattern — AI-assisted semantic evaluation with cryptographically anchored, permanent results — is what we call SAIA: Sealed AI Attestations Architecture. See [ZKSE.md](ZKSE.md) for a discussion of how this relates to zero-knowledge proof systems. The document is processed server-side and discarded — only a cryptographic fingerprint goes to the blockchain. The result is independently verifiable by anyone, without trusting Leima itself.
 
 Leima produces two things at once: a cryptographic proof that a specific document existed and was analysed at a specific time, and an expert opinion on what that document actually says about your claim — both sealed together permanently.
 
@@ -251,11 +280,12 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Setup](#setup)
 - [Validation](#validation)
 - [Deployment](#deployment)
-- [Deployment integrity (POIDE)](#deployment-integrity-poide)
+- [Deployment integrity (TREAD)](#deployment-integrity-tread)
 - [Independent verification (verify.py)](#independent-verification-verifypy)
 - [Self-characterisation for due diligence (bundle_source.py)](#self-characterisation-for-due-diligence-bundle_sourcepy)
 - [Developer pre-push hook](#developer-pre-push-hook)
 - [Data policy](POLICY.example.md)
+- [SAIA and zero-knowledge systems (ZKSE.md)](ZKSE.md)
 
 ---
 
@@ -386,6 +416,10 @@ The natural form for this kind of infrastructure is a commons: open source, gove
 
 The goal is a service that is free or near-free to use, sustainable without a corporate owner, and governed by no one with an interest in its verdicts. That is the only governance model consistent with the role of a neutral witness.
 
+The protocol is open source and can be self-hosted — but self-hosting is not the intended path for most adopters. The value of a neutral witness depends on it being a known, consistently operated entity: a single service whose code is publicly audited, whose deployment is continuously monitored, and whose track record is long enough to establish trust. A proliferation of independent instances — each running its own version of the code, each with its own deployment history — makes it impossible to distinguish legitimate instances from compromised ones. Fragmentation defeats the purpose. The open source licence is there to enable auditability and community contribution, not to encourage everyone to run their own witness.
+
+A related risk: anyone can fork the codebase and run a version that does not respect user privacy. TREAD does not prevent this — it only proves that the running code matches the stated policy. A fork with a permissive policy that explicitly allows data collection or logging would pass its own code review. Users should verify they are using the official Leima instance, not an independently operated fork. The canonical instance is identified by its GitHub repository and its publicly auditable deployment record — the same record that cannot be retroactively altered. A fork cannot inherit this history — Arweave records are signed with the official instance's private key, and a fork operating under a different key produces records under a different on-chain identity. The audit trail is cryptographically bound to a specific key, not just to the codebase.
+
 ---
 
 ## Contributing
@@ -482,14 +516,14 @@ The blockchain record proves that a specific analysis of a specific document exi
 **You do not need to trust the authors**
 Leima is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
-**Deployment integrity monitoring (POIDE)**
-Open source code is auditable — but only if the running code is the same as the published code. Leima implements POIDE (Proof of Intended Deployment): every push to `main` triggers an automated code review against `POLICY.example.md`; Render auto-deploy is disabled, so the deploy hook fires only if the review passes. Five GitHub Actions workflows then run on a staggered schedule, together achieving one-minute polling resolution, querying the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishing the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
+**Deployment integrity monitoring (TREAD)**
+Open source code is auditable — but only if the running code is the same as the published code. Leima implements TREAD (Transparent Record of Evaluation, Attestation and Deployment): every push to `main` triggers an automated code review against `POLICY.example.md`; Render auto-deploy is disabled, so the deploy hook fires only if the review passes. Five GitHub Actions workflows then run on a staggered schedule, together achieving one-minute polling resolution, querying the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishing the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
 
 `POLICY.example.md` is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy the AI uses cannot be quietly changed after the fact.
 
-See [POIDE.md](POIDE.md) for a full description of the protocol, the current implementation, the longer-term vision, real-world incidents where deployment transparency would have helped (XZ Utils, PHP git compromise, Picreel), and how POIDE relates to existing approaches such as Sigstore and Meta Code Verify.
+See [TREAD.md](TREAD.md) for a full description of the protocol, the current implementation, the longer-term vision, real-world incidents where deployment transparency would have helped (XZ Utils, PHP git compromise, Picreel), and how TREAD relates to existing approaches such as Sigstore and Meta Code Verify. TREAD.md also discusses the relationship between statistical AI evaluation and deterministic zero-knowledge proofs, the limits of the approach including prompt injection risk, and mitigations.
 
-One residual trust assumption remains: Render, as the hosting provider, could in principle report a false commit hash while running different code. This is a different category of risk than ordinary vulnerabilities — it requires the hosting provider to actively conspire against users. See POIDE.md for a discussion of how this could be mitigated.
+One residual trust assumption remains: Render, as the hosting provider, could in principle report a false commit hash while running different code. This is a different category of risk than ordinary vulnerabilities — it requires the hosting provider to actively conspire against users. See TREAD.md for a discussion of how this could be mitigated.
 
 **Planned: privacy-committed AI providers**
 A future option will allow switching to AI providers that operate under strict, publicly auditable privacy commitments — where documents are contractually guaranteed not to be used for training or retained after the request. The stamping and verification layer remains identical; only the AI backend changes. This preserves the trust model while reducing reliance on Google's standard API terms.
@@ -503,10 +537,11 @@ A future option will allow switching to AI providers that operate under strict, 
 | Verdict modified after creation | Yes | Hash mismatch detected on validation |
 | Source file modified after creation | Yes | Hash mismatch detected on validation |
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
-| Code violates stated data policy | Yes | AI audits all source files against POLICY.example.md on every commit; workflow fails and POIDE turns red if a violation is found |
-| Malicious code change slipped in unnoticed | Yes | Every commit triggers a code review; Render auto-deploy is disabled — deploy hook fires only on review success; POIDE polls every minute; Render returns full deploy history so no deploy can be hidden retroactively |
+| Code violates stated data policy | Yes | AI audits all source files against POLICY.example.md on every commit; workflow fails and TREAD turns red if a violation is found |
+| Malicious code change slipped in unnoticed | Partly | Every commit triggers a code review; Render auto-deploy is disabled — deploy hook fires only on review success; TREAD polls every minute; Render returns full deploy history so no deploy can be hidden retroactively. An external attacker who controls the code being reviewed could embed prompt injection to bypass the AI reviewer — see TREAD.md |
+| Maintainer credential theft or deliberate rug pull | Partly | TREAD offers meaningful protection against a maintainer who drifts toward policy violations or acts carelessly — every push is reviewed and every deployment is monitored. Protection is weaker if the maintainer loses repository credentials to an attacker, or decides to actively subvert the system: in either case, the threat actor has legitimate push access and can embed prompt injection to manipulate the AI reviewer's verdict. A careful user who notices an unexpected deployment in progress can pause usage until the record stabilises. Prompt injection hardening is under consideration as a mitigation; simultaneous review by multiple independent models requiring consensus is also planned, which would require a successful attack to fool several architectures at once. Even without full coverage of this scenario, users are significantly worse off without TREAD — any suspicious change is immediately visible in the permanent deployment record rather than going unnoticed entirely. |
 | Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
-| Hosting provider (Render) swaps running code silently | Partly | POIDE detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
+| Hosting provider (Render) swaps running code silently | Partly | TREAD detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
 | Leima lies during original run | Partly | Full prompt logic is isolated in `neutral_witness.py` and audited on every commit |
 | AI verdict is wrong | Partly | The hash commitment stands regardless — document tampering is still provable. The AI analysis is a first opinion, not a legal authority |
 | Document is fake before upload | No | Leima timestamps existence, does not authenticate origin |
@@ -520,7 +555,7 @@ A future option will allow switching to AI providers that operate under strict, 
 
 Deployment transparency has historically required either expensive infrastructure or accepting "trust us" as the answer. This has had a real cost.
 
-**A provable record of intent.** Every POIDE check is written permanently to Arweave. This means a small company can at any point in time prove — to a customer, a regulator, an auditor, or a court — exactly what source code they were asking their hosting provider to run, and when. They cannot prove that the hosting provider executed it exactly as instructed; that residual assumption is documented openly. But the record of intent is permanent, tamper-proof, and independently verifiable without asking the company for anything. For regulated industries or contractual disputes, this is a meaningful guarantee that previously required expensive third-party auditing infrastructure.
+**A provable record of intent.** Every TREAD check is written permanently to Arweave. This means a small company can at any point in time prove — to a customer, a regulator, an auditor, or a court — exactly what source code they were asking their hosting provider to run, and when. They cannot prove that the hosting provider executed it exactly as instructed; that residual assumption is documented openly. But the record of intent is permanent, tamper-proof, and independently verifiable without asking the company for anything. For regulated industries or contractual disputes, this is a meaningful guarantee that previously required expensive third-party auditing infrastructure.
 
 **Lost opportunity.** Small operators have had no mechanism to demonstrate that the code they claim to run is the code actually running. Large players substitute brand reputation for technical transparency. This locks small operators out of trust-sensitive markets — legal, financial, medical, research — not because their code is worse, but because they lack the tools to prove it. Use cases that could be automated have stayed manual. Services that could exist have not been built.
 
@@ -528,7 +563,7 @@ Deployment transparency has historically required either expensive infrastructur
 
 The realistic threat hierarchy is not symmetrical. Maintainer credential theft — phishing, SIM-swapping, malware, insider action — is a routine occurrence across the software industry. For a small project, the realistic annual probability is 1–5%. A hosting provider infrastructure breach deep enough to silently swap running code is a different category of event: it has not been publicly documented at major managed hosting providers, and would require capabilities well beyond opportunistic attacks. The realistic annual probability is orders of magnitude lower — and deliberate collusion by a company with investors, legal obligations, and hundreds of other customers is lower still.
 
-POIDE covers the large realistic risk. TEE would additionally cover the small theoretical one — at roughly 1000x the cost, to address a threat that is roughly 100–1000x less likely. The marginal cost per covered risk unit is prohibitive.
+TREAD covers the large realistic risk. TEE would additionally cover the small theoretical one — at roughly 1000x the cost, to address a threat that is roughly 100–1000x less likely. The marginal cost per covered risk unit is prohibitive.
 
 **Comparison.**
 
@@ -537,10 +572,10 @@ POIDE covers the large realistic risk. TEE would additionally cover the small th
 | Fully on-chain (Ethereum) | Very high per operation | Execution is public and deterministic — but LLMs cannot run on-chain |
 | TEE (SGX/SEV) | 50k–500k+ to implement | Code executing in memory matches the published source |
 | Formal audit | 20k–100k+, one-time snapshot | Code complies with stated policy at a point in time |
-| POIDE | Near zero | Hosting provider was instructed to run the audited commit; continuous, permanent record |
+| TREAD | Near zero | Hosting provider was instructed to run the audited commit; continuous, permanent record |
 | Nothing | Zero | "Trust us" |
 
-For AI applications specifically, fully on-chain execution is not a realistic option: language models cannot run in the EVM, and document processing at this scale is impossible on-chain. Given that off-chain computation is unavoidable, POIDE represents the practical optimum — meaningful attestation with existing building blocks, deployable over a weekend, with a permanent audit trail that no retroactive action can alter.
+For AI applications specifically, fully on-chain execution is not a realistic option: language models cannot run in the EVM, and document processing at this scale is impossible on-chain. Given that off-chain computation is unavoidable, TREAD represents the practical optimum — meaningful attestation with existing building blocks, deployable over a weekend, with a permanent audit trail that no retroactive action can alter.
 
 ---
 
@@ -626,7 +661,7 @@ To enable the email notary, add a **Cron Job** service pointing at `POST /notary
 
 ---
 
-## Deployment integrity (POIDE)
+## Deployment integrity (TREAD)
 
 The full trust chain on every commit:
 
@@ -643,7 +678,7 @@ Five GitHub Actions workflows run on a staggered schedule and together poll depl
 
 Because Render auto-deploy is disabled, a commit that fails the code review is never deployed — the server continues running the previous commit until a passing commit is pushed.
 
-Before submitting sensitive documents, verify that the POIDE Code Review and the five POIDE A–E workflows show green on the [Actions tab](../../actions). See [POIDE.md](POIDE.md) for the full protocol description.
+Before submitting sensitive documents, verify that the TREAD Code Review and the five TREAD A–E workflows show green on the [Actions tab](../../actions). See [TREAD.md](TREAD.md) for the full protocol description.
 
 ---
 
@@ -659,7 +694,7 @@ python verify.py
 It checks two independent sources for each monitored file:
 
 1. **Git history (GitHub API)** — confirms when each file was last changed. This record is maintained by GitHub, not by Leima, and cannot be altered by the service operator.
-2. **Arweave record** — fetches the latest POIDE check result from Arweave (permanent, immutable) and compares the stored file hashes to what is currently on GitHub.
+2. **Arweave record** — fetches the latest TREAD check result from Arweave (permanent, immutable) and compares the stored file hashes to what is currently on GitHub.
 
 If both sources agree and the files are unchanged, this provides a meaningful guarantee: the monitoring code has been auditable and consistent, any commit mismatch since the last change would have been detected and recorded, and the monitoring code itself has passed automated AI code review on every push.
 
@@ -707,7 +742,7 @@ cp hooks/pre-push .git/hooks/pre-push
 chmod +x .git/hooks/pre-push   # Linux/macOS only
 ```
 
-Before every `git push`, the hook fetches the latest POIDE status. If a deploy is in progress it waits (up to 3 minutes). If a mismatch is active it blocks the push and explains why. Override with `git push --no-verify` if needed.
+Before every `git push`, the hook fetches the latest TREAD status. If a deploy is in progress it waits (up to 3 minutes). If a mismatch is active it blocks the push and explains why. Override with `git push --no-verify` if needed.
 
 ```
 
@@ -898,9 +933,9 @@ NOTARY_SMTP_HOST = os.getenv("NOTARY_SMTP_HOST", "smtp.gmail.com")
 NOTARY_SMTP_PORT = int(os.getenv("NOTARY_SMTP_PORT", "587"))
 NOTARY_SMTP_USER = os.getenv("NOTARY_SMTP_USER")
 NOTARY_SMTP_PASSWORD = os.getenv("NOTARY_SMTP_PASSWORD")
-NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.ai>")
+NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.io>")
 NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
-LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.ai")
+LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.io")
 
 _poide_cache: dict | None = None
 _poide_cache_ready = threading.Event()
@@ -965,7 +1000,7 @@ def _evict_old_sessions() -> None:
     for d in (store, email_sessions):
         stale = [k for k, v in d.items() if v.get("_stored_at", 0) < cutoff]
         for k in stale:
-            del d[k]
+            d.pop(k, None)
 
 
 def _session_eviction_loop() -> None:
@@ -1154,7 +1189,7 @@ def build_manifest(
 
 
 _CR_SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
-_CR_SOURCE_EXT = {".py", ".js", ".html", ".md"}
+_CR_SOURCE_EXT = {".py", ".js"}
 
 
 def _github_fetch_tree(repo: str, commit_sha: str, token: str = "") -> list[dict]:
@@ -1951,7 +1986,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
                   source_ext: str = "pdf", source_mime: str = "application/pdf",
                   email_meta: dict | None = None, web_meta: dict | None = None,
                   source_context: dict | None = None) -> dict:
-    _poide_cache_ready.wait()
+    _poide_cache_ready.wait(timeout=10)
     poide_snap = _poide_cache.copy() if _poide_cache else None
 
     result = analyse(question, contents, source_context=source_context)
@@ -2247,7 +2282,9 @@ async def ask(
                                email_meta, web_meta, source_context)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
-    except Exception:
+    except Exception as _exc:
+        import logging
+        logging.exception("Analysis failed")
         return HTMLResponse('<div class="error">Analysis failed. Please try again.</div>')
 
     if active_tab == "image" and c2pa_info:
@@ -2431,7 +2468,7 @@ import requests as http
 from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
 
-IRYS_PRIVATE_KEY = os.environ["IRYS_PRIVATE_KEY"]
+IRYS_PRIVATE_KEY = os.environ.get("IRYS_PRIVATE_KEY", "")
 IRYS_NETWORK     = os.environ.get("IRYS_NETWORK", "mainnet")
 IRYS_RPC_URL     = os.environ.get("IRYS_RPC_URL", "")
 PAGES_URL        = os.environ.get("GITHUB_PAGES_URL", "https://fxg55647.github.io/leima")
@@ -2533,7 +2570,7 @@ def _get_client() -> genai.Client:
     if _client is None:
         _client = genai.Client(
             api_key=os.getenv("GEMINI_API_KEY"),
-            http_options={"timeout": 120},
+            http_options={"timeout": 120_000},
         )
     return _client
 
@@ -3149,15 +3186,30 @@ asn1crypto==1.5.1
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Leima</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg: #ededeb;
+      --blue-light: #daeefa;
+      --blue-deep: #1a4b7c;
+      --blue-mid: #5a8fb0;
+      --blue-dim: rgba(26,75,124,0.1);
+      --blue-border: #c0d4e8;
+      --surface: #ffffff;
+      --surface-input: #f2f2f0;
+      --border: #d0dce8;
+      --text: #0f1c2e;
+      --text-muted: #4a6880;
+      --text-faint: #8aaabf;
+    }
+
     body {
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      background: #e8e8e8;
-      color: #212529;
+      font-family: 'Spectral', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -3167,50 +3219,64 @@ asn1crypto==1.5.1
       flex: 1;
       display: flex;
       justify-content: center;
-      padding: 0;
     }
 
     .col-frame {
       width: 100%;
       max-width: 760px;
-      background: #fff;
+      background: var(--surface);
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2.5rem 1.5rem;
       box-shadow:
-        4px 0 12px -4px rgba(0,0,0,0.14),
-        -4px 0 12px -4px rgba(0,0,0,0.14),
-        1px 0 0 rgba(0,0,0,0.07),
-        -1px 0 0 rgba(0,0,0,0.07);
+        4px 0 28px -4px rgba(15,28,46,0.12),
+        -4px 0 28px -4px rgba(15,28,46,0.12);
+    }
+
+    /* White header zone */
+    .header-zone {
+      width: 100%;
+      background: #ffffff;
+      padding: 1.75rem 1.5rem 0;
+      border-bottom: 2px solid var(--blue-deep);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     header {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding-bottom: 1.25rem;
-      margin-bottom: 1.5rem;
-      border-bottom: 2px solid #dc3545;
+      width: 100%;
+      max-width: 680px;
+      margin-bottom: 1.25rem;
+    }
+
+    .tabs-wrap {
+      width: 100%;
+      max-width: 680px;
     }
 
     .validate-btn {
       margin-left: auto;
-      background: #fff;
-      color: #dc3545;
-      border: 1.5px solid #dc3545;
-      border-radius: 6px;
+      background: transparent;
+      color: var(--blue-deep);
+      border: 1px solid var(--blue-deep);
+      border-radius: 4px;
       padding: 0.4rem 1rem;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       font-weight: 500;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
       text-decoration: none;
       transition: background 0.15s, color 0.15s;
       white-space: nowrap;
     }
 
     .validate-btn:hover {
-      background: #dc3545;
+      background: var(--blue-deep);
       color: #fff;
     }
 
@@ -3226,107 +3292,97 @@ asn1crypto==1.5.1
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 2rem;
       font-weight: 700;
-      color: #212529;
+      color: var(--text);
       letter-spacing: 0.14em;
     }
 
     .logo-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: #dc3545;
+      color: #c0392b;
       letter-spacing: 0.22em;
     }
 
-    header h1 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #212529;
-      letter-spacing: 0.02em;
-    }
-
     header p {
-      color: #6c757d;
-      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-size: 0.82rem;
       margin-top: 0.1rem;
-    }
-
-    .card {
-      padding: 1.75rem 0;
-      width: 100%;
-      max-width: 680px;
     }
 
     .tabs {
       display: flex;
       gap: 0.25rem;
-      margin-bottom: 1.25rem;
-      border-bottom: 1px solid #dee2e6;
-      padding-bottom: 0;
+      border-bottom: 1px solid rgba(26,75,124,0.2);
+      margin-bottom: 0;
     }
 
     .tab-btn {
       background: none;
       border: none;
       border-bottom: 2px solid transparent;
-      color: #6c757d;
+      color: rgba(26,75,124,0.55);
       padding: 0.4rem 0.875rem 0.6rem;
       cursor: pointer;
-      font-size: 0.875rem;
-      font-family: inherit;
+      font-size: 0.82rem;
+      font-family: 'Spectral', Georgia, serif;
       font-weight: 500;
+      letter-spacing: 0.04em;
       transition: color 0.15s, border-color 0.15s;
       margin-bottom: -1px;
     }
 
-    .tab-btn:hover { color: #212529; }
+    .tab-btn:hover { color: var(--blue-deep); }
 
     .tab-btn.active {
-      color: #0d6efd;
-      border-bottom-color: #0d6efd;
+      color: var(--blue-deep);
+      border-bottom-color: var(--blue-deep);
+    }
+
+    /* White content card */
+    .card {
+      padding: 1.75rem 1.5rem;
+      width: 100%;
+      max-width: 680px;
     }
 
     .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+    .tab-panel.active { display: block; margin-bottom: 0.625rem; }
 
     .drop-zone {
-      border: 2px dashed #dee2e6;
+      border: 1px dashed var(--border);
       border-radius: 6px;
       padding: 2rem;
       text-align: center;
-      color: #adb5bd;
+      color: var(--text-muted);
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
       margin-bottom: 1rem;
-      background: #f8f9fa;
+      background: var(--surface-input);
     }
 
     .drop-zone:hover, .drop-zone.dragover {
-      border-color: #adb5bd;
-      background: #f1f3f5;
-      color: #6c757d;
+      border-color: var(--blue-deep);
+      background: var(--blue-light);
+      color: var(--blue-deep);
     }
 
     .drop-zone.has-file {
-      border-color: #0d6efd;
-      background: #e8f0fe;
-      color: #0d6efd;
+      border-color: var(--blue-deep);
+      background: var(--blue-dim);
+      color: var(--blue-deep);
     }
 
     .drop-zone input[type="file"] { display: none; }
-
-    .drop-zone-icon {
-      font-size: 1.75rem;
-      margin-bottom: 0.4rem;
-    }
+    .drop-zone-icon { font-size: 1.75rem; margin-bottom: 0.4rem; }
 
     textarea {
       width: 100%;
-      background: #fff;
-      border: 1px solid #dee2e6;
+      background: var(--surface-input);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #212529;
+      color: var(--text);
       padding: 0.625rem 0.875rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       font-size: 0.9rem;
       resize: vertical;
       min-height: 140px;
@@ -3336,51 +3392,52 @@ asn1crypto==1.5.1
     }
 
     textarea:focus {
-      border-color: #86b7fe;
-      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+      border-color: var(--blue-deep);
+      box-shadow: 0 0 0 3px var(--blue-dim);
+      background: #fff;
     }
 
-    .url-toggle-row {
-      text-align: center;
-      margin-top: 0.6rem;
-      margin-bottom: 0.25rem;
-    }
+    .url-toggle-row { text-align: center; margin-top: 0.6rem; margin-bottom: 0.25rem; }
+
     .url-toggle-btn {
       background: none;
       border: none;
-      color: #6c757d;
+      color: var(--text-muted);
       font-size: 0.8rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       cursor: pointer;
       padding: 0;
       text-decoration: underline;
       text-underline-offset: 2px;
     }
-    .url-toggle-btn:hover { color: #0d6efd; }
+    .url-toggle-btn:hover { color: var(--blue-deep); }
+
     .url-input {
       width: 100%;
-      background: #fff;
-      border: 1px solid #dee2e6;
+      background: var(--surface-input);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #212529;
+      color: var(--text);
       padding: 0.5rem 0.875rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       font-size: 0.875rem;
       outline: none;
       transition: border-color 0.15s, box-shadow 0.15s;
       margin-bottom: 0.25rem;
     }
     .url-input:focus {
-      border-color: #86b7fe;
-      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+      border-color: var(--blue-deep);
+      box-shadow: 0 0 0 3px var(--blue-dim);
+      background: #fff;
     }
+
     .url-hint-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 0.5rem;
     }
-    .url-hint { font-size: 0.72rem; color: #adb5bd; }
+    .url-hint { font-size: 0.72rem; color: var(--text-faint); }
 
     .question-label {
       display: flex;
@@ -3389,67 +3446,71 @@ asn1crypto==1.5.1
       margin-bottom: 0.6rem;
     }
     .question-title {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #212529;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
     }
-    .question-sub {
-      font-size: 0.88rem;
-      color: #6c757d;
-    }
+    .question-sub { font-size: 0.85rem; color: var(--text-muted); }
 
-    .question-row {
-      display: flex;
-      gap: 0.5rem;
-    }
+    .question-row { display: flex; gap: 0.5rem; }
 
-    .question-row input[type="text"] {
+    .question-row input[type="text"],
+    #question-input {
       flex: 1;
-      background: #fff;
-      border: 1px solid #dee2e6;
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--surface-input);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #212529;
+      color: var(--text);
       padding: 0.625rem 0.875rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       font-size: 0.9rem;
       outline: none;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
 
-    .question-row input[type="text"]:focus {
-      border-color: #86b7fe;
-      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+    .question-row input[type="text"]:focus,
+    #question-input:focus {
+      border-color: var(--blue-deep);
+      box-shadow: 0 0 0 3px var(--blue-dim);
+      background: #fff;
     }
 
     .question-row input[type="text"]::placeholder,
-    textarea::placeholder { color: #adb5bd; }
+    #question-input::placeholder,
+    textarea::placeholder { color: var(--text-faint); }
 
-    .credibility-options {
+    .submit-row {
       display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-      margin-top: 0.5rem;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
     }
+    .credibility-options { display: flex; flex-direction: column; gap: 0.3rem; }
     .credibility-option {
       display: flex;
       align-items: flex-start;
       gap: 0.4rem;
       font-size: 0.78rem;
-      color: #6c757d;
+      color: var(--text-muted);
       cursor: pointer;
       line-height: 1.4;
     }
-    .credibility-option input { margin-top: 0.15rem; flex-shrink: 0; }
+    .credibility-option input { margin-top: 0.15rem; flex-shrink: 0; accent-color: var(--blue-deep); }
 
     button[type="submit"] {
-      background: #0d6efd;
+      background: var(--blue-deep);
       color: #fff;
       border: none;
-      border-radius: 6px;
-      padding: 0.625rem 1.25rem;
-      font-size: 0.9rem;
-      font-weight: 500;
-      font-family: inherit;
+      border-radius: 4px;
+      padding: 0.625rem 1.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       cursor: pointer;
       transition: background 0.15s;
       white-space: nowrap;
@@ -3458,295 +3519,250 @@ asn1crypto==1.5.1
       gap: 0.4rem;
     }
 
-    button[type="submit"]:hover { background: #0b5ed7; }
-    button[type="submit"]:disabled { background: #6c757d; cursor: not-allowed; }
+    button[type="submit"]:hover { background: #163f6a; }
+    button[type="submit"]:disabled { background: var(--border); cursor: not-allowed; color: var(--text-muted); }
 
     #answer-area {
-      margin-top: 1.5rem;
       width: 100%;
       max-width: 680px;
+      padding: 0 1.5rem 2.5rem;
     }
 
     .htmx-indicator {
       display: none;
       text-align: center;
-      color: #6c757d;
+      color: var(--text-muted);
       padding: 1.25rem;
       font-size: 0.875rem;
     }
-
     .htmx-request .htmx-indicator { display: block; }
-    .htmx-request #submit-btn { background: #6c757d; cursor: not-allowed; }
+    .htmx-request #submit-btn, #submit-btn:disabled { background: var(--border); cursor: not-allowed; }
 
     .spinner {
       display: inline-block;
       width: 16px;
       height: 16px;
-      border: 2px solid #dee2e6;
-      border-top-color: #dc3545;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue-deep);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       vertical-align: middle;
       margin-right: 0.4rem;
     }
 
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-      margin-bottom: 0.875rem;
-    }
+    .field-group { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.875rem; }
 
     .field-label {
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 500;
-      color: #495057;
+      color: var(--blue-deep);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .field-input {
-      background: #fff;
-      border: 1px solid #dee2e6;
+      background: var(--surface-input);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #212529;
+      color: var(--text);
       padding: 0.625rem 0.875rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       font-size: 0.9rem;
       outline: none;
       width: 100%;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-
     .field-input:focus {
-      border-color: #86b7fe;
-      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+      border-color: var(--blue-deep);
+      box-shadow: 0 0 0 3px var(--blue-dim);
+      background: #fff;
     }
 
-    .field-row {
-      display: flex;
-      gap: 0.75rem;
-    }
-
+    .field-row { display: flex; gap: 0.75rem; }
     .field-row .field-group { flex: 1; }
 
     .fetch-btn {
-      background: #fff;
-      color: #0d6efd;
-      border: 1.5px solid #0d6efd;
-      border-radius: 6px;
+      background: transparent;
+      color: var(--blue-deep);
+      border: 1px solid var(--blue-deep);
+      border-radius: 4px;
       padding: 0.45rem 1rem;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       font-weight: 500;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       cursor: pointer;
       transition: background 0.15s, color 0.15s;
       margin-bottom: 1rem;
     }
-    .fetch-btn:hover { background: #0d6efd; color: #fff; }
+    .fetch-btn:hover { background: var(--blue-deep); color: #fff; }
 
     .email-split {
       display: flex;
-      gap: 0;
-      border: 1px solid #dee2e6;
+      border: 1px solid var(--border);
       border-radius: 6px;
       overflow: hidden;
       height: 300px;
       margin-top: 0.5rem;
     }
-
     .email-list {
       width: 40%;
-      border-right: 1px solid #dee2e6;
+      border-right: 1px solid var(--border);
       overflow-y: auto;
       flex-shrink: 0;
+      background: var(--surface-input);
     }
-
     .email-item {
       padding: 0.6rem 0.875rem;
-      border-bottom: 1px solid #f1f3f5;
+      border-bottom: 1px solid var(--border);
       cursor: pointer;
       transition: background 0.1s;
     }
-    .email-item:hover { background: #f8f9fa; }
-    .email-item.active { background: #e8f0fe; border-left: 3px solid #0d6efd; }
-
+    .email-item:hover { background: var(--blue-dim); }
+    .email-item.active { background: var(--blue-light); border-left: 2px solid var(--blue-deep); }
     .email-item-subject {
       font-size: 0.82rem;
       font-weight: 500;
-      color: #212529;
+      color: var(--text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .email-item-date {
-      font-size: 0.72rem;
-      color: #adb5bd;
-      margin-top: 0.15rem;
-    }
-
+    .email-item-date { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
     .email-preview-pane {
       flex: 1;
       overflow-y: auto;
       padding: 0.875rem;
       font-size: 0.85rem;
-      color: #212529;
+      color: var(--text);
+      background: var(--surface);
     }
 
-    .fetch-error { color: #dc3545; font-size: 0.85rem; margin-top: 0.5rem; }
+    .fetch-error { color: #c0392b; font-size: 0.85rem; margin-top: 0.5rem; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
     footer {
-      background: #111;
-      color: #ccc;
+      background: #07111e;
+      color: #6a8899;
       width: 100%;
       padding: 3rem 2rem 1.5rem;
+      border-top: 3px solid #c0392b;
     }
-
     .footer-inner {
       max-width: 680px;
       margin: 0 auto;
       display: flex;
       gap: 3rem;
     }
-
     .footer-brand { flex: 1.5; }
-
     .footer-logo {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 1.5rem;
       font-weight: 700;
-      color: #fff;
+      color: #c8dff0;
       letter-spacing: 0.14em;
       display: block;
     }
-
     .footer-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: #dc3545;
+      color: #c0392b;
       letter-spacing: 0.22em;
       display: block;
       margin-bottom: 0.75rem;
     }
-
-    .footer-brand p { font-size: 0.82rem; color: #888; line-height: 1.6; }
-
-    .footer-col {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
+    .footer-brand p { font-size: 0.82rem; color: #6a8899; line-height: 1.6; }
+    .footer-col { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
     .footer-col-title {
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: #fff;
+      letter-spacing: 0.12em;
+      color: var(--blue-mid);
       margin-bottom: 0.25rem;
     }
-
-    .footer-col a {
-      color: #888;
-      text-decoration: none;
-      font-size: 0.85rem;
-      transition: color 0.15s;
-    }
-
-    .footer-col a:hover { color: #fff; }
-
+    .footer-col a { color: #6a8899; text-decoration: none; font-size: 0.85rem; transition: color 0.15s; }
+    .footer-col a:hover { color: #c8dff0; }
     .footer-bottom {
       max-width: 680px;
       margin: 2rem auto 0;
       padding-top: 1.25rem;
-      border-top: 1px solid #2a2a2a;
+      border-top: 1px solid #1a2d40;
       font-size: 0.75rem;
-      color: #555;
+      color: #334a5c;
+      letter-spacing: 0.04em;
     }
 
+    /* TREAD warning modal */
     #poide-modal-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.55);
+      background: rgba(7,17,30,0.75);
       z-index: 9000;
       align-items: center;
       justify-content: center;
     }
     #poide-modal-overlay.visible { display: flex; }
     #poide-modal {
-      background: #1a1a1a;
-      border: 1.5px solid #ff6b6b;
-      border-radius: 10px;
+      background: #0f1e30;
+      border: 1px solid #c0392b;
+      border-radius: 8px;
       padding: 1.75rem 2rem;
       max-width: 480px;
       width: 90%;
-      color: #fff;
-      font-family: "Segoe UI", system-ui, sans-serif;
+      color: #c8dff0;
+      font-family: 'Spectral', Georgia, serif;
     }
     #poide-modal h2 {
       font-size: 1rem;
       font-weight: 700;
-      color: #ff6b6b;
+      color: #e05555;
       margin-bottom: 0.875rem;
       letter-spacing: 0.04em;
+      font-family: 'Playfair Display', Georgia, serif;
     }
     #poide-modal p {
       font-size: 0.875rem;
       line-height: 1.6;
-      color: #ccc;
+      color: #6a8899;
       margin-bottom: 1.25rem;
       white-space: pre-line;
     }
-    #poide-modal-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-    #poide-modal-suppress {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.78rem;
-      color: #888;
-      cursor: pointer;
-    }
-    #poide-modal-suppress input { cursor: pointer; }
+    #poide-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    #poide-modal-suppress { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #6a8899; cursor: pointer; }
+    #poide-modal-suppress input { cursor: pointer; accent-color: var(--blue-mid); }
     #poide-modal-close {
-      background: #ff6b6b;
+      background: #c85555;
       color: #fff;
       border: none;
-      border-radius: 6px;
+      border-radius: 4px;
       padding: 0.45rem 1.1rem;
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
-    #poide-modal-close:hover { background: #e05555; }
+    #poide-modal-close:hover { background: #a84444; }
 
+    /* TREAD status bar */
     #poide-bar {
       width: 100%;
-      background: #111;
+      background: #07111e;
       height: 26px;
       display: flex;
       align-items: center;
+      border-bottom: 3px solid #c0392b;
       font-family: "SF Mono", Consolas, monospace;
       font-size: 0.7rem;
       letter-spacing: 0.02em;
       flex-shrink: 0;
     }
-
-    #poide-dot {
-      transition: background 0.5s ease;
-      animation: poidePulse 2.4s ease-in-out infinite;
-      transform-origin: center;
-      flex-shrink: 0;
-    }
-
+    #poide-dot { transition: background 0.5s ease; animation: poidePulse 2.4s ease-in-out infinite; transform-origin: center; flex-shrink: 0; }
     #poide-text { transition: opacity 0.28s ease; }
 
     @keyframes poidePulse {
@@ -3755,24 +3771,20 @@ asn1crypto==1.5.1
     }
 
     @media (max-width: 520px) {
-      .col-frame { padding: 0.75rem 0.5rem; box-shadow: none; }
-
-      .card { padding: 1.1rem; margin: 4px 0; }
-
+      .col-frame { box-shadow: none; }
+      .header-zone { padding: 1.25rem 0.75rem 0; }
+      .card { padding: 1.1rem 0.75rem; }
+      #answer-area { padding: 0 0.75rem 1.5rem; }
       header { flex-wrap: wrap; row-gap: 0.4rem; }
       .logo-text { font-size: 1.5rem; }
       .validate-btn { margin-left: auto; }
-
       .question-row { flex-direction: column; }
       .question-row input[type="text"] { width: 100%; }
       button[type="submit"] { width: 100%; justify-content: center; }
-
       .field-row { flex-direction: column; gap: 0; }
-
       .email-split { flex-direction: column; height: auto; }
-      .email-list { width: 100%; border-right: none; border-bottom: 1px solid #dee2e6; max-height: 160px; }
+      .email-list { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 160px; }
       .email-preview-pane { max-height: 200px; }
-
       .footer-inner { flex-direction: column; gap: 2rem; }
       footer { padding: 2rem 1.25rem 1.25rem; }
     }
@@ -3782,7 +3794,7 @@ asn1crypto==1.5.1
 
 <div id="poide-modal-overlay">
   <div id="poide-modal">
-    <h2 id="poide-modal-title">⚠ POIDE WARNING</h2>
+    <h2 id="poide-modal-title">⚠ TREAD WARNING</h2>
     <p id="poide-modal-body"></p>
     <div id="poide-modal-footer">
       <label id="poide-modal-suppress">
@@ -3796,7 +3808,7 @@ asn1crypto==1.5.1
 
 <div id="poide-bar">
   <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
-    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block"></span>
+    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
     <span id="poide-text"></span>
   </div>
 </div>
@@ -3804,186 +3816,173 @@ asn1crypto==1.5.1
 <main>
 <div class="col-frame">
 
-<div class="card">
-  <header>
-    <a href="/" class="logo-mark">
-      <span class="logo-text">LEIMA</span>
-      <span class="logo-domain">leima.io</span>
-    </a>
-    <div>
-      <p style="font-size: 0.95rem; font-weight: 600; color: #212529;">AI evaluation of documents — forever sealed on Arweave</p>
-    </div>
-    <a href="/validate" class="validate-btn">Validate</a>
-  </header>
-  <form
-    hx-post="/ask"
-    hx-target="#answer-area"
-    hx-swap="innerHTML"
-    hx-encoding="multipart/form-data"
-    hx-indicator="#form-wrap"
-    id="main-form"
-  >
-    <div id="form-wrap">
-      <input type="hidden" name="active_tab" id="active-tab" value="pdf">
-
+  <div class="header-zone">
+    <header>
+      <a href="/" class="logo-mark">
+        <span class="logo-text">LEIMA</span>
+        <span class="logo-domain">leima.io</span>
+      </a>
+      <div>
+        <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
+      </div>
+      <a href="/validate" class="validate-btn">Validate</a>
+    </header>
+    <div class="tabs-wrap">
       <div class="tabs">
-        <button type="button" class="tab-btn active" onclick="switchTab('pdf', this)">PDF</button>
+        <button type="button" class="tab-btn active" onclick="switchTab('web', this)">Web</button>
+        <button type="button" class="tab-btn" onclick="switchTab('pdf', this)">PDF</button>
         <button type="button" class="tab-btn" onclick="switchTab('image', this)">Image</button>
         <button type="button" class="tab-btn" onclick="switchTab('text', this)">Text</button>
-        <button type="button" class="tab-btn" onclick="switchTab('web', this)">Web</button>
         <button type="button" class="tab-btn" onclick="switchTab('email', this)">IMAP</button>
         <button type="button" class="tab-btn" onclick="switchTab('github', this)">GitHub</button>
       </div>
-
-      <div id="tab-pdf" class="tab-panel active">
-        <div id="drop-zone-wrap">
-          <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
-            <div class="drop-zone-icon">📄</div>
-            <div id="drop-label">Click or drop a PDF here</div>
-            <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf"
-              onchange="onFileSelect(this)">
-          </div>
-          <div class="url-toggle-row">
-            <button type="button" class="url-toggle-btn" onclick="showUrlInput()">Use URL instead</button>
-          </div>
-        </div>
-        <div id="url-input-wrap" style="display:none;">
-          <input type="url" name="pdf_url" id="pdf-url" class="url-input"
-            placeholder="https://example.com/document.pdf">
-          <div class="url-hint-row">
-            <span class="url-hint">Max 10 MB</span>
-            <button type="button" class="url-toggle-btn" onclick="showDropZone()">Use file instead</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="tab-image" class="tab-panel">
-        <div class="drop-zone" id="image-drop-zone" onclick="document.getElementById('image-input').click()">
-          <div class="drop-zone-icon">🖼</div>
-          <div id="image-drop-label">Click or drop an image here</div>
-          <input type="file" id="image-input" name="image_file"
-            accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
-            onchange="onImageSelect(this)">
-        </div>
-        <div style="font-size:0.72rem;color:#adb5bd;margin-top:0.25rem">JPG, PNG, GIF, WebP, HEIC, HEIF</div>
-      </div>
-
-      <div id="tab-web" class="tab-panel">
-        <input type="url" name="web_url" id="web-url" class="url-input"
-          placeholder="https://example.com/article">
-        <div class="url-hint">HTML fetched server-side — URL and timestamp recorded in manifest</div>
-      </div>
-
-      <div id="tab-text" class="tab-panel">
-        <textarea name="text_input" id="text-input" placeholder="Paste document text here..."></textarea>
-        <div style="margin-top:0.5rem; font-size:0.82rem; color:#6c757d;">
-          Or upload a .txt file:
-          <input type="file" id="txt-file-input" accept=".txt,text/plain" style="margin-left:0.4rem;"
-                 onchange="handleTxtUpload(this)">
-        </div>
-      </div>
-
-      <input type="hidden" name="email_session_id" id="email-session-id" value="">
-      <input type="hidden" name="email_idx" id="email-idx" value="">
-
-      <div id="tab-github" class="tab-panel">
-        <div class="field-group" style="display:flex;gap:1rem;align-items:center;margin-bottom:.25rem">
-          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.9rem">
-            <input type="radio" name="review_mode" value="claim" id="gh-mode-claim" checked onchange="ghModeSwitch()"> Claim analysis
-          </label>
-          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.9rem">
-            <input type="radio" name="review_mode" value="code_review" id="gh-mode-cr" onchange="ghModeSwitch()"> Code review
-          </label>
-        </div>
-        <div class="field-group">
-          <label class="field-label">Repository</label>
-          <input type="text" name="gh_repo" id="gh-repo" class="field-input" placeholder="owner/repo or https://github.com/owner/repo">
-        </div>
-        <div class="field-group">
-          <label class="field-label">Commit / branch / tag</label>
-          <input type="text" name="gh_ref" id="gh-ref" class="field-input" placeholder="main" value="main">
-        </div>
-        <div class="field-group" id="gh-paths-group">
-          <label class="field-label">File paths <span style="font-weight:400;color:#6c757d;">(one per line, max 20)</span></label>
-          <textarea name="gh_paths" id="gh-paths" placeholder="src/main.py&#10;README.md" style="height:6rem;"></textarea>
-        </div>
-        <div class="field-group" id="gh-rules-group" style="display:none">
-          <label class="field-label">Rules URL <span style="font-weight:400;color:#6c757d;">(policy document — raw text or Arweave link)</span></label>
-          <input type="text" name="rules_url" id="gh-rules-url" class="field-input" placeholder="https://arweave.net/...">
-        </div>
-        <div class="field-group">
-          <label class="field-label">GitHub token <span style="font-weight:400;color:#6c757d;">(optional — required for private repos)</span></label>
-          <input type="password" name="gh_token" id="gh-token" class="field-input" placeholder="ghp_...">
-        </div>
-      </div>
-
-      <div id="tab-email" class="tab-panel">
-        <div class="field-group">
-          <label class="field-label">Your email</label>
-          <input type="email" name="email_user" id="email-user" class="field-input" placeholder="you@example.com">
-        </div>
-        <div class="field-group">
-          <label class="field-label">Password</label>
-          <input type="password" name="email_password" id="email-password" class="field-input" placeholder="••••••••">
-        </div>
-        <div class="field-group">
-          <label class="field-label">Sender email</label>
-          <input type="email" name="email_sender" id="email-sender" class="field-input" placeholder="sender@example.com">
-        </div>
-        <div class="field-row">
-          <div class="field-group">
-            <label class="field-label">Start date</label>
-            <input type="date" name="email_start" id="email-start" class="field-input">
-          </div>
-          <div class="field-group">
-            <label class="field-label">End date</label>
-            <input type="date" name="email_end" id="email-end" class="field-input">
-          </div>
-        </div>
-        <button type="button" class="fetch-btn"
-          hx-post="/fetch-emails"
-          hx-target="#email-fetch-results"
-          hx-swap="innerHTML"
-          hx-include="#tab-email">
-          Fetch emails
-        </button>
-        <div id="email-fetch-results"></div>
-      </div>
-
-      <div class="question-label">
-        <span class="question-title">What do you want to prove about this document?</span>
-        <span class="question-sub">e.g. <em>"the source claims that X"</em> or <em>"this invoice has been paid"</em> · The claim and analysis are permanently public — add <em>"keep [name] private"</em> to anonymise specific details in the result.</span>
-      </div>
-
-      <div class="question-row">
-        <input type="text" name="question" placeholder="this bicycle appears to be high quality" required>
-        <button type="submit" id="submit-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Analyse
-        </button>
-      </div>
-
-      <div class="credibility-options">
-        <label class="credibility-option">
-          <input type="radio" name="assess_credibility" value="1" checked>
-          Evaluate whether the claim is true
-        </label>
-        <label class="credibility-option">
-          <input type="radio" name="assess_credibility" value="0">
-          Evaluate only what the source says about the claim
-        </label>
-      </div>
-
-      <div class="htmx-indicator">
-        <span class="spinner"></span>Analysing...
-      </div>
     </div>
-  </form>
+  </div>
+
+  <div class="card">
+    <form
+      hx-post="/ask"
+      hx-target="#answer-area"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      hx-indicator="#form-wrap"
+      id="main-form"
+    >
+      <div id="form-wrap">
+        <input type="hidden" name="active_tab" id="active-tab" value="web">
+
+        <div class="question-label">
+          <span class="question-title">What do you want to prove about this document?</span>
+          <span class="question-sub" id="question-sub">e.g. <em>"Apple announced Vision Pro on this page"</em></span>
+        </div>
+        <input type="text" name="question" id="question-input" placeholder="this website advertises free worldwide shipping" value="this page says that Tim Berners-Lee invented the WWW" required>
+
+        <div style="margin-top: 0.625rem;"></div>
+
+        <div id="tab-pdf" class="tab-panel">
+          <div id="drop-zone-wrap">
+            <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
+              <div class="drop-zone-icon">📄</div>
+              <div id="drop-label">Click or drop a PDF here</div>
+              <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf" onchange="onFileSelect(this)">
+            </div>
+            <div class="url-toggle-row">
+              <button type="button" class="url-toggle-btn" onclick="showUrlInput()">Use URL instead</button>
+            </div>
+          </div>
+          <div id="url-input-wrap" style="display:none;">
+            <input type="url" name="pdf_url" id="pdf-url" class="url-input" placeholder="https://example.com/document.pdf">
+            <div class="url-hint-row">
+              <span class="url-hint">Max 10 MB</span>
+              <button type="button" class="url-toggle-btn" onclick="showDropZone()">Use file instead</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-image" class="tab-panel">
+          <div class="drop-zone" id="image-drop-zone" onclick="document.getElementById('image-input').click()">
+            <div class="drop-zone-icon">🖼</div>
+            <div id="image-drop-label">Click or drop an image here</div>
+            <input type="file" id="image-input" name="image_file" accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif" onchange="onImageSelect(this)">
+          </div>
+          <div style="font-size:0.72rem;color:var(--text-faint);margin-top:0.25rem">JPG, PNG, GIF, WebP, HEIC, HEIF</div>
+        </div>
+
+        <div id="tab-web" class="tab-panel active">
+          <input type="url" name="web_url" id="web-url" class="url-input"
+            placeholder="https://example.com/article"
+            value="https://en.wikipedia.org/wiki/World_Wide_Web">
+        </div>
+
+        <div id="tab-text" class="tab-panel">
+          <textarea name="text_input" id="text-input" placeholder="Paste document text here..."></textarea>
+          <div style="margin-top:0.5rem; font-size:0.82rem; color:var(--text-muted);">
+            Or upload a .txt file:
+            <input type="file" id="txt-file-input" accept=".txt,text/plain" style="margin-left:0.4rem;" onchange="handleTxtUpload(this)">
+          </div>
+        </div>
+
+        <input type="hidden" name="email_session_id" id="email-session-id" value="">
+        <input type="hidden" name="email_idx" id="email-idx" value="">
+
+        <div id="tab-github" class="tab-panel">
+          <input type="hidden" name="review_mode" value="claim">
+          <div class="field-group">
+            <label class="field-label">Repository</label>
+            <input type="text" name="gh_repo" id="gh-repo" class="field-input" placeholder="owner/repo or https://github.com/owner/repo">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Commit / branch / tag</label>
+            <input type="text" name="gh_ref" id="gh-ref" class="field-input" placeholder="main" value="main">
+          </div>
+          <div class="field-group">
+            <label class="field-label">File paths <span style="font-weight:400;color:var(--text-muted);">(one per line, max 20)</span></label>
+            <textarea name="gh_paths" id="gh-paths" placeholder="src/main.py&#10;README.md" style="height:6rem;"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label">GitHub token <span style="font-weight:400;color:var(--text-muted);">(optional — required for private repos)</span></label>
+            <input type="password" name="gh_token" id="gh-token" class="field-input" placeholder="ghp_...">
+          </div>
+        </div>
+
+        <div id="tab-email" class="tab-panel">
+          <div class="field-group">
+            <label class="field-label">Your email</label>
+            <input type="email" name="email_user" id="email-user" class="field-input" placeholder="you@example.com">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Password</label>
+            <input type="password" name="email_password" id="email-password" class="field-input" placeholder="••••••••">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Sender email</label>
+            <input type="email" name="email_sender" id="email-sender" class="field-input" placeholder="sender@example.com">
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">Start date</label>
+              <input type="date" name="email_start" id="email-start" class="field-input">
+            </div>
+            <div class="field-group">
+              <label class="field-label">End date</label>
+              <input type="date" name="email_end" id="email-end" class="field-input">
+            </div>
+          </div>
+          <button type="button" class="fetch-btn"
+            hx-post="/fetch-emails" hx-target="#email-fetch-results"
+            hx-swap="innerHTML" hx-include="#tab-email">
+            Fetch emails
+          </button>
+          <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
+        </div>
+
+        <div class="submit-row">
+          <button type="submit" id="submit-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Analyse
+          </button>
+          <div class="credibility-options">
+            <label class="credibility-option">
+              <input type="radio" name="assess_credibility" value="1" checked>
+              Evaluate whether the claim is true
+            </label>
+            <label class="credibility-option">
+              <input type="radio" name="assess_credibility" value="0">
+              Evaluate only what the source says about the claim
+            </label>
+          </div>
+        </div>
+
+        <div class="htmx-indicator">
+          <span class="spinner"></span>Analysing...
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div id="answer-area"></div>
+
 </div>
-
-<div id="answer-area"></div>
-
-</div><!-- /.col-frame -->
 </main>
 
 <footer>
@@ -4004,7 +4003,8 @@ asn1crypto==1.5.1
       <span class="footer-col-title">Transparency</span>
       <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
       <a href="#">Data policy</a>
-      <a href="https://fxg55647.github.io/leima/" target="_blank" rel="noopener">POIDE status</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener">TREAD — what's this?</a>
+      <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
       <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
     </div>
   </div>
@@ -4015,10 +4015,7 @@ asn1crypto==1.5.1
   function handleTxtUpload(input) {
     if (!input.files.length) return;
     const reader = new FileReader();
-    reader.onload = e => {
-      document.getElementById('text-input').value = e.target.result;
-      input.value = '';
-    };
+    reader.onload = e => { document.getElementById('text-input').value = e.target.result; input.value = ''; };
     reader.readAsText(input.files[0], 'utf-8');
   }
 
@@ -4028,10 +4025,7 @@ asn1crypto==1.5.1
     if (tab === 'web') return document.getElementById('web-url').value.trim() !== '';
     if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
-    if (tab === 'email') {
-      return ['email_user','email_password','email_sender','email_start','email_end']
-        .some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
-    }
+    if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
     return false;
   }
 
@@ -4039,8 +4033,7 @@ asn1crypto==1.5.1
     document.getElementById('drop-zone-wrap').style.display = 'none';
     document.getElementById('url-input-wrap').style.display = 'block';
     document.getElementById('pdf-input').value = '';
-    const zone = document.getElementById('drop-zone');
-    zone.classList.remove('has-file');
+    document.getElementById('drop-zone').classList.remove('has-file');
     document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
     document.getElementById('pdf-url').focus();
   }
@@ -4055,15 +4048,13 @@ asn1crypto==1.5.1
     if (tab === 'pdf') {
       document.getElementById('pdf-input').value = '';
       document.getElementById('pdf-url').value = '';
-      const zone = document.getElementById('drop-zone');
-      zone.classList.remove('has-file');
+      document.getElementById('drop-zone').classList.remove('has-file');
       document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
       document.getElementById('drop-zone-wrap').style.display = 'block';
       document.getElementById('url-input-wrap').style.display = 'none';
     } else if (tab === 'image') {
       document.getElementById('image-input').value = '';
-      const zone = document.getElementById('image-drop-zone');
-      zone.classList.remove('has-file');
+      document.getElementById('image-drop-zone').classList.remove('has-file');
       document.getElementById('image-drop-label').textContent = 'Click or drop an image here';
     } else if (tab === 'web') {
       document.getElementById('web-url').value = '';
@@ -4076,8 +4067,7 @@ asn1crypto==1.5.1
       document.getElementById('gh-paths').value = '';
       document.getElementById('gh-token').value = '';
     } else if (tab === 'email') {
-      ['email-user','email-password','email-sender','email-start','email-end']
-        .forEach(id => document.getElementById(id).value = '');
+      ['email-user','email-password','email-sender','email-start','email-end'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('email-fetch-results').innerHTML = '';
       document.getElementById('email-session-id').value = '';
       document.getElementById('email-idx').value = '';
@@ -4091,16 +4081,22 @@ asn1crypto==1.5.1
     document.getElementById('email-idx').value = idx;
   }
 
-  function ghModeSwitch() {
-    const isCR = document.getElementById('gh-mode-cr').checked;
-    document.getElementById('gh-paths-group').style.display = isCR ? 'none' : '';
-    document.getElementById('gh-rules-group').style.display = isCR ? '' : 'none';
-    const qSection = document.querySelector('.question-label').parentElement || document.querySelector('.question-label').closest('form');
-    document.querySelector('.question-label').style.display = isCR ? 'none' : '';
-    document.querySelector('.question-row').style.display = isCR ? 'none' : '';
-    document.querySelector('[name="question"]').required = !isCR;
-    document.querySelector('.credibility-options').style.display = isCR ? 'none' : '';
-  }
+  const TAB_HINTS = {
+    pdf:    'e.g. <em>"this invoice shows the payment was completed"</em>',
+    image:  'e.g. <em>"this C2PA image shows a cut-down tree at 60.1699, 24.9384"</em>',
+    text:   'e.g. <em>"the source claims that X"</em>',
+    web:    'e.g. <em>"Apple announced Vision Pro on this page"</em>',
+    email:  'e.g. <em>"Tesla offered me a job in this email"</em>',
+    github: 'e.g. <em>"this code follows best security practices"</em>',
+  };
+  const TAB_PLACEHOLDERS = {
+    pdf: 'this contract was signed by both parties',
+    image: 'this book page states that Napoleon was born in 1769',
+    text: 'this text contains a refund promise',
+    web: 'this website advertises free worldwide shipping',
+    email: 'the sender promised delivery before Friday',
+    github: 'this repository contains hardcoded secrets',
+  };
 
   function switchTab(newTab, btn) {
     const current = document.getElementById('active-tab').value;
@@ -4114,200 +4110,124 @@ asn1crypto==1.5.1
     document.getElementById('tab-' + newTab).classList.add('active');
     btn.classList.add('active');
     document.getElementById('active-tab').value = newTab;
-    if (newTab !== 'github') {
-      document.getElementById('gh-mode-claim').checked = true;
-      ghModeSwitch();
+    document.getElementById('submit-btn').disabled = (newTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
+    document.querySelector('.credibility-options').style.display = newTab === 'github' ? 'none' : '';
+    if (TAB_HINTS[newTab]) {
+      document.getElementById('question-sub').innerHTML = TAB_HINTS[newTab];
+      document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[newTab] || '';
     }
   }
 
   function onFileSelect(input) {
-    const zone = document.getElementById('drop-zone');
-    const label = document.getElementById('drop-label');
-    if (input.files[0]) {
-      label.textContent = input.files[0].name;
-      zone.classList.add('has-file');
-    }
+    if (input.files[0]) { document.getElementById('drop-label').textContent = input.files[0].name; document.getElementById('drop-zone').classList.add('has-file'); }
   }
-
   function onImageSelect(input) {
-    const zone = document.getElementById('image-drop-zone');
-    const label = document.getElementById('image-drop-label');
-    if (input.files[0]) {
-      label.textContent = input.files[0].name;
-      zone.classList.add('has-file');
-    }
+    if (input.files[0]) { document.getElementById('image-drop-label').textContent = input.files[0].name; document.getElementById('image-drop-zone').classList.add('has-file'); }
   }
 
   const imageDropZone = document.getElementById('image-drop-zone');
   imageDropZone.addEventListener('dragover', e => { e.preventDefault(); imageDropZone.classList.add('dragover'); });
   imageDropZone.addEventListener('dragleave', () => imageDropZone.classList.remove('dragover'));
   imageDropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    imageDropZone.classList.remove('dragover');
+    e.preventDefault(); imageDropZone.classList.remove('dragover');
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      const input = document.getElementById('image-input');
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      input.files = dt.files;
-      onImageSelect(input);
-    }
+    if (file && file.type.startsWith('image/')) { const input = document.getElementById('image-input'); const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; onImageSelect(input); }
   });
 
   const dropZone = document.getElementById('drop-zone');
   dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
   dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
+    e.preventDefault(); dropZone.classList.remove('dragover');
     const file = e.dataTransfer.files[0];
-    if (file && file.type === 'application/pdf') {
-      const input = document.getElementById('pdf-input');
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      input.files = dt.files;
-      onFileSelect(input);
-    }
+    if (file && file.type === 'application/pdf') { const input = document.getElementById('pdf-input'); const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; onFileSelect(input); }
   });
 </script>
 
 <script>
   (function() {
-    const dot     = document.getElementById('poide-dot');
-    const text    = document.getElementById('poide-text');
+    const dot = document.getElementById('poide-dot');
+    const text = document.getElementById('poide-text');
     const overlay = document.getElementById('poide-modal-overlay');
-    const modalBody  = document.getElementById('poide-modal-body');
+    const modalBody = document.getElementById('poide-modal-body');
     const suppressCb = document.getElementById('poide-modal-suppress-cb');
-    const closeBtn   = document.getElementById('poide-modal-close');
+    const closeBtn = document.getElementById('poide-modal-close');
     let lastCheckedAt = null;
-
-    const SUPPRESS_DURATION_MS = 60 * 60 * 1000; // 1 hour
-    const REPEAT_INTERVAL_MS   = 60 * 1000;       // re-show at most once per minute
-
+    const SUPPRESS_DURATION_MS = 60 * 60 * 1000;
+    const REPEAT_INTERVAL_MS = 60 * 1000;
     let lastModalShownAt = 0;
     let lastModalKey = '';
 
     function isSuppressed(key) {
-      try {
-        const v = localStorage.getItem('poide_suppress_' + key);
-        if (!v) return false;
-        return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS;
-      } catch(e) { return false; }
+      try { const v = localStorage.getItem('poide_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
     }
-
     function showWarning(key, message) {
       if (isSuppressed(key)) return;
       const now = Date.now();
       if (lastModalKey === key && now - lastModalShownAt < REPEAT_INTERVAL_MS) return;
-      lastModalShownAt = now;
-      lastModalKey = key;
-      suppressCb.checked = false;
-      modalBody.textContent = message;
-      overlay.classList.add('visible');
+      lastModalShownAt = now; lastModalKey = key; suppressCb.checked = false;
+      modalBody.textContent = message; overlay.classList.add('visible');
       closeBtn.onclick = function() {
-        if (suppressCb.checked) {
-          try { localStorage.setItem('poide_suppress_' + key, Date.now().toString()); } catch(e) {}
-        }
+        if (suppressCb.checked) { try { localStorage.setItem('poide_suppress_' + key, Date.now().toString()); } catch(e) {} }
         overlay.classList.remove('visible');
       };
     }
-
-    document.addEventListener('visibilitychange', function() {
-      if (!document.hidden) { lastModalShownAt = 0; update(); }
-    });
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) { lastModalShownAt = 0; update(); } });
 
     function timeAgo() {
       if (!lastCheckedAt) return '';
       const s = Math.floor((Date.now() - lastCheckedAt) / 1000);
       return s < 60 ? 'checked ' + s + 's ago' : 'checked ' + Math.floor(s / 60) + 'm ago';
     }
-
     function setDot(mode) {
-      if (mode === 'danger') {
-        dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;';
-        dot.textContent = '⛔';
-      } else {
-        dot.textContent = '';
-        const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#555';
-        dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;';
-      }
+      if (mode === 'danger') { dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;'; dot.textContent = '⛔'; }
+      else { dot.textContent = ''; const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#2a4a62'; dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;'; }
     }
-
     function row(statusText, statusColor, reason) {
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
            + (reason ? ' <span style="color:#fff;font-weight:400">— ' + reason + '</span>' : '')
-           + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">POIDE</span>'
+           + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">TREAD</span>'
            + ' <span id="poide-ago-inner" style="color:#fff">' + timeAgo() + '</span>'
-           + ' <a href="https://github.com/fxg55647/leima#poide" target="_blank" rel="noopener"'
-           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>';
+           + ' <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>'
+           + ' <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">status</a>';
     }
-
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
-      setTimeout(() => {
-        if (dotMode) setDot(dotMode);
-        text.innerHTML = html;
-        text.style.opacity = '1';
-      }, 280);
+      setTimeout(() => { if (dotMode) setDot(dotMode); text.innerHTML = html; text.style.opacity = '1'; }, 280);
     }
-
     function update() {
       fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
         const p = d.poide || {};
         const running = d.commit || '';
         const verified = p.verified_commit || '';
-
-        lastCheckedAt = p.checked_at
-          ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime()
-          : null;
-
-        const staleSecs = lastCheckedAt ? (Date.now() - lastCheckedAt) / 1000 : 9999;
+        lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
-
         if (p.review_stuck) {
-          const n = p.review_consecutive_failures || '';
-          fadeSet(row('Please note', '#f0a030', 'code review failing — ' + n + ' commits blocked'), 'warning');
+          fadeSet(row('Please note', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
         } else {
-
-        const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
-        if (dangerousDeploy) {
-          const key = 'dangerous_deploy_' + (p.deploying_commit || '').slice(0, 7);
-          showWarning(key,
-            'An unauthorized commit is being deployed to production:\n' +
-            (p.deploying_commit || '?').slice(0, 7) + ' ≠ ' + (p.verified_commit || '?').slice(0, 7) + '\n\n' +
-            'Do not submit sensitive documents until this is resolved.\n' +
-            'Check GitHub Actions and the Render dashboard.'
-          );
-          fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
-        } else if (p.deploying) {
-          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
-        } else if (!unknownCommit && verified && !commitMatch) {
-          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
-        } else if (p.ok || commitMatch) {
-          fadeSet(row('OK', '#fff'), 'ok');
-        } else if (p.ok === false) {
-          const reason = p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed';
-          fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
-        } else {
-          fadeSet(row('Checking…', '#555', ''), 'loading');
+          const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
+          if (dangerousDeploy) {
+            showWarning('dangerous_deploy_' + (p.deploying_commit || '').slice(0,7),
+              'An unauthorized commit is being deployed to production:\n' + (p.deploying_commit||'?').slice(0,7) + ' ≠ ' + (p.verified_commit||'?').slice(0,7) + '\n\nDo not submit sensitive documents until this is resolved.\nCheck GitHub Actions and the Render dashboard.');
+            fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
+          } else if (p.deploying) {
+            fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+          } else if (!unknownCommit && verified && !commitMatch) {
+            fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+          } else if (p.ok || commitMatch) {
+            fadeSet(row('OK', '#fff'), 'ok');
+          } else if (p.ok === false) {
+            fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed'), 'danger');
+          } else {
+            fadeSet(row('Checking…', '#555', ''), 'loading');
+          }
         }
-
-        } // end review_stuck else
-      }).catch(() => {
-        lastCheckedAt = null;
-        fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">POIDE</span>', 'loading');
-      });
+      }).catch(() => { lastCheckedAt = null; fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">TREAD</span>', 'loading'); });
     }
-
     update();
     setInterval(update, 20000);
-    setInterval(() => {
-      if (lastCheckedAt) {
-        const el = document.getElementById('poide-ago-inner');
-        if (el) el.textContent = timeAgo();
-      }
-    }, 15000);
+    setInterval(() => { if (lastCheckedAt) { const el = document.getElementById('poide-ago-inner'); if (el) el.textContent = timeAgo(); } }, 15000);
   })();
 </script>
 
@@ -4885,15 +4805,31 @@ asn1crypto==1.5.1
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Leima – Validate</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg: #ededeb;
+      --blue-light: #daeefa;
+      --blue-deep: #1a4b7c;
+      --blue-mid: #5a8fb0;
+      --blue-dim: rgba(26,75,124,0.1);
+      --blue-border: #c0d4e8;
+      --surface: #ffffff;
+      --surface-input: #f2f2f0;
+      --border: #d0dce8;
+      --text: #0f1c2e;
+      --text-muted: #4a6880;
+      --text-faint: #8aaabf;
+      --red: #c0392b;
+    }
+
     body {
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      background: #e8e8e8;
-      color: #212529;
+      font-family: 'Spectral', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -4903,31 +4839,36 @@ asn1crypto==1.5.1
       flex: 1;
       display: flex;
       justify-content: center;
-      padding: 0;
     }
 
     .col-frame {
       width: 100%;
       max-width: 760px;
-      background: #fff;
+      background: var(--surface);
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2.5rem 1.5rem;
       box-shadow:
-        4px 0 12px -4px rgba(0,0,0,0.14),
-        -4px 0 12px -4px rgba(0,0,0,0.14),
-        1px 0 0 rgba(0,0,0,0.07),
-        -1px 0 0 rgba(0,0,0,0.07);
+        4px 0 28px -4px rgba(15,28,46,0.12),
+        -4px 0 28px -4px rgba(15,28,46,0.12);
+    }
+
+    .header-zone {
+      width: 100%;
+      background: #ffffff;
+      padding: 1.75rem 1.5rem 1.25rem;
+      border-bottom: 2px solid var(--blue-deep);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     header {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding-bottom: 1.25rem;
-      margin-bottom: 1.5rem;
-      border-bottom: 2px solid #dc3545;
+      width: 100%;
+      max-width: 680px;
     }
 
     .logo-mark {
@@ -4941,45 +4882,51 @@ asn1crypto==1.5.1
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 2rem;
       font-weight: 700;
-      color: #212529;
+      color: var(--text);
       letter-spacing: 0.14em;
     }
     .logo-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: #dc3545;
+      color: var(--red);
       letter-spacing: 0.22em;
     }
-    header h1 { font-size: 1.25rem; font-weight: 700; color: #212529; letter-spacing: 0.02em; }
-    header p { color: #6c757d; font-size: 0.8rem; margin-top: 0.1rem; }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      margin-top: 0.1rem;
+    }
 
     .back-btn {
       margin-left: auto;
-      background: #fff;
-      color: #6c757d;
-      border: 1.5px solid #dee2e6;
-      border-radius: 6px;
+      background: transparent;
+      color: var(--blue-deep);
+      border: 1px solid var(--blue-deep);
+      border-radius: 4px;
       padding: 0.4rem 1rem;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       font-weight: 500;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
       text-decoration: none;
-      transition: border-color 0.15s, color 0.15s;
+      transition: background 0.15s, color 0.15s;
       white-space: nowrap;
     }
-    .back-btn:hover { border-color: #adb5bd; color: #212529; }
+    .back-btn:hover { background: var(--blue-deep); color: #fff; }
 
     .card {
-      padding: 1.75rem 0;
+      padding: 1.75rem 1.5rem;
       width: 100%;
       max-width: 680px;
     }
 
     .card-title {
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       margin-bottom: 1.25rem;
-      color: #212529;
+      color: var(--text);
     }
 
     .upload-grid {
@@ -4996,22 +4943,24 @@ asn1crypto==1.5.1
     }
 
     .upload-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #495057;
-      width: 100px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--blue-deep);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      width: 110px;
       flex-shrink: 0;
     }
 
     .file-input-btn {
       display: inline-block;
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
+      background: var(--surface-input);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 0.4rem 0.875rem;
+      padding: 0.45rem 0.875rem;
       font-size: 0.85rem;
-      font-family: inherit;
-      color: #495057;
+      font-family: 'Spectral', Georgia, serif;
+      color: var(--text-muted);
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
       flex: 1;
@@ -5019,34 +4968,36 @@ asn1crypto==1.5.1
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .file-input-btn:hover { border-color: #adb5bd; background: #f1f3f5; }
-    .file-input-btn.has-file { border-color: #0d6efd; color: #0d6efd; background: #e8f0fe; }
+    .file-input-btn:hover { border-color: var(--blue-deep); background: var(--blue-dim); }
+    .file-input-btn.has-file { border-color: var(--blue-deep); color: var(--blue-deep); background: var(--blue-dim); }
 
     input[type="file"] { display: none; }
 
     button[type="submit"] {
-      background: #dc3545;
+      background: var(--blue-deep);
       color: #fff;
       border: none;
-      border-radius: 6px;
+      border-radius: 4px;
       padding: 0.625rem 1.5rem;
-      font-size: 0.9rem;
-      font-weight: 500;
-      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       cursor: pointer;
       transition: background 0.15s;
     }
-    button[type="submit"]:hover { background: #b02a37; }
-    button[type="submit"]:disabled { background: #6c757d; cursor: not-allowed; }
+    button[type="submit"]:hover { background: #163f6a; }
+    button[type="submit"]:disabled { background: var(--border); cursor: not-allowed; color: var(--text-muted); }
 
-    .htmx-indicator { display: none; color: #6c757d; font-size: 0.875rem; margin-top: 1rem; }
+    .htmx-indicator { display: none; color: var(--text-muted); font-size: 0.875rem; margin-top: 1rem; }
     .htmx-request .htmx-indicator { display: block; }
 
     .spinner {
       display: inline-block;
       width: 14px; height: 14px;
-      border: 2px solid #dee2e6;
-      border-top-color: #dc3545;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue-deep);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       vertical-align: middle;
@@ -5057,78 +5008,60 @@ asn1crypto==1.5.1
     #result { margin-top: 1.5rem; }
 
     footer {
-      background: #111;
-      color: #ccc;
+      background: #07111e;
+      color: #6a8899;
       width: 100%;
       padding: 3rem 2rem 1.5rem;
+      border-top: 3px solid var(--red);
     }
-
     .footer-inner {
       max-width: 680px;
       margin: 0 auto;
       display: flex;
       gap: 3rem;
     }
-
     .footer-brand { flex: 1.5; }
-
     .footer-logo {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 1.5rem;
       font-weight: 700;
-      color: #fff;
+      color: #c8dff0;
       letter-spacing: 0.14em;
       display: block;
     }
-
     .footer-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: #dc3545;
+      color: var(--red);
       letter-spacing: 0.22em;
       display: block;
       margin-bottom: 0.75rem;
     }
-
-    .footer-brand p { font-size: 0.82rem; color: #888; line-height: 1.6; }
-
-    .footer-col {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
+    .footer-brand p { font-size: 0.82rem; color: #6a8899; line-height: 1.6; }
+    .footer-col { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
     .footer-col-title {
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: #fff;
+      letter-spacing: 0.12em;
+      color: var(--blue-mid);
       margin-bottom: 0.25rem;
     }
-
-    .footer-col a {
-      color: #888;
-      text-decoration: none;
-      font-size: 0.85rem;
-      transition: color 0.15s;
-    }
-
-    .footer-col a:hover { color: #fff; }
-
+    .footer-col a { color: #6a8899; text-decoration: none; font-size: 0.85rem; transition: color 0.15s; }
+    .footer-col a:hover { color: #c8dff0; }
     .footer-bottom {
       max-width: 680px;
       margin: 2rem auto 0;
       padding-top: 1.25rem;
-      border-top: 1px solid #2a2a2a;
+      border-top: 1px solid #1a2d40;
       font-size: 0.75rem;
-      color: #555;
+      color: #334a5c;
+      letter-spacing: 0.04em;
     }
 
     #poide-bar {
       width: 100%;
-      background: #111;
+      background: #07111e;
       height: 26px;
       display: flex;
       align-items: center;
@@ -5136,15 +5069,9 @@ asn1crypto==1.5.1
       font-size: 0.7rem;
       letter-spacing: 0.02em;
       flex-shrink: 0;
+      border-bottom: 3px solid var(--red);
     }
-
-    #poide-dot {
-      transition: background 0.5s ease;
-      animation: poidePulse 2.4s ease-in-out infinite;
-      transform-origin: center;
-      flex-shrink: 0;
-    }
-
+    #poide-dot { transition: background 0.5s ease; animation: poidePulse 2.4s ease-in-out infinite; transform-origin: center; flex-shrink: 0; }
     #poide-text { transition: opacity 0.28s ease; }
 
     @keyframes poidePulse {
@@ -5153,8 +5080,9 @@ asn1crypto==1.5.1
     }
 
     @media (max-width: 520px) {
-      .col-frame { padding: 0.75rem 0.5rem; box-shadow: none; }
-      .card { padding: 1.1rem; }
+      .col-frame { box-shadow: none; }
+      .header-zone { padding: 1.25rem 0.75rem 1rem; }
+      .card { padding: 1.1rem 0.75rem; }
       header { flex-wrap: wrap; row-gap: 0.4rem; }
       .logo-text { font-size: 1.5rem; }
       .back-btn { margin-left: auto; }
@@ -5171,7 +5099,7 @@ asn1crypto==1.5.1
 
 <div id="poide-bar">
   <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
-    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block"></span>
+    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
     <span id="poide-text"></span>
   </div>
 </div>
@@ -5179,79 +5107,81 @@ asn1crypto==1.5.1
 <main>
 <div class="col-frame">
 
-<div class="card">
-  <header>
-    <a href="/" class="logo-mark">
-      <span class="logo-text">LEIMA</span>
-      <span class="logo-domain">leima.io</span>
-    </a>
-    <div>
-      <p style="font-size: 0.95rem; font-weight: 600; color: #212529;">AI verdicts on documents — cryptographically sealed on Arweave</p>
-    </div>
-    <a href="/" class="back-btn">← Back</a>
-  </header>
+  <div class="header-zone">
+    <header>
+      <a href="/" class="logo-mark">
+        <span class="logo-text">LEIMA</span>
+        <span class="logo-domain">leima.io</span>
+      </a>
+      <div>
+        <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
+      </div>
+      <a href="/" class="back-btn">← Back</a>
+    </header>
+  </div>
 
-  <form
-    hx-post="/validate"
-    hx-target="#result"
-    hx-swap="innerHTML"
-    hx-encoding="multipart/form-data"
-    hx-indicator="#form-wrap"
-    id="val-form"
-  >
-    <div id="form-wrap">
-      {% if tx %}
+  <div class="card">
+    <form
+      hx-post="/validate"
+      hx-target="#result"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      hx-indicator="#form-wrap"
+      id="val-form"
+    >
+      <div id="form-wrap">
+        {% if tx %}
 
-      <p class="card-title">Verify notarized email</p>
-      <input type="hidden" name="tx_id" value="{{ tx }}">
+        <p class="card-title">Verify notarized email</p>
+        <input type="hidden" name="tx_id" value="{{ tx }}">
 
-      <div class="upload-grid">
-        <div class="upload-row">
-          <span class="upload-label">original.eml</span>
-          <label class="file-input-btn" id="label-eml" for="input-eml">Choose file…</label>
-          <input type="file" id="input-eml" name="eml_file" accept=".eml,message/rfc822"
-            onchange="setLabel(this, 'label-eml')">
+        <div class="upload-grid">
+          <div class="upload-row">
+            <span class="upload-label">original.eml</span>
+            <label class="file-input-btn" id="label-eml" for="input-eml">Choose file…</label>
+            <input type="file" id="input-eml" name="eml_file" accept=".eml,message/rfc822"
+              onchange="setLabel(this, 'label-eml')">
+          </div>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.25rem;">The .eml file is attached to the notarization email you received.</p>
+
+        {% else %}
+
+        <p class="card-title">Upload all three files to verify integrity</p>
+
+        <div class="upload-grid">
+          <div class="upload-row">
+            <span class="upload-label">source</span>
+            <label class="file-input-btn" id="label-source" for="input-source">Choose file…</label>
+            <input type="file" id="input-source" name="source_file"
+              onchange="setLabel(this, 'label-source')">
+          </div>
+          <div class="upload-row">
+            <span class="upload-label">verdict.pdf</span>
+            <label class="file-input-btn" id="label-verdict" for="input-verdict">Choose file…</label>
+            <input type="file" id="input-verdict" name="verdict_file" accept="application/pdf"
+              onchange="setLabel(this, 'label-verdict')">
+          </div>
+          <div class="upload-row">
+            <span class="upload-label">manifest.json</span>
+            <label class="file-input-btn" id="label-manifest" for="input-manifest">Choose file…</label>
+            <input type="file" id="input-manifest" name="manifest_file" accept="application/json"
+              onchange="setLabel(this, 'label-manifest')">
+          </div>
+        </div>
+
+        {% endif %}
+
+        <button type="submit">Validate</button>
+
+        <div class="htmx-indicator">
+          <span class="spinner"></span>Verifying…
         </div>
       </div>
-      <p style="font-size:0.78rem;color:#6c757d;margin-bottom:1.25rem;">The .eml file is attached to the notarization email you received.</p>
+    </form>
 
-      {% else %}
-
-      <p class="card-title">Upload all three files to verify integrity</p>
-
-      <div class="upload-grid">
-        <div class="upload-row">
-          <span class="upload-label">source</span>
-          <label class="file-input-btn" id="label-source" for="input-source">Choose file…</label>
-          <input type="file" id="input-source" name="source_file"
-            onchange="setLabel(this, 'label-source')">
-        </div>
-        <div class="upload-row">
-          <span class="upload-label">verdict.pdf</span>
-          <label class="file-input-btn" id="label-verdict" for="input-verdict">Choose file…</label>
-          <input type="file" id="input-verdict" name="verdict_file" accept="application/pdf"
-            onchange="setLabel(this, 'label-verdict')">
-        </div>
-        <div class="upload-row">
-          <span class="upload-label">manifest.json</span>
-          <label class="file-input-btn" id="label-manifest" for="input-manifest">Choose file…</label>
-          <input type="file" id="input-manifest" name="manifest_file" accept="application/json"
-            onchange="setLabel(this, 'label-manifest')">
-        </div>
-      </div>
-
-      {% endif %}
-
-      <button type="submit">Validate</button>
-
-      <div class="htmx-indicator">
-        <span class="spinner"></span>Verifying…
-      </div>
-    </div>
-  </form>
-
-  <div id="result"></div>
-</div>
+    <div id="result"></div>
+  </div>
 
 </div><!-- /.col-frame -->
 </main>
@@ -5274,7 +5204,8 @@ asn1crypto==1.5.1
       <span class="footer-col-title">Transparency</span>
       <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
       <a href="#">Data policy</a>
-      <a href="https://fxg55647.github.io/leima/" target="_blank" rel="noopener">POIDE status</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener">TREAD — what's this?</a>
+      <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
       <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
     </div>
   </div>
@@ -5309,7 +5240,7 @@ asn1crypto==1.5.1
         dot.textContent = '⛔';
       } else {
         dot.textContent = '';
-        const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#555';
+        const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#2a4a62';
         dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;';
       }
     }
@@ -5317,57 +5248,44 @@ asn1crypto==1.5.1
     function row(statusText, statusColor, reason) {
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
            + (reason ? ' <span style="color:#fff;font-weight:400">— ' + reason + '</span>' : '')
-           + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">POIDE</span>'
+           + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">TREAD</span>'
            + ' <span id="poide-ago-inner" style="color:#fff">' + timeAgo() + '</span>'
-           + ' <a href="https://github.com/fxg55647/leima#poide" target="_blank" rel="noopener"'
-           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>';
+           + ' <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener"'
+           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>'
+           + ' <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener"'
+           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">status</a>';
     }
 
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
-      setTimeout(() => {
-        if (dotMode) setDot(dotMode);
-        text.innerHTML = html;
-        text.style.opacity = '1';
-      }, 280);
+      setTimeout(() => { if (dotMode) setDot(dotMode); text.innerHTML = html; text.style.opacity = '1'; }, 280);
     }
 
     function update() {
-      text.style.opacity = '0';
-      setTimeout(() => {
-        text.innerHTML = '<span style="color:#fff">Retrieving…</span>';
-        text.style.opacity = '1';
-      }, 280);
-
-      const minWait = new Promise(r => setTimeout(r, 1100));
-      Promise.all([
-        fetch('https://raw.githubusercontent.com/fxg55647/leima/gh-pages/status.json?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
-        minWait,
-      ]).then(([d]) => {
-        lastCheckedAt = d.checked_at ? new Date(d.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
-        if (d.ok) {
+      fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
+        const p = d.poide || {};
+        const running = d.commit || '';
+        const verified = p.verified_commit || '';
+        lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
+        const commitMatch = running && verified && running.startsWith(verified);
+        const unknownCommit = running === 'unknown' || !running;
+        if (p.deploying) {
+          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+        } else if (!unknownCommit && verified && !commitMatch) {
+          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+        } else if (p.ok || commitMatch) {
           fadeSet(row('OK', '#fff'), 'ok');
+        } else if (p.ok === false) {
+          fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed'), 'danger');
         } else {
-          const reason = d.deploying ? 'deploying'
-            : !d.deployment_ok ? 'commit mismatch'
-            : !d.cron_fresh ? 'crons stale'
-            : 'check failed';
-          fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
+          fadeSet(row('Checking…', '#555', ''), 'loading');
         }
-      }).catch(() => {
-        lastCheckedAt = null;
-        fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">POIDE</span>', 'loading');
-      });
+      }).catch(() => { lastCheckedAt = null; fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">TREAD</span>', 'loading'); });
     }
 
     update();
-    setInterval(update, 60000);
-    setInterval(() => {
-      if (lastCheckedAt) {
-        const el = document.getElementById('poide-ago-inner');
-        if (el) el.textContent = timeAgo();
-      }
-    }, 15000);
+    setInterval(update, 20000);
+    setInterval(() => { if (lastCheckedAt) { const el = document.getElementById('poide-ago-inner'); if (el) el.textContent = timeAgo(); } }, 15000);
   })();
 </script>
 
