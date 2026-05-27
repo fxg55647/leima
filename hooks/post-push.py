@@ -49,10 +49,15 @@ def wait_for_review(commit: str) -> bool | None:
     print(f"[deploy] Odotetaan code review commit {commit[:7]}...", flush=True)
     print(f"[deploy] (Pollaan {LOG_URL} joka {POLL_INT}s)", flush=True)
     deadline = time.time() + REVIEW_TIMEOUT
+    slow_warning_at = time.time() + 480
+    slow_warned = False
     last_ts = None
     false_new_entries = 0
 
     while time.time() < deadline:
+        if not slow_warned and time.time() >= slow_warning_at:
+            slow_warned = True
+            print("[deploy] Kyllapas kestaa kauan — POIDE-cron saattaa olla myohassa tai jumissa.", flush=True)
         entry = fetch_poide()
         if entry:
             entry_commit = (entry.get("commit") or "").strip()
