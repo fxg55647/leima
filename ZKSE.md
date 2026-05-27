@@ -55,3 +55,19 @@ There is a second factor. The security field has a tendency to conflate the perf
 The consequence is a large class of practical trust problems that are formally unsolvable (you cannot write a SNARK for whether a terms-of-service clause is being followed in spirit) but practically addressable — and largely unaddressed, because the framing required to address them fell outside the dominant research paradigm.
 
 SAIA is an attempt to name and fill one such gap.
+
+---
+
+## The real world already operates on imperfect guarantees
+
+Cryptographic soundness is the exception, not the norm. Most of the trust infrastructure that holds society together is probabilistic, interpretive, and openly imperfect — and it works anyway.
+
+**Due diligence** does not mean reading every document. An acquirer samples contracts, auditors test transactions rather than verifying all of them, and analysts triangulate from incomplete information. The process works not because it achieves certainty but because it makes concealment costly and leaves a trail.
+
+**Legal interpretation** is not deterministic. A judge cannot know what a legislature intended; they make the best inference from text, precedent, and reasonable construction. "Reasonable time," "material breach," "good faith" are deliberately undefined — yet billions of contracts are honoured daily, not because the terms are precise but because violation carries consequences.
+
+**Credit ratings** are expert estimates, not proofs. AAA does not mean mathematically safe; it means a rating agency assessed risk using available evidence and professional judgment. The 2008 financial crisis demonstrated the limits of that judgment — but also that the alternative, refusing to operate without mathematical certainty, would mean no capital markets at all.
+
+**Medical diagnosis** is probabilistic. A physician does not know — they form the most defensible inference from symptoms, tests, and population statistics. The standard is not certainty but documented, reasonable process.
+
+In each case, the system is trustworthy not because it eliminates error but because it makes the reasoning transparent, the record durable, and the consequences of deliberate deception real. SAIA operates on the same logic. The AI verdict is not a proof; it is a documented, independent evaluation made at a specific moment by a process that cannot be pressured or bribed, recorded permanently, and attributable to whoever submitted the code. That is not a lesser form of cryptographic soundness. It is a different instrument, suited to a different class of problem — the class the real world is actually made of.
