@@ -98,7 +98,7 @@ jobs:
             deploy_and_wait
           fi
 
-      - name: Wake up POIDE
+      - name: Wake up TREAD
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -107,4 +107,4 @@ jobs:
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -d '{"ref":"main"}' \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/poide-a.yml/dispatches"
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/tread-a.yml/dispatches"

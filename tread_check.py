@@ -2,16 +2,16 @@ import hashlib, os, sys, json, requests
 from datetime import datetime, timezone
 from pathlib import Path
 
-TREAD_WORKFLOWS   = ["poide-a.yml", "poide-b.yml", "poide-c.yml", "poide-d.yml", "poide-e.yml"]
+TREAD_WORKFLOWS   = ["tread-a.yml", "tread-b.yml", "tread-c.yml", "tread-d.yml", "tread-e.yml"]
 MAX_CRON_AGE_MIN  = 10  # 5-min schedule with 2× headroom
 
 MONITOR_FILES = [
-    ".github/workflows/poide-a.yml",
-    ".github/workflows/poide-b.yml",
-    ".github/workflows/poide-c.yml",
-    ".github/workflows/poide-d.yml",
-    ".github/workflows/poide-e.yml",
-    ".github/workflows/poide-run.yml",
+    ".github/workflows/tread-a.yml",
+    ".github/workflows/tread-b.yml",
+    ".github/workflows/tread-c.yml",
+    ".github/workflows/tread-d.yml",
+    ".github/workflows/tread-e.yml",
+    ".github/workflows/tread-run.yml",
     ".github/workflows/monthly-audit.yml",
     ".github/workflows/code_review.yml",
     "tread_check.py",

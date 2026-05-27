@@ -1,4 +1,4 @@
-name: POIDE E
+name: TREAD E
 on:
   schedule:
     - cron: '4-59/5 * * * *'
@@ -9,5 +9,5 @@ permissions:
 
 jobs:
   run:
-    uses: ./.github/workflows/poide-run.yml
+    uses: ./.github/workflows/tread-run.yml
     secrets: inherit

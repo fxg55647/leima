@@ -46,12 +46,12 @@ POIDE_FILES = {
     "verify.py",
     "push_status.py",
     "code_review.py",
-    ".github/workflows/poide-a.yml",
-    ".github/workflows/poide-b.yml",
-    ".github/workflows/poide-c.yml",
-    ".github/workflows/poide-d.yml",
-    ".github/workflows/poide-e.yml",
-    ".github/workflows/poide-run.yml",
+    ".github/workflows/tread-a.yml",
+    ".github/workflows/tread-b.yml",
+    ".github/workflows/tread-c.yml",
+    ".github/workflows/tread-d.yml",
+    ".github/workflows/tread-e.yml",
+    ".github/workflows/tread-run.yml",
     ".github/workflows/code_review.yml",
 }
 
