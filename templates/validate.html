@@ -5,15 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Leima – Validate</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg: #ededeb;
+      --blue-light: #daeefa;
+      --blue-deep: #1a4b7c;
+      --blue-mid: #5a8fb0;
+      --blue-dim: rgba(26,75,124,0.1);
+      --blue-border: #c0d4e8;
+      --surface: #ffffff;
+      --surface-input: #f2f2f0;
+      --border: #d0dce8;
+      --text: #0f1c2e;
+      --text-muted: #4a6880;
+      --text-faint: #8aaabf;
+      --red: #c0392b;
+    }
+
     body {
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      background: #e8e8e8;
-      color: #212529;
+      font-family: 'Spectral', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -23,31 +39,36 @@
       flex: 1;
       display: flex;
       justify-content: center;
-      padding: 0;
     }
 
     .col-frame {
       width: 100%;
       max-width: 760px;
-      background: #fff;
+      background: var(--surface);
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2.5rem 1.5rem;
       box-shadow:
-        4px 0 12px -4px rgba(0,0,0,0.14),
-        -4px 0 12px -4px rgba(0,0,0,0.14),
-        1px 0 0 rgba(0,0,0,0.07),
-        -1px 0 0 rgba(0,0,0,0.07);
+        4px 0 28px -4px rgba(15,28,46,0.12),
+        -4px 0 28px -4px rgba(15,28,46,0.12);
+    }
+
+    .header-zone {
+      width: 100%;
+      background: #ffffff;
+      padding: 1.75rem 1.5rem 1.25rem;
+      border-bottom: 2px solid var(--blue-deep);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     header {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding-bottom: 1.25rem;
-      margin-bottom: 1.5rem;
-      border-bottom: 2px solid #dc3545;
+      width: 100%;
+      max-width: 680px;
     }
 
     .logo-mark {
@@ -61,45 +82,51 @@
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 2rem;
       font-weight: 700;
-      color: #212529;
+      color: var(--text);
       letter-spacing: 0.14em;
     }
     .logo-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: #dc3545;
+      color: var(--red);
       letter-spacing: 0.22em;
     }
-    header h1 { font-size: 1.25rem; font-weight: 700; color: #212529; letter-spacing: 0.02em; }
-    header p { color: #6c757d; font-size: 0.8rem; margin-top: 0.1rem; }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      margin-top: 0.1rem;
+    }
 
     .back-btn {
       margin-left: auto;
-      background: #fff;
-      color: #6c757d;
-      border: 1.5px solid #dee2e6;
-      border-radius: 6px;
+      background: transparent;
+      color: var(--blue-deep);
+      border: 1px solid var(--blue-deep);
+      border-radius: 4px;
       padding: 0.4rem 1rem;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       font-weight: 500;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
       text-decoration: none;
-      transition: border-color 0.15s, color 0.15s;
+      transition: background 0.15s, color 0.15s;
       white-space: nowrap;
     }
-    .back-btn:hover { border-color: #adb5bd; color: #212529; }
+    .back-btn:hover { background: var(--blue-deep); color: #fff; }
 
     .card {
-      padding: 1.75rem 0;
+      padding: 1.75rem 1.5rem;
       width: 100%;
       max-width: 680px;
     }
 
     .card-title {
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       margin-bottom: 1.25rem;
-      color: #212529;
+      color: var(--text);
     }
 
     .upload-grid {
@@ -116,22 +143,24 @@
     }
 
     .upload-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #495057;
-      width: 100px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--blue-deep);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      width: 110px;
       flex-shrink: 0;
     }
 
     .file-input-btn {
       display: inline-block;
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
+      background: var(--surface-input);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 0.4rem 0.875rem;
+      padding: 0.45rem 0.875rem;
       font-size: 0.85rem;
-      font-family: inherit;
-      color: #495057;
+      font-family: 'Spectral', Georgia, serif;
+      color: var(--text-muted);
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
       flex: 1;
@@ -139,34 +168,36 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .file-input-btn:hover { border-color: #adb5bd; background: #f1f3f5; }
-    .file-input-btn.has-file { border-color: #0d6efd; color: #0d6efd; background: #e8f0fe; }
+    .file-input-btn:hover { border-color: var(--blue-deep); background: var(--blue-dim); }
+    .file-input-btn.has-file { border-color: var(--blue-deep); color: var(--blue-deep); background: var(--blue-dim); }
 
     input[type="file"] { display: none; }
 
     button[type="submit"] {
-      background: #dc3545;
+      background: var(--blue-deep);
       color: #fff;
       border: none;
-      border-radius: 6px;
+      border-radius: 4px;
       padding: 0.625rem 1.5rem;
-      font-size: 0.9rem;
-      font-weight: 500;
-      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       cursor: pointer;
       transition: background 0.15s;
     }
-    button[type="submit"]:hover { background: #b02a37; }
-    button[type="submit"]:disabled { background: #6c757d; cursor: not-allowed; }
+    button[type="submit"]:hover { background: #163f6a; }
+    button[type="submit"]:disabled { background: var(--border); cursor: not-allowed; color: var(--text-muted); }
 
-    .htmx-indicator { display: none; color: #6c757d; font-size: 0.875rem; margin-top: 1rem; }
+    .htmx-indicator { display: none; color: var(--text-muted); font-size: 0.875rem; margin-top: 1rem; }
     .htmx-request .htmx-indicator { display: block; }
 
     .spinner {
       display: inline-block;
       width: 14px; height: 14px;
-      border: 2px solid #dee2e6;
-      border-top-color: #dc3545;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue-deep);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       vertical-align: middle;
@@ -177,78 +208,60 @@
     #result { margin-top: 1.5rem; }
 
     footer {
-      background: #111;
-      color: #ccc;
+      background: #07111e;
+      color: #6a8899;
       width: 100%;
       padding: 3rem 2rem 1.5rem;
+      border-top: 3px solid var(--red);
     }
-
     .footer-inner {
       max-width: 680px;
       margin: 0 auto;
       display: flex;
       gap: 3rem;
     }
-
     .footer-brand { flex: 1.5; }
-
     .footer-logo {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 1.5rem;
       font-weight: 700;
-      color: #fff;
+      color: #c8dff0;
       letter-spacing: 0.14em;
       display: block;
     }
-
     .footer-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: #dc3545;
+      color: var(--red);
       letter-spacing: 0.22em;
       display: block;
       margin-bottom: 0.75rem;
     }
-
-    .footer-brand p { font-size: 0.82rem; color: #888; line-height: 1.6; }
-
-    .footer-col {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
+    .footer-brand p { font-size: 0.82rem; color: #6a8899; line-height: 1.6; }
+    .footer-col { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
     .footer-col-title {
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: #fff;
+      letter-spacing: 0.12em;
+      color: var(--blue-mid);
       margin-bottom: 0.25rem;
     }
-
-    .footer-col a {
-      color: #888;
-      text-decoration: none;
-      font-size: 0.85rem;
-      transition: color 0.15s;
-    }
-
-    .footer-col a:hover { color: #fff; }
-
+    .footer-col a { color: #6a8899; text-decoration: none; font-size: 0.85rem; transition: color 0.15s; }
+    .footer-col a:hover { color: #c8dff0; }
     .footer-bottom {
       max-width: 680px;
       margin: 2rem auto 0;
       padding-top: 1.25rem;
-      border-top: 1px solid #2a2a2a;
+      border-top: 1px solid #1a2d40;
       font-size: 0.75rem;
-      color: #555;
+      color: #334a5c;
+      letter-spacing: 0.04em;
     }
 
     #poide-bar {
       width: 100%;
-      background: #111;
+      background: #07111e;
       height: 26px;
       display: flex;
       align-items: center;
@@ -256,15 +269,9 @@
       font-size: 0.7rem;
       letter-spacing: 0.02em;
       flex-shrink: 0;
+      border-bottom: 3px solid var(--red);
     }
-
-    #poide-dot {
-      transition: background 0.5s ease;
-      animation: poidePulse 2.4s ease-in-out infinite;
-      transform-origin: center;
-      flex-shrink: 0;
-    }
-
+    #poide-dot { transition: background 0.5s ease; animation: poidePulse 2.4s ease-in-out infinite; transform-origin: center; flex-shrink: 0; }
     #poide-text { transition: opacity 0.28s ease; }
 
     @keyframes poidePulse {
@@ -273,8 +280,9 @@
     }
 
     @media (max-width: 520px) {
-      .col-frame { padding: 0.75rem 0.5rem; box-shadow: none; }
-      .card { padding: 1.1rem; }
+      .col-frame { box-shadow: none; }
+      .header-zone { padding: 1.25rem 0.75rem 1rem; }
+      .card { padding: 1.1rem 0.75rem; }
       header { flex-wrap: wrap; row-gap: 0.4rem; }
       .logo-text { font-size: 1.5rem; }
       .back-btn { margin-left: auto; }
@@ -291,7 +299,7 @@
 
 <div id="poide-bar">
   <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
-    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block"></span>
+    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
     <span id="poide-text"></span>
   </div>
 </div>
@@ -299,79 +307,81 @@
 <main>
 <div class="col-frame">
 
-<div class="card">
-  <header>
-    <a href="/" class="logo-mark">
-      <span class="logo-text">LEIMA</span>
-      <span class="logo-domain">leima.io</span>
-    </a>
-    <div>
-      <p style="font-size: 0.95rem; font-weight: 600; color: #212529;">AI verdicts on documents — cryptographically sealed on Arweave</p>
-    </div>
-    <a href="/" class="back-btn">← Back</a>
-  </header>
+  <div class="header-zone">
+    <header>
+      <a href="/" class="logo-mark">
+        <span class="logo-text">LEIMA</span>
+        <span class="logo-domain">leima.io</span>
+      </a>
+      <div>
+        <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
+      </div>
+      <a href="/" class="back-btn">← Back</a>
+    </header>
+  </div>
 
-  <form
-    hx-post="/validate"
-    hx-target="#result"
-    hx-swap="innerHTML"
-    hx-encoding="multipart/form-data"
-    hx-indicator="#form-wrap"
-    id="val-form"
-  >
-    <div id="form-wrap">
-      {% if tx %}
+  <div class="card">
+    <form
+      hx-post="/validate"
+      hx-target="#result"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      hx-indicator="#form-wrap"
+      id="val-form"
+    >
+      <div id="form-wrap">
+        {% if tx %}
 
-      <p class="card-title">Verify notarized email</p>
-      <input type="hidden" name="tx_id" value="{{ tx }}">
+        <p class="card-title">Verify notarized email</p>
+        <input type="hidden" name="tx_id" value="{{ tx }}">
 
-      <div class="upload-grid">
-        <div class="upload-row">
-          <span class="upload-label">original.eml</span>
-          <label class="file-input-btn" id="label-eml" for="input-eml">Choose file…</label>
-          <input type="file" id="input-eml" name="eml_file" accept=".eml,message/rfc822"
-            onchange="setLabel(this, 'label-eml')">
+        <div class="upload-grid">
+          <div class="upload-row">
+            <span class="upload-label">original.eml</span>
+            <label class="file-input-btn" id="label-eml" for="input-eml">Choose file…</label>
+            <input type="file" id="input-eml" name="eml_file" accept=".eml,message/rfc822"
+              onchange="setLabel(this, 'label-eml')">
+          </div>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.25rem;">The .eml file is attached to the notarization email you received.</p>
+
+        {% else %}
+
+        <p class="card-title">Upload all three files to verify integrity</p>
+
+        <div class="upload-grid">
+          <div class="upload-row">
+            <span class="upload-label">source</span>
+            <label class="file-input-btn" id="label-source" for="input-source">Choose file…</label>
+            <input type="file" id="input-source" name="source_file"
+              onchange="setLabel(this, 'label-source')">
+          </div>
+          <div class="upload-row">
+            <span class="upload-label">verdict.pdf</span>
+            <label class="file-input-btn" id="label-verdict" for="input-verdict">Choose file…</label>
+            <input type="file" id="input-verdict" name="verdict_file" accept="application/pdf"
+              onchange="setLabel(this, 'label-verdict')">
+          </div>
+          <div class="upload-row">
+            <span class="upload-label">manifest.json</span>
+            <label class="file-input-btn" id="label-manifest" for="input-manifest">Choose file…</label>
+            <input type="file" id="input-manifest" name="manifest_file" accept="application/json"
+              onchange="setLabel(this, 'label-manifest')">
+          </div>
+        </div>
+
+        {% endif %}
+
+        <button type="submit">Validate</button>
+
+        <div class="htmx-indicator">
+          <span class="spinner"></span>Verifying…
         </div>
       </div>
-      <p style="font-size:0.78rem;color:#6c757d;margin-bottom:1.25rem;">The .eml file is attached to the notarization email you received.</p>
+    </form>
 
-      {% else %}
-
-      <p class="card-title">Upload all three files to verify integrity</p>
-
-      <div class="upload-grid">
-        <div class="upload-row">
-          <span class="upload-label">source</span>
-          <label class="file-input-btn" id="label-source" for="input-source">Choose file…</label>
-          <input type="file" id="input-source" name="source_file"
-            onchange="setLabel(this, 'label-source')">
-        </div>
-        <div class="upload-row">
-          <span class="upload-label">verdict.pdf</span>
-          <label class="file-input-btn" id="label-verdict" for="input-verdict">Choose file…</label>
-          <input type="file" id="input-verdict" name="verdict_file" accept="application/pdf"
-            onchange="setLabel(this, 'label-verdict')">
-        </div>
-        <div class="upload-row">
-          <span class="upload-label">manifest.json</span>
-          <label class="file-input-btn" id="label-manifest" for="input-manifest">Choose file…</label>
-          <input type="file" id="input-manifest" name="manifest_file" accept="application/json"
-            onchange="setLabel(this, 'label-manifest')">
-        </div>
-      </div>
-
-      {% endif %}
-
-      <button type="submit">Validate</button>
-
-      <div class="htmx-indicator">
-        <span class="spinner"></span>Verifying…
-      </div>
-    </div>
-  </form>
-
-  <div id="result"></div>
-</div>
+    <div id="result"></div>
+  </div>
 
 </div><!-- /.col-frame -->
 </main>
@@ -394,7 +404,8 @@
       <span class="footer-col-title">Transparency</span>
       <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
       <a href="#">Data policy</a>
-      <a href="https://fxg55647.github.io/leima/" target="_blank" rel="noopener">TREAD status</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener">TREAD — what's this?</a>
+      <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
       <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
     </div>
   </div>
@@ -429,7 +440,7 @@
         dot.textContent = '⛔';
       } else {
         dot.textContent = '';
-        const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#555';
+        const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#2a4a62';
         dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;';
       }
     }
@@ -447,49 +458,34 @@
 
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
-      setTimeout(() => {
-        if (dotMode) setDot(dotMode);
-        text.innerHTML = html;
-        text.style.opacity = '1';
-      }, 280);
+      setTimeout(() => { if (dotMode) setDot(dotMode); text.innerHTML = html; text.style.opacity = '1'; }, 280);
     }
 
     function update() {
-      text.style.opacity = '0';
-      setTimeout(() => {
-        text.innerHTML = '<span style="color:#fff">Retrieving…</span>';
-        text.style.opacity = '1';
-      }, 280);
-
-      const minWait = new Promise(r => setTimeout(r, 1100));
-      Promise.all([
-        fetch('https://raw.githubusercontent.com/fxg55647/leima/gh-pages/status.json?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
-        minWait,
-      ]).then(([d]) => {
-        lastCheckedAt = d.checked_at ? new Date(d.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
-        if (d.ok) {
+      fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
+        const p = d.poide || {};
+        const running = d.commit || '';
+        const verified = p.verified_commit || '';
+        lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
+        const commitMatch = running && verified && running.startsWith(verified);
+        const unknownCommit = running === 'unknown' || !running;
+        if (p.deploying) {
+          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+        } else if (!unknownCommit && verified && !commitMatch) {
+          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+        } else if (p.ok || commitMatch) {
           fadeSet(row('OK', '#fff'), 'ok');
+        } else if (p.ok === false) {
+          fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed'), 'danger');
         } else {
-          const reason = d.deploying ? 'deploying'
-            : !d.deployment_ok ? 'commit mismatch'
-            : !d.cron_fresh ? 'crons stale'
-            : 'check failed';
-          fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
+          fadeSet(row('Checking…', '#555', ''), 'loading');
         }
-      }).catch(() => {
-        lastCheckedAt = null;
-        fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">TREAD</span>', 'loading');
-      });
+      }).catch(() => { lastCheckedAt = null; fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">TREAD</span>', 'loading'); });
     }
 
     update();
-    setInterval(update, 60000);
-    setInterval(() => {
-      if (lastCheckedAt) {
-        const el = document.getElementById('poide-ago-inner');
-        if (el) el.textContent = timeAgo();
-      }
-    }, 15000);
+    setInterval(update, 20000);
+    setInterval(() => { if (lastCheckedAt) { const el = document.getElementById('poide-ago-inner'); if (el) el.textContent = timeAgo(); } }, 15000);
   })();
 </script>
 
