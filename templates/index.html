@@ -10,17 +10,19 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* --- Dark zone defaults (TREAD bar, header, footer) --- */
     :root {
-      --bg: #dddcd6;
-      --surface: #131820;
-      --surface-2: #1b2130;
-      --border: #252d3e;
-      --gold: #c8a14a;
-      --gold-dim: rgba(200,161,74,0.12);
-      --text: #e0d8cc;
-      --text-muted: #9a9088;
-      --text-faint: #484f60;
+      --bg: #ededeb;
+      --blue-light: #daeefa;
+      --blue-deep: #1a4b7c;
+      --blue-mid: #5a8fb0;
+      --blue-dim: rgba(26,75,124,0.1);
+      --blue-border: #c0d4e8;
+      --surface: #ffffff;
+      --surface-input: #f2f2f0;
+      --border: #d0dce8;
+      --text: #0f1c2e;
+      --text-muted: #4a6880;
+      --text-faint: #8aaabf;
     }
 
     body {
@@ -36,46 +38,29 @@
       flex: 1;
       display: flex;
       justify-content: center;
-      border-top: 2px solid #c8a14a;
     }
 
-    /* --- Light content zone --- */
     .col-frame {
       width: 100%;
       max-width: 760px;
-      background: #f2f1ec;
+      background: var(--surface);
       display: flex;
       flex-direction: column;
       align-items: center;
       box-shadow:
-        4px 0 28px -4px rgba(0,0,0,0.5),
-        -4px 0 28px -4px rgba(0,0,0,0.5);
-      /* Override CSS vars for light content area */
-      --surface: #f2f1ec;
-      --surface-2: #ffffff;
-      --border: #dbd2c8;
-      --gold: #8a6810;
-      --gold-dim: rgba(138,104,16,0.1);
-      --text: #1c1510;
-      --text-muted: #7a6d60;
-      --text-faint: #bbb0a0;
+        4px 0 28px -4px rgba(15,28,46,0.12),
+        -4px 0 28px -4px rgba(15,28,46,0.12);
     }
 
-    /* --- Dark header zone within the light column --- */
+    /* White header zone */
     .header-zone {
       width: 100%;
-      background: #131820;
-      padding: 2rem 1.5rem 0;
-      border-bottom: 2px solid #c8a14a;
+      background: #ffffff;
+      padding: 1.75rem 1.5rem 0;
+      border-bottom: 2px solid var(--blue-deep);
       display: flex;
       flex-direction: column;
       align-items: center;
-      /* Restore dark vars */
-      --surface: #131820;
-      --border: rgba(255,255,255,0.12);
-      --text: #e0d8cc;
-      --text-muted: #9a9088;
-      --gold: #c8a14a;
     }
 
     header {
@@ -84,7 +69,7 @@
       gap: 0.75rem;
       width: 100%;
       max-width: 680px;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
     }
 
     .tabs-wrap {
@@ -92,15 +77,11 @@
       max-width: 680px;
     }
 
-    .header-zone .tabs {
-      margin-bottom: 0;
-    }
-
     .validate-btn {
       margin-left: auto;
       background: transparent;
-      color: var(--gold);
-      border: 1px solid var(--gold);
+      color: var(--blue-deep);
+      border: 1px solid var(--blue-deep);
       border-radius: 4px;
       padding: 0.4rem 1rem;
       font-size: 0.75rem;
@@ -114,8 +95,8 @@
     }
 
     .validate-btn:hover {
-      background: var(--gold);
-      color: #131820;
+      background: var(--blue-deep);
+      color: #fff;
     }
 
     .logo-mark {
@@ -137,7 +118,7 @@
     .logo-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: var(--gold);
+      color: #c0392b;
       letter-spacing: 0.22em;
     }
 
@@ -147,25 +128,18 @@
       margin-top: 0.1rem;
     }
 
-    /* --- Light content card --- */
-    .card {
-      padding: 1.75rem 1.5rem;
-      width: 100%;
-      max-width: 680px;
-    }
-
     .tabs {
       display: flex;
       gap: 0.25rem;
-      margin-bottom: 1.25rem;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid rgba(26,75,124,0.2);
+      margin-bottom: 0;
     }
 
     .tab-btn {
       background: none;
       border: none;
       border-bottom: 2px solid transparent;
-      color: var(--text-muted);
+      color: rgba(26,75,124,0.55);
       padding: 0.4rem 0.875rem 0.6rem;
       cursor: pointer;
       font-size: 0.82rem;
@@ -176,11 +150,18 @@
       margin-bottom: -1px;
     }
 
-    .tab-btn:hover { color: var(--text); }
+    .tab-btn:hover { color: var(--blue-deep); }
 
     .tab-btn.active {
-      color: var(--gold);
-      border-bottom-color: var(--gold);
+      color: var(--blue-deep);
+      border-bottom-color: var(--blue-deep);
+    }
+
+    /* White content card */
+    .card {
+      padding: 1.75rem 1.5rem;
+      width: 100%;
+      max-width: 680px;
     }
 
     .tab-panel { display: none; }
@@ -195,31 +176,27 @@
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
       margin-bottom: 1rem;
-      background: var(--surface-2);
+      background: var(--surface-input);
     }
 
     .drop-zone:hover, .drop-zone.dragover {
-      border-color: var(--gold);
-      background: var(--gold-dim);
-      color: var(--text);
+      border-color: var(--blue-deep);
+      background: var(--blue-light);
+      color: var(--blue-deep);
     }
 
     .drop-zone.has-file {
-      border-color: var(--gold);
-      background: var(--gold-dim);
-      color: var(--gold);
+      border-color: var(--blue-deep);
+      background: var(--blue-dim);
+      color: var(--blue-deep);
     }
 
     .drop-zone input[type="file"] { display: none; }
-
-    .drop-zone-icon {
-      font-size: 1.75rem;
-      margin-bottom: 0.4rem;
-    }
+    .drop-zone-icon { font-size: 1.75rem; margin-bottom: 0.4rem; }
 
     textarea {
       width: 100%;
-      background: var(--surface-2);
+      background: var(--surface-input);
       border: 1px solid var(--border);
       border-radius: 6px;
       color: var(--text);
@@ -234,15 +211,13 @@
     }
 
     textarea:focus {
-      border-color: var(--gold);
-      box-shadow: 0 0 0 3px var(--gold-dim);
+      border-color: var(--blue-deep);
+      box-shadow: 0 0 0 3px var(--blue-dim);
+      background: #fff;
     }
 
-    .url-toggle-row {
-      text-align: center;
-      margin-top: 0.6rem;
-      margin-bottom: 0.25rem;
-    }
+    .url-toggle-row { text-align: center; margin-top: 0.6rem; margin-bottom: 0.25rem; }
+
     .url-toggle-btn {
       background: none;
       border: none;
@@ -254,11 +229,11 @@
       text-decoration: underline;
       text-underline-offset: 2px;
     }
-    .url-toggle-btn:hover { color: var(--gold); }
+    .url-toggle-btn:hover { color: var(--blue-deep); }
 
     .url-input {
       width: 100%;
-      background: var(--surface-2);
+      background: var(--surface-input);
       border: 1px solid var(--border);
       border-radius: 6px;
       color: var(--text);
@@ -270,8 +245,9 @@
       margin-bottom: 0.25rem;
     }
     .url-input:focus {
-      border-color: var(--gold);
-      box-shadow: 0 0 0 3px var(--gold-dim);
+      border-color: var(--blue-deep);
+      box-shadow: 0 0 0 3px var(--blue-dim);
+      background: #fff;
     }
 
     .url-hint-row {
@@ -280,7 +256,7 @@
       justify-content: space-between;
       margin-bottom: 0.5rem;
     }
-    .url-hint { font-size: 0.72rem; color: var(--text-muted); }
+    .url-hint { font-size: 0.72rem; color: var(--text-faint); }
 
     .question-label {
       display: flex;
@@ -293,10 +269,7 @@
       font-weight: 600;
       color: var(--text);
     }
-    .question-sub {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
+    .question-sub { font-size: 0.85rem; color: var(--text-muted); }
 
     .question-row { display: flex; gap: 0.5rem; }
 
@@ -305,7 +278,7 @@
       flex: 1;
       width: 100%;
       box-sizing: border-box;
-      background: var(--surface-2);
+      background: var(--surface-input);
       border: 1px solid var(--border);
       border-radius: 6px;
       color: var(--text);
@@ -318,8 +291,9 @@
 
     .question-row input[type="text"]:focus,
     #question-input:focus {
-      border-color: var(--gold);
-      box-shadow: 0 0 0 3px var(--gold-dim);
+      border-color: var(--blue-deep);
+      box-shadow: 0 0 0 3px var(--blue-dim);
+      background: #fff;
     }
 
     .question-row input[type="text"]::placeholder,
@@ -333,11 +307,7 @@
       margin-top: 1.25rem;
       flex-wrap: wrap;
     }
-    .credibility-options {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-    }
+    .credibility-options { display: flex; flex-direction: column; gap: 0.3rem; }
     .credibility-option {
       display: flex;
       align-items: flex-start;
@@ -347,18 +317,18 @@
       cursor: pointer;
       line-height: 1.4;
     }
-    .credibility-option input { margin-top: 0.15rem; flex-shrink: 0; accent-color: var(--gold); }
+    .credibility-option input { margin-top: 0.15rem; flex-shrink: 0; accent-color: var(--blue-deep); }
 
     button[type="submit"] {
-      background: #d4b060;
-      color: #1a1510;
+      background: var(--blue-deep);
+      color: #fff;
       border: none;
       border-radius: 4px;
       padding: 0.625rem 1.5rem;
       font-size: 0.8rem;
       font-weight: 600;
       font-family: 'Spectral', Georgia, serif;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       cursor: pointer;
       transition: background 0.15s;
@@ -368,11 +338,10 @@
       gap: 0.4rem;
     }
 
-    button[type="submit"]:hover { background: #b8913a; color: #1a1510; }
+    button[type="submit"]:hover { background: #163f6a; }
     button[type="submit"]:disabled { background: var(--border); cursor: not-allowed; color: var(--text-muted); }
 
     #answer-area {
-      margin-top: 1.5rem;
       width: 100%;
       max-width: 680px;
       padding: 0 1.5rem 2.5rem;
@@ -385,7 +354,6 @@
       padding: 1.25rem;
       font-size: 0.875rem;
     }
-
     .htmx-request .htmx-indicator { display: block; }
     .htmx-request #submit-btn, #submit-btn:disabled { background: var(--border); cursor: not-allowed; }
 
@@ -394,30 +362,25 @@
       width: 16px;
       height: 16px;
       border: 2px solid var(--border);
-      border-top-color: var(--gold);
+      border-top-color: var(--blue-deep);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       vertical-align: middle;
       margin-right: 0.4rem;
     }
 
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-      margin-bottom: 0.875rem;
-    }
+    .field-group { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.875rem; }
 
     .field-label {
       font-size: 0.72rem;
       font-weight: 500;
-      color: var(--text-muted);
+      color: var(--blue-deep);
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
     .field-input {
-      background: var(--surface-2);
+      background: var(--surface-input);
       border: 1px solid var(--border);
       border-radius: 6px;
       color: var(--text);
@@ -428,10 +391,10 @@
       width: 100%;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-
     .field-input:focus {
-      border-color: var(--gold);
-      box-shadow: 0 0 0 3px var(--gold-dim);
+      border-color: var(--blue-deep);
+      box-shadow: 0 0 0 3px var(--blue-dim);
+      background: #fff;
     }
 
     .field-row { display: flex; gap: 0.75rem; }
@@ -439,20 +402,20 @@
 
     .fetch-btn {
       background: transparent;
-      color: var(--gold);
-      border: 1px solid var(--gold);
+      color: var(--blue-deep);
+      border: 1px solid var(--blue-deep);
       border-radius: 4px;
       padding: 0.45rem 1rem;
       font-size: 0.75rem;
       font-weight: 500;
       font-family: 'Spectral', Georgia, serif;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       cursor: pointer;
       transition: background 0.15s, color 0.15s;
       margin-bottom: 1rem;
     }
-    .fetch-btn:hover { background: var(--gold); color: #fff; }
+    .fetch-btn:hover { background: var(--blue-deep); color: #fff; }
 
     .email-split {
       display: flex;
@@ -462,24 +425,21 @@
       height: 300px;
       margin-top: 0.5rem;
     }
-
     .email-list {
       width: 40%;
       border-right: 1px solid var(--border);
       overflow-y: auto;
       flex-shrink: 0;
-      background: var(--surface-2);
+      background: var(--surface-input);
     }
-
     .email-item {
       padding: 0.6rem 0.875rem;
       border-bottom: 1px solid var(--border);
       cursor: pointer;
       transition: background 0.1s;
     }
-    .email-item:hover { background: var(--gold-dim); }
-    .email-item.active { background: var(--gold-dim); border-left: 2px solid var(--gold); }
-
+    .email-item:hover { background: var(--blue-dim); }
+    .email-item.active { background: var(--blue-light); border-left: 2px solid var(--blue-deep); }
     .email-item-subject {
       font-size: 0.82rem;
       font-weight: 500;
@@ -488,12 +448,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .email-item-date {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      margin-top: 0.15rem;
-    }
-
+    .email-item-date { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
     .email-preview-pane {
       flex: 1;
       overflow-y: auto;
@@ -503,102 +458,81 @@
       background: var(--surface);
     }
 
-    .fetch-error { color: #b83030; font-size: 0.85rem; margin-top: 0.5rem; }
+    .fetch-error { color: #c0392b; font-size: 0.85rem; margin-top: 0.5rem; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* --- Dark footer --- */
     footer {
-      background: #070a0f;
-      color: #9a9088;
+      background: #07111e;
+      color: #6a8899;
       width: 100%;
       padding: 3rem 2rem 1.5rem;
-      border-top: 1px solid #252d3e;
+      border-top: 3px solid #c0392b;
     }
-
     .footer-inner {
       max-width: 680px;
       margin: 0 auto;
       display: flex;
       gap: 3rem;
     }
-
     .footer-brand { flex: 1.5; }
-
     .footer-logo {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 1.5rem;
       font-weight: 700;
-      color: #e0d8cc;
+      color: #c8dff0;
       letter-spacing: 0.14em;
       display: block;
     }
-
     .footer-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: #c8a14a;
+      color: #c0392b;
       letter-spacing: 0.22em;
       display: block;
       margin-bottom: 0.75rem;
     }
-
-    .footer-brand p { font-size: 0.82rem; color: #9a9088; line-height: 1.6; }
-
-    .footer-col {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
+    .footer-brand p { font-size: 0.82rem; color: #6a8899; line-height: 1.6; }
+    .footer-col { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
     .footer-col-title {
       font-size: 0.65rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.12em;
-      color: #c8a14a;
+      color: var(--blue-mid);
       margin-bottom: 0.25rem;
     }
-
-    .footer-col a {
-      color: #9a9088;
-      text-decoration: none;
-      font-size: 0.85rem;
-      transition: color 0.15s;
-    }
-
-    .footer-col a:hover { color: #e0d8cc; }
-
+    .footer-col a { color: #6a8899; text-decoration: none; font-size: 0.85rem; transition: color 0.15s; }
+    .footer-col a:hover { color: #c8dff0; }
     .footer-bottom {
       max-width: 680px;
       margin: 2rem auto 0;
       padding-top: 1.25rem;
-      border-top: 1px solid #252d3e;
+      border-top: 1px solid #1a2d40;
       font-size: 0.75rem;
-      color: #484f60;
+      color: #334a5c;
       letter-spacing: 0.04em;
     }
 
-    /* --- TREAD warning modal --- */
+    /* TREAD warning modal */
     #poide-modal-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.72);
+      background: rgba(7,17,30,0.75);
       z-index: 9000;
       align-items: center;
       justify-content: center;
     }
     #poide-modal-overlay.visible { display: flex; }
     #poide-modal {
-      background: #161c28;
-      border: 1px solid #c85555;
+      background: #0f1e30;
+      border: 1px solid #c0392b;
       border-radius: 8px;
       padding: 1.75rem 2rem;
       max-width: 480px;
       width: 90%;
-      color: #e0d8cc;
+      color: #c8dff0;
       font-family: 'Spectral', Georgia, serif;
     }
     #poide-modal h2 {
@@ -612,26 +546,13 @@
     #poide-modal p {
       font-size: 0.875rem;
       line-height: 1.6;
-      color: #9a9088;
+      color: #6a8899;
       margin-bottom: 1.25rem;
       white-space: pre-line;
     }
-    #poide-modal-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-    #poide-modal-suppress {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.78rem;
-      color: #9a9088;
-      cursor: pointer;
-    }
-    #poide-modal-suppress input { cursor: pointer; accent-color: #c8a14a; }
+    #poide-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    #poide-modal-suppress { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #6a8899; cursor: pointer; }
+    #poide-modal-suppress input { cursor: pointer; accent-color: var(--blue-mid); }
     #poide-modal-close {
       background: #c85555;
       color: #fff;
@@ -642,31 +563,25 @@
       font-weight: 600;
       cursor: pointer;
       font-family: 'Spectral', Georgia, serif;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
     }
     #poide-modal-close:hover { background: #a84444; }
 
-    /* --- TREAD status bar --- */
+    /* TREAD status bar */
     #poide-bar {
       width: 100%;
-      background: #070a0f;
+      background: #07111e;
       height: 26px;
       display: flex;
       align-items: center;
+      border-bottom: 3px solid #c0392b;
       font-family: "SF Mono", Consolas, monospace;
       font-size: 0.7rem;
       letter-spacing: 0.02em;
       flex-shrink: 0;
     }
-
-    #poide-dot {
-      transition: background 0.5s ease;
-      animation: poidePulse 2.4s ease-in-out infinite;
-      transform-origin: center;
-      flex-shrink: 0;
-    }
-
+    #poide-dot { transition: background 0.5s ease; animation: poidePulse 2.4s ease-in-out infinite; transform-origin: center; flex-shrink: 0; }
     #poide-text { transition: opacity 0.28s ease; }
 
     @keyframes poidePulse {
@@ -675,7 +590,8 @@
     }
 
     @media (max-width: 520px) {
-      .header-zone { padding: 1.25rem 0.75rem 1.25rem; }
+      .col-frame { box-shadow: none; }
+      .header-zone { padding: 1.25rem 0.75rem 0; }
       .card { padding: 1.1rem 0.75rem; }
       #answer-area { padding: 0 0.75rem 1.5rem; }
       header { flex-wrap: wrap; row-gap: 0.4rem; }
@@ -690,7 +606,6 @@
       .email-preview-pane { max-height: 200px; }
       .footer-inner { flex-direction: column; gap: 2rem; }
       footer { padding: 2rem 1.25rem 1.25rem; }
-      .col-frame { box-shadow: none; }
     }
   </style>
 </head>
@@ -712,7 +627,7 @@
 
 <div id="poide-bar">
   <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
-    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block"></span>
+    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
     <span id="poide-text"></span>
   </div>
 </div>
@@ -720,7 +635,6 @@
 <main>
 <div class="col-frame">
 
-  <!-- Dark header zone -->
   <div class="header-zone">
     <header>
       <a href="/" class="logo-mark">
@@ -744,7 +658,6 @@
     </div>
   </div>
 
-  <!-- Light content zone -->
   <div class="card">
     <form
       hx-post="/ask"
@@ -770,16 +683,14 @@
             <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
               <div class="drop-zone-icon">📄</div>
               <div id="drop-label">Click or drop a PDF here</div>
-              <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf"
-                onchange="onFileSelect(this)">
+              <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf" onchange="onFileSelect(this)">
             </div>
             <div class="url-toggle-row">
               <button type="button" class="url-toggle-btn" onclick="showUrlInput()">Use URL instead</button>
             </div>
           </div>
           <div id="url-input-wrap" style="display:none;">
-            <input type="url" name="pdf_url" id="pdf-url" class="url-input"
-              placeholder="https://example.com/document.pdf">
+            <input type="url" name="pdf_url" id="pdf-url" class="url-input" placeholder="https://example.com/document.pdf">
             <div class="url-hint-row">
               <span class="url-hint">Max 10 MB</span>
               <button type="button" class="url-toggle-btn" onclick="showDropZone()">Use file instead</button>
@@ -791,11 +702,9 @@
           <div class="drop-zone" id="image-drop-zone" onclick="document.getElementById('image-input').click()">
             <div class="drop-zone-icon">🖼</div>
             <div id="image-drop-label">Click or drop an image here</div>
-            <input type="file" id="image-input" name="image_file"
-              accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
-              onchange="onImageSelect(this)">
+            <input type="file" id="image-input" name="image_file" accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif" onchange="onImageSelect(this)">
           </div>
-          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.25rem">JPG, PNG, GIF, WebP, HEIC, HEIF</div>
+          <div style="font-size:0.72rem;color:var(--text-faint);margin-top:0.25rem">JPG, PNG, GIF, WebP, HEIC, HEIF</div>
         </div>
 
         <div id="tab-web" class="tab-panel active">
@@ -808,8 +717,7 @@
           <textarea name="text_input" id="text-input" placeholder="Paste document text here..."></textarea>
           <div style="margin-top:0.5rem; font-size:0.82rem; color:var(--text-muted);">
             Or upload a .txt file:
-            <input type="file" id="txt-file-input" accept=".txt,text/plain" style="margin-left:0.4rem;"
-                   onchange="handleTxtUpload(this)">
+            <input type="file" id="txt-file-input" accept=".txt,text/plain" style="margin-left:0.4rem;" onchange="handleTxtUpload(this)">
           </div>
         </div>
 
@@ -860,10 +768,8 @@
             </div>
           </div>
           <button type="button" class="fetch-btn"
-            hx-post="/fetch-emails"
-            hx-target="#email-fetch-results"
-            hx-swap="innerHTML"
-            hx-include="#tab-email">
+            hx-post="/fetch-emails" hx-target="#email-fetch-results"
+            hx-swap="innerHTML" hx-include="#tab-email">
             Fetch emails
           </button>
           <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
@@ -895,7 +801,7 @@
 
   <div id="answer-area"></div>
 
-</div><!-- /.col-frame -->
+</div>
 </main>
 
 <footer>
@@ -928,10 +834,7 @@
   function handleTxtUpload(input) {
     if (!input.files.length) return;
     const reader = new FileReader();
-    reader.onload = e => {
-      document.getElementById('text-input').value = e.target.result;
-      input.value = '';
-    };
+    reader.onload = e => { document.getElementById('text-input').value = e.target.result; input.value = ''; };
     reader.readAsText(input.files[0], 'utf-8');
   }
 
@@ -941,10 +844,7 @@
     if (tab === 'web') return document.getElementById('web-url').value.trim() !== '';
     if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
-    if (tab === 'email') {
-      return ['email_user','email_password','email_sender','email_start','email_end']
-        .some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
-    }
+    if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
     return false;
   }
 
@@ -952,8 +852,7 @@
     document.getElementById('drop-zone-wrap').style.display = 'none';
     document.getElementById('url-input-wrap').style.display = 'block';
     document.getElementById('pdf-input').value = '';
-    const zone = document.getElementById('drop-zone');
-    zone.classList.remove('has-file');
+    document.getElementById('drop-zone').classList.remove('has-file');
     document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
     document.getElementById('pdf-url').focus();
   }
@@ -968,15 +867,13 @@
     if (tab === 'pdf') {
       document.getElementById('pdf-input').value = '';
       document.getElementById('pdf-url').value = '';
-      const zone = document.getElementById('drop-zone');
-      zone.classList.remove('has-file');
+      document.getElementById('drop-zone').classList.remove('has-file');
       document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
       document.getElementById('drop-zone-wrap').style.display = 'block';
       document.getElementById('url-input-wrap').style.display = 'none';
     } else if (tab === 'image') {
       document.getElementById('image-input').value = '';
-      const zone = document.getElementById('image-drop-zone');
-      zone.classList.remove('has-file');
+      document.getElementById('image-drop-zone').classList.remove('has-file');
       document.getElementById('image-drop-label').textContent = 'Click or drop an image here';
     } else if (tab === 'web') {
       document.getElementById('web-url').value = '';
@@ -989,8 +886,7 @@
       document.getElementById('gh-paths').value = '';
       document.getElementById('gh-token').value = '';
     } else if (tab === 'email') {
-      ['email-user','email-password','email-sender','email-start','email-end']
-        .forEach(id => document.getElementById(id).value = '');
+      ['email-user','email-password','email-sender','email-start','email-end'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('email-fetch-results').innerHTML = '';
       document.getElementById('email-session-id').value = '';
       document.getElementById('email-idx').value = '';
@@ -1013,11 +909,11 @@
     github: 'e.g. <em>"this code follows best security practices"</em>',
   };
   const TAB_PLACEHOLDERS = {
-    pdf:    'this contract was signed by both parties',
-    image:  'this book page states that Napoleon was born in 1769',
-    text:   'this text contains a refund promise',
-    web:    'this website advertises free worldwide shipping',
-    email:  'the sender promised delivery before Friday',
+    pdf: 'this contract was signed by both parties',
+    image: 'this book page states that Napoleon was born in 1769',
+    text: 'this text contains a refund promise',
+    web: 'this website advertises free worldwide shipping',
+    email: 'the sender promised delivery before Friday',
     github: 'this repository contains hardcoded secrets',
   };
 
@@ -1033,8 +929,7 @@
     document.getElementById('tab-' + newTab).classList.add('active');
     btn.classList.add('active');
     document.getElementById('active-tab').value = newTab;
-    const submitBtn = document.getElementById('submit-btn');
-    submitBtn.disabled = (newTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
+    document.getElementById('submit-btn').disabled = (newTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
     document.querySelector('.credibility-options').style.display = newTab === 'github' ? 'none' : '';
     if (TAB_HINTS[newTab]) {
       document.getElementById('question-sub').innerHTML = TAB_HINTS[newTab];
@@ -1043,195 +938,115 @@
   }
 
   function onFileSelect(input) {
-    const zone = document.getElementById('drop-zone');
-    const label = document.getElementById('drop-label');
-    if (input.files[0]) {
-      label.textContent = input.files[0].name;
-      zone.classList.add('has-file');
-    }
+    if (input.files[0]) { document.getElementById('drop-label').textContent = input.files[0].name; document.getElementById('drop-zone').classList.add('has-file'); }
   }
-
   function onImageSelect(input) {
-    const zone = document.getElementById('image-drop-zone');
-    const label = document.getElementById('image-drop-label');
-    if (input.files[0]) {
-      label.textContent = input.files[0].name;
-      zone.classList.add('has-file');
-    }
+    if (input.files[0]) { document.getElementById('image-drop-label').textContent = input.files[0].name; document.getElementById('image-drop-zone').classList.add('has-file'); }
   }
 
   const imageDropZone = document.getElementById('image-drop-zone');
   imageDropZone.addEventListener('dragover', e => { e.preventDefault(); imageDropZone.classList.add('dragover'); });
   imageDropZone.addEventListener('dragleave', () => imageDropZone.classList.remove('dragover'));
   imageDropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    imageDropZone.classList.remove('dragover');
+    e.preventDefault(); imageDropZone.classList.remove('dragover');
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      const input = document.getElementById('image-input');
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      input.files = dt.files;
-      onImageSelect(input);
-    }
+    if (file && file.type.startsWith('image/')) { const input = document.getElementById('image-input'); const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; onImageSelect(input); }
   });
 
   const dropZone = document.getElementById('drop-zone');
   dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
   dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
+    e.preventDefault(); dropZone.classList.remove('dragover');
     const file = e.dataTransfer.files[0];
-    if (file && file.type === 'application/pdf') {
-      const input = document.getElementById('pdf-input');
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      input.files = dt.files;
-      onFileSelect(input);
-    }
+    if (file && file.type === 'application/pdf') { const input = document.getElementById('pdf-input'); const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; onFileSelect(input); }
   });
 </script>
 
 <script>
   (function() {
-    const dot     = document.getElementById('poide-dot');
-    const text    = document.getElementById('poide-text');
+    const dot = document.getElementById('poide-dot');
+    const text = document.getElementById('poide-text');
     const overlay = document.getElementById('poide-modal-overlay');
-    const modalBody  = document.getElementById('poide-modal-body');
+    const modalBody = document.getElementById('poide-modal-body');
     const suppressCb = document.getElementById('poide-modal-suppress-cb');
-    const closeBtn   = document.getElementById('poide-modal-close');
+    const closeBtn = document.getElementById('poide-modal-close');
     let lastCheckedAt = null;
-
     const SUPPRESS_DURATION_MS = 60 * 60 * 1000;
-    const REPEAT_INTERVAL_MS   = 60 * 1000;
-
+    const REPEAT_INTERVAL_MS = 60 * 1000;
     let lastModalShownAt = 0;
     let lastModalKey = '';
 
     function isSuppressed(key) {
-      try {
-        const v = localStorage.getItem('poide_suppress_' + key);
-        if (!v) return false;
-        return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS;
-      } catch(e) { return false; }
+      try { const v = localStorage.getItem('poide_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
     }
-
     function showWarning(key, message) {
       if (isSuppressed(key)) return;
       const now = Date.now();
       if (lastModalKey === key && now - lastModalShownAt < REPEAT_INTERVAL_MS) return;
-      lastModalShownAt = now;
-      lastModalKey = key;
-      suppressCb.checked = false;
-      modalBody.textContent = message;
-      overlay.classList.add('visible');
+      lastModalShownAt = now; lastModalKey = key; suppressCb.checked = false;
+      modalBody.textContent = message; overlay.classList.add('visible');
       closeBtn.onclick = function() {
-        if (suppressCb.checked) {
-          try { localStorage.setItem('poide_suppress_' + key, Date.now().toString()); } catch(e) {}
-        }
+        if (suppressCb.checked) { try { localStorage.setItem('poide_suppress_' + key, Date.now().toString()); } catch(e) {} }
         overlay.classList.remove('visible');
       };
     }
-
-    document.addEventListener('visibilitychange', function() {
-      if (!document.hidden) { lastModalShownAt = 0; update(); }
-    });
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) { lastModalShownAt = 0; update(); } });
 
     function timeAgo() {
       if (!lastCheckedAt) return '';
       const s = Math.floor((Date.now() - lastCheckedAt) / 1000);
       return s < 60 ? 'checked ' + s + 's ago' : 'checked ' + Math.floor(s / 60) + 'm ago';
     }
-
     function setDot(mode) {
-      if (mode === 'danger') {
-        dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;';
-        dot.textContent = '⛔';
-      } else {
-        dot.textContent = '';
-        const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#555';
-        dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;';
-      }
+      if (mode === 'danger') { dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;'; dot.textContent = '⛔'; }
+      else { dot.textContent = ''; const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#2a4a62'; dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;'; }
     }
-
     function row(statusText, statusColor, reason) {
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
            + (reason ? ' <span style="color:#fff;font-weight:400">— ' + reason + '</span>' : '')
            + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">TREAD</span>'
            + ' <span id="poide-ago-inner" style="color:#fff">' + timeAgo() + '</span>'
-           + ' <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener"'
-           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>'
-           + ' <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener"'
-           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">status</a>';
+           + ' <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>'
+           + ' <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">status</a>';
     }
-
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
-      setTimeout(() => {
-        if (dotMode) setDot(dotMode);
-        text.innerHTML = html;
-        text.style.opacity = '1';
-      }, 280);
+      setTimeout(() => { if (dotMode) setDot(dotMode); text.innerHTML = html; text.style.opacity = '1'; }, 280);
     }
-
     function update() {
       fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
         const p = d.poide || {};
         const running = d.commit || '';
         const verified = p.verified_commit || '';
-
-        lastCheckedAt = p.checked_at
-          ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime()
-          : null;
-
-        const staleSecs = lastCheckedAt ? (Date.now() - lastCheckedAt) / 1000 : 9999;
+        lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
-
         if (p.review_stuck) {
-          const n = p.review_consecutive_failures || '';
-          fadeSet(row('Please note', '#f0a030', 'code review failing — ' + n + ' commits blocked'), 'warning');
+          fadeSet(row('Please note', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
         } else {
-
-        const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
-        if (dangerousDeploy) {
-          const key = 'dangerous_deploy_' + (p.deploying_commit || '').slice(0, 7);
-          showWarning(key,
-            'An unauthorized commit is being deployed to production:\n' +
-            (p.deploying_commit || '?').slice(0, 7) + ' ≠ ' + (p.verified_commit || '?').slice(0, 7) + '\n\n' +
-            'Do not submit sensitive documents until this is resolved.\n' +
-            'Check GitHub Actions and the Render dashboard.'
-          );
-          fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
-        } else if (p.deploying) {
-          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
-        } else if (!unknownCommit && verified && !commitMatch) {
-          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
-        } else if (p.ok || commitMatch) {
-          fadeSet(row('OK', '#fff'), 'ok');
-        } else if (p.ok === false) {
-          const reason = p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed';
-          fadeSet(row('Danger', '#ff6b6b', reason), 'danger');
-        } else {
-          fadeSet(row('Checking…', '#555', ''), 'loading');
+          const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
+          if (dangerousDeploy) {
+            showWarning('dangerous_deploy_' + (p.deploying_commit || '').slice(0,7),
+              'An unauthorized commit is being deployed to production:\n' + (p.deploying_commit||'?').slice(0,7) + ' ≠ ' + (p.verified_commit||'?').slice(0,7) + '\n\nDo not submit sensitive documents until this is resolved.\nCheck GitHub Actions and the Render dashboard.');
+            fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
+          } else if (p.deploying) {
+            fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+          } else if (!unknownCommit && verified && !commitMatch) {
+            fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+          } else if (p.ok || commitMatch) {
+            fadeSet(row('OK', '#fff'), 'ok');
+          } else if (p.ok === false) {
+            fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed'), 'danger');
+          } else {
+            fadeSet(row('Checking…', '#555', ''), 'loading');
+          }
         }
-
-        } // end review_stuck else
-      }).catch(() => {
-        lastCheckedAt = null;
-        fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">TREAD</span>', 'loading');
-      });
+      }).catch(() => { lastCheckedAt = null; fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">TREAD</span>', 'loading'); });
     }
-
     update();
     setInterval(update, 20000);
-    setInterval(() => {
-      if (lastCheckedAt) {
-        const el = document.getElementById('poide-ago-inner');
-        if (el) el.textContent = timeAgo();
-      }
-    }, 15000);
+    setInterval(() => { if (lastCheckedAt) { const el = document.getElementById('poide-ago-inner'); if (el) el.textContent = timeAgo(); } }, 15000);
   })();
 </script>
 
