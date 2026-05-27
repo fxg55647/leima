@@ -5,15 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Leima</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* --- Dark zone defaults (TREAD bar, header, footer) --- */
+    :root {
+      --bg: #dddcd6;
+      --surface: #131820;
+      --surface-2: #1b2130;
+      --border: #252d3e;
+      --gold: #c8a14a;
+      --gold-dim: rgba(200,161,74,0.12);
+      --text: #e0d8cc;
+      --text-muted: #9a9088;
+      --text-faint: #484f60;
+    }
+
     body {
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      background: #e8e8e8;
-      color: #212529;
+      font-family: 'Spectral', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -23,51 +36,86 @@
       flex: 1;
       display: flex;
       justify-content: center;
-      padding: 0;
+      border-top: 2px solid #c8a14a;
     }
 
+    /* --- Light content zone --- */
     .col-frame {
       width: 100%;
       max-width: 760px;
-      background: #fff;
+      background: #f2f1ec;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2.5rem 1.5rem;
       box-shadow:
-        4px 0 12px -4px rgba(0,0,0,0.14),
-        -4px 0 12px -4px rgba(0,0,0,0.14),
-        1px 0 0 rgba(0,0,0,0.07),
-        -1px 0 0 rgba(0,0,0,0.07);
+        4px 0 28px -4px rgba(0,0,0,0.5),
+        -4px 0 28px -4px rgba(0,0,0,0.5);
+      /* Override CSS vars for light content area */
+      --surface: #f2f1ec;
+      --surface-2: #ffffff;
+      --border: #dbd2c8;
+      --gold: #8a6810;
+      --gold-dim: rgba(138,104,16,0.1);
+      --text: #1c1510;
+      --text-muted: #7a6d60;
+      --text-faint: #bbb0a0;
+    }
+
+    /* --- Dark header zone within the light column --- */
+    .header-zone {
+      width: 100%;
+      background: #131820;
+      padding: 2rem 1.5rem 0;
+      border-bottom: 2px solid #c8a14a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      /* Restore dark vars */
+      --surface: #131820;
+      --border: rgba(255,255,255,0.12);
+      --text: #e0d8cc;
+      --text-muted: #9a9088;
+      --gold: #c8a14a;
     }
 
     header {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding-bottom: 1.25rem;
+      width: 100%;
+      max-width: 680px;
       margin-bottom: 1.5rem;
-      border-bottom: 2px solid #dc3545;
+    }
+
+    .tabs-wrap {
+      width: 100%;
+      max-width: 680px;
+    }
+
+    .header-zone .tabs {
+      margin-bottom: 0;
     }
 
     .validate-btn {
       margin-left: auto;
-      background: #fff;
-      color: #dc3545;
-      border: 1.5px solid #dc3545;
-      border-radius: 6px;
+      background: transparent;
+      color: var(--gold);
+      border: 1px solid var(--gold);
+      border-radius: 4px;
       padding: 0.4rem 1rem;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       font-weight: 500;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
       text-decoration: none;
       transition: background 0.15s, color 0.15s;
       white-space: nowrap;
     }
 
     .validate-btn:hover {
-      background: #dc3545;
-      color: #fff;
+      background: var(--gold);
+      color: #131820;
     }
 
     .logo-mark {
@@ -82,32 +130,26 @@
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 2rem;
       font-weight: 700;
-      color: #212529;
+      color: var(--text);
       letter-spacing: 0.14em;
     }
 
     .logo-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: #dc3545;
+      color: var(--gold);
       letter-spacing: 0.22em;
     }
 
-    header h1 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #212529;
-      letter-spacing: 0.02em;
-    }
-
     header p {
-      color: #6c757d;
-      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-size: 0.82rem;
       margin-top: 0.1rem;
     }
 
+    /* --- Light content card --- */
     .card {
-      padding: 1.75rem 0;
+      padding: 1.75rem 1.5rem;
       width: 100%;
       max-width: 680px;
     }
@@ -116,56 +158,56 @@
       display: flex;
       gap: 0.25rem;
       margin-bottom: 1.25rem;
-      border-bottom: 1px solid #dee2e6;
-      padding-bottom: 0;
+      border-bottom: 1px solid var(--border);
     }
 
     .tab-btn {
       background: none;
       border: none;
       border-bottom: 2px solid transparent;
-      color: #6c757d;
+      color: var(--text-muted);
       padding: 0.4rem 0.875rem 0.6rem;
       cursor: pointer;
-      font-size: 0.875rem;
-      font-family: inherit;
+      font-size: 0.82rem;
+      font-family: 'Spectral', Georgia, serif;
       font-weight: 500;
+      letter-spacing: 0.04em;
       transition: color 0.15s, border-color 0.15s;
       margin-bottom: -1px;
     }
 
-    .tab-btn:hover { color: #212529; }
+    .tab-btn:hover { color: var(--text); }
 
     .tab-btn.active {
-      color: #0d6efd;
-      border-bottom-color: #0d6efd;
+      color: var(--gold);
+      border-bottom-color: var(--gold);
     }
 
     .tab-panel { display: none; }
     .tab-panel.active { display: block; margin-bottom: 0.625rem; }
 
     .drop-zone {
-      border: 2px dashed #dee2e6;
+      border: 1px dashed var(--border);
       border-radius: 6px;
       padding: 2rem;
       text-align: center;
-      color: #adb5bd;
+      color: var(--text-muted);
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
       margin-bottom: 1rem;
-      background: #f8f9fa;
+      background: var(--surface-2);
     }
 
     .drop-zone:hover, .drop-zone.dragover {
-      border-color: #adb5bd;
-      background: #f1f3f5;
-      color: #6c757d;
+      border-color: var(--gold);
+      background: var(--gold-dim);
+      color: var(--text);
     }
 
     .drop-zone.has-file {
-      border-color: #0d6efd;
-      background: #e8f0fe;
-      color: #0d6efd;
+      border-color: var(--gold);
+      background: var(--gold-dim);
+      color: var(--gold);
     }
 
     .drop-zone input[type="file"] { display: none; }
@@ -177,12 +219,12 @@
 
     textarea {
       width: 100%;
-      background: #fff;
-      border: 1px solid #dee2e6;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #212529;
+      color: var(--text);
       padding: 0.625rem 0.875rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       font-size: 0.9rem;
       resize: vertical;
       min-height: 140px;
@@ -192,8 +234,8 @@
     }
 
     textarea:focus {
-      border-color: #86b7fe;
-      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-dim);
     }
 
     .url-toggle-row {
@@ -204,39 +246,41 @@
     .url-toggle-btn {
       background: none;
       border: none;
-      color: #6c757d;
+      color: var(--text-muted);
       font-size: 0.8rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       cursor: pointer;
       padding: 0;
       text-decoration: underline;
       text-underline-offset: 2px;
     }
-    .url-toggle-btn:hover { color: #0d6efd; }
+    .url-toggle-btn:hover { color: var(--gold); }
+
     .url-input {
       width: 100%;
-      background: #fff;
-      border: 1px solid #dee2e6;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #212529;
+      color: var(--text);
       padding: 0.5rem 0.875rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       font-size: 0.875rem;
       outline: none;
       transition: border-color 0.15s, box-shadow 0.15s;
       margin-bottom: 0.25rem;
     }
     .url-input:focus {
-      border-color: #86b7fe;
-      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-dim);
     }
+
     .url-hint-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 0.5rem;
     }
-    .url-hint { font-size: 0.72rem; color: #adb5bd; }
+    .url-hint { font-size: 0.72rem; color: var(--text-muted); }
 
     .question-label {
       display: flex;
@@ -245,31 +289,28 @@
       margin-bottom: 0.6rem;
     }
     .question-title {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #212529;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
     }
     .question-sub {
-      font-size: 0.88rem;
-      color: #6c757d;
+      font-size: 0.85rem;
+      color: var(--text-muted);
     }
 
-    .question-row {
-      display: flex;
-      gap: 0.5rem;
-    }
+    .question-row { display: flex; gap: 0.5rem; }
 
     .question-row input[type="text"],
     #question-input {
       flex: 1;
       width: 100%;
       box-sizing: border-box;
-      background: #fff;
-      border: 1px solid #dee2e6;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #212529;
+      color: var(--text);
       padding: 0.625rem 0.875rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       font-size: 0.9rem;
       outline: none;
       transition: border-color 0.15s, box-shadow 0.15s;
@@ -277,13 +318,13 @@
 
     .question-row input[type="text"]:focus,
     #question-input:focus {
-      border-color: #86b7fe;
-      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-dim);
     }
 
     .question-row input[type="text"]::placeholder,
     #question-input::placeholder,
-    textarea::placeholder { color: #adb5bd; }
+    textarea::placeholder { color: var(--text-faint); }
 
     .submit-row {
       display: flex;
@@ -302,21 +343,23 @@
       align-items: flex-start;
       gap: 0.4rem;
       font-size: 0.78rem;
-      color: #6c757d;
+      color: var(--text-muted);
       cursor: pointer;
       line-height: 1.4;
     }
-    .credibility-option input { margin-top: 0.15rem; flex-shrink: 0; }
+    .credibility-option input { margin-top: 0.15rem; flex-shrink: 0; accent-color: var(--gold); }
 
     button[type="submit"] {
-      background: #0d6efd;
-      color: #fff;
+      background: #d4b060;
+      color: #1a1510;
       border: none;
-      border-radius: 6px;
-      padding: 0.625rem 1.25rem;
-      font-size: 0.9rem;
-      font-weight: 500;
-      font-family: inherit;
+      border-radius: 4px;
+      padding: 0.625rem 1.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
       cursor: pointer;
       transition: background 0.15s;
       white-space: nowrap;
@@ -325,32 +368,33 @@
       gap: 0.4rem;
     }
 
-    button[type="submit"]:hover { background: #0b5ed7; }
-    button[type="submit"]:disabled { background: #6c757d; cursor: not-allowed; }
+    button[type="submit"]:hover { background: #b8913a; color: #1a1510; }
+    button[type="submit"]:disabled { background: var(--border); cursor: not-allowed; color: var(--text-muted); }
 
     #answer-area {
       margin-top: 1.5rem;
       width: 100%;
       max-width: 680px;
+      padding: 0 1.5rem 2.5rem;
     }
 
     .htmx-indicator {
       display: none;
       text-align: center;
-      color: #6c757d;
+      color: var(--text-muted);
       padding: 1.25rem;
       font-size: 0.875rem;
     }
 
     .htmx-request .htmx-indicator { display: block; }
-    .htmx-request #submit-btn, #submit-btn:disabled { background: #6c757d; cursor: not-allowed; }
+    .htmx-request #submit-btn, #submit-btn:disabled { background: var(--border); cursor: not-allowed; }
 
     .spinner {
       display: inline-block;
       width: 16px;
       height: 16px;
-      border: 2px solid #dee2e6;
-      border-top-color: #dc3545;
+      border: 2px solid var(--border);
+      border-top-color: var(--gold);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       vertical-align: middle;
@@ -365,18 +409,20 @@
     }
 
     .field-label {
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 500;
-      color: #495057;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .field-input {
-      background: #fff;
-      border: 1px solid #dee2e6;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #212529;
+      color: var(--text);
       padding: 0.625rem 0.875rem;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
       font-size: 0.9rem;
       outline: none;
       width: 100%;
@@ -384,36 +430,33 @@
     }
 
     .field-input:focus {
-      border-color: #86b7fe;
-      box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-dim);
     }
 
-    .field-row {
-      display: flex;
-      gap: 0.75rem;
-    }
-
+    .field-row { display: flex; gap: 0.75rem; }
     .field-row .field-group { flex: 1; }
 
     .fetch-btn {
-      background: #fff;
-      color: #0d6efd;
-      border: 1.5px solid #0d6efd;
-      border-radius: 6px;
+      background: transparent;
+      color: var(--gold);
+      border: 1px solid var(--gold);
+      border-radius: 4px;
       padding: 0.45rem 1rem;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       font-weight: 500;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
       cursor: pointer;
       transition: background 0.15s, color 0.15s;
       margin-bottom: 1rem;
     }
-    .fetch-btn:hover { background: #0d6efd; color: #fff; }
+    .fetch-btn:hover { background: var(--gold); color: #fff; }
 
     .email-split {
       display: flex;
-      gap: 0;
-      border: 1px solid #dee2e6;
+      border: 1px solid var(--border);
       border-radius: 6px;
       overflow: hidden;
       height: 300px;
@@ -422,31 +465,32 @@
 
     .email-list {
       width: 40%;
-      border-right: 1px solid #dee2e6;
+      border-right: 1px solid var(--border);
       overflow-y: auto;
       flex-shrink: 0;
+      background: var(--surface-2);
     }
 
     .email-item {
       padding: 0.6rem 0.875rem;
-      border-bottom: 1px solid #f1f3f5;
+      border-bottom: 1px solid var(--border);
       cursor: pointer;
       transition: background 0.1s;
     }
-    .email-item:hover { background: #f8f9fa; }
-    .email-item.active { background: #e8f0fe; border-left: 3px solid #0d6efd; }
+    .email-item:hover { background: var(--gold-dim); }
+    .email-item.active { background: var(--gold-dim); border-left: 2px solid var(--gold); }
 
     .email-item-subject {
       font-size: 0.82rem;
       font-weight: 500;
-      color: #212529;
+      color: var(--text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .email-item-date {
       font-size: 0.72rem;
-      color: #adb5bd;
+      color: var(--text-muted);
       margin-top: 0.15rem;
     }
 
@@ -455,18 +499,21 @@
       overflow-y: auto;
       padding: 0.875rem;
       font-size: 0.85rem;
-      color: #212529;
+      color: var(--text);
+      background: var(--surface);
     }
 
-    .fetch-error { color: #dc3545; font-size: 0.85rem; margin-top: 0.5rem; }
+    .fetch-error { color: #b83030; font-size: 0.85rem; margin-top: 0.5rem; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* --- Dark footer --- */
     footer {
-      background: #111;
-      color: #ccc;
+      background: #070a0f;
+      color: #9a9088;
       width: 100%;
       padding: 3rem 2rem 1.5rem;
+      border-top: 1px solid #252d3e;
     }
 
     .footer-inner {
@@ -482,7 +529,7 @@
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 1.5rem;
       font-weight: 700;
-      color: #fff;
+      color: #e0d8cc;
       letter-spacing: 0.14em;
       display: block;
     }
@@ -490,13 +537,13 @@
     .footer-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
-      color: #dc3545;
+      color: #c8a14a;
       letter-spacing: 0.22em;
       display: block;
       margin-bottom: 0.75rem;
     }
 
-    .footer-brand p { font-size: 0.82rem; color: #888; line-height: 1.6; }
+    .footer-brand p { font-size: 0.82rem; color: #9a9088; line-height: 1.6; }
 
     .footer-col {
       flex: 1;
@@ -506,63 +553,66 @@
     }
 
     .footer-col-title {
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: #fff;
+      letter-spacing: 0.12em;
+      color: #c8a14a;
       margin-bottom: 0.25rem;
     }
 
     .footer-col a {
-      color: #888;
+      color: #9a9088;
       text-decoration: none;
       font-size: 0.85rem;
       transition: color 0.15s;
     }
 
-    .footer-col a:hover { color: #fff; }
+    .footer-col a:hover { color: #e0d8cc; }
 
     .footer-bottom {
       max-width: 680px;
       margin: 2rem auto 0;
       padding-top: 1.25rem;
-      border-top: 1px solid #2a2a2a;
+      border-top: 1px solid #252d3e;
       font-size: 0.75rem;
-      color: #555;
+      color: #484f60;
+      letter-spacing: 0.04em;
     }
 
+    /* --- TREAD warning modal --- */
     #poide-modal-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.55);
+      background: rgba(0,0,0,0.72);
       z-index: 9000;
       align-items: center;
       justify-content: center;
     }
     #poide-modal-overlay.visible { display: flex; }
     #poide-modal {
-      background: #1a1a1a;
-      border: 1.5px solid #ff6b6b;
-      border-radius: 10px;
+      background: #161c28;
+      border: 1px solid #c85555;
+      border-radius: 8px;
       padding: 1.75rem 2rem;
       max-width: 480px;
       width: 90%;
-      color: #fff;
-      font-family: "Segoe UI", system-ui, sans-serif;
+      color: #e0d8cc;
+      font-family: 'Spectral', Georgia, serif;
     }
     #poide-modal h2 {
       font-size: 1rem;
       font-weight: 700;
-      color: #ff6b6b;
+      color: #e05555;
       margin-bottom: 0.875rem;
       letter-spacing: 0.04em;
+      font-family: 'Playfair Display', Georgia, serif;
     }
     #poide-modal p {
       font-size: 0.875rem;
       line-height: 1.6;
-      color: #ccc;
+      color: #9a9088;
       margin-bottom: 1.25rem;
       white-space: pre-line;
     }
@@ -578,26 +628,29 @@
       align-items: center;
       gap: 0.4rem;
       font-size: 0.78rem;
-      color: #888;
+      color: #9a9088;
       cursor: pointer;
     }
-    #poide-modal-suppress input { cursor: pointer; }
+    #poide-modal-suppress input { cursor: pointer; accent-color: #c8a14a; }
     #poide-modal-close {
-      background: #ff6b6b;
+      background: #c85555;
       color: #fff;
       border: none;
-      border-radius: 6px;
+      border-radius: 4px;
       padding: 0.45rem 1.1rem;
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
-      font-family: inherit;
+      font-family: 'Spectral', Georgia, serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
-    #poide-modal-close:hover { background: #e05555; }
+    #poide-modal-close:hover { background: #a84444; }
 
+    /* --- TREAD status bar --- */
     #poide-bar {
       width: 100%;
-      background: #111;
+      background: #070a0f;
       height: 26px;
       display: flex;
       align-items: center;
@@ -622,26 +675,22 @@
     }
 
     @media (max-width: 520px) {
-      .col-frame { padding: 0.75rem 0.5rem; box-shadow: none; }
-
-      .card { padding: 1.1rem; margin: 4px 0; }
-
+      .header-zone { padding: 1.25rem 0.75rem 1.25rem; }
+      .card { padding: 1.1rem 0.75rem; }
+      #answer-area { padding: 0 0.75rem 1.5rem; }
       header { flex-wrap: wrap; row-gap: 0.4rem; }
       .logo-text { font-size: 1.5rem; }
       .validate-btn { margin-left: auto; }
-
       .question-row { flex-direction: column; }
       .question-row input[type="text"] { width: 100%; }
       button[type="submit"] { width: 100%; justify-content: center; }
-
       .field-row { flex-direction: column; gap: 0; }
-
       .email-split { flex-direction: column; height: auto; }
-      .email-list { width: 100%; border-right: none; border-bottom: 1px solid #dee2e6; max-height: 160px; }
+      .email-list { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 160px; }
       .email-preview-pane { max-height: 200px; }
-
       .footer-inner { flex-direction: column; gap: 2rem; }
       footer { padding: 2rem 1.25rem 1.25rem; }
+      .col-frame { box-shadow: none; }
     }
   </style>
 </head>
@@ -671,28 +720,19 @@
 <main>
 <div class="col-frame">
 
-<div class="card">
-  <header>
-    <a href="/" class="logo-mark">
-      <span class="logo-text">LEIMA</span>
-      <span class="logo-domain">leima.io</span>
-    </a>
-    <div>
-      <p style="font-size: 0.95rem; font-weight: 600; color: #212529;">AI evaluation of documents — forever sealed on Arweave</p>
-    </div>
-    <a href="/validate" class="validate-btn">Validate</a>
-  </header>
-  <form
-    hx-post="/ask"
-    hx-target="#answer-area"
-    hx-swap="innerHTML"
-    hx-encoding="multipart/form-data"
-    hx-indicator="#form-wrap"
-    id="main-form"
-  >
-    <div id="form-wrap">
-      <input type="hidden" name="active_tab" id="active-tab" value="web">
-
+  <!-- Dark header zone -->
+  <div class="header-zone">
+    <header>
+      <a href="/" class="logo-mark">
+        <span class="logo-text">LEIMA</span>
+        <span class="logo-domain">leima.io</span>
+      </a>
+      <div>
+        <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
+      </div>
+      <a href="/validate" class="validate-btn">Validate</a>
+    </header>
+    <div class="tabs-wrap">
       <div class="tabs">
         <button type="button" class="tab-btn active" onclick="switchTab('web', this)">Web</button>
         <button type="button" class="tab-btn" onclick="switchTab('pdf', this)">PDF</button>
@@ -701,144 +741,159 @@
         <button type="button" class="tab-btn" onclick="switchTab('email', this)">IMAP</button>
         <button type="button" class="tab-btn" onclick="switchTab('github', this)">GitHub</button>
       </div>
-
-      <div class="question-label">
-        <span class="question-title">What do you want to prove about this document?</span>
-        <span class="question-sub" id="question-sub">e.g. <em>"Apple announced Vision Pro on this page"</em></span>
-      </div>
-      <input type="text" name="question" id="question-input" placeholder="this website advertises free worldwide shipping" value="this page says that Tim Berners-Lee invented the WWW" required>
-
-      <div style="margin-top: 0.625rem;"></div>
-
-      <div id="tab-pdf" class="tab-panel">
-        <div id="drop-zone-wrap">
-          <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
-            <div class="drop-zone-icon">📄</div>
-            <div id="drop-label">Click or drop a PDF here</div>
-            <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf"
-              onchange="onFileSelect(this)">
-          </div>
-          <div class="url-toggle-row">
-            <button type="button" class="url-toggle-btn" onclick="showUrlInput()">Use URL instead</button>
-          </div>
-        </div>
-        <div id="url-input-wrap" style="display:none;">
-          <input type="url" name="pdf_url" id="pdf-url" class="url-input"
-            placeholder="https://example.com/document.pdf">
-          <div class="url-hint-row">
-            <span class="url-hint">Max 10 MB</span>
-            <button type="button" class="url-toggle-btn" onclick="showDropZone()">Use file instead</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="tab-image" class="tab-panel">
-        <div class="drop-zone" id="image-drop-zone" onclick="document.getElementById('image-input').click()">
-          <div class="drop-zone-icon">🖼</div>
-          <div id="image-drop-label">Click or drop an image here</div>
-          <input type="file" id="image-input" name="image_file"
-            accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
-            onchange="onImageSelect(this)">
-        </div>
-        <div style="font-size:0.72rem;color:#adb5bd;margin-top:0.25rem">JPG, PNG, GIF, WebP, HEIC, HEIF</div>
-      </div>
-
-      <div id="tab-web" class="tab-panel active">
-        <input type="url" name="web_url" id="web-url" class="url-input"
-          placeholder="https://example.com/article"
-          value="https://en.wikipedia.org/wiki/World_Wide_Web">
-      </div>
-
-      <div id="tab-text" class="tab-panel">
-        <textarea name="text_input" id="text-input" placeholder="Paste document text here..."></textarea>
-        <div style="margin-top:0.5rem; font-size:0.82rem; color:#6c757d;">
-          Or upload a .txt file:
-          <input type="file" id="txt-file-input" accept=".txt,text/plain" style="margin-left:0.4rem;"
-                 onchange="handleTxtUpload(this)">
-        </div>
-      </div>
-
-      <input type="hidden" name="email_session_id" id="email-session-id" value="">
-      <input type="hidden" name="email_idx" id="email-idx" value="">
-
-      <div id="tab-github" class="tab-panel">
-        <input type="hidden" name="review_mode" value="claim">
-        <div class="field-group">
-          <label class="field-label">Repository</label>
-          <input type="text" name="gh_repo" id="gh-repo" class="field-input" placeholder="owner/repo or https://github.com/owner/repo">
-        </div>
-        <div class="field-group">
-          <label class="field-label">Commit / branch / tag</label>
-          <input type="text" name="gh_ref" id="gh-ref" class="field-input" placeholder="main" value="main">
-        </div>
-        <div class="field-group">
-          <label class="field-label">File paths <span style="font-weight:400;color:#6c757d;">(one per line, max 20)</span></label>
-          <textarea name="gh_paths" id="gh-paths" placeholder="src/main.py&#10;README.md" style="height:6rem;"></textarea>
-        </div>
-        <div class="field-group">
-          <label class="field-label">GitHub token <span style="font-weight:400;color:#6c757d;">(optional — required for private repos)</span></label>
-          <input type="password" name="gh_token" id="gh-token" class="field-input" placeholder="ghp_...">
-        </div>
-      </div>
-
-      <div id="tab-email" class="tab-panel">
-        <div class="field-group">
-          <label class="field-label">Your email</label>
-          <input type="email" name="email_user" id="email-user" class="field-input" placeholder="you@example.com">
-        </div>
-        <div class="field-group">
-          <label class="field-label">Password</label>
-          <input type="password" name="email_password" id="email-password" class="field-input" placeholder="••••••••">
-        </div>
-        <div class="field-group">
-          <label class="field-label">Sender email</label>
-          <input type="email" name="email_sender" id="email-sender" class="field-input" placeholder="sender@example.com">
-        </div>
-        <div class="field-row">
-          <div class="field-group">
-            <label class="field-label">Start date</label>
-            <input type="date" name="email_start" id="email-start" class="field-input">
-          </div>
-          <div class="field-group">
-            <label class="field-label">End date</label>
-            <input type="date" name="email_end" id="email-end" class="field-input">
-          </div>
-        </div>
-        <button type="button" class="fetch-btn"
-          hx-post="/fetch-emails"
-          hx-target="#email-fetch-results"
-          hx-swap="innerHTML"
-          hx-include="#tab-email">
-          Fetch emails
-        </button>
-        <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
-      </div>
-
-      <div class="submit-row">
-        <button type="submit" id="submit-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Analyse
-        </button>
-        <div class="credibility-options">
-          <label class="credibility-option">
-            <input type="radio" name="assess_credibility" value="1" checked>
-            Evaluate whether the claim is true
-          </label>
-          <label class="credibility-option">
-            <input type="radio" name="assess_credibility" value="0">
-            Evaluate only what the source says about the claim
-          </label>
-        </div>
-      </div>
-
-      <div class="htmx-indicator">
-        <span class="spinner"></span>Analysing...
-      </div>
     </div>
-  </form>
-</div>
+  </div>
 
-<div id="answer-area"></div>
+  <!-- Light content zone -->
+  <div class="card">
+    <form
+      hx-post="/ask"
+      hx-target="#answer-area"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      hx-indicator="#form-wrap"
+      id="main-form"
+    >
+      <div id="form-wrap">
+        <input type="hidden" name="active_tab" id="active-tab" value="web">
+
+        <div class="question-label">
+          <span class="question-title">What do you want to prove about this document?</span>
+          <span class="question-sub" id="question-sub">e.g. <em>"Apple announced Vision Pro on this page"</em></span>
+        </div>
+        <input type="text" name="question" id="question-input" placeholder="this website advertises free worldwide shipping" value="this page says that Tim Berners-Lee invented the WWW" required>
+
+        <div style="margin-top: 0.625rem;"></div>
+
+        <div id="tab-pdf" class="tab-panel">
+          <div id="drop-zone-wrap">
+            <div class="drop-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
+              <div class="drop-zone-icon">📄</div>
+              <div id="drop-label">Click or drop a PDF here</div>
+              <input type="file" id="pdf-input" name="pdf_file" accept="application/pdf"
+                onchange="onFileSelect(this)">
+            </div>
+            <div class="url-toggle-row">
+              <button type="button" class="url-toggle-btn" onclick="showUrlInput()">Use URL instead</button>
+            </div>
+          </div>
+          <div id="url-input-wrap" style="display:none;">
+            <input type="url" name="pdf_url" id="pdf-url" class="url-input"
+              placeholder="https://example.com/document.pdf">
+            <div class="url-hint-row">
+              <span class="url-hint">Max 10 MB</span>
+              <button type="button" class="url-toggle-btn" onclick="showDropZone()">Use file instead</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-image" class="tab-panel">
+          <div class="drop-zone" id="image-drop-zone" onclick="document.getElementById('image-input').click()">
+            <div class="drop-zone-icon">🖼</div>
+            <div id="image-drop-label">Click or drop an image here</div>
+            <input type="file" id="image-input" name="image_file"
+              accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
+              onchange="onImageSelect(this)">
+          </div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.25rem">JPG, PNG, GIF, WebP, HEIC, HEIF</div>
+        </div>
+
+        <div id="tab-web" class="tab-panel active">
+          <input type="url" name="web_url" id="web-url" class="url-input"
+            placeholder="https://example.com/article"
+            value="https://en.wikipedia.org/wiki/World_Wide_Web">
+        </div>
+
+        <div id="tab-text" class="tab-panel">
+          <textarea name="text_input" id="text-input" placeholder="Paste document text here..."></textarea>
+          <div style="margin-top:0.5rem; font-size:0.82rem; color:var(--text-muted);">
+            Or upload a .txt file:
+            <input type="file" id="txt-file-input" accept=".txt,text/plain" style="margin-left:0.4rem;"
+                   onchange="handleTxtUpload(this)">
+          </div>
+        </div>
+
+        <input type="hidden" name="email_session_id" id="email-session-id" value="">
+        <input type="hidden" name="email_idx" id="email-idx" value="">
+
+        <div id="tab-github" class="tab-panel">
+          <input type="hidden" name="review_mode" value="claim">
+          <div class="field-group">
+            <label class="field-label">Repository</label>
+            <input type="text" name="gh_repo" id="gh-repo" class="field-input" placeholder="owner/repo or https://github.com/owner/repo">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Commit / branch / tag</label>
+            <input type="text" name="gh_ref" id="gh-ref" class="field-input" placeholder="main" value="main">
+          </div>
+          <div class="field-group">
+            <label class="field-label">File paths <span style="font-weight:400;color:var(--text-muted);">(one per line, max 20)</span></label>
+            <textarea name="gh_paths" id="gh-paths" placeholder="src/main.py&#10;README.md" style="height:6rem;"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label">GitHub token <span style="font-weight:400;color:var(--text-muted);">(optional — required for private repos)</span></label>
+            <input type="password" name="gh_token" id="gh-token" class="field-input" placeholder="ghp_...">
+          </div>
+        </div>
+
+        <div id="tab-email" class="tab-panel">
+          <div class="field-group">
+            <label class="field-label">Your email</label>
+            <input type="email" name="email_user" id="email-user" class="field-input" placeholder="you@example.com">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Password</label>
+            <input type="password" name="email_password" id="email-password" class="field-input" placeholder="••••••••">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Sender email</label>
+            <input type="email" name="email_sender" id="email-sender" class="field-input" placeholder="sender@example.com">
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">Start date</label>
+              <input type="date" name="email_start" id="email-start" class="field-input">
+            </div>
+            <div class="field-group">
+              <label class="field-label">End date</label>
+              <input type="date" name="email_end" id="email-end" class="field-input">
+            </div>
+          </div>
+          <button type="button" class="fetch-btn"
+            hx-post="/fetch-emails"
+            hx-target="#email-fetch-results"
+            hx-swap="innerHTML"
+            hx-include="#tab-email">
+            Fetch emails
+          </button>
+          <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
+        </div>
+
+        <div class="submit-row">
+          <button type="submit" id="submit-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Analyse
+          </button>
+          <div class="credibility-options">
+            <label class="credibility-option">
+              <input type="radio" name="assess_credibility" value="1" checked>
+              Evaluate whether the claim is true
+            </label>
+            <label class="credibility-option">
+              <input type="radio" name="assess_credibility" value="0">
+              Evaluate only what the source says about the claim
+            </label>
+          </div>
+        </div>
+
+        <div class="htmx-indicator">
+          <span class="spinner"></span>Analysing...
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div id="answer-area"></div>
 
 </div><!-- /.col-frame -->
 </main>
@@ -949,7 +1004,7 @@
     document.getElementById('email-idx').value = idx;
   }
 
-const TAB_HINTS = {
+  const TAB_HINTS = {
     pdf:    'e.g. <em>"this invoice shows the payment was completed"</em>',
     image:  'e.g. <em>"this C2PA image shows a cut-down tree at 60.1699, 24.9384"</em>',
     text:   'e.g. <em>"the source claims that X"</em>',
@@ -1048,8 +1103,8 @@ const TAB_HINTS = {
     const closeBtn   = document.getElementById('poide-modal-close');
     let lastCheckedAt = null;
 
-    const SUPPRESS_DURATION_MS = 60 * 60 * 1000; // 1 hour
-    const REPEAT_INTERVAL_MS   = 60 * 1000;       // re-show at most once per minute
+    const SUPPRESS_DURATION_MS = 60 * 60 * 1000;
+    const REPEAT_INTERVAL_MS   = 60 * 1000;
 
     let lastModalShownAt = 0;
     let lastModalKey = '';
