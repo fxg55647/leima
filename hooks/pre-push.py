@@ -25,7 +25,6 @@ def run_code_review() -> bool:
     """Ajaa code_review.py paikallisesti. Palauttaa True jos OK tai avain puuttuu."""
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
-        print("[POIDE] GEMINI_API_KEY ei asetettu -- code review skipataan.", flush=True)
         return True
     print("[POIDE] Ajetaan code review paikallisesti...", flush=True)
     root = Path(__file__).parent.parent
