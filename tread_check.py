@@ -2,7 +2,7 @@ import hashlib, os, sys, json, requests
 from datetime import datetime, timezone
 from pathlib import Path
 
-POIDE_WORKFLOWS   = ["poide-a.yml", "poide-b.yml", "poide-c.yml", "poide-d.yml", "poide-e.yml"]
+TREAD_WORKFLOWS   = ["poide-a.yml", "poide-b.yml", "poide-c.yml", "poide-d.yml", "poide-e.yml"]
 MAX_CRON_AGE_MIN  = 10  # 5-min schedule with 2× headroom
 
 MONITOR_FILES = [
@@ -14,8 +14,8 @@ MONITOR_FILES = [
     ".github/workflows/poide-run.yml",
     ".github/workflows/monthly-audit.yml",
     ".github/workflows/code_review.yml",
-    "poide_check.py",
-    "poide_arweave.py",
+    "tread_check.py",
+    "tread_arweave.py",
     "monthly_audit.py",
     "code_review.py",
     "POLICY.example.md",
@@ -92,7 +92,7 @@ def check_workflow_states() -> dict[str, str]:
     if GITHUB_TOKEN:
         gh_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
     states = {}
-    for workflow in POIDE_WORKFLOWS:
+    for workflow in TREAD_WORKFLOWS:
         resp = requests.get(
             f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow}",
             headers=gh_headers,
@@ -110,7 +110,7 @@ def check_cron_freshness() -> bool | None:
     cutoff = datetime.now(timezone.utc).timestamp() - MAX_CRON_AGE_MIN * 60
     found_any = False
     any_api_success = False
-    for workflow in POIDE_WORKFLOWS:
+    for workflow in TREAD_WORKFLOWS:
         resp = requests.get(
             f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{workflow}/runs"
             f"?per_page=1&branch={GITHUB_BRANCH}",

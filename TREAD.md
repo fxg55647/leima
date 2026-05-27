@@ -68,7 +68,7 @@ cron (every minute) → poide_check.py → deployment match?
 
 The check passes if the deployed commit matches the GitHub HEAD and the code review is green. If an unauthorised deployment has occurred — a commit that did not go through the review gate — the check fails and the GitHub Actions badge turns red.
 
-(Script and workflow filenames — `poide_check.py`, `poide-a.yml` etc. — are unchanged; only the protocol name has been updated.)
+(Workflow filenames — `poide-a.yml` etc. — are unchanged pending phase 2 of the rename. Scripts have been renamed to `tread_check.py` and `tread_arweave.py`.)
 
 **The result is public and independently verifiable.** Anyone can visit the [Actions tab](../../actions) to see the continuous check history, or fetch `status.json` directly. The checks run on GitHub's infrastructure — not Render's — so they cannot be influenced by a compromise of the hosting environment. This does mean GitHub Actions is part of the trust boundary: a compromise of GitHub's infrastructure or the repository's Actions configuration could in principle affect the monitoring results. This is a real but theoretical risk — GitHub is a large platform with its own security controls, and the attack surface is meaningfully different from a single hosting provider. It is worth naming openly rather than treating TREAD as fully independent of all platforms.
 

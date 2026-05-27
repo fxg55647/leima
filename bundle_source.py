@@ -6,7 +6,7 @@ Usage:
 
 Output:
     leima_bundle.txt  — document analysis app (main.py, UI, stamping logic)
-    poide_bundle.txt  — deployment monitoring protocol (TREAD infra, workflows)
+    tread_bundle.txt  — deployment monitoring protocol (TREAD infra, workflows)
 """
 import subprocess, sys
 from pathlib import Path
@@ -40,9 +40,9 @@ POIDE_FILES = {
     "TREAD.md",
     "POLICY.example.md",
     "requirements.txt",
-    "poide_check.py",
-    "poide_arweave.py",
-    "poide.user.js",
+    "tread_check.py",
+    "tread_arweave.py",
+    "tread.user.js",
     "verify.py",
     "push_status.py",
     "code_review.py",
@@ -95,7 +95,7 @@ tracked = git_ls()
 
 for name, intro, files, dirs, outfile in [
     ("Leima", LEIMA_INTRO, LEIMA_FILES, LEIMA_DIRS, "leima_bundle.txt"),
-    ("TREAD", POIDE_INTRO, POIDE_FILES, set(),      "poide_bundle.txt"),
+    ("TREAD", POIDE_INTRO, POIDE_FILES, set(),      "tread_bundle.txt"),
 ]:
     parts = build_bundle(tracked, files, dirs, intro, name)
     header = f"# {name} bundle\n{intro}\n\nCommit: {commit_sha}\nFiles: {len(parts)}\n\n"
