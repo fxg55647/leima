@@ -21,7 +21,7 @@ import markdown as _md
 import bleach
 import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -1468,7 +1468,7 @@ async def browser_session(request: Request):
         resp = http_requests.post(
             "https://www.browserbase.com/v1/sessions",
             headers={"x-bb-api-key": BROWSERBASE_API_KEY, "Content-Type": "application/json"},
-            json={"projectId": BROWSERBASE_PROJECT_ID},
+            json={"projectId": BROWSERBASE_PROJECT_ID, "browserSettings": {"viewport": {"width": 390, "height": 844}}},
             timeout=15,
         )
         resp.raise_for_status()
@@ -1532,67 +1532,70 @@ async def browser_capture(request: Request):
         return JSONResponse({"error": "question required"}, status_code=400)
     if not BROWSERBASE_API_KEY:
         return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
-    try:
-        from playwright.async_api import async_playwright
-        async with async_playwright() as p:
+
+    import json as _json
+
+    async def _stream():
+        yield _json.dumps({"step": "connecting", "msg": "Yhdistetään selaimeen…"}) + "\n"
+        try:
+            from playwright.async_api import async_playwright
+            pw = await async_playwright().start()
             connect_url = (
                 f"wss://connect.browserbase.com"
                 f"?apiKey={BROWSERBASE_API_KEY}"
                 f"&sessionId={session_id}"
             )
-            browser = await p.chromium.connect_over_cdp(connect_url)
+            browser = await pw.chromium.connect_over_cdp(connect_url)
             ctx = browser.contexts[0]
             page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+        except Exception as e:
+            yield _json.dumps({"step": "error", "msg": f"Capture failed: {e}"}) + "\n"
+            return
+
+        yield _json.dumps({"step": "screenshot", "msg": "Otetaan kuvakaappaus…"}) + "\n"
+        try:
             screenshot_bytes = await page.screenshot(full_page=True, type="png")
             current_url = page.url
-            await browser.close()
-    except Exception as e:
-        return JSONResponse({"error": f"Capture failed: {e}"}, status_code=500)
+            await browser.disconnect()
+            await pw.stop()
+        except Exception as e:
+            yield _json.dumps({"step": "error", "msg": f"Screenshot failed: {e}"}) + "\n"
+            return
 
-    from urllib.parse import urlparse as _up
-    parsed = _up(current_url)
-    source_context = {
-        "type": "browser_capture",
-        "domain": parsed.netloc,
-        "url": current_url,
-        "fetched_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
-    }
-    contents = [types.Part.from_bytes(data=screenshot_bytes, mime_type="image/png")]
-    try:
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: _run_analysis(
-                question, contents, screenshot_bytes,
-                input_label=current_url,
-                source_ext="png", source_mime="image/png",
-                source_context=source_context,
+        yield _json.dumps({"step": "analysing", "msg": "Analysoidaan tekoälyllä…"}) + "\n"
+        from urllib.parse import urlparse as _up
+        parsed = _up(current_url)
+        source_context = {
+            "type": "browser_capture",
+            "domain": parsed.netloc,
+            "url": current_url,
+            "fetched_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        }
+        contents = [types.Part.from_bytes(data=screenshot_bytes, mime_type="image/png")]
+        try:
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: _run_analysis(
+                    question, contents, screenshot_bytes,
+                    input_label=current_url,
+                    source_ext="png", source_mime="image/png",
+                    source_context=source_context,
+                )
             )
-        )
-    except Exception as e:
-        return JSONResponse({"error": f"Analysis failed: {e}"}, status_code=500)
+        except Exception as e:
+            yield _json.dumps({"step": "error", "msg": f"Analysis failed: {e}"}) + "\n"
+            return
 
-    from fastapi.templating import Jinja2Templates as _T
-    tmpl = _T(directory="templates")
-    html = tmpl.get_template("result.html").render({
-        "passes": result["passes"],
-        "summary_verdict": result["summary_verdict"],
-        "verdict_category": result.get("verdict_category", ""),
-        "timestamp": result["timestamp"],
-        "input_hash": result["input_hash"],
-        "verdict_hash": result["verdict_hash"],
-        "session_id": result["session_id"],
-        "input_label": result["input_label"],
-        "poide_snap": result["poide_snap"],
-        "source_context": source_context,
-    }) if False else ""
+        yield _json.dumps({
+            "step": "done",
+            "session_id": result["session_id"],
+            "summary_verdict": result["summary_verdict"],
+            "verdict_category": result.get("verdict_category", ""),
+            "input_hash": result["input_hash"],
+            "url": current_url,
+        }) + "\n"
 
-    return JSONResponse({
-        "session_id": result["session_id"],
-        "summary_verdict": result["summary_verdict"],
-        "verdict_category": result.get("verdict_category", ""),
-        "input_hash": result["input_hash"],
-        "url": current_url,
-    })
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
 
 @app.post("/api/stamp")

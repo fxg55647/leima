@@ -981,13 +981,31 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({session_id: sessionId, question}),
       });
-      const d = await r.json();
-      if (d.error) throw new Error(d.error);
-      status.textContent = 'Done — verdict: ' + d.verdict_category;
-      document.getElementById('answer-area').innerHTML =
-        '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analysis complete. <a href="/download/' + d.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Download verdict PDF</a></div>';
+      if (!r.ok) { const e = await r.json(); throw new Error(e.error || r.statusText); }
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, {stream: true});
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const ev = JSON.parse(line);
+          if (ev.step === 'error') throw new Error(ev.msg);
+          if (ev.step === 'done') {
+            status.textContent = 'Valmis — arvio: ' + ev.verdict_category;
+            document.getElementById('answer-area').innerHTML =
+              '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analyysi valmis. <a href="/download/' + ev.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Lataa tuomio PDF</a></div>';
+          } else {
+            status.textContent = ev.msg;
+          }
+        }
+      }
     } catch(e) {
-      status.textContent = 'Error: ' + e.message;
+      status.textContent = 'Virhe: ' + e.message;
     }
   }
 
