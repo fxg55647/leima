@@ -643,6 +643,7 @@
       </a>
       <div>
         <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
+        <p style="font-size: 0.8rem; color: var(--text-faint);">Business · Finance · Research</p>
       </div>
       <a href="/validate" class="validate-btn">Validate</a>
     </header>
@@ -654,6 +655,7 @@
         <button type="button" class="tab-btn" onclick="switchTab('text', this)">Text</button>
         <button type="button" class="tab-btn" onclick="switchTab('email', this)">IMAP</button>
         <button type="button" class="tab-btn" onclick="switchTab('github', this)">GitHub</button>
+        <button type="button" class="tab-btn" onclick="switchTab('live', this)">Live</button>
       </div>
     </div>
   </div>
@@ -674,7 +676,7 @@
           <span class="question-title">What do you want to prove about this document?</span>
           <span class="question-sub" id="question-sub">e.g. <em>"Apple announced Vision Pro on this page"</em></span>
         </div>
-        <input type="text" name="question" id="question-input" placeholder="this website advertises free worldwide shipping" value="this page says that Tim Berners-Lee invented the WWW" required>
+        <input type="text" name="question" id="question-input" placeholder="this website advertises free worldwide shipping" required>
 
         <div style="margin-top: 0.625rem;"></div>
 
@@ -709,8 +711,7 @@
 
         <div id="tab-web" class="tab-panel active">
           <input type="url" name="web_url" id="web-url" class="url-input"
-            placeholder="https://example.com/article"
-            value="https://en.wikipedia.org/wiki/World_Wide_Web">
+            placeholder="https://example.com/article">
         </div>
 
         <div id="tab-text" class="tab-panel">
@@ -773,6 +774,21 @@
             Fetch emails
           </button>
           <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
+        </div>
+
+        <div id="tab-live" class="tab-panel">
+          <div style="margin-bottom:0.75rem;">
+            <input type="url" id="live-url" class="url-input" placeholder="https://vero.fi — leave empty to start blank">
+          </div>
+          <button type="button" class="fetch-btn" id="live-open-btn" onclick="openLiveBrowser()">Open browser</button>
+          <div id="live-browser-wrap" style="display:none;margin-top:0.75rem;">
+            <iframe id="live-iframe" style="width:100%;height:480px;border:1px solid var(--border);border-radius:6px;" allowfullscreen></iframe>
+            <div style="margin-top:0.625rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+              <button type="button" class="fetch-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()">Capture &amp; analyse</button>
+              <span id="live-status" style="font-size:0.8rem;color:var(--text-muted);"></span>
+            </div>
+          </div>
+          <input type="hidden" id="live-session-id" value="">
         </div>
 
         <div class="submit-row">
@@ -845,6 +861,7 @@
     if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
     if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
+    if (tab === 'live') return !!document.getElementById('live-session-id').value;
     return false;
   }
 
@@ -907,6 +924,7 @@
     web:    'e.g. <em>"Apple announced Vision Pro on this page"</em>',
     email:  'e.g. <em>"Tesla offered me a job in this email"</em>',
     github: 'e.g. <em>"this code follows best security practices"</em>',
+    live:   'e.g. <em>"my tax decision for 2024 shows income of X"</em>',
   };
   const TAB_PLACEHOLDERS = {
     pdf: 'this contract was signed by both parties',
@@ -915,7 +933,57 @@
     web: 'this website advertises free worldwide shipping',
     email: 'the sender promised delivery before Friday',
     github: 'this repository contains hardcoded secrets',
+    live: 'the balance shown is at least 10 000 EUR',
   };
+
+  async function openLiveBrowser() {
+    const btn = document.getElementById('live-open-btn');
+    const status = document.getElementById('live-status');
+    btn.disabled = true;
+    btn.textContent = 'Opening…';
+    status.textContent = '';
+    try {
+      const r = await fetch('/browser-session', {method: 'POST'});
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      document.getElementById('live-session-id').value = d.session_id;
+      document.getElementById('live-iframe').src = d.live_url;
+      const startUrl = document.getElementById('live-url').value.trim();
+      if (startUrl) {
+        await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: d.session_id, url: startUrl})}).catch(()=>{});
+      }
+      document.getElementById('live-browser-wrap').style.display = 'block';
+      status.textContent = 'Browser open — navigate freely, then capture.';
+    } catch(e) {
+      status.textContent = 'Error: ' + e.message;
+    }
+    btn.disabled = false;
+    btn.textContent = 'Open browser';
+  }
+
+  async function captureLiveBrowser() {
+    const sessionId = document.getElementById('live-session-id').value;
+    const question = document.getElementById('question-input').value.trim();
+    const status = document.getElementById('live-status');
+    if (!sessionId) { status.textContent = 'Open a browser first.'; return; }
+    if (!question) { status.textContent = 'Enter a claim first.'; return; }
+    status.textContent = 'Capturing…';
+    document.getElementById('answer-area').innerHTML = '';
+    try {
+      const r = await fetch('/browser-capture', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id: sessionId, question}),
+      });
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      status.textContent = 'Done — verdict: ' + d.verdict_category;
+      document.getElementById('answer-area').innerHTML =
+        '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analysis complete. <a href="/download/' + d.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Download verdict PDF</a></div>';
+    } catch(e) {
+      status.textContent = 'Error: ' + e.message;
+    }
+  }
 
   function switchTab(newTab, btn) {
     const current = document.getElementById('active-tab').value;
@@ -930,7 +998,8 @@
     btn.classList.add('active');
     document.getElementById('active-tab').value = newTab;
     document.getElementById('submit-btn').disabled = (newTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
-    document.querySelector('.credibility-options').style.display = newTab === 'github' ? 'none' : '';
+    document.getElementById('submit-btn').style.display = newTab === 'live' ? 'none' : '';
+    document.querySelector('.credibility-options').style.display = (newTab === 'github' || newTab === 'live') ? 'none' : '';
     if (TAB_HINTS[newTab]) {
       document.getElementById('question-sub').innerHTML = TAB_HINTS[newTab];
       document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[newTab] || '';
