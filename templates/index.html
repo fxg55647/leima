@@ -792,9 +792,9 @@
               <div id="live-click-notice" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:#fff;font-size:0.75rem;padding:0.25rem 0.75rem;border-radius:100px;pointer-events:none;z-index:10;white-space:nowrap;">Processing click…</div>
               <div id="live-latency-modal" style="display:none;position:absolute;inset:0;z-index:20;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
                 <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem 1.75rem;max-width:300px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-                  <p style="font-weight:600;margin:0 0 0.6rem;color:var(--text);font-size:0.95rem;">Live browser — pieni viive</p>
-                  <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 1.25rem;line-height:1.55;">Klikkaukset ja näppäinpainallukset rekisteröityvät <strong style="color:var(--text);">1–2 sekunnin viiveellä</strong>, koska selain pyörii pilvessä. Tee toiminto, odota hetki — sivu reagoi.</p>
-                  <button type="button" onclick="document.getElementById('live-latency-modal').style.display='none'" style="width:100%;padding:0.45rem 1rem;background:var(--blue-deep);color:#fff;border:1px solid var(--blue-deep);border-radius:4px;font-size:0.75rem;font-weight:500;font-family:'Spectral',Georgia,serif;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">Selvä</button>
+                  <p style="font-weight:600;margin:0 0 0.6rem;color:var(--text);font-size:0.95rem;">Live browser — short delay</p>
+                  <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 1.25rem;line-height:1.55;">Clicks and keypresses take <strong style="color:var(--text);">1–2 seconds</strong> to register — the browser runs in the cloud. Make your move, then wait a moment for the page to respond.</p>
+                  <button type="button" onclick="document.getElementById('live-latency-modal').style.display='none'" style="width:100%;padding:0.45rem 1rem;background:var(--blue-deep);color:#fff;border:1px solid var(--blue-deep);border-radius:4px;font-size:0.75rem;font-weight:500;font-family:'Spectral',Georgia,serif;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">Got it</button>
                 </div>
               </div>
               <iframe id="live-iframe" style="flex:1;min-width:0;height:520px;border:none;display:block;" allowfullscreen
@@ -807,7 +807,7 @@
             </div>
             <div data-stampd-current-url id="live-current-url" style="font-size:0.72rem;color:var(--text-faint);margin-top:0.3rem;word-break:break-all;"></div>
             <div style="margin-top:1rem;">
-              <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.625rem;">When the screen shows evidence for the claim you want to prove, press:</p>
+              <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.625rem;">When the page shows evidence for your claim, press:</p>
               <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
                 <button type="button" class="fetch-btn" id="live-capture-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()"
                   data-stampd-action="capture-evidence">Analyse this page</button>
@@ -1044,9 +1044,11 @@
         if (job.error) throw new Error(job.error);
         if (job.status === 'done') {
           clearInterval(ticker);
-          status.textContent = 'Done — verdict: ' + job.verdict_category;
-          document.getElementById('answer-area').innerHTML =
-            '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analysis complete. <a href="/download/' + job.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Download verdict PDF</a></div>';
+          status.textContent = 'Done — ' + job.verdict_category;
+          const frag = await fetch('/verdict-fragment/' + job.session_id);
+          document.getElementById('answer-area').innerHTML = await frag.text();
+          if (window.htmx) htmx.process(document.getElementById('answer-area'));
+          document.getElementById('answer-area').scrollIntoView({behavior: 'smooth', block: 'start'});
           break;
         } else if (job.status === 'error') {
           throw new Error(job.msg);

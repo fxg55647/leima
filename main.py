@@ -718,6 +718,32 @@ async def download_manifest(session_id: str):
     )
 
 
+@app.get("/verdict-fragment/{session_id}")
+async def verdict_fragment(request: Request, session_id: str):
+    entry = store.get(session_id)
+    if not entry:
+        return HTMLResponse('<div class="error">Result not found — it may have expired.</div>', status_code=404)
+    return templates.TemplateResponse(
+        "partials/answer.html",
+        {
+            "request": request,
+            "passes": entry["passes"],
+            "question": entry["question"],
+            "summary_verdict": entry.get("summary_verdict", ""),
+            "verdict_category": entry.get("verdict_category", ""),
+            "verdict_prefix": "Document (with evaluation)",
+            "filename": entry.get("input_label", "browser capture"),
+            "input_hash": entry["input_hash"],
+            "verdict_hash": entry.get("verdict_hash", ""),
+            "session_id": session_id,
+            "timestamp": entry["timestamp"],
+            "poide_snap": _poide_cache,
+            "irys_gateway": IRYS_GATEWAY,
+            "c2pa": None,
+        },
+    )
+
+
 async def _validate_notary(request: Request, tx_id: str, eml_file) -> HTMLResponse:
     if not eml_file or not eml_file.filename:
         return HTMLResponse('<p class="error">Please upload the .eml file.</p>')
@@ -1156,6 +1182,10 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         "source_ext": source_ext, "source_mime": source_mime,
         "passes": result["passes"], "question": question,
         "timestamp": result["timestamp"], "input_hash": input_hash,
+        "verdict_hash": verdict_hash,
+        "summary_verdict": result["summary_verdict"],
+        "verdict_category": result.get("verdict_category", ""),
+        "input_label": input_label,
         "_stored_at": time.time(),
     }
     return {
