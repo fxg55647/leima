@@ -1066,14 +1066,26 @@
           }
         }
       }
+      if (buf.trim()) {
+        try {
+          const ev = JSON.parse(buf.trim());
+          if (ev.step === 'done') {
+            gotDone = true;
+            clearInterval(ticker);
+            status.textContent = 'Done — verdict: ' + ev.verdict_category;
+            document.getElementById('answer-area').innerHTML =
+              '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analysis complete. <a href="/download/' + ev.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Download verdict PDF</a></div>';
+          }
+        } catch(_) {}
+      }
       if (!gotDone) {
         clearInterval(ticker);
-        status.textContent = 'Error: Connection closed before analysis completed — check Render logs.';
+        status.textContent = 'Error: Connection closed before analysis completed.';
       }
     } catch(e) {
-      clearInterval(ticker);
       status.textContent = 'Error: ' + e.message;
     } finally {
+      clearInterval(ticker);
       btn.disabled = false;
     }
   }

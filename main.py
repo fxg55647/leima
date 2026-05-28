@@ -1659,7 +1659,11 @@ async def browser_capture(request: Request):
             "url": current_url,
         }) + "\n"
 
-    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+    return StreamingResponse(
+        _stream(),
+        media_type="application/x-ndjson",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
 
 
 @app.post("/api/stamp")
