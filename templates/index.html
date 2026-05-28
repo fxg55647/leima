@@ -789,7 +789,8 @@
           </div>
           <div id="live-browser-wrap" style="display:none;margin-top:0.75rem;">
             <div style="overflow-x:auto;">
-              <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;width:836px;">
+              <div style="position:relative;display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;width:836px;">
+                <div id="live-click-notice" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:#fff;font-size:0.75rem;padding:0.25rem 0.75rem;border-radius:100px;pointer-events:none;z-index:10;white-space:nowrap;">Processing click…</div>
                 <iframe id="live-iframe" style="width:800px;flex-shrink:0;height:520px;border:none;display:block;" allowfullscreen
                   data-stampd-view="live-browser"></iframe>
                 <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;">
@@ -1056,6 +1057,16 @@
       btn.disabled = false;
     }
   }
+
+  window.addEventListener('blur', () => {
+    if (document.getElementById('active-tab').value !== 'live') return;
+    if (!document.getElementById('live-session-id').value) return;
+    const notice = document.getElementById('live-click-notice');
+    if (!notice) return;
+    notice.style.display = 'block';
+    clearTimeout(notice._t);
+    notice._t = setTimeout(() => { notice.style.display = 'none'; }, 1500);
+  });
 
   function switchTab(newTab, btn) {
     const current = document.getElementById('active-tab').value;
