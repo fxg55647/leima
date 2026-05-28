@@ -1486,6 +1486,36 @@ async def browser_session(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+@app.post("/browser-scroll")
+async def browser_scroll(request: Request):
+    body = await request.json()
+    session_id = body.get("session_id", "").strip()
+    direction = body.get("direction", "down")
+    if not session_id:
+        return JSONResponse({"error": "session_id required"}, status_code=400)
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return JSONResponse({"error": "Invalid session_id"}, status_code=400)
+    if not BROWSERBASE_API_KEY:
+        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
+    pixels = -600 if direction == "up" else 600
+    try:
+        from playwright.async_api import async_playwright
+        pw = await async_playwright().start()
+        connect_url = (
+            f"wss://connect.browserbase.com"
+            f"?apiKey={BROWSERBASE_API_KEY}"
+            f"&sessionId={session_id}"
+        )
+        browser = await pw.chromium.connect_over_cdp(connect_url)
+        ctx = browser.contexts[0]
+        page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+        await page.evaluate(f"window.scrollBy(0, {pixels})")
+        # Do NOT call pw.stop() — see browser_navigate comment
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.post("/browser-navigate")
 async def browser_navigate(request: Request):
     body = await request.json()

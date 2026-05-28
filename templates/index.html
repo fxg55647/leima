@@ -655,7 +655,7 @@
         <button type="button" class="tab-btn" onclick="switchTab('text', this)">Text</button>
         <button type="button" class="tab-btn" onclick="switchTab('email', this)">IMAP</button>
         <button type="button" class="tab-btn" onclick="switchTab('github', this)">GitHub</button>
-        <button type="button" class="tab-btn" onclick="switchTab('live', this)">Live</button>
+        <button type="button" class="tab-btn" onclick="switchTab('live', this)">Browser</button>
       </div>
     </div>
   </div>
@@ -788,9 +788,17 @@
               data-stampd-status="session"></span>
           </div>
           <div id="live-browser-wrap" style="display:none;margin-top:0.75rem;">
-            <iframe id="live-iframe" style="width:100%;height:480px;border:1px solid var(--border);border-radius:6px;" allowfullscreen
+            <iframe id="live-iframe" style="width:100%;height:520px;border:1px solid var(--border);border-radius:6px 6px 0 0;display:block;" allowfullscreen
               data-stampd-view="live-browser"></iframe>
-            <div data-stampd-current-url id="live-current-url" style="font-size:0.75rem;color:var(--text-muted);margin-top:0.375rem;word-break:break-all;"></div>
+            <div style="display:flex;gap:0;border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;overflow:hidden;">
+              <button type="button" onclick="scrollLiveBrowser('up')" style="flex:1;padding:0.4rem;background:var(--surface-input);border:none;border-right:1px solid var(--border);cursor:pointer;font-size:1rem;color:var(--text-muted);" title="Scroll up" data-stampd-action="scroll-up">↑</button>
+              <div style="flex:4;padding:0.35rem 0.5rem;display:flex;align-items:center;gap:0.4rem;background:var(--surface-input);">
+                <input type="url" id="live-nav-url" class="url-input" placeholder="Navigate to URL…" style="margin:0;flex:1;font-size:0.8rem;padding:0.25rem 0.5rem;" data-stampd-field="navigate-url">
+                <button type="button" onclick="navigateLiveBrowser()" style="background:var(--blue-dim);border:1px solid var(--blue-border);border-radius:4px;padding:0.25rem 0.625rem;font-size:0.78rem;color:var(--blue-deep);cursor:pointer;white-space:nowrap;" data-stampd-action="navigate">Go</button>
+              </div>
+              <button type="button" onclick="scrollLiveBrowser('down')" style="flex:1;padding:0.4rem;background:var(--surface-input);border:none;border-left:1px solid var(--border);cursor:pointer;font-size:1rem;color:var(--text-muted);" title="Scroll down" data-stampd-action="scroll-down">↓</button>
+            </div>
+            <div data-stampd-current-url id="live-current-url" style="font-size:0.72rem;color:var(--text-faint);margin-top:0.3rem;word-break:break-all;"></div>
             <div style="margin-top:1rem;">
               <label class="field-label" style="display:block;margin-bottom:0.375rem;">Enter a claim about this page for the AI to verify</label>
               <input type="text" id="live-claim" class="field-input" placeholder="e.g. invented by berners-lee" style="margin-bottom:0.625rem;"
@@ -975,6 +983,43 @@
     }
     btn.disabled = false;
     btn.textContent = 'Open browser';
+  }
+
+  async function scrollLiveBrowser(direction) {
+    const sessionId = document.getElementById('live-session-id').value;
+    const status = document.getElementById('live-status');
+    if (!sessionId) return;
+    try {
+      await fetch('/browser-scroll', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id: sessionId, direction}),
+      });
+    } catch(e) {
+      status.textContent = 'Virhe: ' + e.message;
+    }
+  }
+
+  async function navigateLiveBrowser() {
+    const sessionId = document.getElementById('live-session-id').value;
+    const url = document.getElementById('live-nav-url').value.trim();
+    const status = document.getElementById('live-status');
+    if (!sessionId || !url) return;
+    status.textContent = 'Navigoidaan…';
+    try {
+      const r = await fetch('/browser-navigate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id: sessionId, url}),
+      });
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      document.getElementById('live-current-url').textContent = url;
+      document.getElementById('live-nav-url').value = '';
+      status.textContent = 'Valmis.';
+    } catch(e) {
+      status.textContent = 'Virhe: ' + e.message;
+    }
   }
 
   async function captureLiveBrowser() {
