@@ -31,7 +31,7 @@
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-28 16:53:48 UTC",
+  "checked_at": "2026-05-28 16:53:56 UTC",
   "monitor_files": {
     ".github/workflows/tread-a.yml": "4ea3fdf861d3edc101fd1b06d5ce2794152b7cbe8f8c24943742311bec466aae",
     ".github/workflows/tread-b.yml": "6f7e151e016d34c597d56e43f1b8b1ad9d44a2523fd0df2c823e6dfe9499914e",
@@ -44,9 +44,9 @@
     "tread_check.py": "48251951069890bc6e36e52348068e6116171ee097b6a1223c209673ac5e3174",
     "tread_arweave.py": "97021253cbb4ca21800e2ad7386ef608b4c7907609e18ea7966b395df5487aad",
     "monthly_audit.py": "90e3a6be75d09a8156c0e6a7c33cede05cb7f3e9fd128acbcf96b2bbfb360646",
-    "code_review.py": "f02571d43251fcb8e564332c88107703ba0dfaef77b50f6a02da9ff884f9c396",
-    "POLICY.example.md": "a0ccfca1d2d65cb4345f000e9d1ae5e702bdfa5a20e93bc719972b9838bdeda2"
+    "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
+    "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26589116499",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26589116499"
+  "actions_run_id": "26589127063",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26589127063"
 }
