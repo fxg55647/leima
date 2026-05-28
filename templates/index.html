@@ -1065,19 +1065,19 @@
     function timeAgo() {
       if (!lastCheckedAt) return '';
       const s = Math.floor((Date.now() - lastCheckedAt) / 1000);
-      return s < 60 ? 'checked ' + s + 's ago' : 'checked ' + Math.floor(s / 60) + 'm ago';
+      return s < 60 ? s + 's ago' : Math.floor(s / 60) + 'm ago';
     }
     function setDot(mode) {
       if (mode === 'danger') { dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;'; dot.textContent = '⛔'; }
       else { dot.textContent = ''; const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#2a4a62'; dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;'; }
     }
     function row(statusText, statusColor, reason) {
+      const ago = timeAgo();
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
            + (reason ? ' <span style="color:#fff;font-weight:400">— ' + reason + '</span>' : '')
-           + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">TREAD</span>'
-           + ' <span id="poide-ago-inner" style="color:#fff">' + timeAgo() + '</span>'
-           + ' <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>'
-           + ' <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">status</a>';
+           + ' <span style="color:#aaa;font-size:0.78rem;margin-left:0.3rem">· <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#aaa;text-decoration:underline;text-underline-offset:2px;">TREAD</a>'
+           + (ago ? ' · <span id="poide-ago-inner">' + ago + '</span>' : '<span id="poide-ago-inner"></span>')
+           + ' · <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener" style="color:#aaa;text-decoration:underline;text-underline-offset:2px;">audit log</a></span>';
     }
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
@@ -1104,7 +1104,7 @@
           } else if (!unknownCommit && verified && !commitMatch) {
             fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
           } else if (p.ok || commitMatch) {
-            fadeSet(row('OK', '#fff'), 'ok');
+            fadeSet(row('OK', '#fff', 'live server matches verified build'), 'ok');
           } else if (p.ok === false) {
             fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed'), 'danger');
           } else {
