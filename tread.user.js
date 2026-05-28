@@ -13,24 +13,35 @@
 const STATUS_URL = "https://fxg55647.github.io/leima/status.json";
 
 function banner(color, message, detail) {
+    document.getElementById("poide-banner")?.remove();
     const el = document.createElement("div");
     el.id = "poide-banner";
-    el.style.cssText = `
-        position:fixed; top:0; left:0; right:0; z-index:999999;
-        background:${color}; color:#fff; padding:10px 16px;
-        font:14px/1.4 system-ui,sans-serif; display:flex;
-        justify-content:space-between; align-items:center;
-        box-shadow:0 2px 6px rgba(0,0,0,.3);
-    `;
+    el.style.cssText = [
+        "all:initial",
+        "display:flex",
+        "position:fixed",
+        "top:0","left:0","right:0",
+        "z-index:2147483647",
+        "min-height:40px",
+        "background:" + color,
+        "color:#fff",
+        "padding:10px 16px",
+        "font:bold 13px/1.4 system-ui,sans-serif",
+        "justify-content:space-between",
+        "align-items:center",
+        "box-shadow:0 2px 8px rgba(0,0,0,.4)",
+        "box-sizing:border-box",
+    ].join(";");
     const text = document.createElement("span");
+    text.style.cssText = "all:initial;color:#fff;font:bold 13px/1.4 system-ui,sans-serif;";
     text.textContent = message + (detail ? " — " + detail : "");
     const close = document.createElement("button");
     close.textContent = "×";
-    close.style.cssText = "background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0 4px;";
+    close.style.cssText = "all:initial;color:#fff;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;";
     close.onclick = () => el.remove();
     el.appendChild(text);
     el.appendChild(close);
-    document.body.prepend(el);
+    document.documentElement.appendChild(el);
 }
 
 function checkMonitorFiles(current) {
