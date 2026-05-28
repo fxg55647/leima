@@ -51,6 +51,7 @@ Check each of the following, citing specific file and line where relevant:
 4. Does the AI prompt logic in neutral_witness.py match what POLICY.example.md says the model is instructed to do?
 5. Does the Arweave/Irys upload in the user-data path contain anything beyond hashes and metadata?
 6. Are there any external HTTP calls in the user-data path not described in POLICY.example.md?
+7. Logging check: does main.py suppress uvicorn.access and root logger at startup (as required by POLICY.example.md)? Are there any print(), logging.info(), logging.debug(), or logging.exception() calls in the user-data path (main.py, neutral_witness.py, notary.py) that reference document content, claim text, email bodies, or any user-supplied data? Any such call is a FAIL regardless of log level, because the hosting platform captures all stdout/stderr.
 
 Note: infrastructure scripts (tread_check.py, tread_arweave.py, monthly_audit.py) make HTTP calls to Render API, GitHub API, and Arweave — these are deployment monitoring calls, not user-data calls, and are not in scope for POLICY.example.md compliance. hooks/pre-push.py makes one HTTP call to the gh-pages status log and is a developer tool, not server code.
 

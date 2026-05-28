@@ -97,6 +97,20 @@ The model is not instructed to retain, summarise, or report your data for any ot
 
 ---
 
+## Logging
+
+Leima is deployed on Render, which automatically captures all stdout and stderr output from the application process. To prevent user data from appearing in Render's infrastructure logs, Leima suppresses application-level logging at startup:
+
+- Python's root logger is set to WARNING level
+- The `uvicorn.access` logger is set to ERROR level, suppressing per-request access logs
+- HTTP client loggers (`httpx`, `httpcore`) and the Google SDK logger are set to ERROR level
+
+**What this means in practice:** normal operation produces no log output. Only unhandled exceptions at the Python runtime level may produce output, and those are not under Leima's control.
+
+**What an auditor should verify:** no `print()`, `logging.info()`, `logging.debug()`, or `logging.exception()` calls in the user-data path (main.py, neutral_witness.py, notary.py) should reference document content, claim text, email bodies, or user-supplied data of any kind. Error messages returned to the user must not echo back content that could appear in a log.
+
+---
+
 ## Deployment integrity
 
 Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [TREAD.md](TREAD.md) for details.
