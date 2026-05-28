@@ -3,6 +3,7 @@
 // @namespace    https://github.com/fxg55647/leima
 // @version      1.0
 // @description  Verifies Leima deployment integrity before each session
+// @match        https://leima.io/*
 // @match        https://leima.onrender.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
