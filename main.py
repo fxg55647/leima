@@ -1453,22 +1453,35 @@ class CodeReviewRequest(BaseModel):
 BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
 BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
 
-# Persistent Playwright connections keyed by Browserbase session_id.
-# Avoids re-connecting on every scroll/navigate (slow) and prevents
-# pw.stop() from killing the DevTools iframe between actions.
-_pw_sessions: dict = {}
+# Single shared Playwright instance — one Node.js subprocess for the whole server.
+# Multiple async_playwright().start() calls each spawn a Node process (~100MB each),
+# so we reuse one. Browser/page objects per session are lightweight WebSocket wrappers.
+_pw_instance = None
+_pw_sessions: dict = {}  # session_id -> {browser, page}
+_PW_SESSION_LIMIT = 10   # drop oldest if exceeded
+
+
+async def _get_playwright():
+    global _pw_instance
+    if _pw_instance is None:
+        from playwright.async_api import async_playwright
+        _pw_instance = await async_playwright().start()
+    return _pw_instance
 
 
 async def _get_pw_page(session_id: str):
-    """Return cached (pw, browser, page) for session, creating if needed."""
-    from playwright.async_api import async_playwright
+    """Return cached (browser, page) for session, creating if needed."""
     if session_id in _pw_sessions:
         try:
             await _pw_sessions[session_id]["page"].title()
             return _pw_sessions[session_id]
         except Exception:
             del _pw_sessions[session_id]
-    pw = await async_playwright().start()
+    # Evict oldest entry if at limit
+    if len(_pw_sessions) >= _PW_SESSION_LIMIT:
+        oldest = next(iter(_pw_sessions))
+        _pw_sessions.pop(oldest, None)
+    pw = await _get_playwright()
     connect_url = (
         f"wss://connect.browserbase.com"
         f"?apiKey={BROWSERBASE_API_KEY}&sessionId={session_id}"
@@ -1476,7 +1489,7 @@ async def _get_pw_page(session_id: str):
     browser = await pw.chromium.connect_over_cdp(connect_url)
     ctx = browser.contexts[0]
     page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-    _pw_sessions[session_id] = {"pw": pw, "browser": browser, "page": page}
+    _pw_sessions[session_id] = {"browser": browser, "page": page}
     return _pw_sessions[session_id]
 
 
