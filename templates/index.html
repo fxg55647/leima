@@ -1313,7 +1313,7 @@
             fadeSet(row('Please note', '#f0a030', 'Deploying <span id="poide-deploy-elapsed">(' + s + 's)</span>'), 'warning');
           } else if (p.ok || commitMatch) {
             stopDeployTicker();
-            fadeSet(row('git = deploy', '#fff', ''), 'ok');
+            fadeSet(row('deploy matches git', '#fff', ''), 'ok');
           } else if (p.ok === false) {
             stopDeployTicker();
             fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'key missing' : 'mismatch'), 'danger');
