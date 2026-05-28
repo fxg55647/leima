@@ -3,15 +3,15 @@
   "rapid_deploy_warning": false,
   "deployment_ok": false,
   "review_ok": false,
-  "review_consecutive_failures": 0,
+  "review_consecutive_failures": 1,
   "review_stuck": false,
-  "deploying": false,
-  "deploying_commit": null,
-  "deploying_commit_ok": false,
-  "deployed_commit": "b4567d90e1a34463ce2673cab5f5b95e38c6f460",
-  "expected_commit": "891f877f784be8b4ac8271586e562215ab316d42",
+  "deploying": true,
+  "deploying_commit": "655cff778d25d24e897707692de2f902d6805307",
+  "deploying_commit_ok": true,
+  "deployed_commit": "891f877f784be8b4ac8271586e562215ab316d42",
+  "expected_commit": "655cff778d25d24e897707692de2f902d6805307",
   "deploy_status": "live",
-  "review_conclusion": "in_progress",
+  "review_conclusion": "failure",
   "cron_fresh": true,
   "workflow_states": {
     "tread-a.yml": "active",
@@ -22,16 +22,16 @@
   },
   "disabled_workflows": [],
   "history": {
-    "scanned_deploys": 91,
+    "scanned_deploys": 90,
     "last_mismatch_at": null,
     "last_mismatch_commit": null,
-    "clean_since": "2026-05-25T12:02:49.069692Z",
-    "deploys_last_hour": 1
+    "clean_since": "2026-05-25T12:10:54.770727Z",
+    "deploys_last_hour": 2
   },
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-28 10:07:55 UTC",
+  "checked_at": "2026-05-28 10:09:42 UTC",
   "monitor_files": {
     ".github/workflows/tread-a.yml": "4ea3fdf861d3edc101fd1b06d5ce2794152b7cbe8f8c24943742311bec466aae",
     ".github/workflows/tread-b.yml": "6f7e151e016d34c597d56e43f1b8b1ad9d44a2523fd0df2c823e6dfe9499914e",
@@ -47,6 +47,6 @@
     "code_review.py": "f02571d43251fcb8e564332c88107703ba0dfaef77b50f6a02da9ff884f9c396",
     "POLICY.example.md": "5175bc2e11f5293e502c5ee68f6c93b2e6e7c6bd2bbe3acaa1bed9ded060cc4b"
   },
-  "actions_run_id": "26568294502",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26568294502"
+  "actions_run_id": "26568385153",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26568385153"
 }
