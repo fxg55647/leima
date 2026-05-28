@@ -216,6 +216,20 @@ Leima periodically fetches a specified URL or API endpoint and stamps the respon
 
 ---
 
+### Bring-your-own-AI stamping
+
+A user provides their own API credentials for any AI service — OpenAI, Anthropic, Gemini, Mistral, or any other — along with a prompt. Leima sends the request using those credentials, receives the response, and stamps both: this prompt, this model, this version, this response, at this time. The user controls the credentials and the prompt; Leima's role is to act as an independent witness to what was sent and what came back.
+
+**Documenting harmful or surprising outputs.** If a model produces something harmful, biased, factually wrong, or otherwise notable, the stamp creates a permanent, verifiable record that cannot be dismissed as a screenshot. The record establishes that this specific model, at this specific version, produced this specific output — before the provider had any opportunity to patch or deny it. A screenshot can be fabricated; a stamped API call cannot.
+
+**Tracking model behaviour over time.** Models are silently updated. A response that a model gave six months ago may no longer be reproducible with the same prompt and model name — the underlying weights may have changed without any public announcement. Stamping outputs at the time they are generated creates a historical record of what a model actually said, independent of what it says now.
+
+**Regulatory and compliance evidence.** In regulated contexts — healthcare, finance, legal — automated AI-assisted decisions may be subject to audit. A stamped record of the exact prompt and response, tied to a specific model version, provides a basis for explaining and defending the decision. If a regulator later questions what the system produced, the stamp is the answer.
+
+**Research and journalism.** A researcher or journalist documenting AI behaviour — testing for bias, probing for policy violations, comparing models — can produce a body of stamped evidence that is independently verifiable. The record shows not just what was claimed about the model's output, but what the model actually returned, at a specific moment, under specific conditions.
+
+---
+
 ### Multi-model consensus
 
 For high-stakes verdicts, Leima runs the same document and claim through multiple independent AI models simultaneously and requires agreement across all of them before issuing a stamp. A successful prompt injection or model manipulation would need to fool every architecture at once — a significantly harder task than targeting a single model.
