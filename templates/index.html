@@ -976,6 +976,11 @@
       document.getElementById('email-fetch-results').innerHTML = '';
       document.getElementById('email-session-id').value = '';
       document.getElementById('email-idx').value = '';
+    } else if (tab === 'live') {
+      if (_liveScreenshotInterval) { clearInterval(_liveScreenshotInterval); _liveScreenshotInterval = null; }
+      document.getElementById('live-session-id').value = '';
+      document.getElementById('live-browser-wrap').style.display = 'none';
+      document.getElementById('live-img').src = '';
     }
   }
 
@@ -1063,6 +1068,41 @@
     if (hint) { document.getElementById('question-sub').innerHTML = hint; document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[tab] || ''; }
   }
 
+  let _liveScreenshotInterval = null;
+
+  function _startScreenshotPoll(sessionId) {
+    if (_liveScreenshotInterval) clearInterval(_liveScreenshotInterval);
+    const img = document.getElementById('live-img');
+    const refresh = () => { img.src = '/browser-screenshot/' + sessionId + '?t=' + Date.now(); };
+    refresh();
+    _liveScreenshotInterval = setInterval(refresh, 2000);
+
+    img.onclick = async (e) => {
+      const rect = img.getBoundingClientRect();
+      img.focus();
+      await fetch('/browser-click/' + sessionId, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height}),
+      });
+      setTimeout(refresh, 600);
+    };
+
+    const SPECIAL = {Enter:'Enter',Backspace:'Backspace',Tab:'Tab',Escape:'Escape',
+      ArrowUp:'ArrowUp',ArrowDown:'ArrowDown',ArrowLeft:'ArrowLeft',ArrowRight:'ArrowRight',
+      Delete:'Delete',Home:'Home',End:'End',PageUp:'PageUp',PageDown:'PageDown'};
+    img.onkeydown = async (e) => {
+      const key = SPECIAL[e.key];
+      if (key || (e.key.length === 1 && !e.ctrlKey && !e.metaKey)) {
+        e.preventDefault();
+        await fetch('/browser-key/' + sessionId, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(key ? {key} : {text: e.key}),
+        });
+        setTimeout(refresh, 400);
+      }
+    };
+  }
+
   async function openLiveBrowser() {
     const btn = document.getElementById('live-open-btn');
     const status = document.getElementById('live-status');
@@ -1074,20 +1114,19 @@
       const r = await fetch('/browser-session', {method: 'POST'});
       const d = await r.json();
       if (d.error) throw new Error(d.error);
-      document.getElementById('live-session-id').value = d.session_id;
-      document.getElementById('live-iframe').src = d.live_url;
+      const sessionId = d.session_id;
+      document.getElementById('live-session-id').value = sessionId;
       document.getElementById('live-browser-wrap').style.display = 'block';
       document.getElementById('live-capture-section').style.display = 'block';
+      _startScreenshotPoll(sessionId);
       if (startUrl) {
         status.textContent = 'Navigating…';
-        await new Promise(r => setTimeout(r, 2000));
-        const nr = await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: d.session_id, url: startUrl})});
+        const nr = await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: sessionId, url: startUrl})});
         const nd = await nr.json();
         if (nd.error) throw new Error('Navigate failed: ' + nd.error);
         document.getElementById('live-current-url').textContent = startUrl;
       }
-      status.textContent = 'Browser open — navigate freely, then press Analyse.';
-      const lm = document.getElementById('live-latency-modal'); lm.style.display = 'flex';
+      status.textContent = 'Browser open — click to interact, then press Analyse.';
     } catch(e) {
       status.textContent = 'Error: ' + e.message;
     }

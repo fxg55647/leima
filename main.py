@@ -1510,16 +1510,13 @@ class CodeReviewRequest(BaseModel):
     token: str = ""    # GitHub token for private repos
 
 
-BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
-BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
-
-# Single shared Playwright instance — one Node.js subprocess for the whole server.
-# Multiple async_playwright().start() calls each spawn a Node process (~100MB each),
-# so we reuse one. Browser/page objects per session are lightweight WebSocket wrappers.
+# Single shared Playwright instance and Chromium browser.
+# Each user session gets its own isolated browser context (separate cookies/storage).
 _pw_instance = None
-_pw_sessions: dict = {}  # session_id -> {browser, page}
+_pw_browser = None
+_pw_sessions: dict = {}  # session_id -> {context, page, last_click}
 _capture_jobs: dict = {}  # job_id -> status dict
-_PW_SESSION_LIMIT = 10   # drop oldest if exceeded
+_PW_SESSION_LIMIT = 10
 
 
 async def _get_playwright():
@@ -1530,58 +1527,118 @@ async def _get_playwright():
     return _pw_instance
 
 
+async def _get_browser():
+    global _pw_browser
+    if _pw_browser is None or not _pw_browser.is_connected():
+        pw = await _get_playwright()
+        _pw_browser = await pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
+                  "--disable-gpu", "--disable-background-networking"],
+        )
+    return _pw_browser
+
+
 async def _get_pw_page(session_id: str):
-    """Return cached (browser, page) for session, creating if needed."""
     if session_id in _pw_sessions:
         try:
             await _pw_sessions[session_id]["page"].title(timeout=5000)
             return _pw_sessions[session_id]
         except Exception:
+            try:
+                await _pw_sessions[session_id]["context"].close()
+            except Exception:
+                pass
             del _pw_sessions[session_id]
-    # Evict oldest entry if at limit
     if len(_pw_sessions) >= _PW_SESSION_LIMIT:
         oldest = next(iter(_pw_sessions))
+        try:
+            await _pw_sessions[oldest]["context"].close()
+        except Exception:
+            pass
         _pw_sessions.pop(oldest, None)
-    pw = await _get_playwright()
-    connect_url = (
-        f"wss://connect.browserbase.com"
-        f"?apiKey={BROWSERBASE_API_KEY}&sessionId={session_id}"
-    )
-    browser = await pw.chromium.connect_over_cdp(connect_url, timeout=30000)
-    ctx = browser.contexts[0]
-    page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-    _pw_sessions[session_id] = {"browser": browser, "page": page}
+    browser = await _get_browser()
+    context = await browser.new_context(viewport={"width": 1280, "height": 800})
+    page = await context.new_page()
+    _pw_sessions[session_id] = {"context": context, "page": page, "last_click": None}
     return _pw_sessions[session_id]
 
 
 @app.post("/browser-session")
 async def browser_session(request: Request):
-    body = {}
+    session_id = uuid.uuid4().hex
+    try:
+        await _get_pw_page(session_id)
+        return JSONResponse({"session_id": session_id})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/browser-screenshot/{session_id}")
+async def browser_screenshot(session_id: str):
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return Response(status_code=400)
+    conn = _pw_sessions.get(session_id)
+    if not conn:
+        return Response(status_code=404)
+    try:
+        last = conn.get("last_click")
+        if last:
+            await conn["page"].evaluate("""(p) => {
+                document.getElementById('_lc')?.remove();
+                const d = document.createElement('div');
+                d.id = '_lc';
+                d.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;'
+                  + 'width:28px;height:28px;border-radius:50%;border:3px solid #e74c3c;'
+                  + 'background:rgba(231,76,60,0.2);'
+                  + 'left:' + (p.x-14) + 'px;top:' + (p.y-14) + 'px;';
+                document.body?.appendChild(d);
+                const ae = document.activeElement;
+                if (ae && ae !== document.body && ae.tagName !== 'HTML')
+                    ae.style.outline = '2px solid #e74c3c';
+            }""", last)
+        img = await conn["page"].screenshot(type="jpeg", quality=82, full_page=False)
+        return Response(content=img, media_type="image/jpeg",
+                        headers={"Cache-Control": "no-store, no-cache"})
+    except Exception:
+        return Response(status_code=500)
+
+
+@app.post("/browser-click/{session_id}")
+async def browser_click(session_id: str, request: Request):
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return JSONResponse({"error": "invalid"}, status_code=400)
+    conn = _pw_sessions.get(session_id)
+    if not conn:
+        return JSONResponse({"error": "session not found"}, status_code=404)
     try:
         body = await request.json()
-    except Exception:
-        pass
-    start_url = body.get("url", "").strip()
-    if not BROWSERBASE_API_KEY or not BROWSERBASE_PROJECT_ID:
-        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
+        vp = conn["page"].viewport_size or {"width": 1280, "height": 800}
+        x = float(body["x"]) * vp["width"]
+        y = float(body["y"]) * vp["height"]
+        conn["last_click"] = {"x": x, "y": y}
+        await conn["page"].mouse.click(x, y)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/browser-key/{session_id}")
+async def browser_key(session_id: str, request: Request):
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return JSONResponse({"error": "invalid"}, status_code=400)
+    conn = _pw_sessions.get(session_id)
+    if not conn:
+        return JSONResponse({"error": "session not found"}, status_code=404)
     try:
-        resp = http_requests.post(
-            "https://www.browserbase.com/v1/sessions",
-            headers={"x-bb-api-key": BROWSERBASE_API_KEY, "Content-Type": "application/json"},
-            json={"projectId": BROWSERBASE_PROJECT_ID, "browserSettings": {"viewport": {"width": 600, "height": 800}}},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        session = resp.json()
-        session_id = session["id"]
-        debug_resp = http_requests.get(
-            f"https://www.browserbase.com/v1/sessions/{session_id}/debug",
-            headers={"x-bb-api-key": BROWSERBASE_API_KEY},
-            timeout=10,
-        )
-        debug_resp.raise_for_status()
-        live_url = debug_resp.json().get("debuggerFullscreenUrl", "")
-        return JSONResponse({"session_id": session_id, "live_url": live_url})
+        body = await request.json()
+        key = body.get("key", "")
+        text = body.get("text", "")
+        if key:
+            await conn["page"].keyboard.press(key)
+        elif text:
+            await conn["page"].keyboard.type(text)
+        return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -1595,8 +1652,6 @@ async def browser_scroll(request: Request):
         return JSONResponse({"error": "session_id required"}, status_code=400)
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
         return JSONResponse({"error": "Invalid session_id"}, status_code=400)
-    if not BROWSERBASE_API_KEY:
-        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
     pixels = -600 if direction == "up" else 600
     try:
         conn = await _get_pw_page(session_id)
@@ -1620,8 +1675,6 @@ async def browser_navigate(request: Request):
         _check_ssrf(url)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
-    if not BROWSERBASE_API_KEY:
-        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
     try:
         conn = await _get_pw_page(session_id)
         await conn["page"].goto(url, timeout=30000)
@@ -1692,8 +1745,6 @@ async def browser_capture(request: Request):
         return JSONResponse({"error": "session_id required"}, status_code=400)
     if not question:
         return JSONResponse({"error": "question required"}, status_code=400)
-    if not BROWSERBASE_API_KEY:
-        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
 
     cutoff = time.time() - 1800
     for jid in [k for k, v in _capture_jobs.items() if v.get("created_at", 0) < cutoff]:
