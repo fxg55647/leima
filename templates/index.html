@@ -1236,10 +1236,17 @@
     let lastModalKey = '';
     let _deployStart = null;
     let _deployTicker = null;
+    const _DEPLOY_LS_KEY = 'leima_deploy_start';
 
     function startDeployTicker() {
       if (_deployTicker) return;
-      if (!_deployStart) _deployStart = Date.now();
+      if (!_deployStart) {
+        try {
+          const stored = localStorage.getItem(_DEPLOY_LS_KEY);
+          _deployStart = stored ? parseInt(stored, 10) : Date.now();
+          localStorage.setItem(_DEPLOY_LS_KEY, _deployStart);
+        } catch { _deployStart = Date.now(); }
+      }
       _deployTicker = setInterval(() => {
         const el = document.getElementById('poide-deploy-elapsed');
         if (el) el.textContent = '(' + Math.round((Date.now() - _deployStart) / 1000) + 's)';
@@ -1248,6 +1255,7 @@
     function stopDeployTicker() {
       if (_deployTicker) { clearInterval(_deployTicker); _deployTicker = null; }
       _deployStart = null;
+      try { localStorage.removeItem(_DEPLOY_LS_KEY); } catch {}
     }
 
     function isSuppressed(key) {
