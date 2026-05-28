@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         POIDE — Leima deployment check
+// @name         TREAD — Leima deployment check
 // @namespace    https://github.com/fxg55647/leima
-// @version      1.0
-// @description  Verifies Leima deployment integrity before each session
+// @version      2.0
+// @description  Shows a modal warning when Leima deployment integrity is compromised
 // @match        https://leima.io/*
 // @match        https://leima.onrender.com/*
 // @grant        GM_xmlhttpRequest
@@ -12,36 +12,58 @@
 
 const STATUS_URL = "https://fxg55647.github.io/leima/status.json";
 
-function banner(color, message, detail) {
-    document.getElementById("poide-banner")?.remove();
-    const el = document.createElement("div");
-    el.id = "poide-banner";
-    el.style.cssText = [
-        "all:initial",
-        "display:flex",
-        "position:fixed",
-        "top:0","left:0","right:0",
-        "z-index:2147483647",
-        "min-height:40px",
-        "background:" + color,
-        "color:#fff",
-        "padding:10px 16px",
-        "font:bold 13px/1.4 system-ui,sans-serif",
-        "justify-content:space-between",
-        "align-items:center",
-        "box-shadow:0 2px 8px rgba(0,0,0,.4)",
-        "box-sizing:border-box",
+function modal(title, lines) {
+    document.getElementById("tread-modal")?.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "tread-modal";
+    overlay.style.cssText = [
+        "all:initial", "display:flex", "position:fixed", "inset:0",
+        "z-index:2147483647", "background:rgba(0,0,0,0.75)",
+        "align-items:center", "justify-content:center",
+        "font-family:system-ui,sans-serif",
     ].join(";");
-    const text = document.createElement("span");
-    text.style.cssText = "all:initial;color:#fff;font:bold 13px/1.4 system-ui,sans-serif;";
-    text.textContent = message + (detail ? " — " + detail : "");
-    const close = document.createElement("button");
-    close.textContent = "×";
-    close.style.cssText = "all:initial;color:#fff;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;";
-    close.onclick = () => el.remove();
-    el.appendChild(text);
-    el.appendChild(close);
-    document.documentElement.appendChild(el);
+
+    const box = document.createElement("div");
+    box.style.cssText = [
+        "all:initial", "display:block",
+        "background:#1a1a1a", "color:#fff",
+        "border:2px solid #c0392b", "border-radius:10px",
+        "padding:2rem 2rem 1.5rem", "max-width:420px", "width:90%",
+        "box-shadow:0 8px 40px rgba(0,0,0,0.7)",
+        "font-family:system-ui,sans-serif",
+    ].join(";");
+
+    const h = document.createElement("div");
+    h.style.cssText = "all:initial;display:block;font:bold 16px system-ui;color:#e74c3c;margin-bottom:1rem;letter-spacing:0.03em;";
+    h.textContent = "⚠ " + title;
+
+    const body = document.createElement("div");
+    body.style.cssText = "all:initial;display:block;font:14px/1.6 system-ui;color:#ddd;margin-bottom:1.5rem;";
+    lines.forEach(line => {
+        const p = document.createElement("p");
+        p.style.cssText = "all:initial;display:block;font:14px/1.6 system-ui;color:#ddd;margin:0 0 0.4rem;";
+        p.textContent = line;
+        body.appendChild(p);
+    });
+
+    const btn = document.createElement("button");
+    btn.textContent = "Dismiss";
+    btn.style.cssText = [
+        "all:initial", "display:inline-block", "cursor:pointer",
+        "background:#c0392b", "color:#fff",
+        "border:none", "border-radius:5px",
+        "padding:0.5rem 1.25rem",
+        "font:bold 13px system-ui",
+    ].join(";");
+    btn.onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    box.appendChild(h);
+    box.appendChild(body);
+    box.appendChild(btn);
+    overlay.appendChild(box);
+    document.documentElement.appendChild(overlay);
 }
 
 function checkMonitorFiles(current) {
@@ -54,42 +76,13 @@ function checkMonitorFiles(current) {
     return changed.length > 0 ? changed : null;
 }
 
-function failReason(d) {
-    if (d.deploying && !d.deploying_commit_ok) return "WARNING: commit being deployed does not match GitHub";
-    if (d.deploying)            return "deploy in progress — wait before submitting documents";
-    if (!d.deployment_ok)       return "deployed commit does not match GitHub";
-    if (d.cron_fresh === false)  return "monitoring delayed — GitHub Actions backlog?";
-    return "status unknown";
-}
+const COOLDOWN_MS = 5 * 60 * 1000;
 
-const ALERT_COOLDOWN_MS = 5 * 60 * 1000;
-
-function alertIfDangerousDeploy(d) {
-    if (!d.deploying || d.deploying_commit_ok !== false || !d.deploying_commit) return;
-    const last = GM_getValue("last_deploy_alert", 0);
-    if (Date.now() - last < ALERT_COOLDOWN_MS) return;
-    GM_setValue("last_deploy_alert", Date.now());
-    alert(
-        "⚠ TREAD WARNING ⚠\n\n" +
-        "A commit is being deployed that does NOT match the GitHub repository:\n" +
-        (d.deploying_commit || "?").slice(0, 7) + " ≠ " + (d.expected_commit || "?").slice(0, 7) + "\n\n" +
-        "Do not submit sensitive documents until this is resolved.\n" +
-        "Check GitHub Actions and the Render dashboard."
-    );
-}
-
-function historyLabel(h) {
-    if (!h || h.scanned_deploys === 0) return null;
-    if (h.last_mismatch_at) {
-        const days = Math.floor((Date.now() - new Date(h.last_mismatch_at)) / 86400000);
-        return { level: days < 7 ? "red" : "orange",
-                 text: `mismatch in history ${days}d ago (${h.last_mismatch_commit})` };
-    }
-    if (h.clean_since) {
-        const days = Math.floor((Date.now() - new Date(h.clean_since)) / 86400000);
-        return { level: "green", text: `clean history for ${days}d` };
-    }
-    return null;
+function isCooledDown(key) {
+    const last = GM_getValue("cooldown_" + key, 0);
+    if (Date.now() - last < COOLDOWN_MS) return false;
+    GM_setValue("cooldown_" + key, Date.now());
+    return true;
 }
 
 GM_xmlhttpRequest({
@@ -97,30 +90,26 @@ GM_xmlhttpRequest({
     url: STATUS_URL,
     onload(r) {
         let d;
-        try { d = JSON.parse(r.responseText); }
-        catch { banner("#e67e22", "TREAD ✗", "status.json is not valid JSON"); return; }
+        try { d = JSON.parse(r.responseText); } catch { return; }
 
-        const changed = checkMonitorFiles(d.monitor_files || {});
-        const hist = historyLabel(d.history);
+        checkMonitorFiles(d.monitor_files || {});
 
-        alertIfDangerousDeploy(d);
+        const dangerousDeploy = d.deploying && d.deploying_commit_ok === false && d.deploying_commit;
 
-        if (!d.ok) {
-            banner("#c0392b", "TREAD ✗ — check GitHub Actions before use", failReason(d));
-        } else if (d.deploying) {
-            banner("#e67e22", "TREAD ⚠ — deploy detected", "code is changing — wait before submitting sensitive documents");
-        } else if (changed) {
-            banner("#e67e22", "TREAD ⚠ — monitor files changed since last session", changed.join(", "));
-        } else if (hist && hist.level !== "green") {
-            banner(hist.level === "red" ? "#c0392b" : "#e67e22",
-                "TREAD ⚠ — " + hist.text, null);
-        } else {
-            const detail = hist ? hist.text : null;
-            banner("#27ae60", "TREAD ✓ — code verified, deployment matches git", detail);
-            setTimeout(() => document.getElementById("poide-banner")?.remove(), 5000);
+        if (dangerousDeploy && isCooledDown("danger_" + (d.deploying_commit || "").slice(0, 7))) {
+            modal("TREAD — Unauthorized deploy detected", [
+                "A commit is being deployed that does NOT match the GitHub repository.",
+                (d.deploying_commit || "?").slice(0, 7) + " ≠ " + (d.expected_commit || "?").slice(0, 7),
+                "Do not submit sensitive documents until this is resolved.",
+                "Check GitHub Actions and the Render dashboard.",
+            ]);
+        } else if (!d.ok && !d.deploying && isCooledDown("mismatch")) {
+            modal("TREAD — Deployment mismatch", [
+                "The running code does not match the verified GitHub commit.",
+                "This may indicate a deployment issue or unauthorized change.",
+                "Do not submit sensitive documents until this is resolved.",
+            ]);
         }
     },
-    onerror() {
-        banner("#e67e22", "TREAD ✗", "could not reach status.json");
-    }
+    onerror() { /* silent on network error */ }
 });
