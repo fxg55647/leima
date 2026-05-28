@@ -31,7 +31,7 @@
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-28 15:21:50 UTC",
+  "checked_at": "2026-05-28 15:22:25 UTC",
   "monitor_files": {
     ".github/workflows/tread-a.yml": "4ea3fdf861d3edc101fd1b06d5ce2794152b7cbe8f8c24943742311bec466aae",
     ".github/workflows/tread-b.yml": "6f7e151e016d34c597d56e43f1b8b1ad9d44a2523fd0df2c823e6dfe9499914e",
@@ -47,6 +47,6 @@
     "code_review.py": "f02571d43251fcb8e564332c88107703ba0dfaef77b50f6a02da9ff884f9c396",
     "POLICY.example.md": "a0ccfca1d2d65cb4345f000e9d1ae5e702bdfa5a20e93bc719972b9838bdeda2"
   },
-  "actions_run_id": "26584027532",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26584027532"
+  "actions_run_id": "26584058058",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26584058058"
 }
