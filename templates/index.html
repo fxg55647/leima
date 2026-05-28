@@ -778,16 +778,18 @@
 
         <div id="tab-live" class="tab-panel">
           <div style="margin-bottom:0.75rem;">
-            <input type="url" id="live-url" class="url-input" placeholder="https://vero.fi — leave empty to start blank">
+            <input type="url" id="live-url" class="url-input" placeholder="https://vero.fi">
           </div>
           <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-            <button type="button" class="fetch-btn" id="live-open-btn" onclick="openLiveBrowser()" style="margin-bottom:0;">Open browser</button>
+            <button type="button" class="fetch-btn" id="live-open-btn" onclick="openLiveBrowser()" style="margin-bottom:0;">Load page</button>
             <span id="live-status" style="font-size:0.8rem;color:var(--text-muted);"></span>
           </div>
           <div id="live-browser-wrap" style="display:none;margin-top:0.75rem;">
             <iframe id="live-iframe" style="width:100%;height:480px;border:1px solid var(--border);border-radius:6px;" allowfullscreen></iframe>
-            <div style="margin-top:0.625rem;">
-              <button type="button" class="fetch-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()">Capture &amp; analyse</button>
+            <div style="margin-top:1rem;">
+              <label class="field-label" style="display:block;margin-bottom:0.375rem;">Enter a claim about this page for the AI to verify</label>
+              <input type="text" id="live-claim" class="field-input" placeholder="e.g. invented by berners-lee" style="margin-bottom:0.625rem;">
+              <button type="button" class="fetch-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()">Analyse this page</button>
             </div>
           </div>
           <input type="hidden" id="live-session-id" value="">
@@ -969,9 +971,9 @@
 
   async function captureLiveBrowser() {
     const sessionId = document.getElementById('live-session-id').value;
-    const question = document.getElementById('question-input').value.trim();
+    const question = document.getElementById('live-claim').value.trim();
     const status = document.getElementById('live-status');
-    if (!sessionId) { status.textContent = 'Open a browser first.'; return; }
+    if (!sessionId) { status.textContent = 'Load a page first.'; return; }
     if (!question) { status.textContent = 'Enter a claim first.'; return; }
     status.textContent = 'Capturing…';
     document.getElementById('answer-area').innerHTML = '';
