@@ -1620,22 +1620,32 @@ async def browser_capture(request: Request):
         ]
         contents = [c for c in contents if c is not None]
         try:
+            import time as _time
             _loop = asyncio.get_running_loop()
-            result = await asyncio.wait_for(
-                _loop.run_in_executor(
-                    None,
-                    lambda: _run_analysis(
-                        question, contents, screenshot_bytes,
-                        input_label=current_url,
-                        source_ext="jpg", source_mime="image/jpeg",
-                        source_context=source_context,
-                    )
-                ),
-                timeout=120.0,
+            _fut = _loop.run_in_executor(
+                None,
+                lambda: _run_analysis(
+                    question, contents, screenshot_bytes,
+                    input_label=current_url,
+                    source_ext="jpg", source_mime="image/jpeg",
+                    source_context=source_context,
+                )
             )
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            yield _json.dumps({"step": "error", "msg": "Analysis timed out after 120 seconds. Please try again."}) + "\n"
-            return
+            _start = _time.monotonic()
+            _max = 120.0
+            _hb = 8.0
+            while True:
+                elapsed = _time.monotonic() - _start
+                if elapsed >= _max:
+                    _fut.cancel()
+                    yield _json.dumps({"step": "error", "msg": f"Analysis timed out after {int(_max)}s."}) + "\n"
+                    return
+                _wait = min(_hb, _max - elapsed)
+                done, _ = await asyncio.wait({_fut}, timeout=_wait)
+                if done:
+                    result = _fut.result()
+                    break
+                yield _json.dumps({"step": "heartbeat", "msg": "Analysing with AI…"}) + "\n"
         except Exception as e:
             yield _json.dumps({"step": "error", "msg": f"Analysis failed: {e}"}) + "\n"
             return

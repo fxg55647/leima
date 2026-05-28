@@ -1033,6 +1033,7 @@
       reader = r.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
+      let gotDone = false;
       while (true) {
         const {done, value} = await reader.read();
         if (done) break;
@@ -1052,14 +1053,10 @@
               status.textContent = `Analysing with AI… (${s}s)`;
             }, 1000);
             status.textContent = 'Analysing with AI…';
-            jsTimeout = setTimeout(() => {
-              reader && reader.cancel();
-              clearInterval(ticker);
-              status.textContent = 'Error: No response after 150 seconds. Please try again.';
-              btn.disabled = false;
-            }, 150000);
+          } else if (ev.step === 'heartbeat') {
+            // keep-alive from server, ticker already running
           } else if (ev.step === 'done') {
-            clearTimeout(jsTimeout);
+            gotDone = true;
             clearInterval(ticker);
             status.textContent = 'Done — verdict: ' + ev.verdict_category;
             document.getElementById('answer-area').innerHTML =
@@ -1069,8 +1066,11 @@
           }
         }
       }
+      if (!gotDone) {
+        clearInterval(ticker);
+        status.textContent = 'Error: Connection closed before analysis completed — check Render logs.';
+      }
     } catch(e) {
-      clearTimeout(jsTimeout);
       clearInterval(ticker);
       status.textContent = 'Error: ' + e.message;
     } finally {
