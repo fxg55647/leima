@@ -1883,24 +1883,3 @@ async def api_code_review(body: CodeReviewRequest):
         "rules_url": body.rules_url.strip(),
         **({"stamp": {"tx_id": tx_id, "url": arweave_url}} if tx_id else {}),
     })
-
-
-@app.get("/debug/ptrace-test")
-async def ptrace_test():
-    import os, ctypes
-    pid = os.getpid()
-    results = {}
-    try:
-        with open(f"/proc/{pid}/mem", "rb") as f:
-            results["proc_mem"] = "readable"
-    except Exception as e:
-        results["proc_mem"] = str(e)
-    try:
-        import subprocess
-        r = subprocess.run(["cat", f"/proc/{pid}/status"], capture_output=True, text=True)
-        lines = {l.split(":")[0]: l.split(":")[1].strip() for l in r.stdout.splitlines() if ":" in l}
-        results["seccomp"] = lines.get("Seccomp", "?")
-        results["no_new_privs"] = lines.get("NoNewPrivs", "?")
-    except Exception as e:
-        results["status"] = str(e)
-    return JSONResponse(results)

@@ -144,7 +144,23 @@ Nämä pitää olla asetettuna Renderin dashboardissa:
 
 ## Versiohistoria tästä dokumentista
 
+## Tietoturvahuomiot
+
+**Renderin natiivi Python-ympäristö (ei Dockeria):**
+- `/proc/<pid>/mem` on luettavissa — käynnissä olevan prosessin muisti ei ole suojattu
+- `seccomp: 0` — ei järjestelmäkutsusuodatusta, ptrace todennäköisesti sallittu
+- Käytännössä: Web Shell -pääsy = pääsy prosessin muistiin
+
+**Mitä tämä tarkoittaa:** Efemeerit avaimet tai muut muistissa olevat salaisuudet eivät tarjoa suojaa tässä ympäristössä. Docker + seccomp + CAP_SYS_PTRACE dropped sulkisi tämän reiän.
+
+**Operaattorin luottamusvaatimus:** Leima vaatii luottamuksen operaattoriin samoin kuin notaari — ei enempää eikä vähempää. Tämä pitää kommunikoida käyttäjille rehellisesti.
+
+---
+
+## Versiohistoria
+
 | Päivämäärä | Muutos |
 |---|---|
 | 2026-05-29 | Luotu. Kuvaa Browserbase + POIDE + Render -putken. |
-| 2026-05-29 | Pre-push hookki estää pushin jos workflow käynnissä. Post-push käyttää gh run watch + asyncRewake. |
+| 2026-05-29 | Pre-push hookki estää pushin jos workflow käynnissä. Post-push käyttää gh run watch. asyncRewake poistettu — ei luotettava aktiivisessa chatissa. push.ps1 synkroninen vaihtoehto. |
+| 2026-05-29 | Tietoturvatesti: /proc/mem readable, seccomp=0. Docker tarvitaan muistieristykseen. |
