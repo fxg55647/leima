@@ -5,8 +5,8 @@
   "review_ok": false,
   "review_consecutive_failures": 0,
   "review_stuck": false,
-  "deploying": false,
-  "deploying_commit": null,
+  "deploying": true,
+  "deploying_commit": "856521bd894fc429119c29f1f649f5967ac90bb6",
   "deploying_commit_ok": false,
   "deployed_commit": "ed215a53ef5be478d7ed4f0604a75c9a83b4c5c5",
   "expected_commit": null,
@@ -22,14 +22,16 @@
   },
   "disabled_workflows": [],
   "history": {
-    "scanned_deploys": 0,
+    "scanned_deploys": 96,
     "last_mismatch_at": null,
-    "clean_since": null
+    "last_mismatch_commit": null,
+    "clean_since": "2026-05-25T17:49:22.628883Z",
+    "deploys_last_hour": 6
   },
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-28 18:07:29 UTC",
+  "checked_at": "2026-05-28 18:08:27 UTC",
   "monitor_files": {
     ".github/workflows/tread-a.yml": "4ea3fdf861d3edc101fd1b06d5ce2794152b7cbe8f8c24943742311bec466aae",
     ".github/workflows/tread-b.yml": "6f7e151e016d34c597d56e43f1b8b1ad9d44a2523fd0df2c823e6dfe9499914e",
@@ -38,14 +40,13 @@
     ".github/workflows/tread-e.yml": "479eed9086f0be9b24fcb00d74715fbd464a51401516b4480346e4930cf595a1",
     ".github/workflows/tread-run.yml": "ad8f418133becb1af6932f2ecff6a246a098ba6898a97e9ab947c7531df4aa54",
     ".github/workflows/monthly-audit.yml": "05b3b6d6a2c1ff304e3815b6bafce8496a842283da855f14b46ac821e88d79b3",
-    ".github/workflows/code_review.yml": "e58740539ec4f7838648405aec72ce983306696279d252ec72cd920e0efe093b",
+    ".github/workflows/code_review.yml": "d45b8247269754b90227fb45c94241b11afa784e942c4f0c0391e03b30665362",
     "tread_check.py": "48251951069890bc6e36e52348068e6116171ee097b6a1223c209673ac5e3174",
     "tread_arweave.py": "97021253cbb4ca21800e2ad7386ef608b4c7907609e18ea7966b395df5487aad",
     "monthly_audit.py": "90e3a6be75d09a8156c0e6a7c33cede05cb7f3e9fd128acbcf96b2bbfb360646",
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26593040281",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26593040281",
-  "error": "HTTPSConnectionPool(host='api.render.com', port=443): Read timed out. (read timeout=10)"
+  "actions_run_id": "26593067881",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26593067881"
 }
