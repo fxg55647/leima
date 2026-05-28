@@ -648,7 +648,6 @@
   <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
     <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
     <span id="poide-text"></span>
-    <span id="offline-indicator" style="display:none;margin-left:auto;font-size:0.72rem;color:#e57373;letter-spacing:0.03em;">⚠ No connection</span>
   </div>
 </div>
 
@@ -1166,11 +1165,22 @@
   }
 
   (function() {
-    const ind = document.getElementById('offline-indicator');
-    function update() { ind.style.display = navigator.onLine ? 'none' : 'inline'; }
-    window.addEventListener('online', update);
-    window.addEventListener('offline', update);
-    update();
+    const dot = document.getElementById('poide-dot');
+    const text = document.getElementById('poide-text');
+    let _savedText = '', _savedDot = '';
+    function goOffline() {
+      _savedText = text.textContent;
+      _savedDot = dot.style.background;
+      text.textContent = 'No connection';
+      dot.style.background = '#e57373';
+    }
+    function goOnline() {
+      text.textContent = _savedText;
+      dot.style.background = _savedDot || '#2a4a62';
+    }
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    if (!navigator.onLine) goOffline();
   })();
 
   window.addEventListener('blur', () => {
