@@ -946,12 +946,19 @@
     status.textContent = '';
     try {
       const startUrl = document.getElementById('live-url').value.trim();
-      const r = await fetch('/browser-session', {method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(startUrl ? {url: startUrl} : {})});
+      const r = await fetch('/browser-session', {method: 'POST'});
       const d = await r.json();
       if (d.error) throw new Error(d.error);
       document.getElementById('live-session-id').value = d.session_id;
       document.getElementById('live-iframe').src = d.live_url;
       document.getElementById('live-browser-wrap').style.display = 'block';
+      if (startUrl) {
+        status.textContent = 'Navigating…';
+        await new Promise(r => setTimeout(r, 2000));
+        const nr = await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: d.session_id, url: startUrl})});
+        const nd = await nr.json();
+        if (nd.error) throw new Error('Navigate failed: ' + nd.error);
+      }
       status.textContent = 'Browser open — navigate freely, then capture.';
     } catch(e) {
       status.textContent = 'Error: ' + e.message;

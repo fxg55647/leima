@@ -1465,13 +1465,10 @@ async def browser_session(request: Request):
     if not BROWSERBASE_API_KEY or not BROWSERBASE_PROJECT_ID:
         return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
     try:
-        payload: dict = {"projectId": BROWSERBASE_PROJECT_ID}
-        if start_url:
-            payload["startUrl"] = start_url
         resp = http_requests.post(
             "https://www.browserbase.com/v1/sessions",
             headers={"x-bb-api-key": BROWSERBASE_API_KEY, "Content-Type": "application/json"},
-            json=payload,
+            json={"projectId": BROWSERBASE_PROJECT_ID},
             timeout=15,
         )
         resp.raise_for_status()
