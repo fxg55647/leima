@@ -1215,6 +1215,7 @@ async def ask(
     pdf_url: str = Form(""),
     web_url: str = Form(""),
     image_file: UploadFile = File(None),
+    image_url: str = Form(""),
     assess_credibility: str = Form(""),
     gh_repo: str = Form(""),
     gh_ref: str = Form("main"),
@@ -1235,18 +1236,44 @@ async def ask(
     MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
     if active_tab == "image":
-        if not image_file or not image_file.filename:
-            return HTMLResponse('<div class="error">Please upload an image.</div>')
-        mime = _detect_image_mime(image_file.filename)
-        if not mime:
-            return HTMLResponse('<div class="error">Unsupported image format. Use JPG, PNG, GIF, WebP, HEIC, or HEIF.</div>')
-        if image_file.size and image_file.size > MAX_UPLOAD_BYTES:
-            return HTMLResponse('<div class="error">File too large (max 20 MB).</div>')
-        input_bytes = await image_file.read()
-        c2pa_info = _check_c2pa(input_bytes, mime)
-        input_label = mime
-        source_ext = image_file.filename.rsplit(".", 1)[-1].lower()
-        source_mime = mime
+        if image_url.strip():
+            try:
+                _check_ssrf(image_url.strip())
+                resp = _safe_get(image_url.strip(), timeout=20, stream=True)
+                resp.raise_for_status()
+                ct = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+                url_ext = image_url.strip().rsplit(".", 1)[-1].lower() if "." in image_url else ""
+                mime = ct if ct in _IMAGE_MIMES.values() else _IMAGE_MIMES.get(url_ext)
+                if not mime:
+                    return HTMLResponse('<div class="error">URL does not point to a supported image format.</div>')
+                chunks, total = [], 0
+                for chunk in resp.iter_content(chunk_size=65536):
+                    total += len(chunk)
+                    if total > MAX_UPLOAD_BYTES:
+                        return HTMLResponse('<div class="error">Image too large (max 20 MB).</div>')
+                    chunks.append(chunk)
+                input_bytes = b"".join(chunks)
+            except ValueError as e:
+                return HTMLResponse(f'<div class="error">{e}</div>')
+            except Exception as e:
+                return HTMLResponse(f'<div class="error">Could not fetch image: {e}</div>')
+            c2pa_info = _check_c2pa(input_bytes, mime)
+            input_label = image_url.strip()
+            source_ext = url_ext or mime.split("/")[-1]
+            source_mime = mime
+        elif image_file and image_file.filename:
+            mime = _detect_image_mime(image_file.filename)
+            if not mime:
+                return HTMLResponse('<div class="error">Unsupported image format. Use JPG, PNG, GIF, WebP, HEIC, or HEIF.</div>')
+            if image_file.size and image_file.size > MAX_UPLOAD_BYTES:
+                return HTMLResponse('<div class="error">File too large (max 20 MB).</div>')
+            input_bytes = await image_file.read()
+            c2pa_info = _check_c2pa(input_bytes, mime)
+            input_label = mime
+            source_ext = image_file.filename.rsplit(".", 1)[-1].lower()
+            source_mime = mime
+        else:
+            return HTMLResponse('<div class="error">Please upload an image or enter a URL.</div>')
         contents.append(types.Part.from_bytes(data=input_bytes, mime_type=mime))
         if c2pa_info and c2pa_info.get("present"):
             source_context = {
