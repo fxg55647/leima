@@ -1513,7 +1513,6 @@ async def browser_navigate(request: Request):
             ctx = browser.contexts[0]
             page = ctx.pages[0] if ctx.pages else await ctx.new_page()
             await page.goto(url, timeout=30000)
-            await browser.close()
         return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
