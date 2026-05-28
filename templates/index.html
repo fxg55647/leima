@@ -945,15 +945,12 @@
     btn.textContent = 'Opening…';
     status.textContent = '';
     try {
-      const r = await fetch('/browser-session', {method: 'POST'});
+      const startUrl = document.getElementById('live-url').value.trim();
+      const r = await fetch('/browser-session', {method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(startUrl ? {url: startUrl} : {})});
       const d = await r.json();
       if (d.error) throw new Error(d.error);
       document.getElementById('live-session-id').value = d.session_id;
       document.getElementById('live-iframe').src = d.live_url;
-      const startUrl = document.getElementById('live-url').value.trim();
-      if (startUrl) {
-        await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: d.session_id, url: startUrl})}).catch(()=>{});
-      }
       document.getElementById('live-browser-wrap').style.display = 'block';
       status.textContent = 'Browser open — navigate freely, then capture.';
     } catch(e) {

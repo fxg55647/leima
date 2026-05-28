@@ -11,3 +11,5 @@ Markdown==3.7
 bleach==6.2.0
 pypdf==5.1.0
 asn1crypto==1.5.1
+playwright>=1.40.0
+browserbase>=0.3.0

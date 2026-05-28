@@ -34,6 +34,41 @@ from irys_sdk.bundle.tags import from_dict as tags_from_dict
 
 load_dotenv()
 
+
+def _patch_urllib3_ssrf_guard():
+    """Prevent DNS rebinding by resolving once at socket level and connecting to the pinned IP."""
+    try:
+        import urllib3.util.connection as _u3conn
+    except ImportError:
+        return
+    _orig = _u3conn.create_connection
+
+    def _ssrf_safe_create_connection(address, *args, **kwargs):
+        host, port = address
+        try:
+            infos = socket.getaddrinfo(host, port or 0, 0, socket.SOCK_STREAM)
+        except OSError:
+            raise OSError(f"Cannot resolve hostname: {host}")
+        resolved_ip = None
+        for info in infos:
+            ip = info[4][0]
+            try:
+                addr = ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                raise ConnectionError(f"Connection to private/internal address blocked: {ip}")
+            if resolved_ip is None:
+                resolved_ip = ip
+        if resolved_ip is None:
+            raise OSError(f"No resolvable address for: {host}")
+        return _orig((resolved_ip, port), *args, **kwargs)
+
+    _u3conn.create_connection = _ssrf_safe_create_connection
+
+
+_patch_urllib3_ssrf_guard()
+
 IRYS_PRIVATE_KEY = os.getenv("IRYS_PRIVATE_KEY")
 IRYS_NETWORK = os.getenv("IRYS_NETWORK", "mainnet")
 IRYS_RPC_URL = os.getenv("IRYS_RPC_URL")
@@ -636,7 +671,7 @@ async def files(request: Request, session_id: str, formats: list[str] = Form(def
     try:
         irys_tx = _irys_upload(record_bytes, "application/json", {"Leima-Type": "stamp-record"})
     except Exception as e:
-        return HTMLResponse(f'<p class="error">Arweave upload failed: {e}</p>')
+        return HTMLResponse(f'<p class="error">Arweave upload failed: {_html_escape(str(e))}</p>')
 
     irys_url = f"{IRYS_GATEWAY}/{irys_tx}"
     entry["manifest"] = {**stamp_record, "stamp": {"tx_id": irys_tx, "url": irys_url}}
@@ -1420,14 +1455,23 @@ BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
 
 
 @app.post("/browser-session")
-async def browser_session():
+async def browser_session(request: Request):
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    start_url = body.get("url", "").strip()
     if not BROWSERBASE_API_KEY or not BROWSERBASE_PROJECT_ID:
         return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
     try:
+        payload: dict = {"projectId": BROWSERBASE_PROJECT_ID}
+        if start_url:
+            payload["startUrl"] = start_url
         resp = http_requests.post(
             "https://www.browserbase.com/v1/sessions",
             headers={"x-bb-api-key": BROWSERBASE_API_KEY, "Content-Type": "application/json"},
-            json={"projectId": BROWSERBASE_PROJECT_ID},
+            json=payload,
             timeout=15,
         )
         resp.raise_for_status()
@@ -1452,6 +1496,12 @@ async def browser_navigate(request: Request):
     url = body.get("url", "").strip()
     if not session_id or not url:
         return JSONResponse({"error": "session_id and url required"}, status_code=400)
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return JSONResponse({"error": "Invalid session_id"}, status_code=400)
+    try:
+        _check_ssrf(url)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
     if not BROWSERBASE_API_KEY:
         return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
     try:
