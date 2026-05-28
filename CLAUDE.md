@@ -12,4 +12,3 @@ Workflow täytyy aina exitata 0:lla — muuten GitHub passivoi scheduled-ajot.
 
 ## Muuta
 - Puhu aina suomea käyttäjälle
-- Käynnistä session alussa automaattisesti token-seurantalooppi: kutsu ScheduleWakeup (270s, prompt="seuraa tokeneja") ja ilmoita käyttäjälle lyhyesti että seuranta käynnistetty
