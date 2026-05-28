@@ -781,28 +781,25 @@
             <input type="url" id="live-url" class="url-input" placeholder="https://vero.fi"
               data-stampd-field="target-url">
           </div>
-          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;">
             <button type="button" class="fetch-btn" id="live-open-btn" onclick="openLiveBrowser()" style="margin-bottom:0;"
-              data-stampd-action="open-url">Load page</button>
+              data-stampd-action="open-url">Open browser</button>
             <span id="live-status" style="font-size:0.8rem;color:var(--text-muted);"
               data-stampd-status="session"></span>
           </div>
           <div id="live-browser-wrap" style="display:none;margin-top:0.75rem;">
-            <iframe id="live-iframe" style="width:100%;height:520px;border:1px solid var(--border);border-radius:6px 6px 0 0;display:block;" allowfullscreen
-              data-stampd-view="live-browser"></iframe>
-            <div style="display:flex;gap:0;border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;overflow:hidden;">
-              <button type="button" onclick="scrollLiveBrowser('up')" style="flex:1;padding:0.4rem;background:var(--surface-input);border:none;border-right:1px solid var(--border);cursor:pointer;font-size:1rem;color:var(--text-muted);" title="Scroll up" data-stampd-action="scroll-up">↑</button>
-              <div style="flex:4;padding:0.35rem 0.5rem;display:flex;align-items:center;gap:0.4rem;background:var(--surface-input);">
-                <input type="url" id="live-nav-url" class="url-input" placeholder="Navigate to URL…" style="margin:0;flex:1;font-size:0.8rem;padding:0.25rem 0.5rem;" data-stampd-field="navigate-url">
-                <button type="button" onclick="navigateLiveBrowser()" style="background:var(--blue-dim);border:1px solid var(--blue-border);border-radius:4px;padding:0.25rem 0.625rem;font-size:0.78rem;color:var(--blue-deep);cursor:pointer;white-space:nowrap;" data-stampd-action="navigate">Go</button>
+            <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+              <iframe id="live-iframe" style="flex:1;height:520px;border:none;display:block;" allowfullscreen
+                data-stampd-view="live-browser"></iframe>
+              <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;">
+                <button type="button" onclick="scrollLiveBrowser('up')" style="padding:0.6rem 0;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;" title="Scroll up" data-stampd-action="scroll-up">↑</button>
+                <div style="flex:1;"></div>
+                <button type="button" onclick="scrollLiveBrowser('down')" style="padding:0.6rem 0;background:none;border:none;border-top:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;" title="Scroll down" data-stampd-action="scroll-down">↓</button>
               </div>
-              <button type="button" onclick="scrollLiveBrowser('down')" style="flex:1;padding:0.4rem;background:var(--surface-input);border:none;border-left:1px solid var(--border);cursor:pointer;font-size:1rem;color:var(--text-muted);" title="Scroll down" data-stampd-action="scroll-down">↓</button>
             </div>
             <div data-stampd-current-url id="live-current-url" style="font-size:0.72rem;color:var(--text-faint);margin-top:0.3rem;word-break:break-all;"></div>
             <div style="margin-top:1rem;">
-              <label class="field-label" style="display:block;margin-bottom:0.375rem;">Enter a claim about this page for the AI to verify</label>
-              <input type="text" id="live-claim" class="field-input" placeholder="e.g. invented by berners-lee" style="margin-bottom:0.625rem;"
-                data-stampd-field="claim">
+              <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.625rem;">Kun ruudussa näkyy todisteet väitteelle jonka haluat todistaa, paina vasta sitten:</p>
               <button type="button" class="fetch-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()"
                 data-stampd-action="capture-evidence">Analyse this page</button>
             </div>
@@ -970,14 +967,14 @@
       document.getElementById('live-iframe').src = d.live_url;
       document.getElementById('live-browser-wrap').style.display = 'block';
       if (startUrl) {
-        status.textContent = 'Navigating…';
+        status.textContent = 'Navigoidaan…';
         await new Promise(r => setTimeout(r, 2000));
         const nr = await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: d.session_id, url: startUrl})});
         const nd = await nr.json();
         if (nd.error) throw new Error('Navigate failed: ' + nd.error);
         document.getElementById('live-current-url').textContent = startUrl;
       }
-      status.textContent = 'Browser open — navigate freely, then capture.';
+      status.textContent = 'Selain auki — navigoi vapaasti, sitten paina Analyse.';
     } catch(e) {
       status.textContent = 'Error: ' + e.message;
     }
@@ -1000,34 +997,12 @@
     }
   }
 
-  async function navigateLiveBrowser() {
-    const sessionId = document.getElementById('live-session-id').value;
-    const url = document.getElementById('live-nav-url').value.trim();
-    const status = document.getElementById('live-status');
-    if (!sessionId || !url) return;
-    status.textContent = 'Navigoidaan…';
-    try {
-      const r = await fetch('/browser-navigate', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({session_id: sessionId, url}),
-      });
-      const d = await r.json();
-      if (d.error) throw new Error(d.error);
-      document.getElementById('live-current-url').textContent = url;
-      document.getElementById('live-nav-url').value = '';
-      status.textContent = 'Valmis.';
-    } catch(e) {
-      status.textContent = 'Virhe: ' + e.message;
-    }
-  }
-
   async function captureLiveBrowser() {
     const sessionId = document.getElementById('live-session-id').value;
-    const question = document.getElementById('live-claim').value.trim();
+    const question = document.getElementById('question-input').value.trim();
     const status = document.getElementById('live-status');
-    if (!sessionId) { status.textContent = 'Load a page first.'; return; }
-    if (!question) { status.textContent = 'Enter a claim first.'; return; }
+    if (!sessionId) { status.textContent = 'Avaa ensin selain.'; return; }
+    if (!question) { status.textContent = 'Syötä ensin väite ylhäälle.'; return; }
     status.textContent = 'Capturing…';
     document.getElementById('answer-area').innerHTML = '';
     try {
