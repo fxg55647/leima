@@ -842,7 +842,7 @@
               </div>
             </div>
             <div data-stampd-current-url id="live-current-url" style="font-size:0.72rem;color:var(--text-faint);margin-top:0.3rem;word-break:break-all;"></div>
-            <div style="margin-top:1rem;">
+            <div id="live-capture-section" style="display:none;margin-top:1rem;">
               <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.625rem;">When the page shows evidence for your claim, press:</p>
               <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
                 <button type="button" class="fetch-btn" id="live-capture-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()"
@@ -1076,6 +1076,7 @@
       document.getElementById('live-session-id').value = d.session_id;
       document.getElementById('live-iframe').src = d.live_url;
       document.getElementById('live-browser-wrap').style.display = 'block';
+      document.getElementById('live-capture-section').style.display = 'block';
       if (startUrl) {
         status.textContent = 'Navigating…';
         await new Promise(r => setTimeout(r, 2000));
