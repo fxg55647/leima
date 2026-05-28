@@ -1555,7 +1555,7 @@ async def browser_capture(request: Request):
 
         yield _json.dumps({"step": "screenshot", "msg": "Otetaan kuvakaappaus…"}) + "\n"
         try:
-            screenshot_bytes = await page.screenshot(full_page=True, type="png")
+            screenshot_bytes = await page.screenshot(full_page=False, type="jpeg", quality=88)
             current_url = page.url
             await pw.stop()
         except Exception as e:
@@ -1571,14 +1571,14 @@ async def browser_capture(request: Request):
             "url": current_url,
             "fetched_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         }
-        contents = [types.Part.from_bytes(data=screenshot_bytes, mime_type="image/png")]
+        contents = [types.Part.from_bytes(data=screenshot_bytes, mime_type="image/jpeg")]
         try:
             result = await asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda: _run_analysis(
                     question, contents, screenshot_bytes,
                     input_label=current_url,
-                    source_ext="png", source_mime="image/png",
+                    source_ext="jpg", source_mime="image/jpeg",
                     source_context=source_context,
                 )
             )
