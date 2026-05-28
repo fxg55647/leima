@@ -1620,8 +1620,9 @@ async def browser_capture(request: Request):
         ]
         contents = [c for c in contents if c is not None]
         try:
+            _loop = asyncio.get_running_loop()
             result = await asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
+                _loop.run_in_executor(
                     None,
                     lambda: _run_analysis(
                         question, contents, screenshot_bytes,
@@ -1632,7 +1633,7 @@ async def browser_capture(request: Request):
                 ),
                 timeout=120.0,
             )
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, asyncio.CancelledError):
             yield _json.dumps({"step": "error", "msg": "Analysis timed out after 120 seconds. Please try again."}) + "\n"
             return
         except Exception as e:

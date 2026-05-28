@@ -790,6 +790,13 @@
           <div id="live-browser-wrap" style="display:none;margin-top:0.75rem;">
             <div style="position:relative;display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
               <div id="live-click-notice" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:#fff;font-size:0.75rem;padding:0.25rem 0.75rem;border-radius:100px;pointer-events:none;z-index:10;white-space:nowrap;">Processing click…</div>
+              <div id="live-latency-modal" style="display:none;position:absolute;inset:0;z-index:20;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem 1.75rem;max-width:300px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+                  <p style="font-weight:600;margin:0 0 0.6rem;color:var(--text);font-size:0.95rem;">Live browser — pieni viive</p>
+                  <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 1.25rem;line-height:1.55;">Klikkaukset ja näppäinpainallukset rekisteröityvät <strong style="color:var(--text);">1–2 sekunnin viiveellä</strong>, koska selain pyörii pilvessä. Tee toiminto, odota hetki — sivu reagoi.</p>
+                  <button type="button" onclick="document.getElementById('live-latency-modal').style.display='none'" style="width:100%;padding:0.45rem 1rem;background:var(--blue-deep);color:#fff;border:1px solid var(--blue-deep);border-radius:4px;font-size:0.75rem;font-weight:500;font-family:'Spectral',Georgia,serif;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">Selvä</button>
+                </div>
+              </div>
               <iframe id="live-iframe" style="flex:1;min-width:0;height:520px;border:none;display:block;" allowfullscreen
                 data-stampd-view="live-browser"></iframe>
               <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;">
@@ -979,6 +986,7 @@
         document.getElementById('live-current-url').textContent = startUrl;
       }
       status.textContent = 'Browser open — navigate freely, then press Analyse.';
+      const lm = document.getElementById('live-latency-modal'); lm.style.display = 'flex';
     } catch(e) {
       status.textContent = 'Error: ' + e.message;
     }
@@ -1011,6 +1019,8 @@
     btn.disabled = true;
     document.getElementById('answer-area').innerHTML = '';
     let ticker = null;
+    let jsTimeout = null;
+    let reader = null;
     try {
       const r = await fetch('/browser-capture', {
         method: 'POST',
@@ -1018,7 +1028,7 @@
         body: JSON.stringify({session_id: sessionId, question}),
       });
       if (!r.ok) { const e = await r.json(); throw new Error(e.error || r.statusText); }
-      const reader = r.body.getReader();
+      reader = r.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
       while (true) {
@@ -1029,7 +1039,9 @@
         buf = lines.pop();
         for (const line of lines) {
           if (!line.trim()) continue;
-          const ev = JSON.parse(line);
+          let ev;
+          try { ev = JSON.parse(line); } catch { console.warn('[capture] bad JSON:', line); continue; }
+          console.log('[capture]', ev.step, ev);
           if (ev.step === 'error') throw new Error(ev.msg);
           if (ev.step === 'analysing') {
             const start = Date.now();
@@ -1038,7 +1050,14 @@
               status.textContent = `Analysing with AI… (${s}s)`;
             }, 1000);
             status.textContent = 'Analysing with AI…';
+            jsTimeout = setTimeout(() => {
+              reader && reader.cancel();
+              clearInterval(ticker);
+              status.textContent = 'Error: No response after 150 seconds. Please try again.';
+              btn.disabled = false;
+            }, 150000);
           } else if (ev.step === 'done') {
+            clearTimeout(jsTimeout);
             clearInterval(ticker);
             status.textContent = 'Done — verdict: ' + ev.verdict_category;
             document.getElementById('answer-area').innerHTML =
@@ -1049,6 +1068,7 @@
         }
       }
     } catch(e) {
+      clearTimeout(jsTimeout);
       clearInterval(ticker);
       status.textContent = 'Error: ' + e.message;
     } finally {
