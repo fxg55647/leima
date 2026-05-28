@@ -1598,7 +1598,7 @@ async def _run_capture_job(job_id: str, session_id: str, question: str) -> None:
         }
         contents = [
             types.Part.from_bytes(data=screenshot_bytes, mime_type="image/jpeg"),
-            types.Part.from_text(f"Visible page text:\n{page_text}") if page_text else None,
+            types.Part(text=f"Visible page text:\n{page_text}") if page_text else None,
         ]
         contents = [c for c in contents if c is not None]
         _loop = asyncio.get_running_loop()
