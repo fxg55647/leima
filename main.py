@@ -1574,6 +1574,58 @@ async def browser_navigate(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+async def _run_capture_job(job_id: str, session_id: str, question: str) -> None:
+    job = _capture_jobs[job_id]
+    try:
+        job["msg"] = "Connecting to browser…"
+        conn = await _get_pw_page(session_id)
+        page = conn["page"]
+
+        job["msg"] = "Taking screenshot…"
+        screenshot_bytes = await page.screenshot(full_page=False, type="jpeg", quality=88)
+        current_url = page.url
+        page_text = await page.evaluate(
+            "document.body ? document.body.innerText.slice(0, 4000) : ''"
+        )
+
+        job["msg"] = "Analysing with AI…"
+        parsed = urlparse(current_url)
+        source_context = {
+            "type": "browser_capture",
+            "domain": parsed.netloc,
+            "url": current_url,
+            "fetched_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        }
+        contents = [
+            types.Part.from_bytes(data=screenshot_bytes, mime_type="image/jpeg"),
+            types.Part.from_text(f"Visible page text:\n{page_text}") if page_text else None,
+        ]
+        contents = [c for c in contents if c is not None]
+        _loop = asyncio.get_running_loop()
+        result = await asyncio.wait_for(
+            _loop.run_in_executor(
+                None,
+                lambda: _run_analysis(
+                    question, contents, screenshot_bytes,
+                    input_label=current_url,
+                    source_ext="jpg", source_mime="image/jpeg",
+                    source_context=source_context,
+                ),
+            ),
+            timeout=180.0,
+        )
+        job["status"] = "done"
+        job["session_id"] = result["session_id"]
+        job["verdict_category"] = result.get("verdict_category", "")
+        job["summary_verdict"] = result["summary_verdict"]
+    except asyncio.TimeoutError:
+        job["status"] = "error"
+        job["msg"] = "Analysis timed out — please try again."
+    except Exception as e:
+        job["status"] = "error"
+        job["msg"] = str(e)
+
+
 @app.post("/browser-capture")
 async def browser_capture(request: Request):
     body = await request.json()
@@ -1586,88 +1638,22 @@ async def browser_capture(request: Request):
     if not BROWSERBASE_API_KEY:
         return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
 
-    import json as _json
+    cutoff = time.time() - 1800
+    for jid in [k for k, v in _capture_jobs.items() if v.get("created_at", 0) < cutoff]:
+        _capture_jobs.pop(jid, None)
 
-    async def _stream():
-        yield _json.dumps({"step": "connecting", "msg": "Connecting to browser…"}) + "\n"
-        try:
-            conn = await _get_pw_page(session_id)
-            page = conn["page"]
-        except Exception as e:
-            yield _json.dumps({"step": "error", "msg": f"Capture failed: {e}"}) + "\n"
-            return
+    job_id = uuid.uuid4().hex
+    _capture_jobs[job_id] = {"status": "pending", "msg": "Starting…", "created_at": time.time()}
+    asyncio.create_task(_run_capture_job(job_id, session_id, question))
+    return JSONResponse({"job_id": job_id})
 
-        yield _json.dumps({"step": "screenshot", "msg": "Taking screenshot…"}) + "\n"
-        try:
-            screenshot_bytes = await page.screenshot(full_page=False, type="jpeg", quality=88)
-            current_url = page.url
-            page_text = await page.evaluate(
-                "document.body ? document.body.innerText.slice(0, 4000) : ''"
-            )
-        except Exception as e:
-            _pw_sessions.pop(session_id, None)
-            yield _json.dumps({"step": "error", "msg": f"Screenshot failed: {e}"}) + "\n"
-            return
 
-        yield _json.dumps({"step": "analysing", "msg": "Analysing with AI…"}) + "\n"
-        from urllib.parse import urlparse as _up
-        parsed = _up(current_url)
-        source_context = {
-            "type": "browser_capture",
-            "domain": parsed.netloc,
-            "url": current_url,
-            "fetched_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
-        }
-        contents = [
-            types.Part.from_bytes(data=screenshot_bytes, mime_type="image/jpeg"),
-            types.Part.from_text(f"Visible page text:\n{page_text}") if page_text else None,
-        ]
-        contents = [c for c in contents if c is not None]
-        try:
-            import time as _time
-            _loop = asyncio.get_running_loop()
-            _fut = _loop.run_in_executor(
-                None,
-                lambda: _run_analysis(
-                    question, contents, screenshot_bytes,
-                    input_label=current_url,
-                    source_ext="jpg", source_mime="image/jpeg",
-                    source_context=source_context,
-                )
-            )
-            _start = _time.monotonic()
-            _max = 120.0
-            _hb = 8.0
-            while True:
-                elapsed = _time.monotonic() - _start
-                if elapsed >= _max:
-                    _fut.cancel()
-                    yield _json.dumps({"step": "error", "msg": f"Analysis timed out after {int(_max)}s."}) + "\n"
-                    return
-                _wait = min(_hb, _max - elapsed)
-                done, _ = await asyncio.wait({_fut}, timeout=_wait)
-                if done:
-                    result = _fut.result()
-                    break
-                yield _json.dumps({"step": "heartbeat", "msg": "Analysing with AI…"}) + "\n"
-        except Exception as e:
-            yield _json.dumps({"step": "error", "msg": f"Analysis failed: {e}"}) + "\n"
-            return
-
-        yield _json.dumps({
-            "step": "done",
-            "session_id": result["session_id"],
-            "summary_verdict": result["summary_verdict"],
-            "verdict_category": result.get("verdict_category", ""),
-            "input_hash": result["input_hash"],
-            "url": current_url,
-        }) + "\n"
-
-    return StreamingResponse(
-        _stream(),
-        media_type="application/x-ndjson",
-        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
-    )
+@app.get("/browser-capture/{job_id}")
+async def browser_capture_status(job_id: str):
+    job = _capture_jobs.get(job_id)
+    if not job:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+    return JSONResponse(job)
 
 
 @app.post("/api/stamp")

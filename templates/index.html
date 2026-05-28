@@ -1019,66 +1019,39 @@
     btn.disabled = true;
     document.getElementById('answer-area').innerHTML = '';
     let ticker = null;
-    let jsTimeout = null;
-    let reader = null;
     try {
       const r = await fetch('/browser-capture', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({session_id: sessionId, question}),
       });
-      if (!r.ok) { const e = await r.json(); throw new Error(e.error || r.statusText); }
-      reader = r.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      let gotDone = false;
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      const jobId = d.job_id;
+
+      const start = Date.now();
+      ticker = setInterval(() => {
+        const s = Math.round((Date.now() - start) / 1000);
+        status.textContent = `Analysing with AI… (${s}s)`;
+      }, 1000);
+      status.textContent = 'Analysing with AI…';
+
       while (true) {
-        const {done, value} = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, {stream: true});
-        const lines = buf.split('\n');
-        buf = lines.pop();
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          let ev;
-          try { ev = JSON.parse(line); } catch { console.warn('[capture] bad JSON:', line); continue; }
-          console.log('[capture]', ev.step, ev);
-          if (ev.step === 'error') throw new Error(ev.msg);
-          if (ev.step === 'analysing') {
-            const start = Date.now();
-            ticker = setInterval(() => {
-              const s = Math.round((Date.now() - start) / 1000);
-              status.textContent = `Analysing with AI… (${s}s)`;
-            }, 1000);
-            status.textContent = 'Analysing with AI…';
-          } else if (ev.step === 'heartbeat') {
-            // keep-alive from server, ticker already running
-          } else if (ev.step === 'done') {
-            gotDone = true;
-            clearInterval(ticker);
-            status.textContent = 'Done — verdict: ' + ev.verdict_category;
-            document.getElementById('answer-area').innerHTML =
-              '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analysis complete. <a href="/download/' + ev.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Download verdict PDF</a></div>';
-          } else {
-            status.textContent = ev.msg;
-          }
+        await new Promise(res => setTimeout(res, 3000));
+        const pr = await fetch(`/browser-capture/${jobId}`);
+        const job = await pr.json();
+        if (job.error) throw new Error(job.error);
+        if (job.status === 'done') {
+          clearInterval(ticker);
+          status.textContent = 'Done — verdict: ' + job.verdict_category;
+          document.getElementById('answer-area').innerHTML =
+            '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analysis complete. <a href="/download/' + job.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Download verdict PDF</a></div>';
+          break;
+        } else if (job.status === 'error') {
+          throw new Error(job.msg);
+        } else {
+          status.textContent = job.msg + '…';
         }
-      }
-      if (buf.trim()) {
-        try {
-          const ev = JSON.parse(buf.trim());
-          if (ev.step === 'done') {
-            gotDone = true;
-            clearInterval(ticker);
-            status.textContent = 'Done — verdict: ' + ev.verdict_category;
-            document.getElementById('answer-area').innerHTML =
-              '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analysis complete. <a href="/download/' + ev.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Download verdict PDF</a></div>';
-          }
-        } catch(_) {}
-      }
-      if (!gotDone) {
-        clearInterval(ticker);
-        status.textContent = 'Error: Connection closed before analysis completed.';
       }
     } catch(e) {
       status.textContent = 'Error: ' + e.message;
