@@ -30,6 +30,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Deployment integrity (TREAD)](#deployment-integrity-tread)
 - [Independent verification (verify.py)](#independent-verification-verifypy)
 - [Self-characterisation for due diligence (bundle_source.py)](#self-characterisation-for-due-diligence-bundle_sourcepy)
+- [Browser userscript (TREAD client-side monitor)](#browser-userscript-tread-client-side-monitor)
 - [Developer pre-push hook](#developer-pre-push-hook)
 - [Data policy](POLICY.example.md)
 - [SAIA and zero-knowledge systems (ZKSE.md)](ZKSE.md)
@@ -501,6 +502,32 @@ Leima produces a hash of the bundle, an AI characterisation, and a permanent Arw
 Because `README.md` and `POLICY.example.md` are included first, the AI reviewer has full context about the project's architecture and data policy before reading the code.
 
 The claim and AI analysis are permanently public on Arweave. To anonymise specific details in the result — company names, individuals, amounts — add a privacy directive to your claim: *"keep [company name] private"*. The AI will replace those details with generic placeholders throughout its analysis.
+
+---
+
+## Browser userscript (TREAD client-side monitor)
+
+`tread.user.js` is a Tampermonkey userscript that runs silently in your browser when you visit leima.io. It checks the TREAD status on each page load and shows a centred modal warning if a deployment mismatch or unauthorised deploy is detected. Under normal conditions it does nothing visible.
+
+**Installation**
+
+1. Install [Tampermonkey](https://www.tampermonkey.net/) for your browser.
+
+2. **Chrome only — two settings required before the script will run:**
+   - Go to **Manage extensions** (chrome://extensions/) and enable **Developer mode** (toggle in the top-right corner of that page).
+   - Find Tampermonkey → click **Details** → enable **Allow user scripts**.
+   - Without both of these, Chrome silently blocks all user scripts regardless of whether Tampermonkey is installed.
+
+3. Install the script by opening this URL in your browser — Tampermonkey will detect the `.user.js` extension and prompt you to install:
+   ```
+   https://raw.githubusercontent.com/fxg55647/leima/main/tread.user.js
+   ```
+
+**What it does**
+
+- **Silent by default** — no banner, no indicator when everything is fine.
+- **Modal warning** if the deployed commit does not match the verified GitHub commit, or if an unauthorised commit is being deployed. The modal blocks the page until dismissed and includes a 5-minute cooldown so it does not repeat on every reload.
+- Clicking outside the modal or the Dismiss button closes it.
 
 ---
 
