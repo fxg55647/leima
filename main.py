@@ -1507,7 +1507,7 @@ async def browser_session(request: Request):
         resp = http_requests.post(
             "https://www.browserbase.com/v1/sessions",
             headers={"x-bb-api-key": BROWSERBASE_API_KEY, "Content-Type": "application/json"},
-            json={"projectId": BROWSERBASE_PROJECT_ID, "browserSettings": {"viewport": {"width": 1280, "height": 800}}},
+            json={"projectId": BROWSERBASE_PROJECT_ID, "browserSettings": {"viewport": {"width": 600, "height": 800}}},
             timeout=15,
         )
         resp.raise_for_status()

@@ -799,10 +799,12 @@
               </div>
               <iframe id="live-iframe" style="flex:1;min-width:0;height:520px;border:none;display:block;" allowfullscreen
                 data-stampd-view="live-browser"></iframe>
-              <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;">
-                <button type="button" onclick="scrollLiveBrowser('up')" style="padding:0.6rem 0;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;" title="Scroll up" data-stampd-action="scroll-up">↑</button>
-                <div style="flex:1;"></div>
-                <button type="button" onclick="scrollLiveBrowser('down')" style="padding:0.6rem 0;background:none;border:none;border-top:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;" title="Scroll down" data-stampd-action="scroll-down">↓</button>
+              <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;user-select:none;">
+                <button type="button" onclick="scrollLiveBrowser('up')" style="padding:0.6rem 0;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;flex-shrink:0;" title="Scroll up" data-stampd-action="scroll-up">↑</button>
+                <div id="live-scroll-track" style="flex:1;position:relative;cursor:pointer;" onclick="scrollLiveBrowser('down')">
+                  <div id="live-scroll-thumb" style="position:absolute;left:4px;right:4px;top:50%;transform:translateY(-50%);height:48px;background:var(--border);border-radius:4px;cursor:grab;" title="Drag to scroll"></div>
+                </div>
+                <button type="button" onclick="scrollLiveBrowser('down')" style="padding:0.6rem 0;background:none;border:none;border-top:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;flex-shrink:0;" title="Scroll down" data-stampd-action="scroll-down">↓</button>
               </div>
             </div>
             <div data-stampd-current-url id="live-current-url" style="font-size:0.72rem;color:var(--text-faint);margin-top:0.3rem;word-break:break-all;"></div>
@@ -1075,6 +1077,33 @@
       btn.disabled = false;
     }
   }
+
+  (function() {
+    let dragging = false, lastY = 0, scrollDebt = 0;
+    document.addEventListener('mousedown', e => {
+      if (e.target.id !== 'live-scroll-thumb') return;
+      dragging = true;
+      lastY = e.clientY;
+      scrollDebt = 0;
+      e.preventDefault();
+      document.getElementById('live-scroll-thumb').style.cursor = 'grabbing';
+    });
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const dy = e.clientY - lastY;
+      lastY = e.clientY;
+      scrollDebt += dy;
+      const step = 40;
+      if (scrollDebt > step) { scrollLiveBrowser('down'); scrollDebt -= step; }
+      else if (scrollDebt < -step) { scrollLiveBrowser('up'); scrollDebt += step; }
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      const thumb = document.getElementById('live-scroll-thumb');
+      if (thumb) thumb.style.cursor = 'grab';
+    });
+  })();
 
   window.addEventListener('blur', () => {
     if (document.getElementById('active-tab').value !== 'live') return;
