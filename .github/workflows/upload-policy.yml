@@ -35,7 +35,11 @@ jobs:
           if not key:
               print("IRYS_PRIVATE_KEY not set", file=sys.stderr); sys.exit(1)
 
-          data    = open("POLICY.example.md", "rb").read()
+          raw = open("POLICY.example.md", "r", encoding="utf-8").read()
+          # Strip the self-referential canonical notice — it would be circular on Arweave
+          lines = raw.splitlines(keepends=True)
+          clean = "".join(l for l in lines if not l.startswith("> **Canonical version:**"))
+          data = clean.lstrip("\n").encode("utf-8")
           builder = Builder("ethereum").wallet(key).network(network)
           if rpc_url:
               builder = builder.rpc_url(rpc_url)
