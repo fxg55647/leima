@@ -36,11 +36,9 @@ Only the following is written to the Arweave blockchain, via Irys:
 - SHA-256 hash of the verdict PDF
 - Timestamp
 - AI model version
-- Input label: the MIME type of the document (e.g. `application/pdf`, `image/jpeg`) for uploaded files, or the source URL for web and PDF URL submissions — original filenames are never stored
-- For web-sourced documents: the URL and the time it was fetched
-- For email submissions: sender address, subject, date, and DKIM result (see Email notary section)
+- For email submissions: DKIM validation result (see Email notary section)
 
-The document content, the verdict text, and any personal data in either are **not** stored on Arweave permanently. The stamp record contains fingerprints and provenance metadata — not content.
+The document content, the verdict text, source URLs, filenames, and any personal data in either are **not** stored on Arweave permanently. The stamp record contains only hashes and provenance metadata (timestamp, model version, commit) — not content.
 
 ---
 
@@ -70,15 +68,11 @@ The email notary is a separate flow. When a sender adds `BCC: stamp@leima.fi` to
 
 The following is written to the Arweave blockchain **permanently**:
 
-- Sender address (`From:`)
-- Recipient address (`To:`)
-- Subject line
-- Date header
-- Message-ID
-- DKIM validation result
-- SHA-256 hash of the full email (including attachments)
+- Message-ID (opaque identifier, as-is from the email header)
+- DKIM validation result (`valid` / `invalid` / `none`)
+- SHA-256 hash of the full raw email (including all headers and attachments)
 
-This is more than fingerprints — it includes the sender and recipient addresses and subject line as plain text, permanently on a public blockchain. Do not use the notary flow for emails containing information you do not want publicly associated with the sender and recipient addresses.
+No sender address, recipient address, subject line, or any other human-readable content is written to the blockchain. The manifest contains only fingerprints sufficient to verify authenticity — the content itself stays with the parties.
 
 ---
 

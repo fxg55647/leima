@@ -277,27 +277,17 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
 def build_manifest(
     timestamp: str,
     model: str,
-    input_label: str,
     input_hash: str,
     verdict_hash: str,
-
-    email_meta: dict | None = None,
-    web_meta: dict | None = None,
 ) -> dict:
-    manifest = {
+    return {
         "version": "1",
         "timestamp": timestamp,
         "model": model,
         "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
-
-        "input": {"label": input_label, "sha256": input_hash},
+        "input": {"sha256": input_hash},
         "verdict_pdf": {"sha256": verdict_hash},
     }
-    if email_meta:
-        manifest["email_meta"] = email_meta
-    if web_meta:
-        manifest["web"] = web_meta
-    return manifest
 
 
 _CR_SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
@@ -1096,7 +1086,6 @@ def _text_to_input_pdf(text: str) -> bytes:
 
 def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str,
                   source_ext: str = "pdf", source_mime: str = "application/pdf",
-                  email_meta: dict | None = None, web_meta: dict | None = None,
                   source_context: dict | None = None) -> dict:
     _poide_cache_ready.wait(timeout=10)
     poide_snap = _poide_cache.copy() if _poide_cache else None
@@ -1108,12 +1097,8 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
     manifest = build_manifest(
         timestamp=result["timestamp"],
         model=MODEL,
-        input_label=input_label,
         input_hash=input_hash,
         verdict_hash=verdict_hash,
-
-        email_meta=email_meta,
-        web_meta=web_meta,
     )
     if poide_snap and poide_snap.get("tx"):
         manifest["poide"] = {
@@ -1171,8 +1156,6 @@ async def ask(
         return HTMLResponse('<div class="error">Please enter a claim.</div>')
 
     contents = []
-    email_meta = None
-    web_meta = None
     c2pa_info = None
     source_context = None
     source_ext = "pdf"
@@ -1252,7 +1235,6 @@ async def ask(
             input_bytes, page_text, fetched_url, fetched_at = _fetch_webpage(web_url.strip())
         except Exception as e:
             return HTMLResponse(f'<div class="error">URL error: {e}</div>')
-        web_meta = {"url": fetched_url, "fetched_at": fetched_at}
         input_label = fetched_url
         parsed = urlparse(fetched_url)
         source_context = {"type": "web", "domain": parsed.netloc, "fetched_at": fetched_at, "url": fetched_url}
@@ -1362,10 +1344,6 @@ async def ask(
         msg = msgs[int(email_idx)]
         body = msg["body"]
         body_hash = sha256(body.encode())
-        email_meta = {
-            "dkim": msg["dkim"],
-            "body_sha256": body_hash,
-        }
         sender_domain = msg["from"].split("@")[-1].rstrip(">").strip() if "@" in msg["from"] else ""
         source_context = {"type": "email", "dkim": msg["dkim"], "sender_domain": sender_domain}
         input_bytes = _text_to_input_pdf(
@@ -1391,7 +1369,7 @@ async def ask(
     try:
         result = _run_analysis(question, contents, input_bytes, input_label,
                                source_ext, source_mime,
-                               email_meta, web_meta, source_context)
+                               source_context)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
     except Exception as _exc:
@@ -1538,7 +1516,6 @@ async def api_code_review(body: CodeReviewRequest):
         "rules_url": body.rules_url.strip(),
         "compliant": cr["compliant"],
         "timestamp": cr["timestamp"],
-        "verdict": cr["verdict"],
         "files_reviewed": len(files),
         "blob_hashes": {f["path"]: f["blob_sha"] for f in files},
     }

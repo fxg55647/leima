@@ -59,10 +59,17 @@ def extract_meta(raw: bytes) -> dict:
 
 
 def build_manifest(meta: dict, timestamp: str) -> dict:
-    return {"version": "1", "type": "email-notary", "timestamp": timestamp, **meta}
+    return {
+        "version": "1",
+        "type": "email-notary",
+        "timestamp": timestamp,
+        "message_id": meta["message_id"],
+        "dkim": meta["dkim"],
+        "email_sha256": meta["email_sha256"],
+    }
 
 
-def _build_notarized_email(to: str, from_addr: str, original_raw: bytes, manifest: dict, gateway: str, leima_url: str = "") -> bytes:
+def _build_notarized_email(to: str, from_addr: str, original_raw: bytes, manifest: dict, meta: dict, gateway: str, leima_url: str = "") -> bytes:
     tx_id = manifest.get("stamp", {}).get("tx_id", "")
     arweave_url = f"{gateway}/{tx_id}" if tx_id else "(not stamped)"
     validate_url = f"{leima_url}/validate?tx={tx_id}" if tx_id and leima_url else ""
@@ -70,16 +77,16 @@ def _build_notarized_email(to: str, from_addr: str, original_raw: bytes, manifes
     outer = MIMEMultipart()
     outer["From"] = from_addr
     outer["To"] = to
-    outer["Subject"] = f"[Leima] Notarisoitu: {manifest.get('subject', '')}"
+    outer["Subject"] = f"[Leima] Notarisoitu: {meta.get('subject', '')}"
 
     verify_line = f"Leima validator: {validate_url}\n" if validate_url else ""
     body = (
         "This email has been notarized by Leima.\n\n"
-        f"From:    {manifest.get('from', '')}\n"
-        f"To:      {manifest.get('to', '')}\n"
-        f"Subject: {manifest.get('subject', '')}\n"
-        f"Date:    {manifest.get('date', '')}\n"
-        f"DKIM:    {manifest.get('dkim', '')}\n\n"
+        f"From:    {meta.get('from', '')}\n"
+        f"To:      {meta.get('to', '')}\n"
+        f"Subject: {meta.get('subject', '')}\n"
+        f"Date:    {meta.get('date', '')}\n"
+        f"DKIM:    {meta.get('dkim', '')}\n\n"
         f"SHA-256: {manifest.get('email_sha256', '')}\n"
         f"Arweave: {arweave_url}\n"
         f"{verify_line}"
@@ -178,7 +185,7 @@ def poll_and_process(
                 manifest["stamp"] = {"tx_id": tx_id, "url": f"{gateway}/{tx_id}"}
 
                 for to_addr in recipients:
-                    msg_bytes = _build_notarized_email(to_addr, notary_from, raw, manifest, gateway, leima_url)
+                    msg_bytes = _build_notarized_email(to_addr, notary_from, raw, manifest, meta, gateway, leima_url)
                     _smtp_send(to_addr, msg_bytes, smtp_host, smtp_port, smtp_user, smtp_password, notary_from)
 
                 imap.store(num, "+FLAGS", "\\Seen")
