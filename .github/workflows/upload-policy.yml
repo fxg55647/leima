@@ -1,0 +1,71 @@
+name: Upload policy to Arweave
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install irys-sdk
+
+      - name: Upload POLICY.example.md to Arweave
+        id: upload
+        env:
+          IRYS_PRIVATE_KEY: ${{ secrets.IRYS_PRIVATE_KEY }}
+          IRYS_NETWORK:     ${{ secrets.IRYS_NETWORK }}
+          IRYS_RPC_URL:     ${{ secrets.IRYS_RPC_URL }}
+        run: |
+          python - <<'PYEOF'
+          import os, sys
+          from irys_sdk import Builder
+          from irys_sdk.bundle.tags import from_dict as tags_from_dict
+
+          key     = os.environ.get("IRYS_PRIVATE_KEY", "")
+          network = os.environ.get("IRYS_NETWORK", "mainnet")
+          rpc_url = os.environ.get("IRYS_RPC_URL", "")
+          if not key:
+              print("IRYS_PRIVATE_KEY not set", file=sys.stderr); sys.exit(1)
+
+          data    = open("POLICY.example.md", "rb").read()
+          builder = Builder("ethereum").wallet(key).network(network)
+          if rpc_url:
+              builder = builder.rpc_url(rpc_url)
+          uploader = builder.build()
+          tags = tags_from_dict({
+              "Content-Type": "text/markdown",
+              "App-Name":     "Leima",
+              "Leima-Type":   "policy",
+          })
+          result  = uploader.upload(bytearray(data), tags)
+          tx_id   = result["id"]
+          gateway = "https://devnet.irys.xyz" if network == "devnet" else "https://gateway.irys.xyz"
+          print(f"Uploaded: {gateway}/{tx_id}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"tx_id={tx_id}\n")
+              f.write(f"url={gateway}/{tx_id}\n")
+          PYEOF
+
+      - name: Update RULES_URL in code_review.yml
+        run: |
+          TX="${{ steps.upload.outputs.tx_id }}"
+          GATEWAY="https://gateway.irys.xyz"
+          if [ "${{ secrets.IRYS_NETWORK }}" = "devnet" ]; then
+            GATEWAY="https://devnet.irys.xyz"
+          fi
+          NEW_URL="${GATEWAY}/${TX}"
+          sed -i "s|RULES_URL: https://.*irys.xyz/[A-Za-z0-9_-]*|RULES_URL: ${NEW_URL}|" .github/workflows/code_review.yml
+          echo "New RULES_URL: ${NEW_URL}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/code_review.yml
+          git diff --staged --quiet || git commit -m "chore: update policy Arweave TX to ${TX:0:12}"
+          git push
