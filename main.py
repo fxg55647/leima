@@ -57,7 +57,7 @@ _PAGES_URL = "https://fxg55647.github.io/leima"
 def _poide_dispatcher():
     global _poide_cache
     token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
-    dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/poide-a.yml/dispatches"
+    dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/tread-a.yml/dispatches"
     api_log_url = "https://api.github.com/repos/fxg55647/leima/contents/status-log.jsonl?ref=gh-pages"
     cdn_log_url = "https://fxg55647.github.io/leima/status-log.jsonl"
     api_hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
