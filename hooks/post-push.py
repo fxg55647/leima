@@ -1,171 +1,54 @@
-"""Post-push hook -- seuraa TREAD-statuslogia koodiarvion ja deployn varmistamiseksi."""
-import io, json, sys, time
-import urllib.request as req
-import subprocess
+"""Post-push hook: seuraa deployta gh run watch:lla.
+Exit code 2 herättää agentin tuloksen kanssa (asyncRewake)."""
+import io, json, subprocess, sys, time
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-LOG_URL = "https://fxg55647.github.io/leima/status-log.jsonl"
-
-POLL_INT       = 30   # sekuntia TREAD-pollausvälillä
-REVIEW_TIMEOUT = 600  # 10 min code reviewlle (TREAD-cron voi lagata)
-DEPLOY_TIMEOUT = 600  # 10 min deploylle
+TIMEOUT = 600  # 10 minuuttia
 
 
-def pushed_commit() -> str:
-    r = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True)
-    return r.stdout.strip()
+def find_run_id(max_wait=60):
+    """Odottaa uutta in_progress tai queued code_review-ajoa, palauttaa run ID."""
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        r = subprocess.run(
+            ["gh", "run", "list", "--limit", "1", "--workflow", "code_review.yml",
+             "--branch", "main", "--json", "databaseId,status"],
+            capture_output=True, text=True, timeout=15
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            runs = json.loads(r.stdout)
+            if runs and runs[0]["status"] in ("in_progress", "queued", "waiting"):
+                return runs[0]["databaseId"]
+        time.sleep(5)
+    return None
 
 
-def sha_match(a: str, b: str) -> bool:
-    """Tosi jos SHA-merkkijonot jakavat saman prefiksin (min 7 merkkia)."""
-    n = min(len(a), len(b))
-    return n >= 7 and a[:n] == b[:n]
+def main():
+    time.sleep(4)  # anna GitHub:lle hetki rekisteröidä uusi ajo
 
+    run_id = find_run_id()
+    if not run_id:
+        print("DEPLOY: GitHub Actions -ajoa ei löydy 60s sisällä — tarkista manuaalisesti.")
+        sys.exit(2)
 
-def fetch_poide() -> dict | None:
-    """Hakee TREAD-statuslogin viimeisimman rivin. Nayttaa virheen jos haku epäonnistuu."""
+    print(f"DEPLOY: seurataan run {run_id}...", flush=True)
+
     try:
-        with req.urlopen(LOG_URL, timeout=10) as r:
-            lines = r.read().decode().strip().splitlines()
-        for line in reversed(lines):
-            line = line.strip()
-            if line:
-                return json.loads(line)
-    except Exception as e:
-        print(f"[deploy] Varoitus: TREAD-lokin haku epaonnistui: {e}", flush=True)
-    return None
-
-
-def wait_for_review(commit: str) -> bool | None:
-    """Odottaa TREAD-lokin review_ok=True kommitille.
-
-    Palauttaa:
-      True  -- koodiarvio hyvaksytty
-      False -- koodiarvio epaonnistui (2 TREAD-paivitysta perakkaain samalle commitille)
-      None  -- timeout
-    """
-    print(f"[deploy] Odotetaan code review commit {commit[:7]}...", flush=True)
-    print(f"[deploy] (Pollaan {LOG_URL} joka {POLL_INT}s)", flush=True)
-    deadline = time.time() + REVIEW_TIMEOUT
-    slow_warning_at = time.time() + 480
-    slow_warned = False
-    last_ts = None
-    false_new_entries = 0
-
-    while time.time() < deadline:
-        if not slow_warned and time.time() >= slow_warning_at:
-            slow_warned = True
-            print("[deploy] Kyllapas kestaa kauan — TREAD-cron saattaa olla myohassa tai jumissa.", flush=True)
-        entry = fetch_poide()
-        if entry:
-            entry_commit = (entry.get("commit") or "").strip()
-            ts = entry.get("ts") or entry.get("timestamp", "")
-
-            if sha_match(commit, entry_commit):
-                review_ok = entry.get("review_ok")
-                run_url = entry.get("actions_run_url", "")
-
-                if review_ok is True:
-                    return True
-
-                if ts != last_ts:
-                    last_ts = ts
-                    if review_ok is False:
-                        false_new_entries += 1
-                        if false_new_entries >= 2:
-                            print(f"[deploy] FAIL Code review epaonnistui.", flush=True)
-                            if run_url:
-                                print(f"[deploy] Ajo: {run_url}", flush=True)
-                            return False
-                        print(
-                            f"[deploy] Code review False "
-                            f"(TREAD-paivitys {false_new_entries}/2, ajo saattaa olla kesken)...",
-                            flush=True,
-                        )
-                    else:
-                        print(f"[deploy] Code review: {review_ok}...", flush=True)
-                # else: sama TREAD-entry uudelleen, ei tulosteta
-
-            else:
-                if ts != last_ts:
-                    last_ts = ts
-                    print(
-                        f"[deploy] TREAD: commit {entry_commit or '?'},"
-                        f" odotetaan {commit[:7]}...",
-                        flush=True,
-                    )
-
-        time.sleep(POLL_INT)
-
-    return None
-
-
-def wait_for_deploy(commit: str) -> bool:
-    """Odottaa TREAD-lokin deployment_ok=True. Palauttaa True jos onnistuu."""
-    print(f"[deploy] Odotetaan deployta commit {commit[:7]}...", flush=True)
-    deadline = time.time() + DEPLOY_TIMEOUT
-    last_ts = None
-
-    while time.time() < deadline:
-        entry = fetch_poide()
-        if entry:
-            entry_commit = (entry.get("commit") or "").strip()
-            ts = entry.get("ts") or entry.get("timestamp", "")
-
-            if sha_match(commit, entry_commit):
-                if entry.get("deployment_ok"):
-                    return True
-                if ts != last_ts:
-                    last_ts = ts
-                    deploying = entry.get("deploying", False)
-                    status = "kaynnissa" if deploying else "odottaa"
-                    print(f"[deploy] Deploy: {status}...", flush=True)
-
-            else:
-                if ts != last_ts:
-                    last_ts = ts
-                    print(
-                        f"[deploy] TREAD: commit {entry_commit or '?'},"
-                        f" odotetaan {commit[:7]}...",
-                        flush=True,
-                    )
-
-        time.sleep(POLL_INT)
-
-    return False
-
-
-def main() -> int:
-    commit = pushed_commit()
-    print(f"[deploy] Commit: {commit[:7]}", flush=True)
-
-    result = wait_for_review(commit)
-
-    if result is None:
-        print(
-            f"[deploy] !! Code review ei valmistunut {REVIEW_TIMEOUT}s sisalla"
-            f" -- tarkista GitHub Actions.",
-            flush=True,
+        r = subprocess.run(
+            ["gh", "run", "watch", str(run_id), "--exit-status"],
+            capture_output=True, text=True, timeout=TIMEOUT
         )
-        return 0
-    if result is False:
-        print(f"[deploy] Deploy peruuntui.", flush=True)
-        return 0
+        if r.returncode == 0:
+            print(f"DEPLOY OK — run {run_id} valmistui. Koodi on live.")
+        else:
+            print(f"DEPLOY EPÄONNISTUI — run {run_id}.")
+            print(f"Lisätiedot: gh run view {run_id}")
+    except subprocess.TimeoutExpired:
+        print(f"DEPLOY: aikakatkaisu {TIMEOUT}s — run {run_id} ei valmistunut.")
+        print(f"Tarkista: gh run watch {run_id} --exit-status")
 
-    print("[deploy] OK Code review hyvaksytty.", flush=True)
-
-    if wait_for_deploy(commit):
-        print(f"[deploy] OK Deploy valmis -- {commit[:7]} on live.", flush=True)
-    else:
-        print(
-            f"[deploy] !! Deploy ei valmistunut {DEPLOY_TIMEOUT}s sisalla"
-            f" -- tarkista Render.",
-            flush=True,
-        )
-
-    return 0
+    sys.exit(2)  # herättää agentin
 
 
-sys.exit(main())
+main()

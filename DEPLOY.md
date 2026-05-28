@@ -147,3 +147,4 @@ Nämä pitää olla asetettuna Renderin dashboardissa:
 | Päivämäärä | Muutos |
 |---|---|
 | 2026-05-29 | Luotu. Kuvaa Browserbase + POIDE + Render -putken. |
+| 2026-05-29 | Pre-push hookki estää pushin jos workflow käynnissä. Post-push käyttää gh run watch + asyncRewake. |
