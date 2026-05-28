@@ -1281,8 +1281,7 @@
            + ' <span style="color:#fff;font-size:0.78rem;margin-left:0.3rem">· <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">TREAD check:</a>'
            + ' <span id="poide-ago-inner">' + ago(lastPollAt) + '/' + ago(lastCheckedAt) + '</span>'
            + ' · <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">log</a>'
-           + ' · <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">info</a>'
-           + ' <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" title="What is TREAD?" style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid #7ab8d9;font-size:0.6rem;color:#7ab8d9;text-decoration:none;vertical-align:middle;flex-shrink:0;margin-left:1px;">?</a></span>';
+           + ' · <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">info</a></span>';
     }
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
@@ -1298,7 +1297,7 @@
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
         if (p.review_stuck) {
-          fadeSet(row('Please note', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
+          fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
         } else {
           const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
           if (dangerousDeploy) {
@@ -1308,11 +1307,11 @@
           } else if (p.deploying) {
             startDeployTicker();
             const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
-            fadeSet(row('Please note', '#f0a030', 'Deploying <span id="poide-deploy-elapsed">(' + s + 's)</span>'), 'warning');
+            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="poide-deploy-elapsed">(' + s + 's)</span>'), 'warning');
           } else if (!unknownCommit && verified && !commitMatch) {
             startDeployTicker();
             const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
-            fadeSet(row('Please note', '#f0a030', 'Deploying <span id="poide-deploy-elapsed">(' + s + 's)</span>'), 'warning');
+            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="poide-deploy-elapsed">(' + s + 's)</span>'), 'warning');
           } else if (p.ok || commitMatch) {
             stopDeployTicker();
             fadeSet(row('deploy matches git', '#fff', ''), 'ok');
