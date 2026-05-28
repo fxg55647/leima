@@ -1453,6 +1453,32 @@ class CodeReviewRequest(BaseModel):
 BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
 BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
 
+# Persistent Playwright connections keyed by Browserbase session_id.
+# Avoids re-connecting on every scroll/navigate (slow) and prevents
+# pw.stop() from killing the DevTools iframe between actions.
+_pw_sessions: dict = {}
+
+
+async def _get_pw_page(session_id: str):
+    """Return cached (pw, browser, page) for session, creating if needed."""
+    from playwright.async_api import async_playwright
+    if session_id in _pw_sessions:
+        try:
+            await _pw_sessions[session_id]["page"].title()
+            return _pw_sessions[session_id]
+        except Exception:
+            del _pw_sessions[session_id]
+    pw = await async_playwright().start()
+    connect_url = (
+        f"wss://connect.browserbase.com"
+        f"?apiKey={BROWSERBASE_API_KEY}&sessionId={session_id}"
+    )
+    browser = await pw.chromium.connect_over_cdp(connect_url)
+    ctx = browser.contexts[0]
+    page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+    _pw_sessions[session_id] = {"pw": pw, "browser": browser, "page": page}
+    return _pw_sessions[session_id]
+
 
 @app.post("/browser-session")
 async def browser_session(request: Request):
@@ -1499,20 +1525,11 @@ async def browser_scroll(request: Request):
         return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
     pixels = -600 if direction == "up" else 600
     try:
-        from playwright.async_api import async_playwright
-        pw = await async_playwright().start()
-        connect_url = (
-            f"wss://connect.browserbase.com"
-            f"?apiKey={BROWSERBASE_API_KEY}"
-            f"&sessionId={session_id}"
-        )
-        browser = await pw.chromium.connect_over_cdp(connect_url)
-        ctx = browser.contexts[0]
-        page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-        await page.evaluate(f"window.scrollBy(0, {pixels})")
-        # Do NOT call pw.stop() — see browser_navigate comment
+        conn = await _get_pw_page(session_id)
+        await conn["page"].evaluate(f"window.scrollBy(0, {pixels})")
         return JSONResponse({"ok": True})
     except Exception as e:
+        _pw_sessions.pop(session_id, None)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
@@ -1532,23 +1549,11 @@ async def browser_navigate(request: Request):
     if not BROWSERBASE_API_KEY:
         return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
     try:
-        from playwright.async_api import async_playwright
-        pw = await async_playwright().start()
-        connect_url = (
-            f"wss://connect.browserbase.com"
-            f"?apiKey={BROWSERBASE_API_KEY}"
-            f"&sessionId={session_id}"
-        )
-        browser = await pw.chromium.connect_over_cdp(connect_url)
-        ctx = browser.contexts[0]
-        page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-        await page.goto(url, timeout=30000)
-        # Do NOT call pw.stop() or browser.close() — Browserbase closes the
-        # entire debug session (including the DevTools iframe) when any CDP
-        # client disconnects. Python GC will drop the WebSocket without
-        # sending a CDP close command, keeping the iframe alive.
+        conn = await _get_pw_page(session_id)
+        await conn["page"].goto(url, timeout=30000)
         return JSONResponse({"ok": True})
     except Exception as e:
+        _pw_sessions.pop(session_id, None)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
@@ -1569,26 +1574,21 @@ async def browser_capture(request: Request):
     async def _stream():
         yield _json.dumps({"step": "connecting", "msg": "Yhdistetään selaimeen…"}) + "\n"
         try:
-            from playwright.async_api import async_playwright
-            pw = await async_playwright().start()
-            connect_url = (
-                f"wss://connect.browserbase.com"
-                f"?apiKey={BROWSERBASE_API_KEY}"
-                f"&sessionId={session_id}"
-            )
-            browser = await pw.chromium.connect_over_cdp(connect_url)
-            ctx = browser.contexts[0]
-            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            conn = await _get_pw_page(session_id)
+            page = conn["page"]
         except Exception as e:
             yield _json.dumps({"step": "error", "msg": f"Capture failed: {e}"}) + "\n"
             return
 
-        yield _json.dumps({"step": "screenshot", "msg": "Otetaan kuvakaappaus…"}) + "\n"
+        yield _json.dumps({"step": "screenshot", "msg": "Otetaan kuvakaappaus ja teksti…"}) + "\n"
         try:
             screenshot_bytes = await page.screenshot(full_page=False, type="jpeg", quality=88)
             current_url = page.url
-            await pw.stop()
+            page_text = await page.evaluate(
+                "document.body ? document.body.innerText.slice(0, 4000) : ''"
+            )
         except Exception as e:
+            _pw_sessions.pop(session_id, None)
             yield _json.dumps({"step": "error", "msg": f"Screenshot failed: {e}"}) + "\n"
             return
 
@@ -1601,7 +1601,11 @@ async def browser_capture(request: Request):
             "url": current_url,
             "fetched_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         }
-        contents = [types.Part.from_bytes(data=screenshot_bytes, mime_type="image/jpeg")]
+        contents = [
+            types.Part.from_bytes(data=screenshot_bytes, mime_type="image/jpeg"),
+            types.Part.from_text(f"Visible page text:\n{page_text}") if page_text else None,
+        ]
+        contents = [c for c in contents if c is not None]
         try:
             result = await asyncio.get_event_loop().run_in_executor(
                 None,
