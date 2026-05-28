@@ -131,3 +131,71 @@ In many parts of the world, the barrier to economic participation is not capabil
 **Employment disputes.** Stamping offer letters, salary confirmations, policy documents, and HR communications at the time of receipt creates a contemporaneous record that is independent of either party's later recollection.
 
 **Preserving pre-dispute state.** Before a relationship deteriorates, stamping the relevant documents — leases, service agreements, invoices, correspondence — establishes what was agreed before either side had an incentive to reinterpret it.
+
+---
+
+## Planned features
+
+*The following use cases describe capabilities under development. They are listed here to illustrate the direction of the platform and to invite early feedback from potential users.*
+
+---
+
+### Evidence bundles
+
+A single stamp covering multiple documents of different types — PDFs, emails, photographs, contracts — submitted together as a coherent body of evidence. The AI evaluates the bundle as a whole, assessing internal consistency and the combined support for a claim rather than treating each document in isolation.
+
+**Property condition.** A landlord or insurer documenting the state of a property can submit photographs from multiple angles, a written inventory, and a signed inspection report in a single bundle. The AI assesses whether the photographs are internally consistent — whether the condition shown in the exterior shots is consistent with the interior photographs, whether the stated condition matches what is visible — and stamps a verdict covering the full set. If a dispute later arises about the property's condition at move-in or move-out, the bundle provides a coherent, independently verifiable record that is harder to dispute than any single document.
+
+**Damage assessment.** An insurance claimant submitting evidence of damage — photographs of a vehicle, a repair estimate, a police report — can bundle all materials into a single stamped record. The AI evaluates consistency across the documents: whether the described damage matches the photographic evidence, whether the estimate is plausible given what is shown. A verdict that covers the full bundle is more useful to an adjuster than individual stamps on each piece of evidence.
+
+**Transaction with supporting evidence.** A sale or purchase involving multiple documents — a purchase agreement, proof of funds, identity confirmation, and photographs of the item — can be stamped as a single bundle, creating a coherent record of the complete transaction rather than a collection of separately-stamped pieces.
+
+---
+
+### API response stamping
+
+A user provides an API endpoint, authentication credentials, and any required parameters. Leima calls the API directly and stamps the response — acting as an independent third party that attests to what the API returned at a specific moment. The user cannot have manipulated the response in transit, because Leima is the one making the call. TREAD deployment monitoring ensures that Leima's own code has not been altered, completing the trust chain.
+
+**Financial and market data.** A contract whose terms reference a specific exchange rate, commodity price, or index value at a specific date can be anchored to an independently stamped API call. If a dispute arises about what the rate actually was, the stamp provides a reference point that neither party controls.
+
+**Prediction markets and information credentialing.** Before a contested outcome resolves, an API call to an authoritative data source — a sports result, an election outcome, a scientific measurement — can be stamped independently. The stamp proves what the source reported, at the moment it reported it, without requiring either party to have preserved a screenshot that the other could dispute.
+
+**AI model output.** An API call to a language model can be stamped at the moment of execution: this prompt, this model, this response, this date. If a model is later updated or its behaviour changes, the stamp provides a verifiable record of what it said before the change. Useful for auditing AI-assisted decisions in regulated contexts, or for establishing what a model's output was at a specific point in a workflow.
+
+**Regulatory and official data.** A government or regulatory API response — a public record, a compliance status, an official statistic — can be stamped at the moment of retrieval. If the underlying data is later revised, the stamp establishes what the official source reported at the time a decision was made.
+
+---
+
+### Satellite imagery analysis
+
+Leima retrieves satellite imagery for a specified location and date range from a third-party imagery provider and stamps an AI analysis of the images. The retrieval is performed by Leima directly, establishing an independent record of what the imagery showed at a given time.
+
+**Land use and boundary disputes.** In jurisdictions without reliable land registries, a stamped analysis of satellite imagery showing the boundaries, use, and condition of a plot of land on a specific date provides evidence that is difficult to fabricate and independent of either party's claims. Changes in land use — cultivation, construction, clearance — can be documented over time, building a verifiable record that strengthens or undermines competing claims.
+
+**Agricultural evidence for microfinance.** A smallholder seeking credit can submit a claim that a specific plot is under active cultivation. A stamped satellite analysis showing crops on a specific date — corroborating email records and C2PA-signed ground-level photographs — builds a body of evidence that a microfinance institution can assess without conducting a physical inspection.
+
+**Environmental monitoring.** Deforestation, flooding, construction, and other land changes can be documented over time with stamped imagery. For environmental disputes, carbon credit verification, or regulatory compliance, a series of independently stamped satellite analyses provides a timeline that is harder to dispute than self-reported data.
+
+---
+
+### Video
+
+Support for video submissions — uploaded directly or provided by URL — with AI analysis of the content and a cryptographic stamp covering both the video file and the verdict.
+
+**Security and incident footage.** A property owner or business can stamp security camera footage of an incident at the time it is captured, before any dispute arises about whether it has been edited. The hash commits to the exact content of the file; the AI characterises what the footage shows.
+
+**C2PA-signed video.** An increasing number of cameras — including smartphones from major manufacturers — produce video with embedded C2PA signatures binding each frame to the device identity, GPS coordinates, and capture timestamp. Leima can verify the C2PA signature at submission and incorporate the cryptographic provenance into the stamp, producing a record that establishes not just that a video was stamped at a particular moment but that it was captured by a specific device at a specific location.
+
+**Process and progress documentation.** A contractor or service provider can document the progress of a project — construction, renovation, installation — with a series of stamped video records. Each stamp establishes the state of the work at that date, creating a timeline that can be referenced in payment disputes or defect claims.
+
+**Expert testimony and assessments.** A specialist recording a verbal assessment — an appraiser, a surveyor, a medical professional — can produce a stamped video record of their findings. The stamp captures the assessment at the moment it was made, before any dispute arose, and establishes that the recording has not been edited since.
+
+---
+
+### Multi-model consensus
+
+For high-stakes verdicts, Leima runs the same document and claim through multiple independent AI models simultaneously and requires agreement across all of them before issuing a stamp. A successful prompt injection or model manipulation would need to fool every architecture at once — a significantly harder task than targeting a single model.
+
+**Fraud-resistant verification.** In contexts where the stakes are high enough that an adversary might attempt to manipulate the AI verdict — large financial transactions, contested legal claims, high-value asset appraisals — requiring consensus across independent models raises the bar for a successful attack. Each model has a different training distribution, different blind spots, and different susceptibility to adversarial inputs.
+
+**Regulatory contexts.** A verdict that three independent AI systems agree on carries more evidentiary weight than a single-model output, particularly in regulated industries where the methodology of an automated decision may be subject to scrutiny. Multi-model consensus provides a basis for explaining that the verdict was not the product of a single opaque system.
