@@ -1585,7 +1585,7 @@ async def browser_capture(request: Request):
     import json as _json
 
     async def _stream():
-        yield _json.dumps({"step": "connecting", "msg": "Yhdistetään selaimeen…"}) + "\n"
+        yield _json.dumps({"step": "connecting", "msg": "Connecting to browser…"}) + "\n"
         try:
             conn = await _get_pw_page(session_id)
             page = conn["page"]
@@ -1593,7 +1593,7 @@ async def browser_capture(request: Request):
             yield _json.dumps({"step": "error", "msg": f"Capture failed: {e}"}) + "\n"
             return
 
-        yield _json.dumps({"step": "screenshot", "msg": "Otetaan kuvakaappaus ja teksti…"}) + "\n"
+        yield _json.dumps({"step": "screenshot", "msg": "Taking screenshot…"}) + "\n"
         try:
             screenshot_bytes = await page.screenshot(full_page=False, type="jpeg", quality=88)
             current_url = page.url
@@ -1605,7 +1605,7 @@ async def browser_capture(request: Request):
             yield _json.dumps({"step": "error", "msg": f"Screenshot failed: {e}"}) + "\n"
             return
 
-        yield _json.dumps({"step": "analysing", "msg": "Analysoidaan tekoälyllä…"}) + "\n"
+        yield _json.dumps({"step": "analysing", "msg": "Analysing with AI…"}) + "\n"
         from urllib.parse import urlparse as _up
         parsed = _up(current_url)
         source_context = {
@@ -1620,15 +1620,21 @@ async def browser_capture(request: Request):
         ]
         contents = [c for c in contents if c is not None]
         try:
-            result = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: _run_analysis(
-                    question, contents, screenshot_bytes,
-                    input_label=current_url,
-                    source_ext="jpg", source_mime="image/jpeg",
-                    source_context=source_context,
-                )
+            result = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: _run_analysis(
+                        question, contents, screenshot_bytes,
+                        input_label=current_url,
+                        source_ext="jpg", source_mime="image/jpeg",
+                        source_context=source_context,
+                    )
+                ),
+                timeout=120.0,
             )
+        except asyncio.TimeoutError:
+            yield _json.dumps({"step": "error", "msg": "Analysis timed out after 120 seconds. Please try again."}) + "\n"
+            return
         except Exception as e:
             yield _json.dumps({"step": "error", "msg": f"Analysis failed: {e}"}) + "\n"
             return

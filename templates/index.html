@@ -783,25 +783,30 @@
           </div>
           <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;">
             <button type="button" class="fetch-btn" id="live-open-btn" onclick="openLiveBrowser()" style="margin-bottom:0;"
-              data-stampd-action="open-url">Open browser</button>
+              data-stampd-action="open-url">Load page</button>
             <span id="live-status" style="font-size:0.8rem;color:var(--text-muted);"
               data-stampd-status="session"></span>
           </div>
           <div id="live-browser-wrap" style="display:none;margin-top:0.75rem;">
-            <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-              <iframe id="live-iframe" style="flex:1;height:520px;border:none;display:block;" allowfullscreen
-                data-stampd-view="live-browser"></iframe>
-              <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;">
-                <button type="button" onclick="scrollLiveBrowser('up')" style="padding:0.6rem 0;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;" title="Scroll up" data-stampd-action="scroll-up">↑</button>
-                <div style="flex:1;"></div>
-                <button type="button" onclick="scrollLiveBrowser('down')" style="padding:0.6rem 0;background:none;border:none;border-top:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;" title="Scroll down" data-stampd-action="scroll-down">↓</button>
+            <div style="overflow-x:auto;">
+              <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;width:836px;">
+                <iframe id="live-iframe" style="width:800px;flex-shrink:0;height:520px;border:none;display:block;" allowfullscreen
+                  data-stampd-view="live-browser"></iframe>
+                <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;">
+                  <button type="button" onclick="scrollLiveBrowser('up')" style="padding:0.6rem 0;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;" title="Scroll up" data-stampd-action="scroll-up">↑</button>
+                  <div style="flex:1;"></div>
+                  <button type="button" onclick="scrollLiveBrowser('down')" style="padding:0.6rem 0;background:none;border:none;border-top:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;" title="Scroll down" data-stampd-action="scroll-down">↓</button>
+                </div>
               </div>
             </div>
             <div data-stampd-current-url id="live-current-url" style="font-size:0.72rem;color:var(--text-faint);margin-top:0.3rem;word-break:break-all;"></div>
             <div style="margin-top:1rem;">
-              <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.625rem;">Kun ruudussa näkyy todisteet väitteelle jonka haluat todistaa, paina vasta sitten:</p>
-              <button type="button" class="fetch-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()"
-                data-stampd-action="capture-evidence">Analyse this page</button>
+              <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.625rem;">When the screen shows evidence for the claim you want to prove, press:</p>
+              <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                <button type="button" class="fetch-btn" id="live-capture-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()"
+                  data-stampd-action="capture-evidence">Analyse this page</button>
+                <span id="live-capture-status" style="font-size:0.8rem;color:var(--text-muted);"></span>
+              </div>
             </div>
           </div>
           <input type="hidden" id="live-session-id" value="" data-stampd-session-id>
@@ -956,7 +961,7 @@
     const btn = document.getElementById('live-open-btn');
     const status = document.getElementById('live-status');
     btn.disabled = true;
-    btn.textContent = 'Opening…';
+    btn.textContent = 'Loading…';
     status.textContent = '';
     try {
       const startUrl = document.getElementById('live-url').value.trim();
@@ -967,19 +972,19 @@
       document.getElementById('live-iframe').src = d.live_url;
       document.getElementById('live-browser-wrap').style.display = 'block';
       if (startUrl) {
-        status.textContent = 'Navigoidaan…';
+        status.textContent = 'Navigating…';
         await new Promise(r => setTimeout(r, 2000));
         const nr = await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: d.session_id, url: startUrl})});
         const nd = await nr.json();
         if (nd.error) throw new Error('Navigate failed: ' + nd.error);
         document.getElementById('live-current-url').textContent = startUrl;
       }
-      status.textContent = 'Selain auki — navigoi vapaasti, sitten paina Analyse.';
+      status.textContent = 'Browser open — navigate freely, then press Analyse.';
     } catch(e) {
       status.textContent = 'Error: ' + e.message;
     }
     btn.disabled = false;
-    btn.textContent = 'Open browser';
+    btn.textContent = 'Load page';
   }
 
   async function scrollLiveBrowser(direction) {
@@ -993,18 +998,20 @@
         body: JSON.stringify({session_id: sessionId, direction}),
       });
     } catch(e) {
-      status.textContent = 'Virhe: ' + e.message;
+      status.textContent = 'Error: ' + e.message;
     }
   }
 
   async function captureLiveBrowser() {
     const sessionId = document.getElementById('live-session-id').value;
     const question = document.getElementById('question-input').value.trim();
-    const status = document.getElementById('live-status');
-    if (!sessionId) { status.textContent = 'Avaa ensin selain.'; return; }
-    if (!question) { status.textContent = 'Syötä ensin väite ylhäälle.'; return; }
-    status.textContent = 'Capturing…';
+    const status = document.getElementById('live-capture-status');
+    const btn = document.getElementById('live-capture-btn');
+    if (!sessionId) { status.textContent = 'Open a browser first.'; return; }
+    if (!question) { status.textContent = 'Enter a claim above first.'; return; }
+    btn.disabled = true;
     document.getElementById('answer-area').innerHTML = '';
+    let ticker = null;
     try {
       const r = await fetch('/browser-capture', {
         method: 'POST',
@@ -1025,17 +1032,28 @@
           if (!line.trim()) continue;
           const ev = JSON.parse(line);
           if (ev.step === 'error') throw new Error(ev.msg);
-          if (ev.step === 'done') {
-            status.textContent = 'Valmis — arvio: ' + ev.verdict_category;
+          if (ev.step === 'analysing') {
+            const start = Date.now();
+            ticker = setInterval(() => {
+              const s = Math.round((Date.now() - start) / 1000);
+              status.textContent = `Analysing with AI… (${s}s)`;
+            }, 1000);
+            status.textContent = 'Analysing with AI…';
+          } else if (ev.step === 'done') {
+            clearInterval(ticker);
+            status.textContent = 'Done — verdict: ' + ev.verdict_category;
             document.getElementById('answer-area').innerHTML =
-              '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analyysi valmis. <a href="/download/' + ev.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Lataa tuomio PDF</a></div>';
+              '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analysis complete. <a href="/download/' + ev.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Download verdict PDF</a></div>';
           } else {
             status.textContent = ev.msg;
           }
         }
       }
     } catch(e) {
-      status.textContent = 'Virhe: ' + e.message;
+      clearInterval(ticker);
+      status.textContent = 'Error: ' + e.message;
+    } finally {
+      btn.disabled = false;
     }
   }
 
