@@ -44,11 +44,11 @@ function checkMonitorFiles(current) {
 }
 
 function failReason(d) {
-    if (d.deploying && !d.deploying_commit_ok) return "VAROITUS: tuotantoon ajetaan commit joka ei täsmää GitHubiin";
-    if (d.deploying)            return "deploy käynnissä — odota hetki";
-    if (!d.deployment_ok)       return "deployed commit ei täsmää GitHubiin";
-    if (d.cron_fresh === false)  return "monitorointi myöhässä — GitHub Actions ruuhka?";
-    return "tila tuntematon";
+    if (d.deploying && !d.deploying_commit_ok) return "WARNING: commit being deployed does not match GitHub";
+    if (d.deploying)            return "deploy in progress — wait before submitting documents";
+    if (!d.deployment_ok)       return "deployed commit does not match GitHub";
+    if (d.cron_fresh === false)  return "monitoring delayed — GitHub Actions backlog?";
+    return "status unknown";
 }
 
 const ALERT_COOLDOWN_MS = 5 * 60 * 1000;
@@ -59,11 +59,11 @@ function alertIfDangerousDeploy(d) {
     if (Date.now() - last < ALERT_COOLDOWN_MS) return;
     GM_setValue("last_deploy_alert", Date.now());
     alert(
-        "⚠ POIDE VAROITUS ⚠\n\n" +
-        "Renderiin ajetaan commit joka EI täsmää GitHub-repoon:\n" +
+        "⚠ TREAD WARNING ⚠\n\n" +
+        "A commit is being deployed that does NOT match the GitHub repository:\n" +
         (d.deploying_commit || "?").slice(0, 7) + " ≠ " + (d.expected_commit || "?").slice(0, 7) + "\n\n" +
-        "Älä lähetä arkaluonteisia dokumentteja ennen kuin tilanne selviää.\n" +
-        "Tarkista GitHub Actions ja Render dashboard."
+        "Do not submit sensitive documents until this is resolved.\n" +
+        "Check GitHub Actions and the Render dashboard."
     );
 }
 
@@ -72,11 +72,11 @@ function historyLabel(h) {
     if (h.last_mismatch_at) {
         const days = Math.floor((Date.now() - new Date(h.last_mismatch_at)) / 86400000);
         return { level: days < 7 ? "red" : "orange",
-                 text: `mismatch historiassa ${days} pv sitten (${h.last_mismatch_commit})` };
+                 text: `mismatch in history ${days}d ago (${h.last_mismatch_commit})` };
     }
     if (h.clean_since) {
         const days = Math.floor((Date.now() - new Date(h.clean_since)) / 86400000);
-        return { level: "green", text: `puhdas historia ${days} pv` };
+        return { level: "green", text: `clean history for ${days}d` };
     }
     return null;
 }
@@ -87,7 +87,7 @@ GM_xmlhttpRequest({
     onload(r) {
         let d;
         try { d = JSON.parse(r.responseText); }
-        catch { banner("#e67e22", "POIDE ✗", "status.json ei ole kelvollinen JSON"); return; }
+        catch { banner("#e67e22", "TREAD ✗", "status.json is not valid JSON"); return; }
 
         const changed = checkMonitorFiles(d.monitor_files || {});
         const hist = historyLabel(d.history);
@@ -95,20 +95,21 @@ GM_xmlhttpRequest({
         alertIfDangerousDeploy(d);
 
         if (!d.ok) {
-            banner("#c0392b", "POIDE ✗ — tarkista GitHub Actions ennen käyttöä", failReason(d));
+            banner("#c0392b", "TREAD ✗ — check GitHub Actions before use", failReason(d));
+        } else if (d.deploying) {
+            banner("#e67e22", "TREAD ⚠ — deploy detected", "code is changing — wait before submitting sensitive documents");
         } else if (changed) {
-            banner("#e67e22", "POIDE ⚠ — valvontatiedostot muuttuneet edellisestä sessiosta",
-                changed.join(", "));
+            banner("#e67e22", "TREAD ⚠ — monitor files changed since last session", changed.join(", "));
         } else if (hist && hist.level !== "green") {
             banner(hist.level === "red" ? "#c0392b" : "#e67e22",
-                "POIDE ⚠ — " + hist.text, null);
+                "TREAD ⚠ — " + hist.text, null);
         } else {
             const detail = hist ? hist.text : null;
-            banner("#27ae60", "POIDE ✓ — koodi tarkistettu, deployment kunnossa", detail);
+            banner("#27ae60", "TREAD ✓ — code verified, deployment matches git", detail);
             setTimeout(() => document.getElementById("poide-banner")?.remove(), 5000);
         }
     },
     onerror() {
-        banner("#e67e22", "POIDE ✗", "ei yhteyttä status.json:iin");
+        banner("#e67e22", "TREAD ✗", "could not reach status.json");
     }
 });
