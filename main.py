@@ -1513,8 +1513,6 @@ async def browser_navigate(request: Request):
         ctx = browser.contexts[0]
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
         await page.goto(url, timeout=30000)
-        # Disconnect without stopping the remote session
-        await browser.disconnect()
         await pw.stop()
         return JSONResponse({"ok": True})
     except Exception as e:
@@ -1556,7 +1554,6 @@ async def browser_capture(request: Request):
         try:
             screenshot_bytes = await page.screenshot(full_page=True, type="png")
             current_url = page.url
-            await browser.disconnect()
             await pw.stop()
         except Exception as e:
             yield _json.dumps({"step": "error", "msg": f"Screenshot failed: {e}"}) + "\n"
