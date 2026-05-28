@@ -1017,6 +1017,7 @@
     if (!sessionId) { status.textContent = 'Open a browser first.'; return; }
     if (!question) { status.textContent = 'Enter a claim above first.'; return; }
     btn.disabled = true;
+    status.textContent = 'Connecting…';
     document.getElementById('answer-area').innerHTML = '';
     let ticker = null;
     try {

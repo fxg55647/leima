@@ -1477,7 +1477,7 @@ async def _get_pw_page(session_id: str):
     """Return cached (browser, page) for session, creating if needed."""
     if session_id in _pw_sessions:
         try:
-            await _pw_sessions[session_id]["page"].title()
+            await _pw_sessions[session_id]["page"].title(timeout=5000)
             return _pw_sessions[session_id]
         except Exception:
             del _pw_sessions[session_id]
@@ -1490,7 +1490,7 @@ async def _get_pw_page(session_id: str):
         f"wss://connect.browserbase.com"
         f"?apiKey={BROWSERBASE_API_KEY}&sessionId={session_id}"
     )
-    browser = await pw.chromium.connect_over_cdp(connect_url)
+    browser = await pw.chromium.connect_over_cdp(connect_url, timeout=30000)
     ctx = browser.contexts[0]
     page = ctx.pages[0] if ctx.pages else await ctx.new_page()
     _pw_sessions[session_id] = {"browser": browser, "page": page}
