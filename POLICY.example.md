@@ -1,6 +1,6 @@
 # Leima Data Policy
 
-> **Canonical version:** The binding copy of this policy — the one the production code review audits against — is permanently stored on Arweave at [`CGGdQ3mqWWjmB7tarkkmonJZkD14q98YLVhF5WqGKBrG`](https://gateway.irys.xyz/CGGdQ3mqWWjmB7tarkkmonJZkD14q98YLVhF5WqGKBrG). The repository version is kept for human readability; the Arweave version is what binds.
+> **Canonical version:** The binding copy of this policy — the one the production code review audits against — is permanently stored on Arweave at [`EenhCycs7RSe9thFKupexRMNkW3qriybLjN7Az4S9s4z`](https://gateway.irys.xyz/EenhCycs7RSe9thFKupexRMNkW3qriybLjN7Az4S9s4z). The repository version is kept for human readability; the Arweave version is what binds.
 
 This document describes exactly what Leima does with the data you submit. It is written to be verifiable: each claim here can be checked against the source code by anyone, including an automated auditor.
 

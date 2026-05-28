@@ -58,18 +58,9 @@ jobs:
               f.write(f"url={gateway}/{tx_id}\n")
           PYEOF
 
-      - name: Update RULES_URL in code_review.yml
+      - name: Print new TX (update RULES_URL manually)
         run: |
-          TX="${{ steps.upload.outputs.tx_id }}"
-          GATEWAY="https://gateway.irys.xyz"
-          if [ "${{ secrets.IRYS_NETWORK }}" = "devnet" ]; then
-            GATEWAY="https://devnet.irys.xyz"
-          fi
-          NEW_URL="${GATEWAY}/${TX}"
-          sed -i "s|RULES_URL: https://.*irys.xyz/[A-Za-z0-9_-]*|RULES_URL: ${NEW_URL}|" .github/workflows/code_review.yml
-          echo "New RULES_URL: ${NEW_URL}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/code_review.yml
-          git diff --staged --quiet || git commit -m "chore: update policy Arweave TX to ${TX:0:12}"
-          git push
+          echo "New TX:  ${{ steps.upload.outputs.tx_id }}"
+          echo "New URL: ${{ steps.upload.outputs.url }}"
+          echo ""
+          echo "Update RULES_URL in .github/workflows/code_review.yml and POLICY.example.md manually."
