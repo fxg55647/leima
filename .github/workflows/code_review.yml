@@ -14,7 +14,7 @@ jobs:
       - name: Leima code review
         env:
           LEIMA_URL: https://leima.io
-          RULES_URL: https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR
+          RULES_URL: https://gateway.irys.xyz/CGGdQ3mqWWjmB7tarkkmonJZkD14q98YLVhF5WqGKBrG
           CR_CHECK: |
             import sys, json, os
             with open('/tmp/cr_result.json') as f:
