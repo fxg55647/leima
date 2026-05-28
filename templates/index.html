@@ -833,8 +833,9 @@
                   <button type="button" onclick="document.getElementById('live-latency-modal').style.display='none'" style="width:100%;padding:0.45rem 1rem;background:var(--blue-deep);color:#fff;border:1px solid var(--blue-deep);border-radius:4px;font-size:0.75rem;font-weight:500;font-family:'Spectral',Georgia,serif;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">Got it</button>
                 </div>
               </div>
-              <iframe id="live-iframe" style="flex:1;min-width:0;height:520px;border:none;display:block;" allowfullscreen
-                data-stampd-view="live-browser"></iframe>
+              <img id="live-img" tabindex="0"
+                style="flex:1;min-width:0;height:520px;object-fit:contain;display:block;cursor:crosshair;outline:none;background:#1a1a2e;"
+                alt="Live browser" data-stampd-view="live-browser">
               <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;user-select:none;">
                 <button type="button" onclick="scrollLiveBrowser('up')" style="padding:0.6rem 0;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;flex-shrink:0;" title="Scroll up" data-stampd-action="scroll-up">↑</button>
                 <div style="flex:1;"></div>
@@ -1327,10 +1328,10 @@
             stopDeployTicker();
             fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'key missing' : 'mismatch'), 'danger');
           } else {
-            fadeSet(row('Checking…', '#555', ''), 'loading');
+            fadeSet(row('Checking…', '#aaa', ''), 'loading');
           }
         }
-      }).catch(() => { lastCheckedAt = null; fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">TREAD</span>', 'loading'); });
+      }).catch(() => { lastCheckedAt = null; fadeSet(row('Offline', '#aaa', ''), 'loading'); });
     }
     update();
     setInterval(update, 20000);
