@@ -18,7 +18,7 @@ LEIMA_INTRO = """This bundle describes Leima (leima.ai), a document analysis and
 It answers the question: what does this software do, how does it process documents, and what are its data handling guarantees?
 The bundle includes the application backend, AI analysis logic, email notary, UI templates, and data policy."""
 
-POIDE_INTRO = """This bundle describes TREAD (Transparent Record of Evaluation, Attestation and Deployment), a protocol for verifying that a hosted application is running the code it claims to run.
+TREAD_INTRO = """This bundle describes TREAD (Transparent Record of Evaluation, Attestation and Deployment), a protocol for verifying that a hosted application is running the code it claims to run.
 It answers the question: how does the deployment monitoring work, what does it check, and how can an independent party verify it?
 The bundle includes the monitoring logic, GitHub Actions workflows, the userscript, and the protocol documentation."""
 
@@ -26,6 +26,7 @@ LEIMA_FILES = {
     "README.md",
     "POLICY.example.md",
     "USECASES.md",
+    "ZKSE.md",
     "requirements.txt",
     "main.py",
     "neutral_witness.py",
@@ -36,7 +37,7 @@ LEIMA_FILES = {
 }
 LEIMA_DIRS = {"templates"}
 
-POIDE_FILES = {
+TREAD_FILES = {
     "TREAD.md",
     "POLICY.example.md",
     "requirements.txt",
@@ -95,7 +96,7 @@ tracked = git_ls()
 
 for name, intro, files, dirs, outfile in [
     ("Leima", LEIMA_INTRO, LEIMA_FILES, LEIMA_DIRS, "leima_bundle.txt"),
-    ("TREAD", POIDE_INTRO, POIDE_FILES, set(),      "tread_bundle.txt"),
+    ("TREAD", TREAD_INTRO, TREAD_FILES, set(),      "tread_bundle.txt"),
 ]:
     parts = build_bundle(tracked, files, dirs, intro, name)
     header = f"# {name} bundle\n{intro}\n\nCommit: {commit_sha}\nFiles: {len(parts)}\n\n"
