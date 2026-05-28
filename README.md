@@ -19,6 +19,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [A public good](#a-public-good)
 - [Contributing](#contributing)
 - [Document sources](#document-sources)
+- [Browser tab](#browser-tab)
 - [API](#api)
 - [Trust model](#trust-model)
 - [Threat model](#threat-model)
@@ -196,6 +197,26 @@ To get involved: open an issue or pull request on GitHub, or contact via the rep
 | Text paste | Converted to PDF for hashing |
 | Web page | HTML fetched server-side, stripped to text; URL and fetch timestamp recorded in stamp record |
 | Email (IMAP) | Fetches via IMAP; validates DKIM signature (valid / invalid / none), records Message-ID and body hash |
+| Browser | Live browser session via Browserbase; user navigates freely, then Leima captures a screenshot for analysis |
+
+---
+
+## Browser tab
+
+The **Browser** tab opens a live, remotely controlled browser session inside the Leima UI. It is intended for pages that require authentication, dynamic rendering, or manual navigation before a claim can be evaluated — content that a simple URL fetch cannot reach.
+
+The flow:
+
+1. Enter a URL and click **Load page**. Leima starts a Browserbase session (a real Chromium instance in the cloud) and embeds its DevTools viewer in the page as an iframe. The session runs on Browserbase infrastructure; Leima holds only the session ID.
+2. Navigate freely inside the iframe — log in, accept cookie banners, scroll to the relevant section. The browser is a full-featured instance and behaves like a normal browser.
+3. Enter a claim in the text field and click **Analyse this page**. Leima connects to the live session via Playwright over CDP, takes a full-page screenshot, and submits it to the AI together with the claim. This produces a normal three-pass verdict: supporting evidence, contradicting evidence, and a final judgment.
+4. The screenshot is the source document. Its SHA-256 hash is sealed on Arweave together with the verdict, exactly as with any other source type. The manifest records `"type": "browser_capture"`, the current URL at the time of capture, the domain, and the fetch timestamp.
+
+**What this enables.** Leima can now stamp a claim against any web content that is visible to a logged-in user — a bank balance, a tax authority decision, a government registry entry, a portal document — without that content ever being downloadable as a file. The claim and the screenshot are sealed at the moment the user navigates to them, before either party has an incentive to alter anything.
+
+**Trust notes.** The source is a screenshot, not a raw HTML or PDF export. The AI reads what is visually rendered on the page. If a page can be made to show different content to different viewers (e.g. by server-side personalisation), the screenshot reflects only what the authenticated user saw during that session. DKIM-style cryptographic provenance is not available for browser-captured content; the hash commitment still applies and proves the screenshot was not altered after capture.
+
+**Infrastructure.** The browser sessions run on [Browserbase](https://www.browserbase.com). Requires `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` environment variables. Sessions use a 600 × 800 px viewport to match the UI width.
 
 ---
 
@@ -252,6 +273,11 @@ Documents are sent to Google's Gemini API for analysis. For sensitive materials 
 
 For the email input, consider redacting or summarising message bodies that contain third-party personal data before submitting — particularly in email threads where other parties' information appears.
 
+**Hosting provider logs**
+Render, like all managed hosting providers, automatically captures everything written to stdout and stderr by the application process. Leima suppresses application-level logging at startup: Python's root logger is set to WARNING, uvicorn's access log is silenced entirely, and HTTP client libraries (httpx, httpcore) and the Google SDK logger are set to ERROR level. Under normal operation, no output is produced. Unhandled exceptions at the Python runtime level may still produce output — this is not under Leima's control and is a residual risk of hosted deployment.
+
+Every code review checks that this suppression is in place and that no `print()` or logging call in the user-data path references document content or claim text. See the Logging section of [POLICY.example.md](POLICY.example.md) for the auditor checklist.
+
 **What Arweave guarantees**
 Arweave is a decentralised storage network designed for permanent data. Unlike cloud storage where a provider can shut down or delete data, Arweave stores each piece of data across many independent nodes. Anyone can run a node and is paid from an endowment funded by the original upload fee. The endowment is sized on the assumption that storage costs decline continuously — and as costs fall, the same endowment covers an ever-longer period. The economic model targets storage on the order of centuries.
 
@@ -294,6 +320,7 @@ A future option will allow switching to AI providers that operate under strict, 
 | Email body altered after sending | Partly | DKIM validates signed headers and body scope — coverage depends on sender configuration |
 | Human sender identity false | No | DKIM proves domain, not individual identity; LLM assesses credibility signals |
 | Sensitive data exposure to AI provider | Partly | Redaction recommended; privacy-committed AI provider planned |
+| Document content in hosting provider logs | Partly | Leima suppresses application logging at startup; unhandled runtime exceptions are not controllable |
 
 ---
 
