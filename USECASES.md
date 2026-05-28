@@ -134,6 +134,18 @@ In many parts of the world, the barrier to economic participation is not capabil
 
 ---
 
+## Service entry and exit
+
+Stamping should become standard practice at two moments in any significant service relationship: when you commit to it, and when you leave it.
+
+**At the start.** When signing up for a service, stamp the terms of service, the pricing page, and any promotional offer that influenced the decision. These are the promises made before the relationship began. If the service later changes its terms, raises its prices, or removes a feature it advertised, the entry stamp establishes what was agreed at the outset — before either party had any incentive to misrepresent it.
+
+**At the end.** When cancelling or leaving a service, stamp the confirmation: the cancellation email, any data deletion notice, the final invoice, the stated reason for termination. If a billing dispute arises after cancellation, or if the provider later claims the account was never properly closed, the exit stamp provides a dated record of the state at the moment of departure.
+
+The combination creates a verifiable bracket around the entire service relationship. Neither the provider nor the user can later rewrite what was agreed at the beginning or what happened at the end. For any service that handles money, personal data, or contractual commitments, this should be as routine as keeping a copy of the contract.
+
+---
+
 ## Planned features
 
 *The following use cases describe capabilities under development. They are listed here to illustrate the direction of the platform and to invite early feedback from potential users.*
