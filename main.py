@@ -1,4 +1,5 @@
 import os
+import asyncio
 import base64
 import hashlib
 import uuid
@@ -1412,6 +1413,137 @@ class CodeReviewRequest(BaseModel):
     ref: str = "main"  # branch, tag, or commit SHA
     rules_url: str     # URL to policy/rules document (raw text)
     token: str = ""    # GitHub token for private repos
+
+
+BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
+BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
+
+
+@app.post("/browser-session")
+async def browser_session():
+    if not BROWSERBASE_API_KEY or not BROWSERBASE_PROJECT_ID:
+        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
+    try:
+        resp = http_requests.post(
+            "https://www.browserbase.com/v1/sessions",
+            headers={"x-bb-api-key": BROWSERBASE_API_KEY, "Content-Type": "application/json"},
+            json={"projectId": BROWSERBASE_PROJECT_ID},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        session = resp.json()
+        session_id = session["id"]
+        debug_resp = http_requests.get(
+            f"https://www.browserbase.com/v1/sessions/{session_id}/debug",
+            headers={"x-bb-api-key": BROWSERBASE_API_KEY},
+            timeout=10,
+        )
+        debug_resp.raise_for_status()
+        live_url = debug_resp.json().get("debuggerFullscreenUrl", "")
+        return JSONResponse({"session_id": session_id, "live_url": live_url})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/browser-navigate")
+async def browser_navigate(request: Request):
+    body = await request.json()
+    session_id = body.get("session_id", "").strip()
+    url = body.get("url", "").strip()
+    if not session_id or not url:
+        return JSONResponse({"error": "session_id and url required"}, status_code=400)
+    if not BROWSERBASE_API_KEY:
+        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
+    try:
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            connect_url = (
+                f"wss://connect.browserbase.com"
+                f"?apiKey={BROWSERBASE_API_KEY}"
+                f"&sessionId={session_id}"
+            )
+            browser = await p.chromium.connect_over_cdp(connect_url)
+            ctx = browser.contexts[0]
+            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            await page.goto(url, timeout=30000)
+            await browser.close()
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/browser-capture")
+async def browser_capture(request: Request):
+    body = await request.json()
+    session_id = body.get("session_id", "").strip()
+    question = body.get("question", "").strip()
+    if not session_id:
+        return JSONResponse({"error": "session_id required"}, status_code=400)
+    if not question:
+        return JSONResponse({"error": "question required"}, status_code=400)
+    if not BROWSERBASE_API_KEY:
+        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
+    try:
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            connect_url = (
+                f"wss://connect.browserbase.com"
+                f"?apiKey={BROWSERBASE_API_KEY}"
+                f"&sessionId={session_id}"
+            )
+            browser = await p.chromium.connect_over_cdp(connect_url)
+            ctx = browser.contexts[0]
+            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            screenshot_bytes = await page.screenshot(full_page=True, type="png")
+            current_url = page.url
+            await browser.close()
+    except Exception as e:
+        return JSONResponse({"error": f"Capture failed: {e}"}, status_code=500)
+
+    from urllib.parse import urlparse as _up
+    parsed = _up(current_url)
+    source_context = {
+        "type": "browser_capture",
+        "domain": parsed.netloc,
+        "url": current_url,
+        "fetched_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+    }
+    contents = [types.Part.from_bytes(data=screenshot_bytes, mime_type="image/png")]
+    try:
+        result = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: _run_analysis(
+                question, contents, screenshot_bytes,
+                input_label=current_url,
+                source_ext="png", source_mime="image/png",
+                source_context=source_context,
+            )
+        )
+    except Exception as e:
+        return JSONResponse({"error": f"Analysis failed: {e}"}, status_code=500)
+
+    from fastapi.templating import Jinja2Templates as _T
+    tmpl = _T(directory="templates")
+    html = tmpl.get_template("result.html").render({
+        "passes": result["passes"],
+        "summary_verdict": result["summary_verdict"],
+        "verdict_category": result.get("verdict_category", ""),
+        "timestamp": result["timestamp"],
+        "input_hash": result["input_hash"],
+        "verdict_hash": result["verdict_hash"],
+        "session_id": result["session_id"],
+        "input_label": result["input_label"],
+        "poide_snap": result["poide_snap"],
+        "source_context": source_context,
+    }) if False else ""
+
+    return JSONResponse({
+        "session_id": result["session_id"],
+        "summary_verdict": result["summary_verdict"],
+        "verdict_category": result.get("verdict_category", ""),
+        "input_hash": result["input_hash"],
+        "url": current_url,
+    })
 
 
 @app.post("/api/stamp")
