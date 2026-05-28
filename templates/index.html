@@ -648,6 +648,7 @@
   <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
     <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
     <span id="poide-text"></span>
+    <span id="offline-indicator" style="display:none;margin-left:auto;font-size:0.72rem;color:#e57373;letter-spacing:0.03em;">⚠ No connection</span>
   </div>
 </div>
 
@@ -1163,6 +1164,14 @@
       btn.disabled = false;
     }
   }
+
+  (function() {
+    const ind = document.getElementById('offline-indicator');
+    function update() { ind.style.display = navigator.onLine ? 'none' : 'inline'; }
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    update();
+  })();
 
   window.addEventListener('blur', () => {
     if (document.getElementById('active-tab').value !== 'live') return;
