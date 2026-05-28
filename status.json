@@ -1,8 +1,8 @@
 {
-  "ok": false,
+  "ok": true,
   "rapid_deploy_warning": false,
   "deployment_ok": false,
-  "review_ok": true,
+  "review_ok": false,
   "review_consecutive_failures": 0,
   "review_stuck": false,
   "deploying": false,
@@ -11,7 +11,7 @@
   "deployed_commit": "ed215a53ef5be478d7ed4f0604a75c9a83b4c5c5",
   "expected_commit": null,
   "deploy_status": "live",
-  "review_conclusion": "success",
+  "review_conclusion": "in_progress",
   "cron_fresh": true,
   "workflow_states": {
     "tread-a.yml": "active",
@@ -22,16 +22,14 @@
   },
   "disabled_workflows": [],
   "history": {
-    "scanned_deploys": 97,
+    "scanned_deploys": 0,
     "last_mismatch_at": null,
-    "last_mismatch_commit": null,
-    "clean_since": "2026-05-25T17:44:38.587124Z",
-    "deploys_last_hour": 6
+    "clean_since": null
   },
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-28 18:07:11 UTC",
+  "checked_at": "2026-05-28 18:07:29 UTC",
   "monitor_files": {
     ".github/workflows/tread-a.yml": "4ea3fdf861d3edc101fd1b06d5ce2794152b7cbe8f8c24943742311bec466aae",
     ".github/workflows/tread-b.yml": "6f7e151e016d34c597d56e43f1b8b1ad9d44a2523fd0df2c823e6dfe9499914e",
@@ -47,6 +45,7 @@
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26593012724",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26593012724"
+  "actions_run_id": "26593040281",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26593040281",
+  "error": "HTTPSConnectionPool(host='api.render.com', port=443): Read timed out. (read timeout=10)"
 }
