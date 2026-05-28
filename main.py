@@ -1503,16 +1503,19 @@ async def browser_navigate(request: Request):
         return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
     try:
         from playwright.async_api import async_playwright
-        async with async_playwright() as p:
-            connect_url = (
-                f"wss://connect.browserbase.com"
-                f"?apiKey={BROWSERBASE_API_KEY}"
-                f"&sessionId={session_id}"
-            )
-            browser = await p.chromium.connect_over_cdp(connect_url)
-            ctx = browser.contexts[0]
-            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-            await page.goto(url, timeout=30000)
+        pw = await async_playwright().start()
+        connect_url = (
+            f"wss://connect.browserbase.com"
+            f"?apiKey={BROWSERBASE_API_KEY}"
+            f"&sessionId={session_id}"
+        )
+        browser = await pw.chromium.connect_over_cdp(connect_url)
+        ctx = browser.contexts[0]
+        page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+        await page.goto(url, timeout=30000)
+        # Disconnect without stopping the remote session
+        await browser.disconnect()
+        await pw.stop()
         return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
