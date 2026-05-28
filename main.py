@@ -1510,11 +1510,11 @@ class CodeReviewRequest(BaseModel):
     token: str = ""    # GitHub token for private repos
 
 
-# Single shared Playwright instance and Chromium browser.
-# Each user session gets its own isolated browser context (separate cookies/storage).
+BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
+BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
+
 _pw_instance = None
-_pw_browser = None
-_pw_sessions: dict = {}  # session_id -> {context, page, last_click}
+_pw_sessions: dict = {}  # session_id -> {browser, page, last_click}
 _capture_jobs: dict = {}  # job_id -> status dict
 _PW_SESSION_LIMIT = 10
 
@@ -1527,47 +1527,41 @@ async def _get_playwright():
     return _pw_instance
 
 
-async def _get_browser():
-    global _pw_browser
-    if _pw_browser is None or not _pw_browser.is_connected():
-        pw = await _get_playwright()
-        _pw_browser = await pw.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
-                  "--disable-gpu", "--disable-background-networking"],
-        )
-    return _pw_browser
-
-
 async def _get_pw_page(session_id: str):
     if session_id in _pw_sessions:
         try:
             await _pw_sessions[session_id]["page"].title(timeout=5000)
             return _pw_sessions[session_id]
         except Exception:
-            try:
-                await _pw_sessions[session_id]["context"].close()
-            except Exception:
-                pass
-            del _pw_sessions[session_id]
+            _pw_sessions.pop(session_id, None)
     if len(_pw_sessions) >= _PW_SESSION_LIMIT:
         oldest = next(iter(_pw_sessions))
-        try:
-            await _pw_sessions[oldest]["context"].close()
-        except Exception:
-            pass
         _pw_sessions.pop(oldest, None)
-    browser = await _get_browser()
-    context = await browser.new_context(viewport={"width": 1280, "height": 800})
-    page = await context.new_page()
-    _pw_sessions[session_id] = {"context": context, "page": page, "last_click": None}
+    pw = await _get_playwright()
+    connect_url = (
+        f"wss://connect.browserbase.com"
+        f"?apiKey={BROWSERBASE_API_KEY}&sessionId={session_id}"
+    )
+    browser = await pw.chromium.connect_over_cdp(connect_url, timeout=30000)
+    ctx = browser.contexts[0]
+    page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+    _pw_sessions[session_id] = {"browser": browser, "page": page, "last_click": None}
     return _pw_sessions[session_id]
 
 
 @app.post("/browser-session")
 async def browser_session(request: Request):
-    session_id = uuid.uuid4().hex
+    if not BROWSERBASE_API_KEY or not BROWSERBASE_PROJECT_ID:
+        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
     try:
+        resp = http_requests.post(
+            "https://www.browserbase.com/v1/sessions",
+            headers={"x-bb-api-key": BROWSERBASE_API_KEY, "Content-Type": "application/json"},
+            json={"projectId": BROWSERBASE_PROJECT_ID, "browserSettings": {"viewport": {"width": 1280, "height": 800}}},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        session_id = resp.json()["id"]
         await _get_pw_page(session_id)
         return JSONResponse({"session_id": session_id})
     except Exception as e:
