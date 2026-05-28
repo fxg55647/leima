@@ -34,6 +34,11 @@ from irys_sdk.bundle.tags import from_dict as tags_from_dict
 
 load_dotenv()
 
+import logging as _logging
+_logging.basicConfig(level=_logging.WARNING)
+for _noisy in ("uvicorn.access", "uvicorn.error", "httpx", "httpcore", "google"):
+    _logging.getLogger(_noisy).setLevel(_logging.ERROR)
+
 
 def _patch_urllib3_ssrf_guard():
     """Prevent DNS rebinding by resolving once at socket level and connecting to the pinned IP."""
@@ -1408,9 +1413,7 @@ async def ask(
                                source_context)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
-    except Exception as _exc:
-        import logging
-        logging.exception("Analysis failed")
+    except Exception:
         return HTMLResponse('<div class="error">Analysis failed. Please try again.</div>')
 
     if active_tab == "image" and c2pa_info:
@@ -1458,6 +1461,7 @@ BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
 # so we reuse one. Browser/page objects per session are lightweight WebSocket wrappers.
 _pw_instance = None
 _pw_sessions: dict = {}  # session_id -> {browser, page}
+_capture_jobs: dict = {}  # job_id -> status dict
 _PW_SESSION_LIMIT = 10   # drop oldest if exceeded
 
 
