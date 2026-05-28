@@ -192,6 +192,18 @@ Support for video submissions — uploaded directly or provided by URL — with 
 
 ---
 
+### Service availability and latency monitoring
+
+Leima periodically fetches a specified URL or API endpoint and stamps the response — recording the HTTP status, response time, and content hash at each check. The stamps build an independently verifiable timeline of a service's availability and behaviour that neither the service operator nor the monitoring party can retroactively alter.
+
+**Downtime documentation.** If a service is down at the moment Leima checks it, the stamp records the failure: this endpoint returned this error at this time. If a dispute later arises about whether an outage occurred — an SLA claim, a refund request, a contractual penalty — the stamped record provides a reference point that does not depend on either party's self-reported logs.
+
+**Latency and degradation.** Response times are recorded at each check. A pattern of slow responses or intermittent failures — difficult to prove after the fact from a user's own observations — is documented in a permanent, tamper-proof timeline. Useful for SLA enforcement, supplier negotiations, or demonstrating to a regulator that a service repeatedly failed to meet stated performance commitments.
+
+**Content changes.** Because each stamp includes a hash of the response body, changes in the content of a page or API response are detectable over time. If a service quietly alters its terms, prices, or functionality between formal updates, the stamp history shows exactly when the change occurred.
+
+---
+
 ### Multi-model consensus
 
 For high-stakes verdicts, Leima runs the same document and claim through multiple independent AI models simultaneously and requires agreement across all of them before issuing a stamp. A successful prompt injection or model manipulation would need to fool every architecture at once — a significantly harder task than targeting a single model.
