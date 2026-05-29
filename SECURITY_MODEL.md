@@ -35,6 +35,9 @@ Viisi identtistä GitHub Actions -workflow'ta, jotka ajavat `tread_check.py`:n v
 - Kompromisoitu `tread_check.py` voi kirjoittaa vääriä hasheja status.json:iin
 - GitHub Actions itsessään on luotettu osapuoli — jos GitHub on kompromisoitu, koko järjestelmä pettää
 
+**Suojausaika session aikana:**
+TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat dataa muille kerroksille. Jos hyökkääjä muokkaa workflow'ta, muutos näkyy git tree:ssä välittömästi (~1 min), jonka Tampermonkey havaitsee seuraavalla sivulatauksella.
+
 ---
 
 ### 2. status.json (GitHub Pages + Arweave)
@@ -54,6 +57,9 @@ TREAD:n tuottama julkinen tiedosto, joka sisältää deployment-tilan, valvontat
 
 **Arweave-arkiston vahvuus:**
 Vaikka hyökkääjä muuttaisi tiedostoja ja kirjoittaisi vääriä hasheja tuleviin ajoihin, aikaisemmat Arweave-tietueet osoittavat mitä hasheja järjestelmä raportoi ennen muutosta. Historiaa ei voi jälkikäteen väärentää.
+
+**Suojausaika session aikana:**
+Ei reaaliaikaista suojaa session aikana CDN-välimuistin takia. Arweave-arkisto on jälkikäteinen todiste, ei ennaltaehkäisevä suojaus.
 
 ---
 
@@ -80,6 +86,15 @@ Tämä on **vahvin suojauskerros**: hashit lasketaan selaimessa GitHubin raakada
 - Käyttäjän täytyy itse asentaa skripti ja pitää se ajan tasalla
 - Ei suojaa käyttäjiä joilla ei ole Tampermonkeyta
 
+**Suojausaika session aikana:**
+Tampermonkey ajaa vain sivun latauksen yhteydessä, ei jatkuvasti. Jos hyökkäys alkaa sivulatauksen jälkeen, käyttäjä ei saa varoitusta ennen seuraavaa sivulatausta.
+
+- **Ennen sivulatausta tapahtuva hyökkäys:** havaitaan heti
+- **Sivulatauksen jälkeen tapahtuva hyökkäys:** havaitaan vasta seuraavalla sivulatauksella
+- **Käytännön suojausikkuna:** niin kauan kuin käyttäjä ei lataa sivua uudelleen — tyypillisesti koko session ajan
+
+Tämä tarkoittaa että jos käyttäjä on verifioinut tiedostot session alussa ja hyökkäys alkaa kesken session, TREAD-palkki on ensisijainen reaaliaikainen varoitin.
+
 ---
 
 ### 4. TREAD-palkki sivun ylälaidassa (/version-endpoint)
@@ -96,15 +111,25 @@ _poide_dispatcher (30 s välein)
 
 **Vahvuus — aikaikkuna-argumentti:**
 Dispatcher on osa Leiman koodia (main.py). Jos hyökkääjä haluaa kompromisoida dispatcherin, hänen täytyy:
-1. Muokata main.py ja committaa → **Tampermonkey havaitsee tiedostomuutoksen**
+1. Muokata main.py ja committaa → **Tampermonkey havaitsee tiedostomuutoksen seuraavalla sivulatauksella**
 2. Odottaa code review -workflow (2–3 min)
-3. Odottaa Render-deploy (5–10 min) → **TREAD-palkki näyttää "Deploying"**
+3. Odottaa Render-deploy (5–10 min) → **TREAD-palkki näyttää "Deploying" koko ajan**
 
-Käyttäjä saa siis kaksi varoitusta ennen kuin kompromisoitu koodi on edes live.
+Käyttäjä saa siis näkyvän varoituksen 8–13 minuutin ajan ennen kuin kompromisoitu koodi on edes live.
 
 **Haavoittuva:**
 - Dispatcher luottaa status.json:iin dispatcherin oman verifiointilogiikan puuttuessa
 - Jos Render-ympäristö on kompromisoitu (ptrace), muistissa oleva tieto voidaan väärentää ilman uutta deployia
+
+**Suojausaika session aikana:**
+TREAD-palkki on ainoa komponentti joka varoittaa **reaaliaikaisesti kesken session** ilman sivun uudelleenlatausta (pollaa 20 s välein).
+
+- **Hyökkäys alkaa:** palkki näyttää "Deploying" ~90 s kuluessa commitista
+- **Deploy käynnissä:** varoitus näkyy koko deploy-ajan (8–13 min)
+- **Deploy valmis, kompromisoitu koodi live:** palkki palaa vihreäksi (väärä positiivi) jos dispatcher on nyt väärennetty
+- **Suoja loppuu:** heti kun kompromisoitu koodi on deployattu ja dispatcher alkaa palvella väärää dataa
+
+**Johtopäätös:** TREAD-palkki suojaa käyttäjän koko deploy-prosessin ajan. Kriittinen ikkuna on deploy-prosessin jälkeen, jos dispatcher on osa hyökkäystä.
 
 ---
 
@@ -121,18 +146,61 @@ Jokaisen git push:n jälkeen automaattisesti ajettava workflow, joka toimii depl
 - AI-arvio ei ole aukoton — hienostuneita muutoksia voi jäädä läpi
 - Jos hyökkääjällä on GitHub-oikeus, hän voi muokata myös code_review.yml:ää
 
+**Suojausaika session aikana:**
+Code review lisää 2–3 minuutin pakotetun viiveen jokaisen muutoksen ja deployn välille. Tämä aika on käyttäjälle näkyvää varoitusaikaa (TREAD-palkki "Deploying"). Workflow itse ei varoita käyttäjää suoraan.
+
 ---
 
-### 6. Render-ympäristö
+### 6. Hosting-ympäristö
 
-**Tunnistettu kriittinen haavoittuvuus:**
-Renderin natiivi Python-ympäristö (ei Dockeria) sallii:
-- `/proc/<pid>/mem` luettavissa — käynnissä olevan prosessin muisti ei ole suojattu
-- `seccomp: 0` — ei järjestelmäkutsusuodatusta, ptrace todennäköisesti sallittu
+Hosting-alustan valinta vaikuttaa merkittävästi järjestelmän turvallisuuteen. Nykyinen ympäristö on väliaikainen.
 
-**Vaikutus:** Render-dashboardiin pääsevä hyökkääjä voi muokata muistia suoraan ilman uutta deployia. TREAD ei havaitsisi tätä, koska commit-hash ei muutu.
+**Suojausaika session aikana:**
+Riippuu täysin alustan eristystasosta. Alustat joissa prosessieristys on heikko voivat mahdollistaa hyökkäyksiä jotka eivät näy missään valvontakerroksessa — ei TREAD-palkissa, ei Tampermonkeyssa, ei Arweavessa.
 
-**Ratkaisu:** Siirtyminen Lambda/TEE-ympäristöön (suunniteltu).
+---
+
+## Hyökkäyksen aikajana — käyttäjä on verifioinut session alussa
+
+Oletetaan että käyttäjä on tarkistanut ennen session alkua, että valvontatiedostoja ei ole muutettu kuukausiin. Hyökkäys alkaa session aikana.
+
+```
+t=0        Hyökkääjä committaa muutokset GitHubiin
+           → Git tree muuttuu välittömästi
+
+t=0–90s    TREAD-palkki jatkaa normaalia näyttöä (dispatcher ei ole vielä päivittynyt)
+           → Tampermonkey havaitsee muutoksen VAIN jos sivu ladataan uudelleen
+
+t=90s      _poide_dispatcher hakee päivitetyn status-log.jsonl:n
+           → Jos muutos on valvontatiedostoissa: status.json raportoi uudet hashit
+           → TREAD-palkki: ei vielä vaikutusta (dispatcher seuraa deploy-statusta)
+
+t=2–3min   Code review -workflow käynnistyy ja valmistuu
+           → TREAD-palkki näyttää "Deploying" ← KÄYTTÄJÄ NÄKEE VAROITUKSEN
+
+t=3–13min  Render-deploy käynnissä
+           → TREAD-palkki näyttää "Deploying" koko ajan
+           → Käyttäjällä on 8–13 min näkyvää varoitusaikaa
+
+t=13min    Kompromisoitu koodi on live
+           → Jos dispatcher on kompromisoitu: TREAD-palkki palaa vihreäksi (väärä positiivi)
+           → Tampermonkey havaitsee tiedostomuutoksen seuraavalla sivulatauksella
+
+t=13min+   Käyttäjä on suojattu vain jos:
+           a) lataa sivun uudelleen (Tampermonkey varoittaa), TAI
+           b) Tampermonkey ei ole kompromisoitu ja status.json näyttää mismatchin
+```
+
+**Yhteenveto suojausajasta:**
+
+| Vaihe | Kesto | Käyttäjän suoja |
+|---|---|---|
+| Commit → dispatcher päivittyy | 0–90 s | ❌ Ei varoitusta |
+| Deploy käynnissä | 8–13 min | ✅ TREAD-palkki "Deploying" |
+| Kompromisoitu koodi live, sivu ei ladattu | Kunnes reload | ⚠️ Ei varoitusta — riski |
+| Käyttäjä lataa sivun uudelleen | Heti | ✅ Tampermonkey varoittaa |
+
+**Käytännön suositus käyttäjälle:** Älä koskaan lähetä arkaluonteisia dokumentteja jos TREAD-palkki näyttää "Deploying" tai "Notice". Lataa sivu uudelleen ennen tärkeää toimenpidettä.
 
 ---
 
@@ -150,14 +218,14 @@ Renderin natiivi Python-ympäristö (ei Dockeria) sallii:
 
 ---
 
-### Osittainen hyökkääjä (vain Render-pääsy)
+### Osittainen hyökkääjä (vain hosting-pääsy)
 
 | Uhka | Suojaus |
 |---|---|
-| Muistin manipulointi (ptrace) | ❌ Ei suojaa — kriittinen haavoittuvuus |
-| Uusi luvaton deploy | TREAD havaitsee commit-mismatchin |
+| Luvaton deploy API:n kautta | TREAD havaitsee commit-mismatchin |
+| Alustatason hyökkäys | Riippuu hosting-ympäristön eristystasosta |
 
-⚠️ **Ptrace-haavoittuvuus tunnistettu — migraatio suunnitteilla**
+⚠️ **Hosting-ympäristön valinta kriittinen — migraatio suunnitteilla**
 
 ---
 
@@ -165,7 +233,7 @@ Renderin natiivi Python-ympäristö (ei Dockeria) sallii:
 
 | Uhka | Suojaus |
 |---|---|
-| Valvontatiedostojen muokkaus | Tampermonkey havaitsee git tree API:lla heti |
+| Valvontatiedostojen muokkaus | Tampermonkey havaitsee git tree API:lla seuraavalla sivulatauksella |
 | Väärät hashit status.json:iin | Tampermonkey laskee hashit itse, ei luota status.json:iin |
 | Deploy ilman koodiarvioita | Code review -workflow estää |
 
@@ -177,13 +245,13 @@ Renderin natiivi Python-ympäristö (ei Dockeria) sallii:
 
 | Uhka | Suojaus |
 |---|---|
-| Kaikkien komponenttien muokkaus | Vaatii commitin → Tampermonkey havaitsee |
+| Kaikkien komponenttien muokkaus | Vaatii commitin → TREAD-palkki näyttää "Deploying" 8–13 min |
 | Väärät hashit status.json:iin | Tampermonkey käyttää git tree API:a, ei luota status.json:iin |
-| Deploy-aikaikkuna | Käyttäjä näkee "Deploying"-varoituksen + Tampermonkey-hälytyksen ennen kuin kompromisoitu koodi on live |
+| Deploy-aikaikkuna | Käyttäjällä 8–13 min näkyvää varoitusaikaa |
 | Historian peittäminen | Arweave-arkisto on muuttumaton — aiempi oikea tila säilyy |
-| Muistin manipulointi | ❌ Ei suojaa (ptrace) |
+| Alustatason hyökkäys | Riippuu hosting-ympäristön eristystasosta |
 
-⚠️ **Osittainen suojaus — havaittavissa mutta ei estettävissä. Täydellinen suojaus vaatii TEE:n.**
+⚠️ **Osittainen suojaus — havaittavissa deploy-aikana, mutta ei estettävissä. Täydellinen suojaus vaatii TEE:n.**
 
 ---
 
@@ -200,7 +268,7 @@ GitHub Actions (TREAD)              — luotettu jos GitHub ei kompromisoitu
   ↓
 status.json (GitHub Pages)          — auditointiartefakti, ei reaaliaikainen turvatae
   ↓
-Render-ympäristö                    — matalin, ptrace-haavoittuvuus
+Hosting-ympäristö                   — matalin, riippuu alustan eristystasosta
 ```
 
 ---
@@ -209,7 +277,7 @@ Render-ympäristö                    — matalin, ptrace-haavoittuvuus
 
 | Asia | Tila |
 |---|---|
-| Render → Lambda/TEE -migraatio | Suunniteltu — ptrace-haavoittuvuuden poistaminen |
+| Hosting-ympäristön migraatio | Suunniteltu |
 | Tampermonkey-baseline session alussa | Suunniteltu — status-log.jsonl:n stabiliteetin tarkistus |
 | Browserbase → Browserless | Tehty 2026-05-29 |
 
