@@ -45,7 +45,7 @@ Kolme hyökkääjätyyppiä, joita vastaan järjestelmä on suunniteltu:
 
 ## Komponentit ja niiden suojaus
 
-### 1. TREAD-cronit (tread-a.yml … tread-e.yml) + tread-run.yml + tread_check.py
+### 1. TREAD-cronit — tread-a.yml … tread-e.yml, tread-run.yml, tread_check.py
 
 GitHub Actions sallii cronille minimissään 5 minuutin välin. Yhden minuutin tarkkuuteen päästään viidellä identtisellä workflow'lla (`tread-a.yml`…`tread-e.yml`), joiden käynnistysajat on porrastettu minuutin välein (`:00`, `:01`, `:02`, `:03`, `:04`, sitten `:05`, `:06`…). Jokainen niistä kutsuu `tread-run.yml`:ää, joka on yhteinen reusable workflow ja sisältää varsinaisen suorituslogiikan: ajaa `tread_check.py`:n, arkistoi tuloksen Arweave-lohkoketjuun (`tread_arweave.py`) ja kirjoittaa `status.json`:n GitHub Pagesiin (`push_status.py`). Jokainen ajo:
 - Tarkistaa vastaako hosting-palvelussa pyörivä commit GitHubin main-branchia
