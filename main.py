@@ -94,6 +94,10 @@ _poide_cache: dict | None = None
 _poide_cache_ready = threading.Event()
 _PAGES_URL = "https://fxg55647.github.io/leima"
 
+_RENDER_API_KEY    = os.getenv("RENDER_API_KEY", "")
+_RENDER_SERVICE_ID = os.getenv("RENDER_SERVICE_ID", "")
+_IN_PROGRESS_STATUSES = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
+
 _MONITOR_PATHS = {
     ".github/workflows/tread-a.yml",
     ".github/workflows/tread-b.yml",
@@ -112,6 +116,23 @@ _MONITOR_PATHS = {
 _GITHUB_REPO = "fxg55647/leima"
 _GITHUB_BRANCH = "main"
 _monitor_baseline: dict | None = None
+
+
+def _fetch_render_deploying() -> bool | None:
+    if not _RENDER_API_KEY or not _RENDER_SERVICE_ID:
+        return None
+    try:
+        r = http_requests.get(
+            f"https://api.render.com/v1/services/{_RENDER_SERVICE_ID}/deploys?limit=5",
+            headers={"Authorization": f"Bearer {_RENDER_API_KEY}"},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return None
+        deploys = r.json()
+        return bool(deploys and deploys[0].get("deploy", {}).get("status") in _IN_PROGRESS_STATUSES)
+    except Exception:
+        return None
 
 
 def _fetch_monitor_hashes(token: str) -> dict | None:
@@ -163,6 +184,12 @@ def _poide_dispatcher():
                         cache_populated = True
         except Exception:
             pass
+
+        # Suora Render API -kutsu deploy-statukseen — ei TREAD:sta riippuvainen
+        deploying_direct = _fetch_render_deploying()
+        if deploying_direct is not None and _poide_cache is not None:
+            _poide_cache = dict(_poide_cache)
+            _poide_cache["deploying"] = deploying_direct
 
         # Riippumaton valvontatiedostojen hash-tarkistus git tree API:lta
         hashes = _fetch_monitor_hashes(token)
