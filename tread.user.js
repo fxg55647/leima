@@ -10,7 +10,7 @@
 // @grant        GM_setValue
 // ==/UserScript==
 
-const STATUS_URL = "https://fxg55647.github.io/leima/status.json";
+const STATUS_URL = "https://fxg55647.github.io/leima/status.json?_=" + Date.now();
 
 function modal(title, lines) {
     document.getElementById("tread-modal")?.remove();
