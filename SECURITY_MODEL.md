@@ -163,7 +163,16 @@ Tämä tarkoittaa että code review -workflow ei ole pelkästään koodilaatupor
 
 **Haavoittuva:**
 - AI-arvio ei ole aukoton — hienostuneita muutoksia voi jäädä läpi
-- Jos hyökkääjällä on GitHub-oikeus, hän voi muokata myös code_review.yml:ää
+
+**Miten code review -portti voidaan yrittää ohittaa — ja miten siitä jää kiinni:**
+
+| Tapa | Miten kiinni |
+|---|---|
+| Muokata `code_review.yml`:ää (esim. auto-pass) | Vaatii commitin → Tampermonkey havaitsee hash-muutoksen → hälytys |
+| Ohittaa workflow ja deployata suoraan API:n kautta | Deployattu commit ≠ GitHubin main → TREAD commit-mismatch → Danger-hälytys |
+| Poistaa workflow käytöstä GitHub-käyttöliittymästä | `tread_check.py` tarkistaa workflow-tilat → `disabled_workflows` → TREAD-palkki hälyttää |
+
+Kaikki kolme jättävät jälkiä: joko git-historiaan, GitHub API:n workflow-tilatietoon tai Arweave-arkistoon.
 
 **Suojausaika session aikana:**
 Code review lisää 2–3 minuutin pakotetun viiveen jokaisen muutoksen ja deployn välille. Tämä aika on käyttäjälle näkyvää hälytysaikaa (TREAD-palkki "Deploying").
