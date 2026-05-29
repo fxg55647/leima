@@ -38,7 +38,7 @@ tread-e: 4-59/5 * * * *    ← minutes 4, 9, 14 ...
 
 The policy file (`POLICY.example.md`) is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy that governs each review cannot be changed retroactively.
 
-Each workflow runs `poide_check.py`, which checks three conditions and publishes a combined `status.json` to the `gh-pages` branch (the script name is unchanged):
+Each workflow runs `tread_check.py`, which checks three conditions and publishes a combined `status.json` to the `gh-pages` branch:
 
 1. **Deployment match** — calls the Render API and the GitHub API, verifies the live commit matches the repository HEAD
 2. **No deploy in progress** — flags if Render reports an active build or update
@@ -62,7 +62,7 @@ push → code_review.yml → Gemini audits code vs POLICY.example.md
                                     ↓ pass only
                               Render deploy hook → new commit live
                                     ↓
-cron (every minute) → poide_check.py → deployment match?
+cron (every minute) → tread_check.py → deployment match?
                                       → review passed?
                                       → no deploy in progress?
                                                  → status.json → gh-pages (public)
@@ -70,11 +70,9 @@ cron (every minute) → poide_check.py → deployment match?
 
 The check passes if the deployed commit matches the GitHub HEAD and the code review is green. If an unauthorised deployment has occurred — a commit that did not go through the review gate — the check fails and the GitHub Actions badge turns red.
 
-(All files renamed from `poide-*` to `tread-*` in both phases of the migration.)
-
 **The result is public and independently verifiable.** Anyone can visit the [Actions tab](../../actions) to see the continuous check history, or fetch `status.json` directly. The checks run on GitHub's infrastructure — not Render's — so they cannot be influenced by a compromise of the hosting environment. This does mean GitHub Actions is part of the trust boundary: a compromise of GitHub's infrastructure or the repository's Actions configuration could in principle affect the monitoring results. This is a real but theoretical risk — GitHub is a large platform with its own security controls, and the attack surface is meaningfully different from a single hosting provider. It is worth naming openly rather than treating TREAD as fully independent of all platforms.
 
-**Monitor files are hashed.** `status.json` includes SHA-256 hashes of all monitoring-related files: the five cron workflows, the code review workflow, `poide_check.py`, `code_review.py`, and `POLICY.example.md`. A user or browser extension can compare these hashes across sessions. If a hash has changed, it is a signal to check what changed and why — before submitting any documents. This closes the meta-loop: the monitoring infrastructure is itself monitored by the same mechanism. An attacker who wants to slip in malicious application code must do so in a way that passes the AI code review against an unchanged `POLICY.example.md` — changing both simultaneously is significantly harder and more visible.
+**Monitor files are hashed.** `status.json` includes SHA-256 hashes of all monitoring-related files: the five cron workflows, the code review workflow, `tread_check.py`, `code_review.py`, and `POLICY.example.md`. A user or browser extension can compare these hashes across sessions. If a hash has changed, it is a signal to check what changed and why — before submitting any documents. This closes the meta-loop: the monitoring infrastructure is itself monitored by the same mechanism. An attacker who wants to slip in malicious application code must do so in a way that passes the AI code review against an unchanged `POLICY.example.md` — changing both simultaneously is significantly harder and more visible.
 
 **Deploy history check.** Each cron run fetches the 20 most recent Render deployments and verifies that every commit hash exists in the GitHub repository. A commit that was deployed but does not appear in git is a strong indicator of tampering. The result is published in `status.json` as `history.last_mismatch_at` and `history.clean_since`. The Tampermonkey userscript shows this as a human-readable label — "puhdas historia 47 pv" on a clean run, or an orange/red warning if a mismatch was found recently. This builds a verifiable track record: the longer the clean history, the stronger the reputation.
 
@@ -114,7 +112,7 @@ python verify.py
 
 It uses two independent sources for each monitored file:
 
-**Git history (GitHub API).** For each file in the monitoring infrastructure — the five cron workflows, `poide_check.py`, `poide_arweave.py`, `code_review.py`, and `POLICY.example.md` — it queries GitHub's commit history API to find when the file was last changed. This record is maintained by GitHub, not by Leima. A service operator cannot alter it without leaving a visible trace in the git history, which is append-only on GitHub's infrastructure.
+**Git history (GitHub API).** For each file in the monitoring infrastructure — the five cron workflows, `tread_check.py`, `tread_arweave.py`, `code_review.py`, and `POLICY.example.md` — it queries GitHub's commit history API to find when the file was last changed. This record is maintained by GitHub, not by Leima. A service operator cannot alter it without leaving a visible trace in the git history, which is append-only on GitHub's infrastructure.
 
 **Arweave record.** It fetches the latest TREAD check result directly from Arweave and reads the `monitor_files` hashes stored there. Since Arweave records are permanent and cannot be retroactively altered, the hashes represent what the monitoring system observed at that moment — independently of any code the Leima service runs today.
 
@@ -249,7 +247,7 @@ The current implementation (`code_review.py`) is a working example of this idea 
 
 **Visible in the application UI.** The current deployment status and the last audit result are shown directly in the application — not just on GitHub. Users do not need to open a separate page. A mismatch or a failed audit blocks the UI until resolved.
 
-**Userscript (available now).** A Tampermonkey/Greasemonkey userscript ([`poide.user.js`](poide.user.js)) is included in the repository. It uses `GM_xmlhttpRequest` — which runs in the browser extension's isolated context, not the page's JavaScript environment — so a compromised Leima page cannot intercept or spoof the check. On each page load it fetches `status.json`, shows a green banner if everything is in order, and a red warning if not. It also compares `monitor_files` hashes against the previous session using `GM_getValue`/`GM_setValue`, alerting if any monitoring file has changed.
+**Userscript (available now).** A Tampermonkey/Greasemonkey userscript ([`tread.user.js`](tread.user.js)) is included in the repository. It uses `GM_xmlhttpRequest` — which runs in the browser extension's isolated context, not the page's JavaScript environment — so a compromised Leima page cannot intercept or spoof the check. On each page load it fetches `status.json`, shows a green banner if everything is in order, and a red warning if not. It also compares `monitor_files` hashes against the previous session using `GM_getValue`/`GM_setValue`, alerting if any monitoring file has changed.
 
 **Browser extension.** A dedicated browser extension would make the same check fully automatic for any TREAD-enabled application without requiring manual userscript installation. No manual check required.
 
