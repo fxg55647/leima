@@ -20,6 +20,15 @@ Koodin muuttaminen tuotantopalvelimella ei tapahdu hetkessä — se vaatii GitHu
 
 Näiden kahden varaan on rakennettu useita toisistaan riippumattomia valvontakerroksia: käyttäjän selaimessa pyörivä Tampermonkey-skripti, palvelimen dispatcher, TREAD-cronit GitHubissa ja Arweave-lohkoketjun muuttumaton arkisto. Kukin tarkistaa asioita eri lähteistä ja eri viiveillä — yhden kerroksen kompromisointi ei sammuta muita.
 
+**Luottamuksen rakentuminen**
+
+Järjestelmä pyrkii rakentamaan luottamuksen monella toisiaan täydentävällä tavalla:
+
+- **Muuttumaton historia** — Arweave-arkisto todistaa että palvelimella ei ole koskaan pyörinyt koodia joka ei näy GitHubissa. Tätä historiaa ei voi jälkikäteen muuttaa.
+- **Automaattinen koodiarvio** — jokainen muutos tarkastetaan AI:n avulla ennen kuin se pääsee tuotantoon. Arvio vertaa muutoksia käyttöehtoihin ja politiikkadokumenttiin.
+- **Deployhälytys kesken session** — jos palvelimelle ajetaan uusi versio käyttäjän session aikana, TREAD-palkki ilmoittaa siitä välittömästi. Käyttäjä näkee muutoksen ennen kuin se on voimassa.
+- **Hälytys ohi GitHubin** — jos koodia yritetään ajaa sisään ohittaen GitHub-repositorio ja koodiarvio, TREAD havaitsee commit-mismatchin ja hälyttää välittömästi.
+
 ---
 
 ## Uhkamallit
