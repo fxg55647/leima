@@ -10,5 +10,4 @@ __pycache__/
 !.claude/commands
 source_bundle.txt
 .playwright-mcp/
-leima_bundle.txt
 tread_bundle.txt
