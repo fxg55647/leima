@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TREAD — Leima deployment check
 // @namespace    https://github.com/fxg55647/leima
-// @version      2.0
+// @version      3.0
 // @description  Shows a modal warning when Leima deployment integrity is compromised
 // @match        https://leima.io/*
 // @match        https://leima.onrender.com/*
@@ -10,7 +10,27 @@
 // @grant        GM_setValue
 // ==/UserScript==
 
-const STATUS_URL = "https://fxg55647.github.io/leima/status.json?_=" + Date.now();
+const REPO   = "fxg55647/leima";
+const BRANCH = "main";
+
+const MONITOR_PATHS = [
+    ".github/workflows/tread-a.yml",
+    ".github/workflows/tread-b.yml",
+    ".github/workflows/tread-c.yml",
+    ".github/workflows/tread-d.yml",
+    ".github/workflows/tread-e.yml",
+    ".github/workflows/tread-run.yml",
+    ".github/workflows/monthly-audit.yml",
+    ".github/workflows/code_review.yml",
+    "tread_check.py",
+    "tread_arweave.py",
+];
+
+const TS          = Date.now();
+const TREE_URL    = `https://api.github.com/repos/${REPO}/git/trees/${BRANCH}?recursive=1&_=${TS}`;
+const STATUS_URL  = `https://api.github.com/repos/${REPO}/contents/status.json?ref=gh-pages&_=${TS}`;
+const COOLDOWN_MS = 5 * 60 * 1000;
+
 
 function modal(title, lines) {
     document.getElementById("tread-modal")?.remove();
@@ -66,17 +86,6 @@ function modal(title, lines) {
     document.documentElement.appendChild(overlay);
 }
 
-function checkMonitorFiles(current) {
-    const stored = GM_getValue("monitor_files", null);
-    GM_setValue("monitor_files", JSON.stringify(current));
-    if (!stored) return null;
-    let prev;
-    try { prev = JSON.parse(stored); } catch { return null; }
-    const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
-    return changed.length > 0 ? changed : null;
-}
-
-const COOLDOWN_MS = 5 * 60 * 1000;
 
 function isCooledDown(key) {
     const last = GM_getValue("cooldown_" + key, 0);
@@ -85,27 +94,58 @@ function isCooledDown(key) {
     return true;
 }
 
-GM_xmlhttpRequest({
-    method: "GET",
-    url: STATUS_URL,
-    onload(r) {
-        let d;
-        try { d = JSON.parse(r.responseText); } catch { return; }
 
-        const changedFiles = checkMonitorFiles(d.monitor_files || {});
+function checkFileHashes(current) {
+    const stored = GM_getValue("tread_file_hashes_v3", null);
+    GM_setValue("tread_file_hashes_v3", JSON.stringify(current));
+    if (!stored) return null;
+    let prev;
+    try { prev = JSON.parse(stored); } catch { return null; }
+    const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
+    return changed.length ? changed : null;
+}
 
-        if (changedFiles && isCooledDown("monitor_changed")) {
+
+function gmFetch(url, headers) {
+    return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+            method: "GET",
+            url,
+            headers: headers || {},
+            onload: r => resolve(r),
+            onerror: reject,
+        });
+    });
+}
+
+
+async function main() {
+    // 1. Hae git tree ja laske hashit itse — ei luoteta status.json:iin
+    try {
+        const r = await gmFetch(TREE_URL, {"Accept": "application/vnd.github+json"});
+        const tree = JSON.parse(r.responseText).tree || [];
+        const hashes = {};
+        for (const item of tree) {
+            if (MONITOR_PATHS.includes(item.path)) hashes[item.path] = item.sha;
+        }
+        const changed = checkFileHashes(hashes);
+        if (changed && isCooledDown("files_changed")) {
             modal("TREAD — Surveillance files modified", [
-                "The following files have changed since the last check:",
-                changedFiles.join(", "),
+                "The following files have changed:",
+                changed.join(", "),
                 "These files control how Leima is monitored and deployed.",
                 "Do not submit sensitive documents until you have verified the changes on GitHub.",
             ]);
             return;
         }
+    } catch { /* silent on network error */ }
+
+    // 2. Hae status.json GitHub API:lla (1 min cache) — tarkista deploy-status
+    try {
+        const r = await gmFetch(STATUS_URL, {"Accept": "application/vnd.github.raw"});
+        const d = JSON.parse(r.responseText);
 
         const dangerousDeploy = d.deploying && d.deploying_commit_ok === false && d.deploying_commit;
-
         if (dangerousDeploy && isCooledDown("danger_" + (d.deploying_commit || "").slice(0, 7))) {
             modal("TREAD — Unauthorized deploy detected", [
                 "A commit is being deployed that does NOT match the GitHub repository.",
@@ -120,6 +160,7 @@ GM_xmlhttpRequest({
                 "Do not submit sensitive documents until this is resolved.",
             ]);
         }
-    },
-    onerror() { /* silent on network error */ }
-});
+    } catch { /* silent on network error */ }
+}
+
+main();
