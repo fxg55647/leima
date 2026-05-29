@@ -1073,7 +1073,11 @@
   function _startScreenshotPoll(sessionId) {
     if (_liveScreenshotInterval) clearInterval(_liveScreenshotInterval);
     const img = document.getElementById('live-img');
-    const refresh = () => { img.src = '/browser-screenshot/' + sessionId + '?t=' + Date.now(); };
+    const refresh = () => {
+      const tmp = new Image();
+      tmp.onload = () => { img.src = tmp.src; };
+      tmp.src = '/browser-screenshot/' + sessionId + '?t=' + Date.now();
+    };
     refresh();
     _liveScreenshotInterval = setInterval(refresh, 2000);
 
