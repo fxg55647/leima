@@ -75,7 +75,7 @@ TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat
 **Voidaanko status.json väärentää?**
 Kyllä — jos hyökkääjällä on GitHub-kirjoitusoikeus, hän voi muokata kaikkia kolmea tuotantoketjun tiedostoa (`tread_check.py`, `tread_arweave.py`, `push_status.py`) yhdessä commitissa. Tämä ei kuitenkaan vaikuta reaaliaikaiseen suojaan, koska Tampermonkey ja dispatcher eivät luota status.json:iin — ne laskevat hashit suoraan GitHubin git tree API:lta.
 
-Arweave-arkistoon sen sijaan voi tallentua vääristeltyjä tietoja: jos `tread_arweave.py` on kompromisoitu, se voi arkistoida väärät hashit. Aiemmat legitiimit tietueet säilyvät muuttumattomina, mutta hyökkäyksen jälkeiset arkistomerkinnät eivät ole luotettavia.
+Arweave-arkistoon sen sijaan voi tallentua vääristeltyjä tietoja: jos `tread_arweave.py` on kompromisoitu, se voi arkistoida väärät hashit. Aiemmat legitiimit tietueet säilyvät muuttumattomina, mutta hyökkäyksen jälkeiset arkistomerkinnät eivät ole luotettavia. Jos Arweave-tietue on epäilyttävä, se voidaan ristiin tarkistaa GitHubin commit-historiasta — repositoriosta nähdään mitä koodia kyseisenä päivänä on todella pyörinyt ja mitkä tiedostojen hashit ovat tuolloin olleet.
 
 Lisäksi: kaikkien kolmen tiedoston muokkaaminen on itsessään havaittavaa — jokainen muutos näkyy Tampermonkeyn git tree -tarkistuksessa.
 
