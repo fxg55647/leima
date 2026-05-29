@@ -1511,8 +1511,7 @@ class CodeReviewRequest(BaseModel):
     token: str = ""    # GitHub token for private repos
 
 
-BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
-BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
+BROWSERLESS_API_KEY = os.getenv("BROWSERLESS_API_KEY", "")
 
 _pw_instance = None
 _pw_sessions: dict = {}  # session_id -> {browser, page, last_click}
@@ -1539,10 +1538,7 @@ async def _get_pw_page(session_id: str):
         oldest = next(iter(_pw_sessions))
         _pw_sessions.pop(oldest, None)
     pw = await _get_playwright()
-    connect_url = (
-        f"wss://connect.browserbase.com"
-        f"?apiKey={BROWSERBASE_API_KEY}&sessionId={session_id}"
-    )
+    connect_url = f"wss://chrome.browserless.io?token={BROWSERLESS_API_KEY}"
     browser = await pw.chromium.connect_over_cdp(connect_url, timeout=30000)
     ctx = browser.contexts[0]
     page = ctx.pages[0] if ctx.pages else await ctx.new_page()
@@ -1552,17 +1548,11 @@ async def _get_pw_page(session_id: str):
 
 @app.post("/browser-session")
 async def browser_session(request: Request):
-    if not BROWSERBASE_API_KEY or not BROWSERBASE_PROJECT_ID:
-        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
+    if not BROWSERLESS_API_KEY:
+        return JSONResponse({"error": "Browserless not configured"}, status_code=503)
     try:
-        resp = http_requests.post(
-            "https://www.browserbase.com/v1/sessions",
-            headers={"x-bb-api-key": BROWSERBASE_API_KEY, "Content-Type": "application/json"},
-            json={"projectId": BROWSERBASE_PROJECT_ID, "browserSettings": {"viewport": {"width": 1280, "height": 800}}},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        session_id = resp.json()["id"]
+        import uuid
+        session_id = str(uuid.uuid4())
         await _get_pw_page(session_id)
         return JSONResponse({"session_id": session_id})
     except Exception as e:
