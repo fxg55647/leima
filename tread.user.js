@@ -92,7 +92,17 @@ GM_xmlhttpRequest({
         let d;
         try { d = JSON.parse(r.responseText); } catch { return; }
 
-        checkMonitorFiles(d.monitor_files || {});
+        const changedFiles = checkMonitorFiles(d.monitor_files || {});
+
+        if (changedFiles && isCooledDown("monitor_changed")) {
+            modal("TREAD — Surveillance files modified", [
+                "The following files have changed since the last check:",
+                changedFiles.join(", "),
+                "These files control how Leima is monitored and deployed.",
+                "Do not submit sensitive documents until you have verified the changes on GitHub.",
+            ]);
+            return;
+        }
 
         const dangerousDeploy = d.deploying && d.deploying_commit_ok === false && d.deploying_commit;
 
