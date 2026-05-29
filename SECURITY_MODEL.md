@@ -25,7 +25,7 @@ Kolme hyökkääjätyyppiä, joita vastaan järjestelmä on suunniteltu:
 Viisi identtistä GitHub Actions -workflow'ta, jotka ajavat `tread_check.py`:n vuorotellen minuutin välein. Redundanssi suojaa yksittäisen workflown passivoitumiselta.
 
 **Suojaa:**
-- Havaitsee jos Renderissä pyörii commit jota ei löydy GitHubista
+- Havaitsee jos hosting-palvelussa pyörii commit jota ei löydy GitHubista
 - Tarkistaa että kaikki viisi TREAD-worflow'ta ovat aktiivisia
 - Laskee SHA-256-hashit kaikista valvontatiedostoista ja kirjoittaa ne status.json:iin
 - Arkistoi tuloksen Arweave-lohkoketjuun pysyvästi
@@ -36,7 +36,7 @@ Viisi identtistä GitHub Actions -workflow'ta, jotka ajavat `tread_check.py`:n v
 - GitHub Actions itsessään on luotettu osapuoli — jos GitHub on kompromisoitu, koko järjestelmä pettää
 
 **Suojausaika session aikana:**
-TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat dataa muille kerroksille. Jos hyökkääjä muokkaa workflow'ta, muutos näkyy git tree:ssä välittömästi (~1 min), jonka Tampermonkey havaitsee seuraavalla sivulatauksella.
+TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat dataa muille kerroksille. Jos hyökkääjä muokkaa workflow'ta, muutos näkyy git tree:ssä välittömästi ja Tampermonkey havaitsee sen minuutin sisällä.
 
 ---
 
@@ -73,21 +73,21 @@ Käyttäjän selaimessa pyörivä skripti. Ainoa komponentti jota operaattori ei
 - Hakee koko git tree:n GitHub API:lta (`/git/trees/main?recursive=1`)
 - Poimii blob-SHA:t valvotuille tiedostoille suoraan GitHubista
 - Vertaa tallennettuun baselineen (GM_setValue)
-- Jos muutos → varoitusmodaali heti
+- Jos muutos → hälytysmodaali heti
 
 Tämä on **vahvin suojauskerros**: hashit lasketaan selaimessa GitHubin raakadatasta, ei status.json:n väittämästä arvosta. Vaikka `tread_check.py` kirjoittaisi vääriä hasheja, Tampermonkey havaitsee todelliset muutokset.
 
 **b) Deploy-status**
 - Hakee status.json GitHub API:lta (60 s cache — ei 10 min Pages-CDN)
 - Tarkistaa `deploying_commit_ok` ja `d.ok`
-- Varoittaa jos luvaton commit deployataan tai commit ei vastaa GitHubia
+- Hälyttää jos luvaton commit deployataan tai commit ei vastaa GitHubia
 
 **Haavoittuva:**
 - Käyttäjän täytyy itse asentaa skripti ja pitää se ajan tasalla
 - Ei suojaa käyttäjiä joilla ei ole Tampermonkeyta
 
 **Suojausaika session aikana:**
-Tampermonkey ajaa `main()`-funktion sivulatauksen yhteydessä ja sen jälkeen minuutin välein koko session ajan. Hyökkäys havaitaan enintään ~1 minuutin kuluessa tiedostomuutoksesta riippumatta siitä ladataanko sivu uudelleen.
+Tampermonkey ajaa `main()`-funktion sivulatauksen yhteydessä ja sen jälkeen minuutin välein koko session ajan. Hyökkäys havaitaan enintään ~1 minuutin kuluessa tiedostomuutoksesta.
 
 - **Ennen sivulatausta tapahtuva hyökkäys:** havaitaan heti
 - **Sivulatauksen jälkeen tapahtuva hyökkäys:** havaitaan seuraavassa 1 min pollausvuorossa
@@ -95,11 +95,11 @@ Tampermonkey ajaa `main()`-funktion sivulatauksen yhteydessä ja sen jälkeen mi
 
 ---
 
-### 4. TREAD-palkki sivun ylälaidassa (/version-endpoint)
+### 4. _poide_dispatcher
 
-Palvelimella pyörivä tila-indikaattori. Hakee datansa `_poide_dispatcher`-säikeeltä.
+Palvelimen taustasäie (main.py), joka hakee deployment-tilan GitHubista ja pitää `/version`-endpointin ajan tasalla.
 
-**Dispatcher-ketju:**
+**Toimintaperiaate:**
 ```
 _poide_dispatcher (30 s välein)
   → GitHub API: status-log.jsonl (60 s cache)
@@ -107,60 +107,75 @@ _poide_dispatcher (30 s välein)
   → /version palauttaa tilan (~90 s maksimistaleness)
 ```
 
-**Vahvuus — aikaikkuna-argumentti:**
+**Vahvuus — muuttaminen vaatii deployn:**
 Dispatcher on osa Leiman koodia (main.py). Jos hyökkääjä haluaa kompromisoida dispatcherin, hänen täytyy:
-1. Muokata main.py ja committaa → **Tampermonkey havaitsee tiedostomuutoksen seuraavalla sivulatauksella**
+1. Muokata main.py ja committaa → **Tampermonkey havaitsee tiedostomuutoksen minuutin sisällä**
 2. Odottaa code review -workflow (2–3 min)
-3. Odottaa Render-deploy (5–10 min) → **TREAD-palkki näyttää "Deploying" koko ajan**
+3. Odottaa hosting-deploy (5–10 min) → **TREAD-palkki näyttää "Deploying" koko ajan**
 
-Käyttäjä saa siis näkyvän varoituksen 8–13 minuutin ajan ennen kuin kompromisoitu koodi on edes live.
+Käyttäjä saa siis hälytyksen 8–13 minuutin ajan ennen kuin kompromisoitu koodi on edes live.
 
 **Haavoittuva:**
-- Dispatcher luottaa status.json:iin dispatcherin oman verifiointilogiikan puuttuessa
+- Dispatcher luottaa status.json:iin ilman omaa riippumatonta verifiointia
 
 **Suojausaika session aikana:**
-TREAD-palkki on ainoa komponentti joka varoittaa **reaaliaikaisesti kesken session** ilman sivun uudelleenlatausta (pollaa 20 s välein).
-
-- **Hyökkäys alkaa:** palkki näyttää "Deploying" ~90 s kuluessa commitista
-- **Deploy käynnissä:** varoitus näkyy koko deploy-ajan (8–13 min)
-- **Deploy valmis, kompromisoitu koodi live:** palkki palaa vihreäksi (väärä positiivi) jos dispatcher on nyt väärennetty
-- **Suoja loppuu:** heti kun kompromisoitu koodi on deployattu ja dispatcher alkaa palvella väärää dataa
-
-**Johtopäätös:** TREAD-palkki suojaa käyttäjän koko deploy-prosessin ajan. Kriittinen ikkuna on deploy-prosessin jälkeen, jos dispatcher on osa hyökkäystä.
+Dispatcher itsessään ei hälytä käyttäjää — se tuottaa dataa TREAD-palkille. Suoja syntyy siitä että sen muuttaminen on näkyvää (deploy-prosessi).
 
 ---
 
-### 5. Code review -workflow (code_review.yml)
+### 5. TREAD-palkki sivun ylälaidassa (/version-endpoint)
+
+Palvelimella pyörivä tila-indikaattori joka näyttää deployment-tilan sivun yläreunassa. Pollaa `/version`-endpointia 20 sekunnin välein.
+
+**Suojaa:**
+- Näyttää "Deploying" koko deploy-prosessin ajan (8–13 min) — käyttäjä näkee hälytyksen ennen kuin mahdollinen hyökkäyskoodi on live
+- Näyttää "Danger" jos deployattu commit ei vastaa GitHubin main-branchia
+
+**Haavoittuva:**
+- Palautuu normaalitilaan kun kompromisoitu dispatcher alkaa palvella väärää dataa
+
+**Suojausaika session aikana:**
+TREAD-palkki on ainoa komponentti joka hälyttää **reaaliaikaisesti kesken session** ilman mitään käyttäjän toimenpidettä.
+
+- **Hyökkäys alkaa:** palkki näyttää "Deploying" ~90 s kuluessa commitista
+- **Deploy käynnissä:** hälytys näkyy koko deploy-ajan (8–13 min)
+- **Deploy valmis, kompromisoitu koodi live:** palkki palaa vihreäksi jos dispatcher on nyt väärennetty — Tampermonkey hälyttää minuutin sisällä
+
+**Johtopäätös:** TREAD-palkki suojaa käyttäjän koko deploy-prosessin ajan. Sen jälkeen Tampermonkey ottaa vastuun.
+
+---
+
+### 6. Code review -workflow (code_review.yml)
 
 Jokaisen git push:n jälkeen automaattisesti ajettava workflow, joka toimii deployn portinvartijana.
 
 **Suojaa:**
 - AI-koodiarvio havaitsee ilmeiset haitalliset muutokset
-- Render-deploy ei käynnisty ilman workflown hyväksyntää
+- Hosting-deploy ei käynnisty ilman workflown hyväksyntää
 - Pre-push TREAD-hookki estää pushin jos edellinen deploy ei ole vakaa
 
 **Kriittinen turvaominaisuus — deploy ilman code review -porttia:**
 Jos käyttäjä on verifioinut session alussa että valvontatiedostot ovat muuttumattomia, hän voi luottaa että TREAD ajaa legitiimiä koodia. Tällöin pätee seuraava takuu:
 
-> Mikä tahansa deploy joka ohittaa code_review.yml:n — esimerkiksi suoraan Render-dashboardilta tai API:n kautta tehty deploy — johtaa välittömään "Danger"-tilaan TREAD-palkissa ja Tampermonkeyssa, koska deployattu commit ei täsmää GitHubin main-branchin kanssa.
+> Mikä tahansa deploy joka ohittaa code_review.yml:n — esimerkiksi suoraan hosting-dashboardilta tai API:n kautta tehty deploy — johtaa välittömään "Danger"-tilaan TREAD-palkissa ja Tampermonkeyssa, koska deployattu commit ei täsmää GitHubin main-branchin kanssa.
 
-Tämä tarkoittaa että code review -workflow ei ole pelkästään koodilaatuportti — se on rakenteellinen turvaeste jonka ohittaminen on automaattisesti havaittavissa.
+Tämä tarkoittaa että code review -workflow ei ole pelkästään koodilaatuportti — se on rakenteellinen turvaeste jonka ohittaminen hälyttää automaattisesti.
 
 **Haavoittuva:**
 - AI-arvio ei ole aukoton — hienostuneita muutoksia voi jäädä läpi
 - Jos hyökkääjällä on GitHub-oikeus, hän voi muokata myös code_review.yml:ää
 
 **Suojausaika session aikana:**
-Code review lisää 2–3 minuutin pakotetun viiveen jokaisen muutoksen ja deployn välille. Tämä aika on käyttäjälle näkyvää varoitusaikaa (TREAD-palkki "Deploying"). Workflow itse ei varoita käyttäjää suoraan.
+Code review lisää 2–3 minuutin pakotetun viiveen jokaisen muutoksen ja deployn välille. Tämä aika on käyttäjälle näkyvää hälytysaikaa (TREAD-palkki "Deploying").
 
 ---
 
-### 6. Hosting-ympäristö
+### 7. Hosting-ympäristö
 
 Hosting-alustan valinta vaikuttaa merkittävästi järjestelmän turvallisuuteen. Nykyinen ympäristö on väliaikainen.
 
 **Suojausaika session aikana:**
-Riippuu täysin alustan eristystasosta. Alustat joissa prosessieristys on heikko voivat mahdollistaa hyökkäyksiä jotka eivät näy missään valvontakerroksessa — ei TREAD-palkissa, ei Tampermonkeyssa, ei Arweavessa.
+Riippuu täysin alustan eristystasosta. Alustat joissa prosessieristys on heikko voivat mahdollistaa hyökkäyksiä jotka eivät näy missään valvontakerroksessa.
 
 ---
 
@@ -172,39 +187,34 @@ Oletetaan että käyttäjä on tarkistanut ennen session alkua, että valvontati
 t=0        Hyökkääjä committaa muutokset GitHubiin
            → Git tree muuttuu välittömästi
 
-t=0–90s    TREAD-palkki jatkaa normaalia näyttöä (dispatcher ei ole vielä päivittynyt)
-           → Tampermonkey havaitsee muutoksen VAIN jos sivu ladataan uudelleen
+t=0–60s    Tampermonkey havaitsee muutoksen seuraavassa pollausvuorossa → HÄLYTYS
+           TREAD-palkki jatkaa normaalia näyttöä (dispatcher ei ole vielä päivittynyt)
 
 t=90s      _poide_dispatcher hakee päivitetyn status-log.jsonl:n
-           → Jos muutos on valvontatiedostoissa: status.json raportoi uudet hashit
            → TREAD-palkki: ei vielä vaikutusta (dispatcher seuraa deploy-statusta)
 
 t=2–3min   Code review -workflow käynnistyy ja valmistuu
-           → TREAD-palkki näyttää "Deploying" ← KÄYTTÄJÄ NÄKEE VAROITUKSEN
+           → TREAD-palkki näyttää "Deploying" ← HÄLYTYS
 
-t=3–13min  Render-deploy käynnissä
+t=3–13min  Hosting-deploy käynnissä
            → TREAD-palkki näyttää "Deploying" koko ajan
-           → Käyttäjällä on 8–13 min näkyvää varoitusaikaa
+           → Käyttäjällä on 8–13 min näkyvää hälytysaikaa
 
 t=13min    Kompromisoitu koodi on live
-           → Jos dispatcher on kompromisoitu: TREAD-palkki palaa vihreäksi (väärä positiivi)
-           → Tampermonkey havaitsee tiedostomuutoksen seuraavalla sivulatauksella
-
-t=13min+   Käyttäjä on suojattu vain jos:
-           a) lataa sivun uudelleen (Tampermonkey varoittaa), TAI
-           b) Tampermonkey ei ole kompromisoitu ja status.json näyttää mismatchin
+           → Jos dispatcher on kompromisoitu: TREAD-palkki palaa vihreäksi
+           → Tampermonkey hälyttää minuutin sisällä (pollaa jatkuvasti)
 ```
 
 **Yhteenveto suojausajasta:**
 
 | Vaihe | Kesto | Käyttäjän suoja |
 |---|---|---|
-| Commit → dispatcher päivittyy | 0–90 s | ❌ Ei varoitusta |
+| Commit → Tampermonkey pollaa | 0–60 s | ✅ Hälytys minuutin sisällä |
+| Commit → dispatcher päivittyy | 0–90 s | TREAD-palkki ei vielä hälytä |
 | Deploy käynnissä | 8–13 min | ✅ TREAD-palkki "Deploying" |
-| Kompromisoitu koodi live, sivu ei ladattu | Kunnes reload | ⚠️ Ei varoitusta — riski |
-| Käyttäjä lataa sivun uudelleen | Heti | ✅ Tampermonkey varoittaa |
+| Kompromisoitu koodi live | Jatkuva | ✅ Tampermonkey hälyttää minuutin sisällä |
 
-**Käytännön suositus käyttäjälle:** Älä koskaan lähetä arkaluonteisia dokumentteja jos TREAD-palkki näyttää "Deploying" tai "Notice". Lataa sivu uudelleen ennen tärkeää toimenpidettä.
+**Käytännön suositus käyttäjälle:** Älä lähetä arkaluonteisia dokumentteja jos TREAD-palkki näyttää "Deploying", "Notice" tai "Danger".
 
 ---
 
@@ -212,13 +222,9 @@ t=13min+   Käyttäjä on suojattu vain jos:
 
 ### Ulkoinen hyökkääjä (ei GitHub/Render-pääsyä)
 
-| Uhka | Suojaus |
-|---|---|
-| Luvaton koodi Renderiin | Code review -workflow estää |
-| Commit-väärennös | TREAD havaitsee commit-mismatchin |
-| Valvontatiedostojen muokkaus | Vaatii GitHub-pääsyn |
+Ulkoisella hyökkääjällä ei ole pääsyä kumpaankaan järjestelmään, joten deployment-integriteetin uhkia ei käytännössä ole — koodi ei pääse tuotantoon ilman GitHub- tai hosting-tunnuksia.
 
-✅ **Hyvin suojattu**
+✅ **Deployment-integriteetti täysin suojattu tältä hyökkääjätyypiltä**
 
 ---
 
@@ -226,7 +232,7 @@ t=13min+   Käyttäjä on suojattu vain jos:
 
 | Uhka | Suojaus |
 |---|---|
-| Luvaton deploy API:n kautta | TREAD havaitsee commit-mismatchin |
+| Luvaton deploy API:n kautta | TREAD havaitsee commit-mismatchin → Danger-hälytys |
 | Alustatason hyökkäys | Riippuu hosting-ympäristön eristystasosta |
 
 ⚠️ **Hosting-ympäristön valinta kriittinen — migraatio suunnitteilla**
@@ -237,9 +243,9 @@ t=13min+   Käyttäjä on suojattu vain jos:
 
 | Uhka | Suojaus |
 |---|---|
-| Valvontatiedostojen muokkaus | Tampermonkey havaitsee git tree API:lla seuraavalla sivulatauksella |
+| Valvontatiedostojen muokkaus | Tampermonkey hälyttää minuutin sisällä |
 | Väärät hashit status.json:iin | Tampermonkey laskee hashit itse, ei luota status.json:iin |
-| Deploy ilman koodiarvioita | Code review -workflow estää |
+| Deploy ilman koodiarvioita | Code review -workflow estää → ohitus hälyttää |
 
 ✅ **Hyvin suojattu**
 
@@ -249,15 +255,15 @@ t=13min+   Käyttäjä on suojattu vain jos:
 
 | Uhka | Suojaus |
 |---|---|
-| Valvontatiedostojen muokkaus | Tampermonkey havaitsee minuutin sisällä ✅ |
-| Deploy ilman code review -porttia | TREAD commit-mismatch → Danger ✅ |
-| Deploy ohi code reviewin | TREAD commit-mismatch → Danger ✅ |
+| Valvontatiedostojen muokkaus | Tampermonkey hälyttää minuutin sisällä ✅ |
+| Deploy ilman code review -porttia | TREAD commit-mismatch → Danger-hälytys ✅ |
+| Deploy ohi code reviewin | TREAD commit-mismatch → Danger-hälytys ✅ |
 | Väärät hashit status.json:iin | Tampermonkey laskee hashit itse git tree API:lta ✅ |
 | Historian peittäminen | Arweave muuttumaton ✅ |
-| Haitallinen koodi joka **läpäisee AI-koodiarvion** eikä muokkaa valvottuja tiedostoja | ❌ Ei varoitusta |
+| Haitallinen koodi joka **läpäisee AI-koodiarvion** eikä muokkaa valvottuja tiedostoja | ❌ Ei hälytystä |
 | Alustatason hyökkäys | Riippuu hosting-ympäristön eristystasosta |
 
-⚠️ **Ainoa havaitsematon aukko: hienostunut haitallinen koodi joka läpäisee AI-koodiarvion muuttamatta valvottuja tiedostoja. Kaikki muut hyökkäysvektorit tuottavat varoituksen.**
+⚠️ **Ainoa havaitsematon aukko: hienostunut haitallinen koodi joka läpäisee AI-koodiarvion muuttamatta valvottuja tiedostoja. Kaikki muut hyökkäysvektorit tuottavat hälytyksen.**
 
 ---
 
@@ -285,7 +291,6 @@ Hosting-ympäristö                   — matalin, riippuu alustan eristystasost
 |---|---|
 | Hosting-ympäristön migraatio | Suunniteltu |
 | Tampermonkey-baseline session alussa | Suunniteltu — status-log.jsonl:n stabiliteetin tarkistus |
-| Browserbase → Browserless | Tehty 2026-05-29 |
 
 ---
 
