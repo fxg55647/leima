@@ -57,7 +57,7 @@ Hyökkääjä ei siis pysty muokkaamaan `tread_check.py`:tä "hiljaisesti" — s
 Viisi erillistä workflow'ta tekee sammuttamisesta työläämpää — kaikki viisi täytyy poistaa käytöstä samanaikaisesti, muuten jäljelle jäävät jatkavat valvontaa.
 
 **Suojausaika session aikana:**
-TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat dataa muille kerroksille. Jos hyökkääjä muokkaa workflow'ta, muutos näkyy git tree:ssä välittömästi ja Tampermonkey havaitsee sen minuutin sisällä.
+TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat dataa muille kerroksille. Jos hyökkääjä muokkaa workflow'ta, muutos näkyy git tree:ssä välittömästi ja Tampermonkey havaitsee sen minuutin sisällä. Render API -vertailu kuvataan erikseen kohdassa [Render API -valvonta](#6-render-api--valvonta).
 
 ---
 
@@ -181,7 +181,29 @@ Sekä TREAD-palkki että Tampermonkey valvovat jatkuvasti kesken session ilman k
 
 ---
 
-### 6. Code review -workflow (code_review.yml)
+### 6. Render API -valvonta
+
+`tread_check.py` tekee joka ajolla kolme erillistä tarkistusta Render API:n kautta:
+
+**a) Nykyinen tila**
+Hakee nykyisen live-commitin ja vertaa GitHubin main-branchia vasten. Jos ne eivät täsmää → `deployment_ok: false` → TREAD-palkki näyttää Danger. Tämä on perustarkistus joka laukeaa myös suoran API-deployn yhteydessä (ks. [Code review -portti](#7-code-review--workflow-code_reviewyml)).
+
+**b) Deploy käynnissä**
+Tarkistaa onko juuri nyt deployatumassa commit jota ei löydy GitHubista (`deploying_commit_ok: false`). Jos kyllä → välitön Danger-hälytys käyttäjälle TREAD-palkissa ja Tampermonkeyssa ennen kuin luvaton koodi on edes live.
+
+**c) Deploy-historia — forensinen työkalu**
+Skannaa 100 viimeistä deployta ja tarkistaa jokaisen commitin GitHubin kautta. Jos commit palauttaa 404 (ei löydy GitHubista), se kirjataan `last_mismatch_at`- ja `last_mismatch_commit`-kenttiin.
+
+Tämä on ainoa komponentti joka pystyy paljastamaan **menneisyyden hyökkäyksen** — esimerkiksi katkoksen tai väliaikaisesti deaktivoitujen cronien aikana tehty luvaton deploy jää deploy-historiaan. Jos palvelussa on ollut aukko, deploy-historian tutkiminen on relevantti tapa selvittää tapahtuiko sen aikana jotain epäilyttävää.
+
+Historia kattaa 100 viimeistä deployta — pidemmälle ei ulotu ilman Render-dashboardin manuaalista tutkimista.
+
+**Lisäksi: deploy-burstien tunnistus**
+Jos tunnin sisällä tapahtuu yli 10 deployta, TREAD raportoi `rapid_deploy_warning: true`. Tämä voi viitata automatisaatioon tai tahalliseen häirintään.
+
+---
+
+### 7. Code review -workflow (code_review.yml)
 
 Jokaisen git push:n jälkeen automaattisesti ajettava workflow, joka toimii deployn portinvartijana.
 
