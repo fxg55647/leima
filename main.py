@@ -1539,12 +1539,24 @@ async def _get_pw_page(session_id: str):
         oldest_key = next(iter(_pw_sessions))
         try:
             await _pw_sessions[oldest_key]["browser"].close()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[pw] evict close error: {e}", flush=True)
         _pw_sessions.pop(oldest_key, None)
     pw = await _get_playwright()
     connect_url = f"wss://chrome.browserless.io?token={BROWSERLESS_API_KEY}"
-    browser = await pw.chromium.connect_over_cdp(connect_url, timeout=30000)
+    last_err: Exception | None = None
+    for attempt in range(3):
+        try:
+            browser = await pw.chromium.connect_over_cdp(connect_url, timeout=30000)
+            break
+        except Exception as e:
+            last_err = e
+            if "429" in str(e) and attempt < 2:
+                await asyncio.sleep(4 ** attempt)  # 1s, 4s
+                continue
+            raise
+    else:
+        raise last_err  # type: ignore[misc]
     ctx = browser.contexts[0]
     page = ctx.pages[0] if ctx.pages else await ctx.new_page()
     _pw_sessions[session_id] = {"browser": browser, "page": page, "last_click": None}
@@ -1570,8 +1582,8 @@ async def browser_session(request: Request):
     for key in list(_pw_sessions.keys()):
         try:
             await _pw_sessions[key]["browser"].close()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[browser-session] close error for {key}: {e}", flush=True)
     _pw_sessions.clear()
     try:
         import uuid
