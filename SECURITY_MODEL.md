@@ -269,6 +269,53 @@ Riippuu täysin alustan eristystasosta. Alustat joissa prosessieristys on heikko
 
 Sekä `tread_check.py` (palvelinpuoli) että Tampermonkey (asiakaspuoli) laskevat hashit samoille tiedostoille. `tread_check.py` käyttää SHA-256, Tampermonkey git blob SHA:ta (GitHubin sisäinen tunniste joka muuttuu sisällön muuttuessa).
 
+**Keskeinen osa turvallisuusmallia: tiedostot muuttuvat harvoin**
+
+Nämä tiedostot ovat käytännössä muuttumattomia normaalin käytön aikana — niitä ei kosketa tavallisessa kehitystyössä. Tämä on tietoinen suunnittelupäätös: harva muutos tarkoittaa että muutos on aina merkittävä.
+
+Käyttäjä voi ennen session aloittamista tarkistaa, ovatko tiedostot samoja kuin edellisellä kerralla. Jos hashit eivät ole muuttuneet, tiedostoja ei tarvitse käydä erikseen läpi — riittää tietää että ne ovat ennallaan.
+
+**Tarkistus omalla koneella tai AI-agentilla**
+
+Käyttäjä voi tallentaa seuraavan skriptin omalle koneelleen ja ajaa sen ennen jokaista sessiota. Se hakee nykyiset hashit GitHubista ja vertaa tallennettuihin arvoihin:
+
+```python
+import json, urllib.request
+
+REPO   = "fxg55647/leima"
+BRANCH = "main"
+PATHS  = {
+    ".github/workflows/tread-a.yml",
+    ".github/workflows/tread-b.yml",
+    ".github/workflows/tread-c.yml",
+    ".github/workflows/tread-d.yml",
+    ".github/workflows/tread-e.yml",
+    ".github/workflows/tread-run.yml",
+    ".github/workflows/monthly-audit.yml",
+    ".github/workflows/code_review.yml",
+    "tread_check.py", "tread_arweave.py",
+    "monthly_audit.py", "code_review.py", "POLICY.example.md",
+}
+SAVED = "leima_hashes.json"  # tallenna ensimmäisellä ajolla
+
+url = f"https://api.github.com/repos/{REPO}/git/trees/{BRANCH}?recursive=1"
+tree = json.loads(urllib.request.urlopen(url).read())["tree"]
+current = {i["path"]: i["sha"] for i in tree if i["path"] in PATHS}
+
+try:
+    prev = json.load(open(SAVED))
+    changed = [p for p in current if current[p] != prev.get(p)]
+    if changed:
+        print("MUUTTUNUT:", changed)
+    else:
+        print("OK — kaikki valvontatiedostot ennallaan")
+except FileNotFoundError:
+    json.dump(current, open(SAVED, "w"), indent=2)
+    print("Hashit tallennettu. Aja uudelleen seuraavalla kerralla.")
+```
+
+Saman tarkistuksen voi pyytää myös AI-agentilta: anna sille lista tiedostoista ja edellinen hash-tiedosto, ja pyydä hakemaan nykyiset hashit GitHubista ja vertaamaan.
+
 | Tiedosto | Miksi valvotaan |
 |---|---|
 | `.github/workflows/tread-a.yml` … `tread-e.yml` | TREAD-cronien ajastus ja konfiguraatio — muokkaamalla voi sammuttaa valvonnan |
