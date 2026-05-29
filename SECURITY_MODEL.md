@@ -179,6 +179,26 @@ Riippuu täysin alustan eristystasosta. Alustat joissa prosessieristys on heikko
 
 ---
 
+## Valvottavat tiedostot
+
+Sekä `tread_check.py` (palvelinpuoli) että Tampermonkey (asiakaspuoli) laskevat hashit samoille tiedostoille. `tread_check.py` käyttää SHA-256, Tampermonkey git blob SHA:ta (GitHubin sisäinen tunniste joka muuttuu sisällön muuttuessa).
+
+| Tiedosto | Miksi valvotaan |
+|---|---|
+| `.github/workflows/tread-a.yml` … `tread-e.yml` | TREAD-cronien ajastus ja konfiguraatio — muokkaamalla voi sammuttaa valvonnan |
+| `.github/workflows/tread-run.yml` | TREAD:n varsinainen suorituslogiikka — muokkaamalla voi tehdä valvonnasta tyhjää |
+| `.github/workflows/code_review.yml` | Deploy-portin logiikka — muokkaamalla voi ohittaa koodiarvion tai estää deployt |
+| `.github/workflows/monthly-audit.yml` | Kuukausittainen laajempi tarkistus |
+| `tread_check.py` | Varsinainen tarkistuslogiikka — muokkaamalla voi kirjoittaa vääriä hasheja status.json:iin |
+| `tread_arweave.py` | Arweave-arkistointi — muokkaamalla voi estää historian tallentumisen |
+| `code_review.py` | AI-koodiarvion toteutus — muokkaamalla voi tehdä arviosta tyhjää |
+| `monthly_audit.py` | Kuukausittaisen auditoinnin toteutus |
+| `POLICY.example.md` | Julkinen politiikkadokumentti jonka muutos olisi merkki väärinkäytöstä |
+
+Kaikki yhdeksän tiedostoa muodostavat yhdessä valvontajärjestelmän ytimen. Yhdenkin muuttaminen ilman lupaa laukaisee hälytyksen.
+
+---
+
 ## Hyökkäyksen aikajana — käyttäjä on verifioinut session alussa
 
 Oletetaan että käyttäjä on tarkistanut ennen session alkua, että valvontatiedostoja ei ole muutettu kuukausiin. Hyökkäys alkaa session aikana.
