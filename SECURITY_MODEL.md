@@ -22,7 +22,14 @@ Kolme hyökkääjätyyppiä, joita vastaan järjestelmä on suunniteltu:
 
 ### 1. TREAD-cronit (tread-a.yml … tread-e.yml) + tread_check.py
 
-Viisi identtistä GitHub Actions -workflow'ta, jotka ajavat `tread_check.py`:n vuorotellen minuutin välein. Redundanssi suojaa yksittäisen workflown passivoitumiselta.
+Viisi identtistä GitHub Actions -workflow'ta, jotka ajavat `tread_check.py`:n vuorotellen minuutin välein. Jokainen ajo:
+- Tarkistaa vastaako hosting-palvelussa pyörivä commit GitHubin main-branchia
+- Tarkistaa että kaikki viisi TREAD-workflow'ta ovat aktiivisena
+- Laskee SHA-256-hashit kaikista valvontatiedostoista
+- Kirjoittaa tuloksen `status.json`:iin GitHub Pagesiin
+- Arkistoi tuloksen Arweave-lohkoketjuun pysyvästi
+
+Viiden erillisen workflow:n redundanssi suojaa yksittäisen workflown passivoitumiselta — kaikki viisi täytyy sammuttaa samanaikaisesti, muuten valvonta jatkuu.
 
 **Voiko tread_check.py:n muokata samalla hetkellä kuin muut valvontatiedostot?**
 Kyllä — teknisesti hyökkääjä voi muokata kaikkia tiedostoja yhdessä commitissa. Mutta tämä ei auta:
@@ -33,12 +40,6 @@ Kyllä — teknisesti hyökkääjä voi muokata kaikkia tiedostoja yhdessä comm
 - Kaikki muutokset näkyvät git-historiassa pysyvästi
 
 Hyökkääjä ei siis pysty muokkaamaan `tread_check.py`:tä "hiljaisesti" — sen hash muuttuu välittömästi ja hälytys laukeaa.
-
-**Suojaa:**
-- Havaitsee jos hosting-palvelussa pyörii commit jota ei löydy GitHubista
-- Tarkistaa että kaikki viisi TREAD-worflow'ta ovat aktiivisia
-- Laskee SHA-256-hashit kaikista valvontatiedostoista ja kirjoittaa ne status.json:iin
-- Arkistoi tuloksen Arweave-lohkoketjuun pysyvästi
 
 **Haavoittuva:**
 - Kompromisoitu `tread_check.py` voi kirjoittaa vääriä hasheja status.json:iin
