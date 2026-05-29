@@ -1,6 +1,6 @@
 # Leiman tietoturvamalli
 
-Tämä dokumentti kuvaa Leiman valvonta-arkkitehtuurin, kunkin komponentin suojausominaisuudet ja tunnistetut haavoittuvuudet. Perustuu rakenteen suunnittelukeskusteluihin.
+Tämä dokumentti kuvaa Leiman valvonta-arkkitehtuurin, kunkin komponentin suojausominaisuudet ja tunnistetut haavoittuvuudet.
 
 Viimeksi päivitetty: 2026-05-29
 
@@ -13,12 +13,12 @@ Leiman turvallisuusmalli on rakennettu suojaamaan käyttäjän tietoja tilantees
 Malli hyödyntää kahta perusperiaatetta:
 
 **1. Palveluntarjoajien API-rajapinnat**
-Hosting-palvelu (esim. Render) tarjoaa API:n josta näkyy mitä koodia palvelimella tällä hetkellä pyörii ja onko deploy käynnissä. Tätä verrataan GitHubin julkiseen repositorioon. Jos ne eivät täsmää, järjestelmä hälyttää.
+Hosting-palvelu tarjoaa API:n josta näkyy mitä koodia palvelimella tällä hetkellä pyörii ja onko deploy käynnissä. Tätä verrataan GitHubin julkiseen repositorioon. Jos ne eivät täsmää, järjestelmä hälyttää.
 
 **2. Muutosten aikaviive**
 Koodin muuttaminen tuotantopalvelimella ei tapahdu hetkessä — se vaatii GitHub-commitin, koodiarvion läpäisemisen ja hosting-deployn, joka kestää yhteensä 8–15 minuuttia. Tänä aikana järjestelmän eri osat ovat vielä muuttumattomia, joten ne voivat havaita muutoksen ja hälyttää käyttäjää ennen kuin mitään vahingollista tapahtuu.
 
-Näiden kahden varaan on rakennettu useita toisistaan riippumattomia valvontakerroksia: käyttäjän selaimessa pyörivä Tampermonkey-skripti, palvelimen dispatcher, TREAD-cronit GitHubissa ja Arweave-lohkoketjun muuttumaton arkisto. Kukin tarkistaa asioita eri lähteistä ja eri viiveillä — yhden kerroksen kompromisointi ei sammuta muita.
+Näiden kahden varaan on rakennettu useita toisistaan riippumattomia valvontakerroksia. Kukin tarkistaa asioita eri lähteistä ja eri viiveillä — yhden kerroksen kompromisointi ei sammuta muita.
 
 **Luottamuksen rakentuminen**
 
@@ -26,7 +26,7 @@ Järjestelmä pyrkii rakentamaan luottamuksen monella toisiaan täydentävällä
 
 - **Muuttumaton historia** — Arweave-arkisto todistaa että palvelimella ei ole koskaan pyörinyt koodia joka ei näy GitHubissa. Tätä historiaa ei voi jälkikäteen muuttaa.
 - **Automaattinen koodiarvio** — jokainen muutos tarkastetaan AI:n avulla ennen kuin se pääsee tuotantoon. Arvio vertaa muutoksia käyttöehtoihin ja politiikkadokumenttiin.
-- **Deployhälytys kesken session** — jos palvelimelle ajetaan uusi versio käyttäjän session aikana, TREAD-palkki ilmoittaa siitä välittömästi. Käyttäjä näkee muutoksen ennen kuin se on voimassa.
+- **Deployhälytys kesken session** — jos palvelimelle ajetaan uusi versio käyttäjän session aikana, TREAD-palkki ilmoittaa siitä. Käyttäjä näkee muutoksen ennen kuin se on voimassa.
 - **Hälytys ohi GitHubin** — jos koodia yritetään ajaa sisään ohittaen GitHub-repositorio ja koodiarvio, TREAD havaitsee commit-mismatchin ja hälyttää välittömästi.
 
 ---
@@ -37,60 +37,61 @@ Kolme hyökkääjätyyppiä, joita vastaan järjestelmä on suunniteltu:
 
 | Tyyppi | Pääsy | Uhkataso |
 |---|---|---|
-| **Ulkoinen hyökkääjä** | Ei GitHub- eikä Render-pääsyä | Matala |
-| **Osittainen hyökkääjä** | GitHub TAI Render, ei molempia | Keskisuuri |
-| **Ylläpito-hyökkääjä** | GitHub JA Render | Korkea |
+| **Ulkoinen hyökkääjä** | Ei GitHub- eikä hosting-pääsyä | Matala |
+| **Osittainen hyökkääjä** | GitHub TAI hosting, ei molempia | Keskisuuri |
+| **Ylläpito-hyökkääjä** | GitHub JA hosting | Korkea |
 
 ---
 
-## Komponentit ja niiden suojaus
+## I. GitHub Actions — julkinen valvontakerros
 
-### 1. TREAD-cronit — tread-a.yml … tread-e.yml, tread-run.yml, tread_check.py
+Tässä osiossa kuvatut komponentit pyörivät GitHubissa, eivät Leiman palvelimella. Ne ovat julkisia ja kenen tahansa tarkastettavissa. Ne toimivat riippumatta siitä mitä Leiman palvelimella tapahtuu — eikä hosting-pääsy anna mahdollisuutta muokata niitä.
 
-GitHub Actions sallii cronille minimissään 5 minuutin välin. Yhden minuutin tarkkuuteen päästään viidellä identtisellä workflow'lla (`tread-a.yml`…`tread-e.yml`), joiden käynnistysajat on porrastettu minuutin välein (`:00`, `:01`, `:02`, `:03`, `:04`, sitten `:05`, `:06`…). Jokainen niistä kutsuu `tread-run.yml`:ää, joka on yhteinen reusable workflow ja sisältää varsinaisen suorituslogiikan: ajaa `tread_check.py`:n, arkistoi tuloksen Arweave-lohkoketjuun (`tread_arweave.py`) ja kirjoittaa `status.json`:n GitHub Pagesiin (`push_status.py`). Jokainen ajo:
-- Tarkistaa vastaako hosting-palvelussa pyörivä commit GitHubin main-branchia
+---
+
+### 1. TREAD-cronit — tread-a…e.yml, tread-run.yml, tread_check.py
+
+GitHub Actions sallii cronille minimissään 5 minuutin välin. Yhden minuutin tarkkuuteen päästään viidellä identtisellä workflow'lla (`tread-a.yml`…`tread-e.yml`), joiden käynnistysajat on porrastettu minuutin välein (`:00`, `:01`, `:02`, `:03`, `:04`, sitten `:05`…). Jokainen niistä kutsuu `tread-run.yml`:ää, joka sisältää varsinaisen suorituslogiikan: ajaa `tread_check.py`:n, arkistoi tuloksen Arweave-lohkoketjuun (`tread_arweave.py`) ja kirjoittaa `status.json`:n GitHub Pagesiin (`push_status.py`).
+
+Jokainen ajo:
+- Tarkistaa vastaako hosting-palvelussa pyörivä commit GitHubin main-branchia (Render API:n kautta)
+- Tarkistaa onko parhaillaan deployatumassa commit jota ei löydy GitHubista
 - Tarkistaa että kaikki viisi TREAD-workflow'ta ovat aktiivisena
 - Laskee SHA-256-hashit kaikista valvontatiedostoista — siis myös itsestään (`tread_check.py`)
 - Kirjoittaa tuloksen `status.json`:iin GitHub Pagesiin
 - Arkistoi tuloksen Arweave-lohkoketjuun pysyvästi
 
-Viiden erillisen workflow:n redundanssi suojaa yksittäisen workflown passivoitumiselta — kaikki viisi täytyy sammuttaa samanaikaisesti, muuten valvonta jatkuu.
+Viiden erillisen workflow'n redundanssi suojaa yksittäisen workflown passivoitumiselta — kaikki viisi täytyy sammuttaa samanaikaisesti, muuten valvonta jatkuu.
 
-**Voiko tread_check.py:n muokata samalla hetkellä kuin muut valvontatiedostot?**
-Kyllä — teknisesti hyökkääjä voi muokata kaikkia tiedostoja yhdessä commitissa. Mutta tämä ei auta:
+**Render API -tarkistukset**
 
-- `tread_check.py` on itse valvottavien tiedostojen listalla
-- Jos sen git blob SHA muuttuu, sekä Tampermonkey että dispatcher havaitsevat sen ~1–3 min sisällä
-- Vaikka muokattu `tread_check.py` kirjoittaisi vääriä hasheja status.json:iin, se ei vaikuta Tampermonkeyn eikä dispatcherin tarkistukseen — molemmat hakevat git tree:n suoraan GitHubista, ei status.json:sta
-- Kaikki muutokset näkyvät git-historiassa pysyvästi
+`tread_check.py` tekee joka ajolla kolme erillistä tarkistusta Render API:n kautta:
 
-Hyökkääjä ei siis pysty muokkaamaan `tread_check.py`:tä "hiljaisesti" — sen hash muuttuu välittömästi ja hälytys laukeaa.
-
-**Haavoittuva:**
-- Kompromisoitu `tread_check.py` voi kirjoittaa vääriä hasheja status.json:iin
-- GitHub Actions itsessään on luotettu osapuoli — jos GitHub on kompromisoitu, koko järjestelmä pettää
+- **Nykyinen tila** — hakee live-commitin ja vertaa GitHubin main-branchin viimeisimpään committiin. Jos ei täsmää → `deployment_ok: false` → Danger-hälytys.
+- **Deploy käynnissä** — tarkistaa onko juuri nyt deployatumassa commit jota ei löydy GitHubista. Jos kyllä → välitön Danger-hälytys ennen kuin luvaton koodi on edes live.
+- **Deploy-historia** — skannaa 100 viimeistä deployta ja tarkistaa jokaisen commitin GitHubista. Jos commit palauttaa 404, se kirjataan `last_mismatch_at`-kenttään. Tämä on ainoa komponentti joka pystyy paljastamaan **menneisyyden hyökkäyksen** — esimerkiksi katkoksen tai deaktivoitujen cronien aikana tehty luvaton deploy jää deploy-historiaan. Historia kattaa 100 viimeistä deployta.
+- **Deploy-burstit** — jos tunnin sisällä tapahtuu yli 10 deployta, TREAD raportoi `rapid_deploy_warning: true`.
 
 **Miten TREAD-cronit voidaan yrittää sammuttaa — ja miten siitä jää kiinni:**
 
-| Tapa | Nopeus | Kuka huomaa | Mistä |
-|---|---|---|---|
-| Poistaa kaikki 5 workflow'ta käytöstä GitHub-UI:ssa | Välitön | TREAD-palkki | `tread_check.py` tarkistaa workflow-tilat → `disabled_workflows` → Danger, seuraavassa TREAD-ajossa (~1 min) |
-| Muokata workflow-tiedostoja sammuttaakseen ne | Seuraava ajo | Tampermonkey | Hash-muutos → hälytys minuutin sisällä |
-| Poistaa koko repo tai gh-pages-branch | Välitön | TREAD-palkki | status.json lakkaa päivittymästä → `cron_fresh = false` → Danger |
-| Käyttää GitHub:n abuse-suojausta tahallaan (concurrency-burstit) | Tunti | TREAD-palkki | Kaikki ajot pysähtyvät → staleness → Danger noin tunnin kuluessa |
+| Tapa | Kuka huomaa | Miten |
+|---|---|---|
+| Poistaa kaikki 5 workflow'ta käytöstä GitHub-UI:ssa | TREAD-palkki | Workflow-tilat → `disabled_workflows` → Danger (~1 min) |
+| Muokata workflow-tiedostoja | Tampermonkey | Hash-muutos → hälytys minuutin sisällä |
+| Poistaa repo tai gh-pages-branch | TREAD-palkki | status.json lakkaa päivittymästä → staleness → Danger |
+| Käyttää GitHub:n abuse-suojausta tahallaan | TREAD-palkki | Cronit pysähtyvät → staleness → Danger noin tunnin kuluessa |
 
-Viisi erillistä workflow'ta tekee sammuttamisesta työläämpää — kaikki viisi täytyy poistaa käytöstä samanaikaisesti, muuten jäljelle jäävät jatkavat valvontaa.
-
-**Suojausaika session aikana:**
-TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat dataa muille kerroksille. Jos hyökkääjä muokkaa workflow'ta, muutos näkyy git tree:ssä välittömästi ja Tampermonkey havaitsee sen minuutin sisällä. Render API -vertailu kuvataan erikseen kohdassa [Render API -valvonta](#6-render-api--valvonta).
+**Haavoittuva:**
+- Kompromisoitu `tread_check.py` voi kirjoittaa vääriä hasheja `status.json`:iin — mutta Tampermonkey ja dispatcher laskevat hashit suoraan GitHubin git tree API:lta eivätkä luota `status.json`:iin
+- GitHub Actions itsessään on luotettu osapuoli — jos GitHub on kompromisoitu, koko järjestelmä pettää
 
 ---
 
-### 2. status.json (GitHub Pages + Arweave)
+### 2. TREAD:n tuottama data — status.json ja Arweave-arkisto
 
-`tread_check.py` laskee deployment-tilan ja valvontatiedostojen hashit, `push_status.py` kirjoittaa tuloksen `status.json`:iin GitHub Pagesiin ja `tread_arweave.py` arkistoi sen Arweave-lohkoketjuun. Tiedosto päivittyy minuutin välein.
+`tread_check.py` laskee deployment-tilan ja valvontatiedostojen hashit, `push_status.py` kirjoittaa tuloksen `status.json`:iin GitHub Pagesiin, ja `tread_arweave.py` arkistoi sen Arweave-lohkoketjuun. Tiedostot päivittyvät minuutin välein.
 
-**Kaksi roolia:**
+**status.json — kaksi roolia:**
 
 | Rooli | Käyttötarkoitus | Luotettavuus |
 |---|---|---|
@@ -98,22 +99,114 @@ TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat
 | Historiallinen todiste | Arweave-arkisto osoittaa mitä hasheja on raportoitu | Erittäin vahva (muuttumaton) |
 
 **Voidaanko status.json väärentää?**
-Kyllä — jos hyökkääjällä on GitHub-kirjoitusoikeus, hän voi muokata kaikkia kolmea tuotantoketjun tiedostoa (`tread_check.py`, `tread_arweave.py`, `push_status.py`) yhdessä commitissa. Tämä ei kuitenkaan vaikuta reaaliaikaiseen suojaan, koska Tampermonkey ja dispatcher eivät luota status.json:iin — ne laskevat hashit suoraan GitHubin git tree API:lta.
+Kyllä — jos hyökkääjällä on GitHub-kirjoitusoikeus, hän voi muokata kaikkia kolmea tuotantoketjun tiedostoa (`tread_check.py`, `tread_arweave.py`, `push_status.py`) yhdessä commitissa. Tämä ei kuitenkaan vaikuta reaaliaikaiseen suojaan: Tampermonkey ja dispatcher eivät luota `status.json`:iin vaan laskevat hashit suoraan GitHubin git tree API:lta. Lisäksi kaikkien kolmen tiedoston muokkaaminen on itsessään havaittavaa — jokainen muutos näkyy Tampermonkeyn git tree -tarkistuksessa.
 
-Arweave-arkistoon sen sijaan voi tallentua vääristeltyjä tietoja: jos `tread_arweave.py` on kompromisoitu, se voi arkistoida väärät hashit. Aiemmat legitiimit tietueet säilyvät muuttumattomina, mutta hyökkäyksen jälkeiset arkistomerkinnät eivät ole luotettavia. Jos Arweave-tietue on epäilyttävä, se voidaan ristiin tarkistaa GitHubin commit-historiasta — repositoriosta nähdään mitä koodia kyseisenä päivänä on todella pyörinyt ja mitkä tiedostojen hashit ovat tuolloin olleet.
+**Arweave-arkisto — repo ei ole ainoa totuuden lähde**
 
-Lisäksi: kaikkien kolmen tiedoston muokkaaminen on itsessään havaittavaa — jokainen muutos näkyy Tampermonkeyn git tree -tarkistuksessa.
+Arweave-arkisto on pysyvä ja muuttumaton — kerran kirjoitettua dataa ei voi poistaa eikä muuttaa. Jokainen status.json-snapshot sisältää: deployatun commitin, GitHubin expected-commitin, kaikkien valvontatiedostojen SHA-256-hashit, workflow-tilat ja aikaleiman.
 
-**Suojausaika session aikana:**
-Ei reaaliaikaista suojaa — CDN-välimuistin (10 min) takia data voi olla vanhentunutta. Arweave-arkisto on jälkikäteinen todiste, ei ennaltaehkäisevä suojaus.
+Vaikka GitHub-repositorio syystä tai toisesta häviäisi tai sen historia väärentyisi, Arweave-arkistoon jää minuutin tarkkuudella dokumentoitu historia järjestelmän tilasta. Vertaamalla Arweave-tietueita ja repositorion nykyistä tilaa voidaan rekonstruoida mitä koodia kulloinkin ajettiin.
+
+Jos Arweave-tietue on epäilyttävä, sen voi ristiin tarkistaa GitHubin commit-historiasta — repositoriosta nähdään mitä koodia kyseisenä päivänä todella pyöri.
+
+**Rajoitus:** jos `tread_arweave.py` on kompromisoitu, arkistoon voi tallentua vääristeltyä dataa hyökkäyksen jälkeen. Ennen hyökkäystä tallennetut tietueet säilyvät kuitenkin muuttumattomina.
 
 ---
 
-### 3. Tampermonkey-skripti (tread.user.js)
+### 3. Code review -workflow (code_review.yml)
 
-Käyttäjän selaimessa pyörivä skripti. Ainoa komponentti jota operaattori ei kontrolloi.
+Jokaisen git push:n jälkeen automaattisesti ajettava workflow, joka toimii deployn portinvartijana.
 
-**Mitä tarkastaa (v3.0):**
+- AI-koodiarvio tarkastaa muutokset ja vertaa käyttöehtoihin ennen deployta
+- Hosting-deploy ei käynnisty ilman workflown hyväksyntää
+- Pre-push TREAD-hookki estää pushin jos edellinen deploy ei ole vakaa
+
+**Code review -portti turvarakenteena**
+
+Jos käyttäjä on verifioinut session alussa että valvontatiedostot ovat muuttumattomia, hän voi odottaa saavansa hälytyksen jos Leiman palvelimelle yritetään ujuttaa tarkastamatonta koodia. Tarkastamaton koodi tarkoittaa commitia joka ei ole kulkenut `code_review.yml`:n läpi — tällainen deploy jättää commit-mismatchin jonka TREAD havaitsee. Tämä ei ole absoluuttinen takuu, mutta hyökkäys jättää havaittavan jäljen.
+
+**Miten code review -portti voidaan yrittää ohittaa — ja miten siitä jää kiinni:**
+
+| Tapa | Miten kiinni |
+|---|---|
+| Muokata `code_review.yml`:ää | Vaatii commitin → Tampermonkey havaitsee hash-muutoksen → hälytys |
+| Deployata suoraan API:n kautta | Deployattu commit ≠ GitHubin main → TREAD commit-mismatch → Danger-hälytys |
+| Poistaa workflow käytöstä | `tread_check.py` tarkistaa workflow-tilat → `disabled_workflows` → TREAD-palkki hälyttää |
+
+**Haavoittuva:** AI-arvio ei ole aukoton — hienostuneita muutoksia voi jäädä läpi.
+
+---
+
+## II. Leiman palvelin
+
+Tässä osiossa kuvatut komponentit pyörivät hosting-ympäristössä. Niiden muuttaminen vaatii aina deployn, jonka aikana TREAD-palkki näyttää "Deploying" 8–13 minuutin ajan — käyttäjä näkee muutoksen ennen kuin se on voimassa. Palvelinpuolen komponenteilla on pääsy Render API -avaimiin, mikä mahdollistaa deploy-statuksen suoran tarkistuksen.
+
+---
+
+### 4. _poide_dispatcher
+
+Palvelimen taustasäie (`main.py`), joka tekee kolme itsenäistä tarkistusta jokaisen pollaussyklin yhteydessä (~30 s välein), riippumatta TREAD-croneista:
+
+1. **Deploy käynnissä?** — Render API suoraan. Jos deploy alkaa, TREAD-palkki päivittyy 30 s sisällä.
+2. **Koodi oikein?** — Vertaa Render-live-commitin GitHubin main-branchin viimeisimpään committiin suoraan. Jos ei täsmää → `deployment_ok: false` → Danger-hälytys.
+3. **Valvontatiedostot muuttuneet?** — Hakee git tree:n GitHub API:lta, vertaa blob-SHA:ita tallennettuun baselineen. Jos muutos → `dispatcher_monitor_changed` → Danger-hälytys.
+
+**Lisäksi:** dispatcher lähettää `workflow_dispatch`-kutsun GitHub Actionsille 30 s välein, jolloin TREAD-cronit käynnistyvät luotettavammin kuin pelkän GitHub-ajastuksen varassa.
+
+**Miksi main.py ei ole valvottavien tiedostojen listalla**
+
+Dispatcher on osa `main.py`:tä, joka on sovelluksen pääkoodi. Se muuttuu normaalin kehitystyön yhteydessä usein — jos se lisättäisiin Tampermonkeyn seurantalistalle, hälytys laukaisisi joka deployssa ja koko periaate "muutos on aina merkittävä" romahtaisi.
+
+`main.py`:n suojaus toimii eri mekanismilla: sen muuttaminen vaatii deployn, jonka aikana TREAD-palkki näyttää "Deploying". Lisäksi code review tarkastaa jokaisen muutoksen.
+
+**Vahvuus — muuttaminen vaatii deployn:**
+Sinä aikaikkunana (commit → deploy = ~10–15 min) **legitiimi dispatcher tarkistaa hashit** ja hälyttää jos valvontatiedostot muuttuvat. Hyökkääjä ei pysty hiljentämään dispatcheria ennen kuin kompromisoitu koodi on deployattu.
+
+**Haavoittuva:** deploy-ikkunan jälkeen kompromisoitu dispatcher voi lopettaa tarkistuksen — Tampermonkey ottaa vastuun.
+
+---
+
+### 5. TREAD-palkki sivun ylälaidassa (/version)
+
+Palvelimella pyörivä tila-indikaattori joka näyttää deployment-tilan sivun yläreunassa. Pollaa `/version`-endpointia 20 sekunnin välein.
+
+**Mitä palkki näyttää:**
+
+| Tilanne | Palkin tila |
+|---|---|
+| Kaikki kunnossa | OK (vihreä) |
+| Deploy käynnissä — normaali tai epäilyttävä | Notice — Deploying |
+| Deployattu commit ei vastaa GitHubista | Danger (punainen) |
+| Workflow poistettu käytöstä | Danger |
+
+**Paranoidin käyttäjän suoja:** palkki näyttää "Deploying" aina kun jokin deployautuu — riippumatta siitä onko se normaali päivitys vai hyökkäys. Vaikka haitallinen koodi läpäisisi AI-koodiarvion, palkki ilmoittaa siitä 8–13 minuutin ajan. Käyttäjä joka ei odota päivitystä voi pitää tätä epäilyttävänä.
+
+**Pollausviiveet:**
+
+| Komponentti | Pollausväli | Viive hyökkäyksen havaitsemiseen |
+|---|---|---|
+| Tampermonkey | 1 min | ~1 min (git tree API) |
+| TREAD-palkki | 20 s | ~90 s (dispatcher-latenssi) + 20 s poll = ~2 min |
+
+**Haavoittuva:** palautuu normaalitilaan kun kompromisoitu dispatcher alkaa palvella väärää dataa — Tampermonkey ottaa vastuun tästä eteenpäin.
+
+---
+
+### 6. Hosting-ympäristö
+
+Hosting-alustan valinta vaikuttaa merkittävästi järjestelmän turvallisuuteen. Alustat joissa prosessieristys on heikko voivat mahdollistaa hyökkäyksiä jotka eivät näy missään valvontakerroksessa. Nykyinen ympäristö on väliaikainen — migraatio suunnitteilla.
+
+---
+
+## III. Käyttäjän selain — riippumaton valvonta
+
+Tampermonkey-skripti on ainoa komponentti jota operaattori ei kontrolloi. Se pyörii käyttäjän omassa selaimessa eikä ole riippuvainen Leiman palvelimesta, dispatcherista eikä GitHub Actionsista. Tämä tekee siitä turvallisuusmallin vahvimman yksittäisen kerroksen.
+
+---
+
+### 7. Tampermonkey-skripti (tread.user.js)
+
+Skripti ajaa `main()`-funktion sivulatauksen yhteydessä ja sen jälkeen minuutin välein koko session ajan.
 
 **a) Valvontatiedostojen hashit — riippumaton verifiointi**
 - Hakee koko git tree:n GitHub API:lta (`/git/trees/main?recursive=1`)
@@ -121,195 +214,45 @@ Käyttäjän selaimessa pyörivä skripti. Ainoa komponentti jota operaattori ei
 - Vertaa tallennettuun baselineen (GM_setValue)
 - Jos muutos → hälytysmodaali heti
 
-Tämä on **vahvin suojauskerros**: hashit lasketaan selaimessa GitHubin raakadatasta, ei status.json:n väittämästä arvosta. Vaikka `tread_check.py` kirjoittaisi vääriä hasheja, Tampermonkey havaitsee todelliset muutokset.
+Hashit lasketaan selaimessa GitHubin raakadatasta, ei `status.json`:n väittämästä arvosta. Vaikka `tread_check.py` kirjoittaisi vääriä hasheja, Tampermonkey havaitsee todelliset muutokset.
 
 **b) Deploy-status**
-- Hakee status.json GitHub API:lta (60 s cache — ei 10 min Pages-CDN)
-- Tarkistaa `deploying_commit_ok` ja `d.ok`
+- Hakee `status.json`:n GitHub API:lta (60 s cache — ei 10 min Pages-CDN)
 - Hälyttää jos luvaton commit deployataan tai commit ei vastaa GitHubia
 
 **Haavoittuva:**
 - Käyttäjän täytyy itse asentaa skripti ja pitää se ajan tasalla
 - Ei suojaa käyttäjiä joilla ei ole Tampermonkeyta
 
-**Suojausaika session aikana:**
-Tampermonkey ajaa `main()`-funktion sivulatauksen yhteydessä ja sen jälkeen minuutin välein koko session ajan. Hyökkäys havaitaan enintään ~1 minuutin kuluessa tiedostomuutoksesta.
-
-- **Ennen sivulatausta tapahtuva hyökkäys:** havaitaan heti
-- **Sivulatauksen jälkeen tapahtuva hyökkäys:** havaitaan seuraavassa 1 min pollausvuorossa
-- **Käytännön suojausikkuna:** koko session ajan, jatkuva valvonta
-
----
-
-### 4. _poide_dispatcher
-
-Palvelimen taustasäie (main.py), joka hakee deployment-tilan GitHubista ja pitää `/version`-endpointin ajan tasalla.
-
-**Toimintaperiaate:**
-```
-_poide_dispatcher (30 s välein)
-  → GitHub API: status-log.jsonl (60 s cache)
-  → _poide_cache päivittyy
-  → /version palauttaa tilan (~90 s maksimistaleness)
-```
-
-Dispatcher tekee kolme itsenäistä tarkistusta jokaisen pollaussyklin yhteydessä (~30 s välein), riippumatta TREAD-croneista:
-
-1. **Deploy käynnissä?** — Render API suoraan, ilman TREAD:n välitystä. Jos deploy alkaa, TREAD-palkki päivittyy 30 s sisällä.
-2. **Koodi oikein?** — Vertaa Render-live-commitin GitHubin main-branchin viimeisimpään committiin suoraan. Jos ei täsmää → `deployment_ok: false` → Danger-hälytys.
-3. **Valvontatiedostot muuttuneet?** — Hakee git tree:n GitHub API:lta, vertaa blob-SHA:ita tallennettuun baselineen. Jos muutos → `dispatcher_monitor_changed` → Danger-hälytys.
-
-**Lisäksi: TREAD-cron-ajojen käynnistys**
-Dispatcher lähettää `workflow_dispatch`-kutsun GitHub Actionsille 30 s välein. Tämä tarkoittaa että TREAD-cronit käynnistyvät luotettavammin kuin pelkän GitHub-ajastuksen varassa — vaikka GitHubin cron-scheduler viivästyisi tai epäonnistuisi, dispatcher käynnistää seuraavan ajon itsenäisesti.
-
-Tämä tarkistus on **riippumaton** `tread_check.py`:stä — se hakee hashit suoraan GitHubista eikä luota status.json:iin.
-
-**Vahvuus — muuttaminen vaatii deployn:**
-Dispatcher on osa Leiman koodia (main.py). Jos hyökkääjä haluaa kompromisoida dispatcherin, hänen täytyy:
-1. Muokata main.py ja committaa → **Tampermonkey havaitsee tiedostomuutoksen ~1 min sisällä**
-2. Odottaa code review -workflow (2–3 min)
-3. Odottaa hosting-deploy (5–10 min) → **TREAD-palkki näyttää "Deploying" koko ajan**
-
-Sinä aikaikkunana (commit → deploy = ~10–15 min) **legitiimi dispatcher tarkistaa hashit** ja hälyttää jos valvontatiedostot muuttuvat. Hyökkääjä ei pysty hiljentämään dispatcheria ennen kuin kompromisoitu koodi on deployattu.
-
-**Haavoittuva:**
-- Deploy-ikkunan jälkeen kompromisoitu dispatcher voi lopettaa tarkistuksen — Tampermonkey ottaa vastuun
-
-**Suojausaika session aikana:**
-Dispatcher hälyttää ~2–3 min kuluessa valvontatiedostojen muutoksesta (git tree API 60 s cache + 30 s pollausväli). Yhdessä Tampermonkeyn kanssa kaksi erillistä riippumatonta tarkistajaa.
-
----
-
-### 5. TREAD-palkki sivun ylälaidassa (/version-endpoint)
-
-Palvelimella pyörivä tila-indikaattori joka näyttää deployment-tilan sivun yläreunassa. Pollaa `/version`-endpointia 20 sekunnin välein.
-
-**Mitä palkki näyttää eri tilanteissa:**
-
-| Tilanne | Palkin tila | Merkitys |
-|---|---|---|
-| Kaikki kunnossa | OK (vihreä) | Deployattu commit vastaa GitHubin main-branchia |
-| Deploy käynnissä (normaali tai epäilyttävä) | Notice — Deploying | Jokin on deployautumassa — paranoidi käyttäjä voi reagoida |
-| Koodi puskettu suoraan ohi code reviewin | Danger (punainen) | Deployattu commit ei löydy tai ei vastaa GitHubista — välitön hälytys |
-| Workflow poistettu käytöstä | Danger | TREAD havaitsee workflow-tilan muutoksen |
-
-**Keskeinen ominaisuus — paranoidin käyttäjän suoja:**
-Palkki näyttää "Deploying" aina kun jokin deployautuu — riippumatta siitä onko se normaali päivitys vai hyökkäys. Tämä antaa käyttäjälle mahdollisuuden reagoida: vaikka haitallinen koodi läpäisisi AI-koodiarvion, palkki ilmoittaa siitä 8–13 minuutin ajan. Käyttäjä joka ei odota päivitystä voi pitää tätä epäilyttävänä.
-
-**Haavoittuva:**
-- Palautuu normaalitilaan kun kompromisoitu dispatcher alkaa palvella väärää dataa — Tampermonkey ottaa vastuun tästä eteenpäin
-
-**Suojausaika session aikana:**
-Sekä TREAD-palkki että Tampermonkey valvovat jatkuvasti kesken session ilman käyttäjän toimenpiteitä. Kumpikin on pohjimmiltaan pollaus eikä reaaliaikainen — viiveet eroavat:
-
-| Komponentti | Pollausväli | Viive hyökkäyksen havaitsemiseen |
-|---|---|---|
-| Tampermonkey | 1 min | ~1 min (git tree API) |
-| TREAD-palkki | 20 s | ~90 s (dispatcher-latenssi) + 20 s poll = ~2 min |
-
-- **Suora deploy ohi code reviewin:** TREAD-palkki Danger ~2 min kuluessa
-- **Deploy virallista kautta (myös haitallinen):** kumpikin näyttää "Deploying"-tilan 8–13 min ajan
-- **Deploy valmis, dispatcher väärennetty:** Tampermonkey hälyttää ~1 min sisällä
-
----
-
-### 6. Render API -valvonta
-
-`tread_check.py` tekee joka ajolla kolme erillistä tarkistusta Render API:n kautta:
-
-**a) Nykyinen tila**
-Hakee nykyisen live-commitin ja vertaa GitHubin main-branchia vasten. Jos ne eivät täsmää → `deployment_ok: false` → TREAD-palkki näyttää Danger. Tämä on perustarkistus joka laukeaa myös suoran API-deployn yhteydessä (ks. [Code review -portti](#7-code-review--workflow-code_reviewyml)).
-
-**b) Deploy käynnissä**
-Tarkistaa onko juuri nyt deployatumassa commit jota ei löydy GitHubista (`deploying_commit_ok: false`). Jos kyllä → välitön Danger-hälytys käyttäjälle TREAD-palkissa ja Tampermonkeyssa ennen kuin luvaton koodi on edes live.
-
-**c) Deploy-historia — forensinen työkalu**
-Skannaa 100 viimeistä deployta ja tarkistaa jokaisen commitin GitHubin kautta. Jos commit palauttaa 404 (ei löydy GitHubista), se kirjataan `last_mismatch_at`- ja `last_mismatch_commit`-kenttiin.
-
-Tämä on ainoa komponentti joka pystyy paljastamaan **menneisyyden hyökkäyksen** — esimerkiksi katkoksen tai väliaikaisesti deaktivoitujen cronien aikana tehty luvaton deploy jää deploy-historiaan. Jos palvelussa on ollut aukko, deploy-historian tutkiminen on relevantti tapa selvittää tapahtuiko sen aikana jotain epäilyttävää.
-
-Historia kattaa 100 viimeistä deployta — pidemmälle ei ulotu ilman Render-dashboardin manuaalista tutkimista.
-
-**Lisäksi: deploy-burstien tunnistus**
-Jos tunnin sisällä tapahtuu yli 10 deployta, TREAD raportoi `rapid_deploy_warning: true`. Tämä voi viitata automatisaatioon tai tahalliseen häirintään.
-
----
-
-### 7. Arweave-arkisto
-
-Jokainen TREAD-ajo arkistoi `status.json`:n sisällön Arweave-lohkoketjuun (`tread_arweave.py`). Arkisto on pysyvä ja muuttumaton — kerran kirjoitettua dataa ei voi poistaa eikä muuttaa.
-
-**Mitä arkistoidaan:**
-Jokainen status.json-snapshot sisältää:
-- Deployatun commitin ja GitHubin expected-commitin
-- Kaikkien valvontatiedostojen SHA-256-hashit
-- Workflow-tilat (active/disabled)
-- Aikaleiman
-
-**Arvewen vahvuus — repo ei ole ainoa totuuden lähde:**
-Vaikka GitHub-repositorio syystä tai toisesta häviäisi, tyhjentyisi tai sen historia väärentyisi, Arweave-arkistoon jää minuutin tarkkuudella dokumentoitu historia siitä mitä järjestelmässä on pyörinyt ja mitä hasheja valvontatiedostoilla on ollut.
-
-Vertaamalla Arweave-arkiston tietueita ja repositorion nykyistä tilaa voidaan rekonstruoida järjestelmän tila minä tahansa hetkenä: mitä koodia silloin ajettiin, oliko valvonta aktiivista, oliko jokin tiedosto muuttunut. Tämä tekee historiatarkastelusta luotettavan myös tilanteessa jossa osapuolten välillä on kiista siitä mitä on tapahtunut.
-
-**Rajoitus:**
-Arweave-arkiston luotettavuus on ketjun vahvimman lenkin mukainen — jos `tread_arweave.py` on kompromisoitu, arkistoon voi tallentua vääristeltyä dataa hyökkäyksen jälkeen. Ennen hyökkäystä tallennetut tietueet säilyvät kuitenkin muuttumattomina.
-
----
-
-### 8. Code review -workflow (code_review.yml)
-
-Jokaisen git push:n jälkeen automaattisesti ajettava workflow, joka toimii deployn portinvartijana.
-
-**Suojaa:**
-- AI-koodiarvio havaitsee ilmeiset haitalliset muutokset
-- Hosting-deploy ei käynnisty ilman workflown hyväksyntää
-- Pre-push TREAD-hookki estää pushin jos edellinen deploy ei ole vakaa
-
-**Code review -portti turvarakenteena:**
-Jos käyttäjä on verifioinut session alussa että valvontatiedostot ovat muuttumattomia, hän voi odottaa saavansa hälytyksen jos Leiman palvelimelle yritetään ujuttaa tarkastamatonta koodia. Tarkastamaton koodi tarkoittaa commitia joka ei ole kulkenut code_review.yml:n läpi — tällainen deploy jättää commit-mismatchin jonka TREAD havaitsee.
-
-Tämä ei ole absoluuttinen takuu, mutta se tarkoittaa että hyökkäys jättää havaittavan jäljen.
-
-**Haavoittuva:**
-- AI-arvio ei ole aukoton — hienostuneita muutoksia voi jäädä läpi
-
-**Miten code review -portti voidaan yrittää ohittaa — ja miten siitä jää kiinni:**
-
-| Tapa | Miten kiinni |
-|---|---|
-| Muokata `code_review.yml`:ää (esim. auto-pass) | Vaatii commitin → Tampermonkey havaitsee hash-muutoksen → hälytys |
-| Ohittaa workflow ja deployata suoraan API:n kautta | Deployattu commit ≠ GitHubin main → TREAD commit-mismatch → Danger-hälytys |
-| Poistaa workflow käytöstä GitHub-käyttöliittymästä | `tread_check.py` tarkistaa workflow-tilat → `disabled_workflows` → TREAD-palkki hälyttää |
-
-Kaikki kolme jättävät jälkiä: joko git-historiaan, GitHub API:n workflow-tilatietoon tai Arweave-arkistoon.
-
-**Suojausaika session aikana:**
-Code review lisää 2–3 minuutin pakotetun viiveen jokaisen muutoksen ja deployn välille. Tämä aika on käyttäjälle näkyvää hälytysaikaa (TREAD-palkki "Deploying").
-
----
-
-### 9. Hosting-ympäristö
-
-Hosting-alustan valinta vaikuttaa merkittävästi järjestelmän turvallisuuteen. Nykyinen ympäristö on väliaikainen.
-
-**Suojausaika session aikana:**
-Riippuu täysin alustan eristystasosta. Alustat joissa prosessieristys on heikko voivat mahdollistaa hyökkäyksiä jotka eivät näy missään valvontakerroksessa.
-
 ---
 
 ## Valvottavat tiedostot
 
-Sekä `tread_check.py` (palvelinpuoli) että Tampermonkey (asiakaspuoli) laskevat hashit samoille tiedostoille. `tread_check.py` käyttää SHA-256, Tampermonkey git blob SHA:ta (GitHubin sisäinen tunniste joka muuttuu sisällön muuttuessa).
+Tampermonkey ja dispatcher vertaavat hasheja samoille tiedostoille. Tampermonkey käyttää GitHubin git blob SHA:ta, `tread_check.py` SHA-256:ta.
 
-**Keskeinen osa turvallisuusmallia: tiedostot muuttuvat harvoin**
+**Miksi juuri nämä tiedostot?**
 
-Nämä tiedostot ovat käytännössä muuttumattomia normaalin käytön aikana — niitä ei kosketa tavallisessa kehitystyössä. Tämä on tietoinen suunnittelupäätös: harva muutos tarkoittaa että muutos on aina merkittävä.
+Valvottavat tiedostot ovat nimenomaan **valvontainfrastruktuuri** — tiedostot jotka hallitsevat valvontaa itse. Sovelluksen pääkoodi (`main.py`) ei ole listalla, koska se muuttuu usein normaalin kehitystyön yhteydessä ja sen suojaus toimii deploy-viiveen ja code reviewn kautta.
 
-Käyttäjä voi ennen session aloittamista tarkistaa, ovatko tiedostot samoja kuin edellisellä kerralla. Jos hashit eivät ole muuttuneet, tiedostoja ei tarvitse käydä erikseen läpi — riittää tietää että ne ovat ennallaan.
+Tiedostot muuttuvat käytännössä vain jos valvontajärjestelmää muutetaan tarkoituksellisesti — tämä on tietoinen suunnittelupäätös. Harva muutos tarkoittaa että muutos on aina merkittävä.
 
-**Tarkistus omalla koneella tai AI-agentilla**
+| Tiedosto | Miksi valvotaan |
+|---|---|
+| `.github/workflows/tread-a.yml` … `tread-e.yml` | TREAD-cronien ajastus — muokkaamalla voi sammuttaa valvonnan |
+| `.github/workflows/tread-run.yml` | TREAD:n suorituslogiikka — muokkaamalla voi tehdä valvonnasta tyhjää |
+| `.github/workflows/code_review.yml` | Deploy-portti — muokkaamalla voi ohittaa koodiarvion |
+| `.github/workflows/monthly-audit.yml` | Kuukausittainen laajempi tarkistus |
+| `tread_check.py` | Tarkistuslogiikka — muokkaamalla voi kirjoittaa vääriä hasheja; hashaa myös itsensä |
+| `tread_arweave.py` | Arweave-arkistointi — muokkaamalla voi estää historian tallentumisen |
+| `code_review.py` | AI-koodiarvion toteutus — muokkaamalla voi tehdä arviosta tyhjää |
+| `monthly_audit.py` | Kuukausittaisen auditoinnin toteutus |
+| `POLICY.example.md` | Julkinen politiikkadokumentti — muutos olisi merkki väärinkäytöstä |
 
-Käyttäjä voi tallentaa seuraavan skriptin omalle koneelleen ja ajaa sen ennen jokaista sessiota. Se hakee nykyiset hashit GitHubista ja vertaa tallennettuihin arvoihin:
+Yhdenkin muuttaminen ilman lupaa laukaisee hälytyksen.
+
+**Tarkistus ennen sessiota**
+
+Käyttäjä voi tallentaa seuraavan skriptin omalle koneelleen ja ajaa sen ennen sessiota. Se hakee nykyiset hashit GitHubista ja vertaa tallennettuihin arvoihin:
 
 ```python
 import json, urllib.request
@@ -328,7 +271,7 @@ PATHS  = {
     "tread_check.py", "tread_arweave.py",
     "monthly_audit.py", "code_review.py", "POLICY.example.md",
 }
-SAVED = "leima_hashes.json"  # tallenna ensimmäisellä ajolla
+SAVED = "leima_hashes.json"
 
 url = f"https://api.github.com/repos/{REPO}/git/trees/{BRANCH}?recursive=1"
 tree = json.loads(urllib.request.urlopen(url).read())["tree"]
@@ -348,20 +291,6 @@ except FileNotFoundError:
 
 Saman tarkistuksen voi pyytää myös AI-agentilta: anna sille lista tiedostoista ja edellinen hash-tiedosto, ja pyydä hakemaan nykyiset hashit GitHubista ja vertaamaan.
 
-| Tiedosto | Miksi valvotaan |
-|---|---|
-| `.github/workflows/tread-a.yml` … `tread-e.yml` | TREAD-cronien ajastus ja konfiguraatio — muokkaamalla voi sammuttaa valvonnan |
-| `.github/workflows/tread-run.yml` | TREAD:n varsinainen suorituslogiikka — muokkaamalla voi tehdä valvonnasta tyhjää |
-| `.github/workflows/code_review.yml` | Deploy-portin logiikka — muokkaamalla voi ohittaa koodiarvion tai estää deployt |
-| `.github/workflows/monthly-audit.yml` | Kuukausittainen laajempi tarkistus |
-| `tread_check.py` | Varsinainen tarkistuslogiikka — muokkaamalla voi kirjoittaa vääriä hasheja status.json:iin |
-| `tread_arweave.py` | Arweave-arkistointi — muokkaamalla voi estää historian tallentumisen |
-| `code_review.py` | AI-koodiarvion toteutus — muokkaamalla voi tehdä arviosta tyhjää |
-| `monthly_audit.py` | Kuukausittaisen auditoinnin toteutus |
-| `POLICY.example.md` | Julkinen politiikkadokumentti jonka muutos olisi merkki väärinkäytöstä |
-
-Kaikki yhdeksän tiedostoa muodostavat yhdessä valvontajärjestelmän ytimen. Yhdenkin muuttaminen ilman lupaa laukaisee hälytyksen.
-
 ---
 
 ## Hyökkäyksen aikajana — käyttäjä on verifioinut session alussa
@@ -375,15 +304,14 @@ t=0        Hyökkääjä committaa muutokset GitHubiin
 t=0–60s    Tampermonkey havaitsee muutoksen seuraavassa pollausvuorossa → HÄLYTYS
            TREAD-palkki jatkaa normaalia näyttöä (dispatcher ei ole vielä päivittynyt)
 
-t=90s      _poide_dispatcher hakee päivitetyn status-log.jsonl:n
-           → TREAD-palkki: ei vielä vaikutusta (dispatcher seuraa deploy-statusta)
+t=90s      Dispatcher hakee päivitetyn status-log.jsonl:n ja git tree:n
+           → Valvontatiedostomuutos havaitaan → TREAD-palkki Danger
 
 t=2–3min   Code review -workflow käynnistyy ja valmistuu
            → TREAD-palkki näyttää "Deploying" ← HÄLYTYS
 
 t=3–13min  Hosting-deploy käynnissä
            → TREAD-palkki näyttää "Deploying" koko ajan
-           → Käyttäjällä on 8–13 min näkyvää hälytysaikaa
 
 t=13min    Kompromisoitu koodi on live
            → Jos dispatcher on kompromisoitu: TREAD-palkki palaa vihreäksi
@@ -395,7 +323,7 @@ t=13min    Kompromisoitu koodi on live
 | Vaihe | Kesto | Käyttäjän suoja |
 |---|---|---|
 | Commit → Tampermonkey pollaa | 0–60 s | ✅ Hälytys minuutin sisällä |
-| Commit → dispatcher päivittyy | 0–90 s | TREAD-palkki ei vielä hälytä |
+| Commit → dispatcher päivittyy | 0–90 s | ✅ TREAD-palkki Danger |
 | Deploy käynnissä | 8–13 min | ✅ TREAD-palkki "Deploying" |
 | Kompromisoitu koodi live | Jatkuva | ✅ Tampermonkey hälyttää minuutin sisällä |
 
@@ -405,7 +333,7 @@ t=13min    Kompromisoitu koodi on live
 
 ## Yhteenveto: suojaus eri uhkia vastaan
 
-### Ulkoinen hyökkääjä (ei GitHub/Render-pääsyä)
+### Ulkoinen hyökkääjä (ei GitHub/hosting-pääsyä)
 
 Ulkoisella hyökkääjällä ei ole pääsyä kumpaankaan järjestelmään, joten deployment-integriteetin uhkia ei käytännössä ole — koodi ei pääse tuotantoon ilman GitHub- tai hosting-tunnuksia.
 
@@ -436,7 +364,7 @@ Ulkoisella hyökkääjällä ei ole pääsyä kumpaankaan järjestelmään, jote
 
 ---
 
-### Ylläpito-hyökkääjä (GitHub + Render)
+### Ylläpito-hyökkääjä (GitHub + hosting)
 
 | Uhka | Suojaus |
 |---|---|
@@ -459,9 +387,9 @@ Tampermonkey (käyttäjän selain)     — korkein, operaattori ei kontrolloi
   ↓
 Arweave-arkisto                     — muuttumaton historiallinen todiste
   ↓
-GitHub Actions (TREAD)              — luotettu jos GitHub ei kompromisoitu
+GitHub Actions (TREAD + code review) — luotettu jos GitHub ei kompromisoitu
   ↓
-/version + TREAD-palkki             — luotettu jos koodi ei kompromisoitu, ~90 s latenssi
+_poide_dispatcher + TREAD-palkki    — luotettu jos koodi ei kompromisoitu, ~90 s latenssi
   ↓
 status.json (GitHub Pages)          — auditointiartefakti, ei reaaliaikainen turvatae
   ↓
@@ -475,7 +403,7 @@ Hosting-ympäristö                   — matalin, riippuu alustan eristystasost
 | Asia | Tila |
 |---|---|
 | Hosting-ympäristön migraatio | Suunniteltu |
-| Tampermonkey-baseline session alussa | Suunniteltu — status-log.jsonl:n stabiliteetin tarkistus |
+| RENDER_API_KEY ja RENDER_SERVICE_ID hosting-ympäristöön | Lisättävä Render-dashboardille — dispatcher tarvitsee ne suoraan Render API -kutsuihin |
 
 ---
 
