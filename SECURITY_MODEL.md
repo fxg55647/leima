@@ -63,7 +63,7 @@ TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat
 
 ### 2. status.json (GitHub Pages + Arweave)
 
-TREAD:n tuottama julkinen tiedosto, joka sisältää deployment-tilan, valvontatiedostojen hashit ja aikaleiman. Päivittyy minuutin välein.
+`tread_check.py` laskee deployment-tilan ja valvontatiedostojen hashit, `push_status.py` kirjoittaa tuloksen `status.json`:iin GitHub Pagesiin ja `tread_arweave.py` arkistoi sen Arweave-lohkoketjuun. Tiedosto päivittyy minuutin välein.
 
 **Kaksi roolia:**
 
@@ -72,25 +72,15 @@ TREAD:n tuottama julkinen tiedosto, joka sisältää deployment-tilan, valvontat
 | Reaaliaikainen tila | Deploy-statuksen seuranta | Heikko (10 min CDN-cache GitHub Pagesissa) |
 | Historiallinen todiste | Arweave-arkisto osoittaa mitä hasheja on raportoitu | Erittäin vahva (muuttumaton) |
 
-**Tuotantoketju:**
-```
-tread_check.py    → laskee hashit ja deployment-tilan
-tread_arweave.py  → arkistoi tuloksen Arweave-lohkoketjuun
-push_status.py    → kirjoittaa status.json:n gh-pages-branchiin
-```
+**Voidaanko status.json väärentää?**
+Kyllä — jos hyökkääjällä on GitHub-kirjoitusoikeus, hän voi muokata kaikkia kolmea tuotantoketjun tiedostoa (`tread_check.py`, `tread_arweave.py`, `push_status.py`) yhdessä commitissa. Tämä ei kuitenkaan vaikuta reaaliaikaiseen suojaan, koska Tampermonkey ja dispatcher eivät luota status.json:iin — ne laskevat hashit suoraan GitHubin git tree API:lta.
 
-**Mitä vaaditaan status.json:n väärentämiseen:**
-status.json:n sisältöön vaikuttaa kolme erillistä tiedostoa eri vastuualueilla. Väärentäminen vaatii **kaikkien kolmen** muokkaamista samanaikaisesti — muuten joko Tampermonkey havaitsee hash-muutoksen tai Arweave-arkisto paljastaa ristiriidan. Lisäksi kaikki muutokset vaativat GitHub-kirjoitusoikeuden ja läpäisevät Tampermonkeyn riippumattoman git tree -tarkistuksen.
+Arweave-arkistoon sen sijaan voi tallentua vääristeltyjä tietoja: jos `tread_arweave.py` on kompromisoitu, se voi arkistoida väärät hashit. Aiemmat legitiimit tietueet säilyvät muuttumattomina, mutta hyökkäyksen jälkeiset arkistomerkinnät eivät ole luotettavia.
 
-**Haavoittuva:**
-- Kompromisoitu `tread_check.py` voi kirjoittaa vääriä hasheja — mutta Tampermonkey ei luota status.json:iin vaan laskee hashit itse git tree API:lta
-- Ei sovi reaaliaikaiseen turvallisuusverifiointiin CDN-välimuistin takia
-
-**Arweave-arkiston vahvuus:**
-Vaikka hyökkääjä muuttaisi tiedostoja ja kirjoittaisi vääriä hasheja tuleviin ajoihin, aikaisemmat Arweave-tietueet osoittavat mitä hasheja järjestelmä raportoi ennen muutosta. Historiaa ei voi jälkikäteen väärentää.
+Lisäksi: kaikkien kolmen tiedoston muokkaaminen on itsessään havaittavaa — jokainen muutos näkyy Tampermonkeyn git tree -tarkistuksessa.
 
 **Suojausaika session aikana:**
-Ei reaaliaikaista suojaa session aikana CDN-välimuistin takia. Arweave-arkisto on jälkikäteinen todiste, ei ennaltaehkäisevä suojaus.
+Ei reaaliaikaista suojaa — CDN-välimuistin (10 min) takia data voi olla vanhentunutta. Arweave-arkisto on jälkikäteinen todiste, ei ennaltaehkäisevä suojaus.
 
 ---
 
