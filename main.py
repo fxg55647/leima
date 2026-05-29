@@ -1534,6 +1534,7 @@ async def _get_pw_page(session_id: str):
             return _pw_sessions[session_id]
         except Exception:
             _pw_sessions.pop(session_id, None)
+            raise RuntimeError("Browser session expired — please reload the browser and try again.")
     if len(_pw_sessions) >= _PW_SESSION_LIMIT:
         oldest_key = next(iter(_pw_sessions))
         try:
@@ -1547,6 +1548,17 @@ async def _get_pw_page(session_id: str):
     ctx = browser.contexts[0]
     page = ctx.pages[0] if ctx.pages else await ctx.new_page()
     _pw_sessions[session_id] = {"browser": browser, "page": page, "last_click": None}
+
+    async def _keepalive():
+        while session_id in _pw_sessions:
+            try:
+                await _pw_sessions[session_id]["page"].title(timeout=3000)
+            except Exception:
+                _pw_sessions.pop(session_id, None)
+                break
+            await asyncio.sleep(20)
+
+    asyncio.create_task(_keepalive())
     return _pw_sessions[session_id]
 
 
