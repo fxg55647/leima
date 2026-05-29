@@ -118,19 +118,41 @@ _GITHUB_BRANCH = "main"
 _monitor_baseline: dict | None = None
 
 
-def _fetch_render_deploying() -> bool | None:
+def _fetch_render_state() -> tuple[bool | None, str | None]:
+    """Returns (deploying, live_commit). None values = API unavailable."""
     if not _RENDER_API_KEY or not _RENDER_SERVICE_ID:
-        return None
+        return None, None
     try:
         r = http_requests.get(
-            f"https://api.render.com/v1/services/{_RENDER_SERVICE_ID}/deploys?limit=5",
+            f"https://api.render.com/v1/services/{_RENDER_SERVICE_ID}/deploys?limit=10",
             headers={"Authorization": f"Bearer {_RENDER_API_KEY}"},
             timeout=10,
         )
         if r.status_code != 200:
-            return None
+            return None, None
         deploys = r.json()
-        return bool(deploys and deploys[0].get("deploy", {}).get("status") in _IN_PROGRESS_STATUSES)
+        deploying = bool(deploys and deploys[0].get("deploy", {}).get("status") in _IN_PROGRESS_STATUSES)
+        live_commit = None
+        for item in deploys:
+            deploy = item.get("deploy", {})
+            if deploy.get("status") == "live":
+                live_commit = deploy.get("commit", {}).get("id")
+                break
+        return deploying, live_commit
+    except Exception:
+        return None, None
+
+
+def _fetch_github_head(token: str) -> str | None:
+    hdrs = {"Accept": "application/vnd.github.sha"}
+    if token:
+        hdrs["Authorization"] = f"Bearer {token}"
+    try:
+        r = http_requests.get(
+            f"https://api.github.com/repos/{_GITHUB_REPO}/commits/{_GITHUB_BRANCH}",
+            headers=hdrs, timeout=10,
+        )
+        return r.text.strip() if r.status_code == 200 else None
     except Exception:
         return None
 
@@ -185,11 +207,14 @@ def _poide_dispatcher():
         except Exception:
             pass
 
-        # Suora Render API -kutsu deploy-statukseen — ei TREAD:sta riippuvainen
-        deploying_direct = _fetch_render_deploying()
+        # Suora Render + GitHub -vertailu — ei TREAD:sta riippuvainen
+        deploying_direct, live_commit = _fetch_render_state()
+        github_head = _fetch_github_head(token) if live_commit else None
         if deploying_direct is not None and _poide_cache is not None:
             _poide_cache = dict(_poide_cache)
             _poide_cache["deploying"] = deploying_direct
+            if live_commit and github_head:
+                _poide_cache["deployment_ok"] = live_commit.startswith(github_head[:7]) or github_head.startswith(live_commit[:7])
 
         # Riippumaton valvontatiedostojen hash-tarkistus git tree API:lta
         hashes = _fetch_monitor_hashes(token)
