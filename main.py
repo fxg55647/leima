@@ -1536,8 +1536,12 @@ async def _get_pw_page(session_id: str):
         except Exception:
             _pw_sessions.pop(session_id, None)
     if len(_pw_sessions) >= _PW_SESSION_LIMIT:
-        oldest = next(iter(_pw_sessions))
-        _pw_sessions.pop(oldest, None)
+        oldest_key = next(iter(_pw_sessions))
+        try:
+            await _pw_sessions[oldest_key]["browser"].close()
+        except Exception:
+            pass
+        _pw_sessions.pop(oldest_key, None)
     pw = await _get_playwright()
     connect_url = f"wss://chrome.browserless.io?token={BROWSERLESS_API_KEY}"
     browser = await pw.chromium.connect_over_cdp(connect_url, timeout=30000)
@@ -1551,6 +1555,13 @@ async def _get_pw_page(session_id: str):
 async def browser_session(request: Request):
     if not BROWSERLESS_API_KEY:
         return JSONResponse({"error": "Browserless not configured"}, status_code=503)
+    # Close all existing sessions before opening a new one (Browserless concurrent limit)
+    for key in list(_pw_sessions.keys()):
+        try:
+            await _pw_sessions[key]["browser"].close()
+        except Exception:
+            pass
+    _pw_sessions.clear()
     try:
         import uuid
         session_id = str(uuid.uuid4())
