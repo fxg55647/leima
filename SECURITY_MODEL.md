@@ -6,6 +6,22 @@ Viimeksi päivitetty: 2026-05-29
 
 ---
 
+## Johdanto — miten turvallisuusmalli toimii
+
+Leiman turvallisuusmalli on rakennettu suojaamaan käyttäjän tietoja tilanteessa jossa uhka on ylläpitäjä itse — joko petollinen tai sellainen jonka tunnukset on anastettu. Tavoite on, ettei käyttäjän asiakirjoja voi urkia tai varastaa ilman että käyttäjä saa siitä hälytyksen.
+
+Malli hyödyntää kahta perusperiaatetta:
+
+**1. Palveluntarjoajien API-rajapinnat**
+Hosting-palvelu (esim. Render) tarjoaa API:n josta näkyy mitä koodia palvelimella tällä hetkellä pyörii ja onko deploy käynnissä. Tätä verrataan GitHubin julkiseen repositorioon. Jos ne eivät täsmää, järjestelmä hälyttää.
+
+**2. Muutosten aikaviive**
+Koodin muuttaminen tuotantopalvelimella ei tapahdu hetkessä — se vaatii GitHub-commitin, koodiarvion läpäisemisen ja hosting-deployn, joka kestää yhteensä 8–15 minuuttia. Tänä aikana järjestelmän eri osat ovat vielä muuttumattomia, joten ne voivat havaita muutoksen ja hälyttää käyttäjää ennen kuin mitään vahingollista tapahtuu.
+
+Näiden kahden varaan on rakennettu useita toisistaan riippumattomia valvontakerroksia: käyttäjän selaimessa pyörivä Tampermonkey-skripti, palvelimen dispatcher, TREAD-cronit GitHubissa ja Arweave-lohkoketjun muuttumaton arkisto. Kukin tarkistaa asioita eri lähteistä ja eri viiveillä — yhden kerroksen kompromisointi ei sammuta muita.
+
+---
+
 ## Uhkamallit
 
 Kolme hyökkääjätyyppiä, joita vastaan järjestelmä on suunniteltu:
