@@ -200,12 +200,10 @@ Jokaisen git push:n jälkeen automaattisesti ajettava workflow, joka toimii depl
 - Hosting-deploy ei käynnisty ilman workflown hyväksyntää
 - Pre-push TREAD-hookki estää pushin jos edellinen deploy ei ole vakaa
 
-**Kriittinen turvaominaisuus — deploy ilman code review -porttia:**
-Jos käyttäjä on verifioinut session alussa että valvontatiedostot ovat muuttumattomia, hän voi luottaa että TREAD ajaa legitiimiä koodia. Tällöin pätee seuraava takuu:
+**Code review -portti turvarakenteena:**
+Jos käyttäjä on verifioinut session alussa että valvontatiedostot ovat muuttumattomia, hän voi odottaa saavansa hälytyksen jos Leiman palvelimelle yritetään ujuttaa tarkastamatonta koodia. Tarkastamaton koodi tarkoittaa commitia joka ei ole kulkenut code_review.yml:n läpi — tällainen deploy jättää commit-mismatchin jonka TREAD havaitsee.
 
-> Mikä tahansa deploy joka ohittaa code_review.yml:n — esimerkiksi suoraan hosting-dashboardilta tai API:n kautta tehty deploy — johtaa välittömään "Danger"-tilaan TREAD-palkissa ja Tampermonkeyssa, koska deployattu commit ei täsmää GitHubin main-branchin kanssa.
-
-Tämä tarkoittaa että code review -workflow ei ole pelkästään koodilaatuportti — se on rakenteellinen turvaeste jonka ohittaminen hälyttää automaattisesti.
+Tämä ei ole absoluuttinen takuu, mutta se tarkoittaa että hyökkäys jättää havaittavan jäljen.
 
 **Haavoittuva:**
 - AI-arvio ei ole aukoton — hienostuneita muutoksia voi jäädä läpi
