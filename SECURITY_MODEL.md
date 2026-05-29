@@ -31,9 +31,19 @@ Viisi identtistä GitHub Actions -workflow'ta, jotka ajavat `tread_check.py`:n v
 - Arkistoi tuloksen Arweave-lohkoketjuun pysyvästi
 
 **Haavoittuva:**
-- Jos hyökkääjällä on GitHub-kirjoitusoikeus, hän voi muokata kaikkia viittä workflow'ta samanaikaisesti
 - Kompromisoitu `tread_check.py` voi kirjoittaa vääriä hasheja status.json:iin
 - GitHub Actions itsessään on luotettu osapuoli — jos GitHub on kompromisoitu, koko järjestelmä pettää
+
+**Miten TREAD-cronit voidaan yrittää sammuttaa — ja miten siitä jää kiinni:**
+
+| Tapa | Nopeus | Kuka huomaa | Mistä |
+|---|---|---|---|
+| Poistaa kaikki 5 workflow'ta käytöstä GitHub-UI:ssa | Välitön | TREAD-palkki | `tread_check.py` tarkistaa workflow-tilat → `disabled_workflows` → Danger, seuraavassa TREAD-ajossa (~1 min) |
+| Muokata workflow-tiedostoja sammuttaakseen ne | Seuraava ajo | Tampermonkey | Hash-muutos → hälytys minuutin sisällä |
+| Poistaa koko repo tai gh-pages-branch | Välitön | TREAD-palkki | status.json lakkaa päivittymästä → `cron_fresh = false` → Danger |
+| Käyttää GitHub:n abuse-suojausta tahallaan (concurrency-burstit) | Tunti | TREAD-palkki | Kaikki ajot pysähtyvät → staleness → Danger noin tunnin kuluessa |
+
+Viisi erillistä workflow'ta tekee sammuttamisesta työläämpää — kaikki viisi täytyy poistaa käytöstä samanaikaisesti, muuten jäljelle jäävät jatkavat valvontaa.
 
 **Suojausaika session aikana:**
 TREAD-cronit eivät suoraan suojaa käyttäjää session aikana — ne tuottavat dataa muille kerroksille. Jos hyökkääjä muokkaa workflow'ta, muutos näkyy git tree:ssä välittömästi ja Tampermonkey havaitsee sen minuutin sisällä.
@@ -51,8 +61,18 @@ TREAD:n tuottama julkinen tiedosto, joka sisältää deployment-tilan, valvontat
 | Reaaliaikainen tila | Deploy-statuksen seuranta | Heikko (10 min CDN-cache GitHub Pagesissa) |
 | Historiallinen todiste | Arweave-arkisto osoittaa mitä hasheja on raportoitu | Erittäin vahva (muuttumaton) |
 
+**Tuotantoketju:**
+```
+tread_check.py    → laskee hashit ja deployment-tilan
+tread_arweave.py  → arkistoi tuloksen Arweave-lohkoketjuun
+push_status.py    → kirjoittaa status.json:n gh-pages-branchiin
+```
+
+**Mitä vaaditaan status.json:n väärentämiseen:**
+status.json:n sisältöön vaikuttaa kolme erillistä tiedostoa eri vastuualueilla. Väärentäminen vaatii **kaikkien kolmen** muokkaamista samanaikaisesti — muuten joko Tampermonkey havaitsee hash-muutoksen tai Arweave-arkisto paljastaa ristiriidan. Lisäksi kaikki muutokset vaativat GitHub-kirjoitusoikeuden ja läpäisevät Tampermonkeyn riippumattoman git tree -tarkistuksen.
+
 **Haavoittuva:**
-- Kompromisoitu `tread_check.py` voi kirjoittaa vääriä hasheja — status.json ei itsessään todenna sisältönsä oikeellisuutta
+- Kompromisoitu `tread_check.py` voi kirjoittaa vääriä hasheja — mutta Tampermonkey ei luota status.json:iin vaan laskee hashit itse git tree API:lta
 - Ei sovi reaaliaikaiseen turvallisuusverifiointiin CDN-välimuistin takia
 
 **Arweave-arkiston vahvuus:**
