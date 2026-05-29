@@ -1,17 +1,17 @@
 {
   "ok": true,
   "rapid_deploy_warning": false,
-  "deployment_ok": true,
-  "review_ok": true,
+  "deployment_ok": false,
+  "review_ok": false,
   "review_consecutive_failures": 0,
   "review_stuck": false,
-  "deploying": false,
-  "deploying_commit": null,
-  "deploying_commit_ok": false,
+  "deploying": true,
+  "deploying_commit": "97496e4ffe69df21cd3bc2cfd4aec69c03352854",
+  "deploying_commit_ok": true,
   "deployed_commit": "87728b354cde3bc21c2da4836e33c4ff71aa90be",
-  "expected_commit": "87728b354cde3bc21c2da4836e33c4ff71aa90be",
+  "expected_commit": "97496e4ffe69df21cd3bc2cfd4aec69c03352854",
   "deploy_status": "live",
-  "review_conclusion": "success",
+  "review_conclusion": "in_progress",
   "cron_fresh": true,
   "workflow_states": {
     "tread-a.yml": "active",
@@ -22,16 +22,16 @@
   },
   "disabled_workflows": [],
   "history": {
-    "scanned_deploys": 96,
+    "scanned_deploys": 95,
     "last_mismatch_at": null,
     "last_mismatch_commit": null,
-    "clean_since": "2026-05-28T11:36:53.283005Z",
+    "clean_since": "2026-05-28T11:38:52.074981Z",
     "deploys_last_hour": 4
   },
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-29 13:33:23 UTC",
+  "checked_at": "2026-05-29 13:34:06 UTC",
   "monitor_files": {
     ".github/workflows/tread-a.yml": "4ea3fdf861d3edc101fd1b06d5ce2794152b7cbe8f8c24943742311bec466aae",
     ".github/workflows/tread-b.yml": "6f7e151e016d34c597d56e43f1b8b1ad9d44a2523fd0df2c823e6dfe9499914e",
@@ -47,6 +47,6 @@
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26640245411",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26640245411"
+  "actions_run_id": "26640271276",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26640271276"
 }
