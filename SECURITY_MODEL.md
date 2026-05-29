@@ -142,6 +142,13 @@ Jokaisen git push:n jälkeen automaattisesti ajettava workflow, joka toimii depl
 - Render-deploy ei käynnisty ilman workflown hyväksyntää
 - Pre-push TREAD-hookki estää pushin jos edellinen deploy ei ole vakaa
 
+**Kriittinen turvaominaisuus — deploy ilman code review -porttia:**
+Jos käyttäjä on verifioinut session alussa että valvontatiedostot ovat muuttumattomia, hän voi luottaa että TREAD ajaa legitiimiä koodia. Tällöin pätee seuraava takuu:
+
+> Mikä tahansa deploy joka ohittaa code_review.yml:n — esimerkiksi suoraan Render-dashboardilta tai API:n kautta tehty deploy — johtaa välittömään "Danger"-tilaan TREAD-palkissa ja Tampermonkeyssa, koska deployattu commit ei täsmää GitHubin main-branchin kanssa.
+
+Tämä tarkoittaa että code review -workflow ei ole pelkästään koodilaatuportti — se on rakenteellinen turvaeste jonka ohittaminen on automaattisesti havaittavissa.
+
 **Haavoittuva:**
 - AI-arvio ei ole aukoton — hienostuneita muutoksia voi jäädä läpi
 - Jos hyökkääjällä on GitHub-oikeus, hän voi muokata myös code_review.yml:ää

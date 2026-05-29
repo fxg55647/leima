@@ -58,6 +58,8 @@ Workflow tekee järjestyksessä:
 
 Kesto normaalisti: **5–10 minuuttia**.
 
+**Turvaominaisuus:** Code review -workflow on ainoa laillinen deploy-reitti. Jos deploy tapahtuu tämän putken ulkopuolelta (esim. suoraan Render-dashboardilta), deployattu commit ei täsmää GitHubin main-branchin kanssa — TREAD havaitsee tämän välittömästi ja näyttää "Danger"-tilan. Tämä takuu on voimassa kun käyttäjä on verifioinut session alussa että valvontatiedostot ovat muuttumattomia.
+
 ### Seuranta pushin jälkeen
 
 Heti pushin jälkeen agentti käynnistää `/loop` 2 minuutin välein:
