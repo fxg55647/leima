@@ -138,8 +138,7 @@ _poide_dispatcher (30 s välein)
   → /version palauttaa tilan (~90 s maksimistaleness)
 ```
 
-**Riippumaton valvontatiedostojen hash-tarkistus:**
-Dispatcher hakee git tree:n GitHub API:lta jokaisen pollaussyklin yhteydessä (~30 s välein) ja vertaa blob-SHA:ita tallennettuun baselineen. Jos muutos havaitaan, se merkitään `/version`-vastaukseen (`dispatcher_monitor_changed`) ja TREAD-palkki näyttää Danger-hälytyksen.
+Dispatcher tarkistaa itsenäisesti onko valvontatiedostot muuttuneet — riippumatta `tread_check.py`:stä tai status.json:sta. Se hakee git tree:n GitHub API:lta jokaisen pollaussyklin yhteydessä (~30 s välein), vertaa blob-SHA:ita tallennettuun baselineen ja merkitsee muutokset `/version`-vastaukseen (`dispatcher_monitor_changed`). TREAD-palkki näyttää Danger-hälytyksen välittömästi.
 
 Tämä tarkistus on **riippumaton** `tread_check.py`:stä — se hakee hashit suoraan GitHubista eikä luota status.json:iin.
 
