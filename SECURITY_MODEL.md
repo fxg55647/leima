@@ -153,7 +153,14 @@ _poide_dispatcher (30 s välein)
   → /version palauttaa tilan (~90 s maksimistaleness)
 ```
 
-Dispatcher tarkistaa itsenäisesti onko valvontatiedostot muuttuneet — riippumatta `tread_check.py`:stä tai status.json:sta. Se hakee git tree:n GitHub API:lta jokaisen pollaussyklin yhteydessä (~30 s välein), vertaa blob-SHA:ita tallennettuun baselineen ja merkitsee muutokset `/version`-vastaukseen (`dispatcher_monitor_changed`). TREAD-palkki näyttää Danger-hälytyksen välittömästi.
+Dispatcher tekee kolme itsenäistä tarkistusta jokaisen pollaussyklin yhteydessä (~30 s välein), riippumatta TREAD-croneista:
+
+1. **Deploy käynnissä?** — Render API suoraan, ilman TREAD:n välitystä. Jos deploy alkaa, TREAD-palkki päivittyy 30 s sisällä.
+2. **Koodi oikein?** — Vertaa Render-live-commitin GitHubin main-branchin viimeisimpään committiin suoraan. Jos ei täsmää → `deployment_ok: false` → Danger-hälytys.
+3. **Valvontatiedostot muuttuneet?** — Hakee git tree:n GitHub API:lta, vertaa blob-SHA:ita tallennettuun baselineen. Jos muutos → `dispatcher_monitor_changed` → Danger-hälytys.
+
+**Lisäksi: TREAD-cron-ajojen käynnistys**
+Dispatcher lähettää `workflow_dispatch`-kutsun GitHub Actionsille 30 s välein. Tämä tarkoittaa että TREAD-cronit käynnistyvät luotettavammin kuin pelkän GitHub-ajastuksen varassa — vaikka GitHubin cron-scheduler viivästyisi tai epäonnistuisi, dispatcher käynnistää seuraavan ajon itsenäisesti.
 
 Tämä tarkistus on **riippumaton** `tread_check.py`:stä — se hakee hashit suoraan GitHubista eikä luota status.json:iin.
 
