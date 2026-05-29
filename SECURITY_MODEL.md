@@ -20,9 +20,19 @@ Kolme hyökkääjätyyppiä, joita vastaan järjestelmä on suunniteltu:
 
 ## Komponentit ja niiden suojaus
 
-### 1. TREAD-cronit (tread-a.yml … tread-e.yml)
+### 1. TREAD-cronit (tread-a.yml … tread-e.yml) + tread_check.py
 
 Viisi identtistä GitHub Actions -workflow'ta, jotka ajavat `tread_check.py`:n vuorotellen minuutin välein. Redundanssi suojaa yksittäisen workflown passivoitumiselta.
+
+**Voiko tread_check.py:n muokata samalla hetkellä kuin muut valvontatiedostot?**
+Kyllä — teknisesti hyökkääjä voi muokata kaikkia tiedostoja yhdessä commitissa. Mutta tämä ei auta:
+
+- `tread_check.py` on itse valvottavien tiedostojen listalla
+- Jos sen git blob SHA muuttuu, sekä Tampermonkey että dispatcher havaitsevat sen ~1–3 min sisällä
+- Vaikka muokattu `tread_check.py` kirjoittaisi vääriä hasheja status.json:iin, se ei vaikuta Tampermonkeyn eikä dispatcherin tarkistukseen — molemmat hakevat git tree:n suoraan GitHubista, ei status.json:sta
+- Kaikki muutokset näkyvät git-historiassa pysyvästi
+
+Hyökkääjä ei siis pysty muokkaamaan `tread_check.py`:tä "hiljaisesti" — sen hash muuttuu välittömästi ja hälytys laukeaa.
 
 **Suojaa:**
 - Havaitsee jos hosting-palvelussa pyörii commit jota ei löydy GitHubista
