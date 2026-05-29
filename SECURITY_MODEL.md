@@ -163,11 +163,16 @@ Palkki näyttää "Deploying" aina kun jokin deployautuu — riippumatta siitä 
 - Palautuu normaalitilaan kun kompromisoitu dispatcher alkaa palvella väärää dataa — Tampermonkey ottaa vastuun tästä eteenpäin
 
 **Suojausaika session aikana:**
-TREAD-palkki on ainoa komponentti joka hälyttää **reaaliaikaisesti kesken session** ilman mitään käyttäjän toimenpidettä.
+Sekä TREAD-palkki että Tampermonkey valvovat jatkuvasti kesken session ilman käyttäjän toimenpiteitä. Kumpikin on pohjimmiltaan pollaus eikä reaaliaikainen — viiveet eroavat:
 
-- **Suora deploy ohi code reviewin:** Danger-hälytys ~90 s kuluessa
-- **Deploy virallista kautta (myös haitallinen):** "Deploying" koko deploy-ajan (8–13 min)
-- **Deploy valmis:** jos dispatcher väärennetty, Tampermonkey hälyttää minuutin sisällä
+| Komponentti | Pollausväli | Viive hyökkäyksen havaitsemiseen |
+|---|---|---|
+| Tampermonkey | 1 min | ~1 min (git tree API) |
+| TREAD-palkki | 20 s | ~90 s (dispatcher-latenssi) + 20 s poll = ~2 min |
+
+- **Suora deploy ohi code reviewin:** TREAD-palkki Danger ~2 min kuluessa
+- **Deploy virallista kautta (myös haitallinen):** kumpikin näyttää "Deploying"-tilan 8–13 min ajan
+- **Deploy valmis, dispatcher väärennetty:** Tampermonkey hälyttää ~1 min sisällä
 
 ---
 
