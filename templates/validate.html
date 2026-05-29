@@ -461,6 +461,15 @@
       setTimeout(() => { if (dotMode) setDot(dotMode); text.innerHTML = html; text.style.opacity = '1'; }, 280);
     }
 
+    function checkMonitorFiles(current) {
+      const LS_KEY = 'leima_monitor_files';
+      let prev = null;
+      try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
+      try { localStorage.setItem(LS_KEY, JSON.stringify(current)); } catch {}
+      if (!prev || !Object.keys(current).length) return null;
+      const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
+      return changed.length ? changed : null;
+    }
     function update() {
       fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
         const p = d.poide || {};
@@ -469,6 +478,11 @@
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
+        const changedFiles = checkMonitorFiles(p.monitor_files || {});
+        if (changedFiles) {
+          fadeSet(row('Danger', '#ff6b6b', 'surveillance files changed'), 'danger');
+          return;
+        }
         if (p.deploying) {
           fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
         } else if (!unknownCommit && verified && !commitMatch) {

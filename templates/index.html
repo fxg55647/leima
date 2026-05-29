@@ -1301,6 +1301,15 @@
     function isSuppressed(key) {
       try { const v = localStorage.getItem('poide_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
     }
+    function checkMonitorFiles(current) {
+      const LS_KEY = 'leima_monitor_files';
+      let prev = null;
+      try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
+      try { localStorage.setItem(LS_KEY, JSON.stringify(current)); } catch {}
+      if (!prev || !Object.keys(current).length) return null;
+      const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
+      return changed.length ? changed : null;
+    }
     function showWarning(key, message) {
       if (isSuppressed(key)) return;
       const now = Date.now();
@@ -1344,6 +1353,12 @@
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
+        const changedFiles = checkMonitorFiles(p.monitor_files || {});
+        if (changedFiles) {
+          showWarning('monitor_changed', 'Surveillance files have changed:\n' + changedFiles.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
+          fadeSet(row('Danger', '#ff6b6b', 'surveillance files changed'), 'danger');
+          return;
+        }
         if (p.review_stuck) {
           fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
         } else {

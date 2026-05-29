@@ -513,6 +513,7 @@ async def version():
             "deploying":            cache.get("deploying"),
             "deploying_commit":     cache.get("deploying_commit"),
             "deploying_commit_ok":  cache.get("deploying_commit_ok"),
+            "monitor_files":        cache.get("monitor_files", {}),
             "commit_matches_poide": (
                 bool(running_commit and cache.get("commit") and
                      running_commit.startswith(cache["commit"][:7]))
