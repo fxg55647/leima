@@ -25,7 +25,7 @@ Kolme hyökkääjätyyppiä, joita vastaan järjestelmä on suunniteltu:
 Viisi identtistä GitHub Actions -workflow'ta, jotka ajavat `tread_check.py`:n vuorotellen minuutin välein. Jokainen ajo:
 - Tarkistaa vastaako hosting-palvelussa pyörivä commit GitHubin main-branchia
 - Tarkistaa että kaikki viisi TREAD-workflow'ta ovat aktiivisena
-- Laskee SHA-256-hashit kaikista valvontatiedostoista
+- Laskee SHA-256-hashit kaikista valvontatiedostoista — siis myös itsestään (`tread_check.py`)
 - Kirjoittaa tuloksen `status.json`:iin GitHub Pagesiin
 - Arkistoi tuloksen Arweave-lohkoketjuun pysyvästi
 
