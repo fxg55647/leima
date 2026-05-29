@@ -117,7 +117,6 @@ Käyttäjä saa siis näkyvän varoituksen 8–13 minuutin ajan ennen kuin kompr
 
 **Haavoittuva:**
 - Dispatcher luottaa status.json:iin dispatcherin oman verifiointilogiikan puuttuessa
-- Jos Render-ympäristö on kompromisoitu (ptrace), muistissa oleva tieto voidaan väärentää ilman uutta deployia
 
 **Suojausaika session aikana:**
 TREAD-palkki on ainoa komponentti joka varoittaa **reaaliaikaisesti kesken session** ilman sivun uudelleenlatausta (pollaa 20 s välein).
