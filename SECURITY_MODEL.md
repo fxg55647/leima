@@ -203,7 +203,28 @@ Jos tunnin sisällä tapahtuu yli 10 deployta, TREAD raportoi `rapid_deploy_warn
 
 ---
 
-### 7. Code review -workflow (code_review.yml)
+### 7. Arweave-arkisto
+
+Jokainen TREAD-ajo arkistoi `status.json`:n sisällön Arweave-lohkoketjuun (`tread_arweave.py`). Arkisto on pysyvä ja muuttumaton — kerran kirjoitettua dataa ei voi poistaa eikä muuttaa.
+
+**Mitä arkistoidaan:**
+Jokainen status.json-snapshot sisältää:
+- Deployatun commitin ja GitHubin expected-commitin
+- Kaikkien valvontatiedostojen SHA-256-hashit
+- Workflow-tilat (active/disabled)
+- Aikaleiman
+
+**Arvewen vahvuus — repo ei ole ainoa totuuden lähde:**
+Vaikka GitHub-repositorio syystä tai toisesta häviäisi, tyhjentyisi tai sen historia väärentyisi, Arweave-arkistoon jää minuutin tarkkuudella dokumentoitu historia siitä mitä järjestelmässä on pyörinyt ja mitä hasheja valvontatiedostoilla on ollut.
+
+Vertaamalla Arweave-arkiston tietueita ja repositorion nykyistä tilaa voidaan rekonstruoida järjestelmän tila minä tahansa hetkenä: mitä koodia silloin ajettiin, oliko valvonta aktiivista, oliko jokin tiedosto muuttunut. Tämä tekee historiatarkastelusta luotettavan myös tilanteessa jossa osapuolten välillä on kiista siitä mitä on tapahtunut.
+
+**Rajoitus:**
+Arweave-arkiston luotettavuus on ketjun vahvimman lenkin mukainen — jos `tread_arweave.py` on kompromisoitu, arkistoon voi tallentua vääristeltyä dataa hyökkäyksen jälkeen. Ennen hyökkäystä tallennetut tietueet säilyvät kuitenkin muuttumattomina.
+
+---
+
+### 8. Code review -workflow (code_review.yml)
 
 Jokaisen git push:n jälkeen automaattisesti ajettava workflow, joka toimii deployn portinvartijana.
 
@@ -235,7 +256,7 @@ Code review lisää 2–3 minuutin pakotetun viiveen jokaisen muutoksen ja deplo
 
 ---
 
-### 7. Hosting-ympäristö
+### 9. Hosting-ympäristö
 
 Hosting-alustan valinta vaikuttaa merkittävästi järjestelmän turvallisuuteen. Nykyinen ympäristö on väliaikainen.
 
