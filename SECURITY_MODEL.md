@@ -87,13 +87,11 @@ Tämä on **vahvin suojauskerros**: hashit lasketaan selaimessa GitHubin raakada
 - Ei suojaa käyttäjiä joilla ei ole Tampermonkeyta
 
 **Suojausaika session aikana:**
-Tampermonkey ajaa vain sivun latauksen yhteydessä, ei jatkuvasti. Jos hyökkäys alkaa sivulatauksen jälkeen, käyttäjä ei saa varoitusta ennen seuraavaa sivulatausta.
+Tampermonkey ajaa `main()`-funktion sivulatauksen yhteydessä ja sen jälkeen minuutin välein koko session ajan. Hyökkäys havaitaan enintään ~1 minuutin kuluessa tiedostomuutoksesta riippumatta siitä ladataanko sivu uudelleen.
 
 - **Ennen sivulatausta tapahtuva hyökkäys:** havaitaan heti
-- **Sivulatauksen jälkeen tapahtuva hyökkäys:** havaitaan vasta seuraavalla sivulatauksella
-- **Käytännön suojausikkuna:** niin kauan kuin käyttäjä ei lataa sivua uudelleen — tyypillisesti koko session ajan
-
-Tämä tarkoittaa että jos käyttäjä on verifioinut tiedostot session alussa ja hyökkäys alkaa kesken session, TREAD-palkki on ensisijainen reaaliaikainen varoitin.
+- **Sivulatauksen jälkeen tapahtuva hyökkäys:** havaitaan seuraavassa 1 min pollausvuorossa
+- **Käytännön suojausikkuna:** koko session ajan, jatkuva valvonta
 
 ---
 

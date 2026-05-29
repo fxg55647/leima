@@ -164,3 +164,4 @@ async function main() {
 }
 
 main();
+setInterval(main, 60 * 1000);
