@@ -12,11 +12,11 @@ Workflow täytyy aina exitata 0:lla — muuten GitHub passivoi scheduled-ajot.
 
 ## Git push — code review -seuranta (PAKOLLINEN)
 
-Jokaisen `git push`:n jälkeen:
-1. Hae uuden code review -ajon run ID: `gh run list --workflow code_review.yml --limit 1 --json databaseId`
-2. Aseta yksi ScheduleWakeup 120s päähän promptilla:
-   `Tarkista code review run [RUN_ID]: aja gh run view [RUN_ID] --json status,conclusion — jos status on completed kerro tulos käyttäjälle suomeksi. Jos ei vielä valmis, aseta uusi ScheduleWakeup 120s päähän samalla promptilla (max 4 kertaa yhteensä).`
-3. Ketju jatkuu kunnes review valmis tai 8 min kulunut.
+Jokaisen `git push`:n jälkeen käynnistä `/loop` 2 minuutin välein:
+- Hae uusin code review run: `gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclusion`
+- Jos completed → kerro tulos käyttäjälle suomeksi → lopeta loop (älä aseta uutta ajastinta)
+- Jos ei valmis ja alle 8 min kulunut pushista → jatka loopia
+- Jos 8 min kulunut → kerro timeout → lopeta loop
 
 ## Muuta
 - Puhu aina suomea käyttäjälle

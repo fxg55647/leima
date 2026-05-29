@@ -60,20 +60,14 @@ Kesto normaalisti: **5–10 minuuttia**.
 
 ### Seuranta pushin jälkeen
 
-Heti pushin jälkeen agentti ajaa:
+Heti pushin jälkeen agentti käynnistää `/loop` 2 minuutin välein:
 ```
-gh run watch <run_id> --exit-status
+gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclusion
 ```
-Tämä blokkaa kunnes workflow valmistuu ja palauttaa exit-koodin:
-- `0` = success → koodi läpi, Render deployasi
-- `1` = failure → jokin meni pieleen, ei deployta
-
-**Aikaraja:** jos workflow ei valmistu 10 minuutissa, keskeytetään ja raportoidaan käyttäjälle. Ei jatketa sokkona.
-
-Run ID:n saa pushin jälkeen:
-```
-gh run list --limit 1 --workflow=code_review.yml --branch=main
-```
+- `completed` + `success` → raportoi käyttäjälle, lopeta loop
+- `completed` + muu → raportoi failure, lopeta loop
+- ei valmis + alle 8 min → jatka loopia
+- 8 min kulunut → raportoi timeout, lopeta loop
 
 ---
 
@@ -122,7 +116,7 @@ Väliversion pushaaminen jonoon ei ole sallittua — se tuuttaa versioita toiste
 |---|---|---|
 | Workflow epäonnistuu heti | Koodiarvio hylkäsi | Korjaa koodi, pushaa uudelleen |
 | Workflow jää roikkumaan | Render-deploy jumissa | `gh run cancel`, tutki Render-logit |
-| "Browserbase not configured" | Env-muuttujat puuttuu Renderistä | Tarkista Render → Environment |
+| "Browserless not configured" | Env-muuttujat puuttuu Renderistä | Tarkista Render → Environment |
 | Deploy onnistui mutta koodi ei muuttunut | Cache-ongelma | Render dashboard → Clear build cache and deploy |
 | TREAD-hookki estää pushin | Edellinen deploy ei läpäissyt | Katso TREAD-status sivun yläpalkista |
 
@@ -133,8 +127,7 @@ Väliversion pushaaminen jonoon ei ole sallittua — se tuuttaa versioita toiste
 Nämä pitää olla asetettuna Renderin dashboardissa:
 
 - `GEMINI_API_KEY`
-- `BROWSERBASE_API_KEY`
-- `BROWSERBASE_PROJECT_ID`
+- `BROWSERLESS_API_KEY`
 - `IRYS_PRIVATE_KEY`
 - `NOTARY_IMAP_*` (sähköpostiominaisuutta varten)
 - `GITHUB_DISPATCH_TOKEN`
@@ -164,3 +157,4 @@ Nämä pitää olla asetettuna Renderin dashboardissa:
 | 2026-05-29 | Luotu. Kuvaa Browserbase + POIDE + Render -putken. |
 | 2026-05-29 | Pre-push hookki estää pushin jos workflow käynnissä. Post-push käyttää gh run watch. asyncRewake poistettu — ei luotettava aktiivisessa chatissa. push.ps1 synkroninen vaihtoehto. |
 | 2026-05-29 | Tietoturvatesti: /proc/mem readable, seccomp=0. Docker tarvitaan muistieristykseen. |
+| 2026-05-29 | Browserbase → Browserless (sessioraja ylittyi). Seuranta: gh run watch → /loop 2min välein. |
