@@ -127,21 +127,27 @@ Dispatcher itsessään ei hälytä käyttäjää — se tuottaa dataa TREAD-palk
 
 Palvelimella pyörivä tila-indikaattori joka näyttää deployment-tilan sivun yläreunassa. Pollaa `/version`-endpointia 20 sekunnin välein.
 
-**Suojaa:**
-- Näyttää "Deploying" koko deploy-prosessin ajan (8–13 min) — käyttäjä näkee hälytyksen ennen kuin mahdollinen hyökkäyskoodi on live
-- Näyttää "Danger" jos deployattu commit ei vastaa GitHubin main-branchia
+**Mitä palkki näyttää eri tilanteissa:**
+
+| Tilanne | Palkin tila | Merkitys |
+|---|---|---|
+| Kaikki kunnossa | OK (vihreä) | Deployattu commit vastaa GitHubin main-branchia |
+| Deploy käynnissä (normaali tai epäilyttävä) | Notice — Deploying | Jokin on deployautumassa — paranoidi käyttäjä voi reagoida |
+| Koodi puskettu suoraan ohi code reviewin | Danger (punainen) | Deployattu commit ei löydy tai ei vastaa GitHubista — välitön hälytys |
+| Workflow poistettu käytöstä | Danger | TREAD havaitsee workflow-tilan muutoksen |
+
+**Keskeinen ominaisuus — paranoidin käyttäjän suoja:**
+Palkki näyttää "Deploying" aina kun jokin deployautuu — riippumatta siitä onko se normaali päivitys vai hyökkäys. Tämä antaa käyttäjälle mahdollisuuden reagoida: vaikka haitallinen koodi läpäisisi AI-koodiarvion, palkki ilmoittaa siitä 8–13 minuutin ajan. Käyttäjä joka ei odota päivitystä voi pitää tätä epäilyttävänä.
 
 **Haavoittuva:**
-- Palautuu normaalitilaan kun kompromisoitu dispatcher alkaa palvella väärää dataa
+- Palautuu normaalitilaan kun kompromisoitu dispatcher alkaa palvella väärää dataa — Tampermonkey ottaa vastuun tästä eteenpäin
 
 **Suojausaika session aikana:**
 TREAD-palkki on ainoa komponentti joka hälyttää **reaaliaikaisesti kesken session** ilman mitään käyttäjän toimenpidettä.
 
-- **Hyökkäys alkaa:** palkki näyttää "Deploying" ~90 s kuluessa commitista
-- **Deploy käynnissä:** hälytys näkyy koko deploy-ajan (8–13 min)
-- **Deploy valmis, kompromisoitu koodi live:** palkki palaa vihreäksi jos dispatcher on nyt väärennetty — Tampermonkey hälyttää minuutin sisällä
-
-**Johtopäätös:** TREAD-palkki suojaa käyttäjän koko deploy-prosessin ajan. Sen jälkeen Tampermonkey ottaa vastuun.
+- **Suora deploy ohi code reviewin:** Danger-hälytys ~90 s kuluessa
+- **Deploy virallista kautta (myös haitallinen):** "Deploying" koko deploy-ajan (8–13 min)
+- **Deploy valmis:** jos dispatcher väärennetty, Tampermonkey hälyttää minuutin sisällä
 
 ---
 
