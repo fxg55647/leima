@@ -22,7 +22,7 @@ Kolme hyökkääjätyyppiä, joita vastaan järjestelmä on suunniteltu:
 
 ### 1. TREAD-cronit (tread-a.yml … tread-e.yml) + tread_check.py
 
-Viisi identtistä GitHub Actions -workflow'ta, jotka ajavat `tread_check.py`:n vuorotellen minuutin välein. Jokainen ajo:
+GitHub Actions sallii cronille minimissään 5 minuutin välin. Yhden minuutin tarkkuuteen päästään viidellä identtisellä workflow'lla, joiden käynnistysajat on porrastettu minuutin välein (`:00`, `:01`, `:02`, `:03`, `:04`, sitten `:05`, `:06`…). Jokainen niistä ajaa `tread_check.py`:n. Jokainen ajo:
 - Tarkistaa vastaako hosting-palvelussa pyörivä commit GitHubin main-branchia
 - Tarkistaa että kaikki viisi TREAD-workflow'ta ovat aktiivisena
 - Laskee SHA-256-hashit kaikista valvontatiedostoista — siis myös itsestään (`tread_check.py`)
