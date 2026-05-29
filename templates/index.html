@@ -1358,8 +1358,10 @@
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
         const changedFiles = checkMonitorFiles(p.monitor_files || {});
-        if (changedFiles) {
-          showWarning('monitor_changed', 'Surveillance files have changed:\n' + changedFiles.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
+        const dispatcherChanged = p.dispatcher_monitor_changed && p.dispatcher_monitor_changed.length > 0;
+        if (changedFiles || dispatcherChanged) {
+          const files = changedFiles || p.dispatcher_monitor_changed;
+          showWarning('monitor_changed', 'Surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
           fadeSet(row('Danger', '#ff6b6b', 'surveillance files changed'), 'danger');
           return;
         }

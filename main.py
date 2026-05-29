@@ -94,8 +94,48 @@ _poide_cache: dict | None = None
 _poide_cache_ready = threading.Event()
 _PAGES_URL = "https://fxg55647.github.io/leima"
 
+_MONITOR_PATHS = {
+    ".github/workflows/tread-a.yml",
+    ".github/workflows/tread-b.yml",
+    ".github/workflows/tread-c.yml",
+    ".github/workflows/tread-d.yml",
+    ".github/workflows/tread-e.yml",
+    ".github/workflows/tread-run.yml",
+    ".github/workflows/monthly-audit.yml",
+    ".github/workflows/code_review.yml",
+    "tread_check.py",
+    "tread_arweave.py",
+    "monthly_audit.py",
+    "code_review.py",
+    "POLICY.example.md",
+}
+_GITHUB_REPO = "fxg55647/leima"
+_GITHUB_BRANCH = "main"
+_monitor_baseline: dict | None = None
+
+
+def _fetch_monitor_hashes(token: str) -> dict | None:
+    hdrs = {"Accept": "application/vnd.github+json"}
+    if token:
+        hdrs["Authorization"] = f"Bearer {token}"
+    try:
+        r = http_requests.get(
+            f"https://api.github.com/repos/{_GITHUB_REPO}/git/trees/{_GITHUB_BRANCH}?recursive=1",
+            headers=hdrs, timeout=10,
+        )
+        if r.status_code != 200:
+            return None
+        return {
+            item["path"]: item["sha"]
+            for item in r.json().get("tree", [])
+            if item["path"] in _MONITOR_PATHS
+        }
+    except Exception:
+        return None
+
+
 def _poide_dispatcher():
-    global _poide_cache
+    global _poide_cache, _monitor_baseline
     token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
     dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/tread-a.yml/dispatches"
     api_log_url = "https://api.github.com/repos/fxg55647/leima/contents/status-log.jsonl?ref=gh-pages"
@@ -123,6 +163,18 @@ def _poide_dispatcher():
                         cache_populated = True
         except Exception:
             pass
+
+        # Riippumaton valvontatiedostojen hash-tarkistus git tree API:lta
+        hashes = _fetch_monitor_hashes(token)
+        if hashes:
+            if _monitor_baseline is None:
+                _monitor_baseline = hashes
+            else:
+                changed = [p for p, sha in hashes.items() if _monitor_baseline.get(p) != sha]
+                if _poide_cache is not None:
+                    _poide_cache = dict(_poide_cache)
+                    _poide_cache["dispatcher_monitor_changed"] = changed if changed else []
+
         if token:
             try:
                 http_requests.post(dispatch_url, headers=api_hdrs, json={"ref": "main"}, timeout=10)
@@ -514,6 +566,7 @@ async def version():
             "deploying_commit":     cache.get("deploying_commit"),
             "deploying_commit_ok":  cache.get("deploying_commit_ok"),
             "monitor_files":        cache.get("monitor_files", {}),
+            "dispatcher_monitor_changed": cache.get("dispatcher_monitor_changed", []),
             "commit_matches_poide": (
                 bool(running_commit and cache.get("commit") and
                      running_commit.startswith(cache["commit"][:7]))

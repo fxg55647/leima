@@ -127,19 +127,24 @@ _poide_dispatcher (30 s välein)
   → /version palauttaa tilan (~90 s maksimistaleness)
 ```
 
+**Riippumaton valvontatiedostojen hash-tarkistus:**
+Dispatcher hakee git tree:n GitHub API:lta jokaisen pollaussyklin yhteydessä (~30 s välein) ja vertaa blob-SHA:ita tallennettuun baselineen. Jos muutos havaitaan, se merkitään `/version`-vastaukseen (`dispatcher_monitor_changed`) ja TREAD-palkki näyttää Danger-hälytyksen.
+
+Tämä tarkistus on **riippumaton** `tread_check.py`:stä — se hakee hashit suoraan GitHubista eikä luota status.json:iin.
+
 **Vahvuus — muuttaminen vaatii deployn:**
 Dispatcher on osa Leiman koodia (main.py). Jos hyökkääjä haluaa kompromisoida dispatcherin, hänen täytyy:
-1. Muokata main.py ja committaa → **Tampermonkey havaitsee tiedostomuutoksen minuutin sisällä**
+1. Muokata main.py ja committaa → **Tampermonkey havaitsee tiedostomuutoksen ~1 min sisällä**
 2. Odottaa code review -workflow (2–3 min)
 3. Odottaa hosting-deploy (5–10 min) → **TREAD-palkki näyttää "Deploying" koko ajan**
 
-Käyttäjä saa siis hälytyksen 8–13 minuutin ajan ennen kuin kompromisoitu koodi on edes live.
+Sinä aikaikkunana (commit → deploy = ~10–15 min) **legitiimi dispatcher tarkistaa hashit** ja hälyttää jos valvontatiedostot muuttuvat. Hyökkääjä ei pysty hiljentämään dispatcheria ennen kuin kompromisoitu koodi on deployattu.
 
 **Haavoittuva:**
-- Dispatcher luottaa status.json:iin ilman omaa riippumatonta verifiointia
+- Deploy-ikkunan jälkeen kompromisoitu dispatcher voi lopettaa tarkistuksen — Tampermonkey ottaa vastuun
 
 **Suojausaika session aikana:**
-Dispatcher itsessään ei hälytä käyttäjää — se tuottaa dataa TREAD-palkille. Suoja syntyy siitä että sen muuttaminen on näkyvää (deploy-prosessi).
+Dispatcher hälyttää ~2–3 min kuluessa valvontatiedostojen muutoksesta (git tree API 60 s cache + 30 s pollausväli). Yhdessä Tampermonkeyn kanssa kaksi erillistä riippumatonta tarkistajaa.
 
 ---
 
