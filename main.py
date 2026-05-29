@@ -552,6 +552,7 @@ async def version():
         "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
         "service": os.getenv("RENDER_SERVICE_NAME", "local"),
         "model": MODEL,
+        "security_model": "1.0",
         "poide": {
             "ok": cache.get("ok"),
             "checked_at": cache.get("ts"),

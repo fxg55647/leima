@@ -164,6 +164,26 @@ async function main() {
             ]);
         }
     } catch { /* silent on network error */ }
+
+    // 3. Tarkista security_model — hälytä jos muuttunut
+    try {
+        const r = await gmFetch("https://leima.io/version");
+        const d = JSON.parse(r.responseText);
+        const current = d.security_model;
+        if (current) {
+            const stored = GM_getValue("security_model", null);
+            if (stored === null) {
+                GM_setValue("security_model", current);
+            } else if (stored !== current && isCooledDown("security_model_" + current)) {
+                GM_setValue("security_model", current);
+                modal("TREAD — Security model updated", [
+                    "Leima's security model has changed: " + stored + " → " + current,
+                    "Review what changed before submitting sensitive documents.",
+                    "Check the release notes on GitHub.",
+                ]);
+            }
+        }
+    } catch { /* silent on network error */ }
 }
 
 main();
