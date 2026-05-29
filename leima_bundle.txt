@@ -3,7 +3,7 @@ This bundle describes Leima (leima.ai), a document analysis and blockchain stamp
 It answers the question: what does this software do, how does it process documents, and what are its data handling guarantees?
 The bundle includes the application backend, AI analysis logic, email notary, UI templates, and data policy.
 
-Commit: 8d0acae8088ec19bec549b15cd92209c161f93be
+Commit: f027b04945f652a5f5d93ee8c3011bb86a0254dc
 Files: 19
 
 ### .github/workflows/code_review.yml
@@ -13,6 +13,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
 
 permissions:
   actions: write
@@ -68,15 +72,26 @@ jobs:
           fi
 
           deploy_and_wait() {
-            RESP=$(curl -s -X POST \
+            HTTP_CODE=$(curl -s -o /tmp/render_resp.json -w "%{http_code}" -X POST \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Content-Type: application/json" \
               -d '{"clearCache":"do_not_clear"}' \
               "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys")
-            echo "Render response: $RESP"
-            DEPLOY_ID=$(echo "$RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('deploy',d).get('id',''))")
+            RESP=$(cat /tmp/render_resp.json)
+            echo "Render HTTP $HTTP_CODE: $RESP"
+            if [ "$HTTP_CODE" = "429" ]; then
+              echo "Rate limited by Render — waiting 60s before retry"; sleep 60; return 1
+            fi
+            DEPLOY_ID=$(echo "$RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('deploy',d).get('id',''))" 2>/dev/null || echo "")
             if [ -z "$DEPLOY_ID" ]; then
-              echo "Could not get deploy ID from response above"; return 1
+              echo "Deploy ID not in response — fetching latest deploy from API..."
+              sleep 5
+              DEPLOYS=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+                "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys?limit=1")
+              DEPLOY_ID=$(echo "$DEPLOYS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0].get('deploy',d[0]).get('id','') if d else '')" 2>/dev/null || echo "")
+            fi
+            if [ -z "$DEPLOY_ID" ]; then
+              echo "Could not find deploy ID"; return 1
             fi
             echo "Deploy ID: $DEPLOY_ID"
             for i in $(seq 1 40); do
@@ -222,6 +237,20 @@ The model is not instructed to retain, summarise, or report your data for any ot
 
 ---
 
+## Logging
+
+Leima is deployed on Render, which automatically captures all stdout and stderr output from the application process. To prevent user data from appearing in Render's infrastructure logs, Leima suppresses application-level logging at startup:
+
+- Python's root logger is set to WARNING level
+- The `uvicorn.access` logger is set to ERROR level, suppressing per-request access logs
+- HTTP client loggers (`httpx`, `httpcore`) and the Google SDK logger are set to ERROR level
+
+**What this means in practice:** normal operation produces no log output. Only unhandled exceptions at the Python runtime level may produce output, and those are not under Leima's control.
+
+**What an auditor should verify:** no `print()`, `logging.info()`, `logging.debug()`, or `logging.exception()` calls in the user-data path (main.py, neutral_witness.py, notary.py) should reference document content, claim text, email bodies, or user-supplied data of any kind. Error messages returned to the user must not echo back content that could appear in a log.
+
+---
+
 ## Deployment integrity
 
 Five automated checks run every minute and verify that the code running on the server matches this published source. Results are public at the [Actions tab](../../actions). If a deployment mismatch is detected, the checks turn red. See [TREAD.md](TREAD.md) for details.
@@ -267,6 +296,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [A public good](#a-public-good)
 - [Contributing](#contributing)
 - [Document sources](#document-sources)
+- [Browser tab](#browser-tab)
 - [API](#api)
 - [Trust model](#trust-model)
 - [Threat model](#threat-model)
@@ -277,6 +307,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 - [Deployment integrity (TREAD)](#deployment-integrity-tread)
 - [Independent verification (verify.py)](#independent-verification-verifypy)
 - [Self-characterisation for due diligence (bundle_source.py)](#self-characterisation-for-due-diligence-bundle_sourcepy)
+- [Browser userscript (TREAD client-side monitor)](#browser-userscript-tread-client-side-monitor)
 - [Developer pre-push hook](#developer-pre-push-hook)
 - [Data policy](POLICY.example.md)
 - [SAIA and zero-knowledge systems (ZKSE.md)](ZKSE.md)
@@ -444,6 +475,26 @@ To get involved: open an issue or pull request on GitHub, or contact via the rep
 | Text paste | Converted to PDF for hashing |
 | Web page | HTML fetched server-side, stripped to text; URL and fetch timestamp recorded in stamp record |
 | Email (IMAP) | Fetches via IMAP; validates DKIM signature (valid / invalid / none), records Message-ID and body hash |
+| Browser | Live browser session via Browserbase; user navigates freely, then Leima captures a screenshot for analysis |
+
+---
+
+## Browser tab
+
+The **Browser** tab opens a live, remotely controlled browser session inside the Leima UI. It is intended for pages that require authentication, dynamic rendering, or manual navigation before a claim can be evaluated — content that a simple URL fetch cannot reach.
+
+The flow:
+
+1. Enter a URL and click **Load page**. Leima starts a Browserbase session (a real Chromium instance in the cloud) and embeds its DevTools viewer in the page as an iframe. The session runs on Browserbase infrastructure; Leima holds only the session ID.
+2. Navigate freely inside the iframe — log in, accept cookie banners, scroll to the relevant section. The browser is a full-featured instance and behaves like a normal browser.
+3. Enter a claim in the text field and click **Analyse this page**. Leima connects to the live session via Playwright over CDP, takes a full-page screenshot, and submits it to the AI together with the claim. This produces a normal three-pass verdict: supporting evidence, contradicting evidence, and a final judgment.
+4. The screenshot is the source document. Its SHA-256 hash is sealed on Arweave together with the verdict, exactly as with any other source type. The manifest records `"type": "browser_capture"`, the current URL at the time of capture, the domain, and the fetch timestamp.
+
+**What this enables.** Leima can now stamp a claim against any web content that is visible to a logged-in user — a bank balance, a tax authority decision, a government registry entry, a portal document — without that content ever being downloadable as a file. The claim and the screenshot are sealed at the moment the user navigates to them, before either party has an incentive to alter anything.
+
+**Trust notes.** The source is a screenshot, not a raw HTML or PDF export. The AI reads what is visually rendered on the page. If a page can be made to show different content to different viewers (e.g. by server-side personalisation), the screenshot reflects only what the authenticated user saw during that session. DKIM-style cryptographic provenance is not available for browser-captured content; the hash commitment still applies and proves the screenshot was not altered after capture.
+
+**Infrastructure.** The browser sessions run on [Browserbase](https://www.browserbase.com). Requires `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` environment variables. Sessions use a 600 × 800 px viewport to match the UI width.
 
 ---
 
@@ -500,6 +551,11 @@ Documents are sent to Google's Gemini API for analysis. For sensitive materials 
 
 For the email input, consider redacting or summarising message bodies that contain third-party personal data before submitting — particularly in email threads where other parties' information appears.
 
+**Hosting provider logs**
+Render, like all managed hosting providers, automatically captures everything written to stdout and stderr by the application process. Leima suppresses application-level logging at startup: Python's root logger is set to WARNING, uvicorn's access log is silenced entirely, and HTTP client libraries (httpx, httpcore) and the Google SDK logger are set to ERROR level. Under normal operation, no output is produced. Unhandled exceptions at the Python runtime level may still produce output — this is not under Leima's control and is a residual risk of hosted deployment.
+
+Every code review checks that this suppression is in place and that no `print()` or logging call in the user-data path references document content or claim text. See the Logging section of [POLICY.example.md](POLICY.example.md) for the auditor checklist.
+
 **What Arweave guarantees**
 Arweave is a decentralised storage network designed for permanent data. Unlike cloud storage where a provider can shut down or delete data, Arweave stores each piece of data across many independent nodes. Anyone can run a node and is paid from an endowment funded by the original upload fee. The endowment is sized on the assumption that storage costs decline continuously — and as costs fall, the same endowment covers an ever-longer period. The economic model targets storage on the order of centuries.
 
@@ -542,6 +598,7 @@ A future option will allow switching to AI providers that operate under strict, 
 | Email body altered after sending | Partly | DKIM validates signed headers and body scope — coverage depends on sender configuration |
 | Human sender identity false | No | DKIM proves domain, not individual identity; LLM assesses credibility signals |
 | Sensitive data exposure to AI provider | Partly | Redaction recommended; privacy-committed AI provider planned |
+| Document content in hosting provider logs | Partly | Leima suppresses application logging at startup; unhandled runtime exceptions are not controllable |
 
 ---
 
@@ -722,6 +779,32 @@ Leima produces a hash of the bundle, an AI characterisation, and a permanent Arw
 Because `README.md` and `POLICY.example.md` are included first, the AI reviewer has full context about the project's architecture and data policy before reading the code.
 
 The claim and AI analysis are permanently public on Arweave. To anonymise specific details in the result — company names, individuals, amounts — add a privacy directive to your claim: *"keep [company name] private"*. The AI will replace those details with generic placeholders throughout its analysis.
+
+---
+
+## Browser userscript (TREAD client-side monitor)
+
+`tread.user.js` is a Tampermonkey userscript that runs silently in your browser when you visit leima.io. It checks the TREAD status on each page load and shows a centred modal warning if a deployment mismatch or unauthorised deploy is detected. Under normal conditions it does nothing visible.
+
+**Installation**
+
+1. Install [Tampermonkey](https://www.tampermonkey.net/) for your browser.
+
+2. **Chrome only — two settings required before the script will run:**
+   - Go to **Manage extensions** (chrome://extensions/) and enable **Developer mode** (toggle in the top-right corner of that page).
+   - Find Tampermonkey → click **Details** → enable **Allow user scripts**.
+   - Without both of these, Chrome silently blocks all user scripts regardless of whether Tampermonkey is installed.
+
+3. Install the script by opening this URL in your browser — Tampermonkey will detect the `.user.js` extension and prompt you to install:
+   ```
+   https://raw.githubusercontent.com/fxg55647/leima/main/tread.user.js
+   ```
+
+**What it does**
+
+- **Silent by default** — no banner, no indicator when everything is fine.
+- **Modal warning** if the deployed commit does not match the verified GitHub commit, or if an unauthorised commit is being deployed. The modal blocks the page until dismissed and includes a 5-minute cooldown so it does not repeat on every reload.
+- Clicking outside the modal or the Dismiss button closes it.
 
 ---
 
@@ -1087,7 +1170,7 @@ import markdown as _md
 import bleach
 import requests as http_requests
 from fastapi import FastAPI, File, Form, UploadFile, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -1099,6 +1182,46 @@ from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
 
 load_dotenv()
+
+import logging as _logging
+_logging.basicConfig(level=_logging.WARNING)
+for _noisy in ("uvicorn.access", "uvicorn.error", "httpx", "httpcore", "google"):
+    _logging.getLogger(_noisy).setLevel(_logging.ERROR)
+
+
+def _patch_urllib3_ssrf_guard():
+    """Prevent DNS rebinding by resolving once at socket level and connecting to the pinned IP."""
+    try:
+        import urllib3.util.connection as _u3conn
+    except ImportError:
+        return
+    _orig = _u3conn.create_connection
+
+    def _ssrf_safe_create_connection(address, *args, **kwargs):
+        host, port = address
+        try:
+            infos = socket.getaddrinfo(host, port or 0, 0, socket.SOCK_STREAM)
+        except OSError:
+            raise OSError(f"Cannot resolve hostname: {host}")
+        resolved_ip = None
+        for info in infos:
+            ip = info[4][0]
+            try:
+                addr = ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                raise ConnectionError(f"Connection to private/internal address blocked: {ip}")
+            if resolved_ip is None:
+                resolved_ip = ip
+        if resolved_ip is None:
+            raise OSError(f"No resolvable address for: {host}")
+        return _orig((resolved_ip, port), *args, **kwargs)
+
+    _u3conn.create_connection = _ssrf_safe_create_connection
+
+
+_patch_urllib3_ssrf_guard()
 
 IRYS_PRIVATE_KEY = os.getenv("IRYS_PRIVATE_KEY")
 IRYS_NETWORK = os.getenv("IRYS_NETWORK", "mainnet")
@@ -1120,10 +1243,93 @@ _poide_cache: dict | None = None
 _poide_cache_ready = threading.Event()
 _PAGES_URL = "https://fxg55647.github.io/leima"
 
+_RENDER_API_KEY    = os.getenv("RENDER_API_KEY", "")
+_RENDER_SERVICE_ID = os.getenv("RENDER_SERVICE_ID", "")
+_IN_PROGRESS_STATUSES = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
+
+_MONITOR_PATHS = {
+    ".github/workflows/tread-a.yml",
+    ".github/workflows/tread-b.yml",
+    ".github/workflows/tread-c.yml",
+    ".github/workflows/tread-d.yml",
+    ".github/workflows/tread-e.yml",
+    ".github/workflows/tread-run.yml",
+    ".github/workflows/monthly-audit.yml",
+    ".github/workflows/code_review.yml",
+    "tread_check.py",
+    "tread_arweave.py",
+    "monthly_audit.py",
+    "code_review.py",
+    "POLICY.example.md",
+}
+_GITHUB_REPO = "fxg55647/leima"
+_GITHUB_BRANCH = "main"
+_monitor_baseline: dict | None = None
+
+
+def _fetch_render_state() -> tuple[bool | None, str | None]:
+    """Returns (deploying, live_commit). None values = API unavailable."""
+    if not _RENDER_API_KEY or not _RENDER_SERVICE_ID:
+        return None, None
+    try:
+        r = http_requests.get(
+            f"https://api.render.com/v1/services/{_RENDER_SERVICE_ID}/deploys?limit=10",
+            headers={"Authorization": f"Bearer {_RENDER_API_KEY}"},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return None, None
+        deploys = r.json()
+        deploying = bool(deploys and deploys[0].get("deploy", {}).get("status") in _IN_PROGRESS_STATUSES)
+        live_commit = None
+        for item in deploys:
+            deploy = item.get("deploy", {})
+            if deploy.get("status") == "live":
+                live_commit = deploy.get("commit", {}).get("id")
+                break
+        return deploying, live_commit
+    except Exception:
+        return None, None
+
+
+def _fetch_github_head(token: str) -> str | None:
+    hdrs = {"Accept": "application/vnd.github.sha"}
+    if token:
+        hdrs["Authorization"] = f"Bearer {token}"
+    try:
+        r = http_requests.get(
+            f"https://api.github.com/repos/{_GITHUB_REPO}/commits/{_GITHUB_BRANCH}",
+            headers=hdrs, timeout=10,
+        )
+        return r.text.strip() if r.status_code == 200 else None
+    except Exception:
+        return None
+
+
+def _fetch_monitor_hashes(token: str) -> dict | None:
+    hdrs = {"Accept": "application/vnd.github+json"}
+    if token:
+        hdrs["Authorization"] = f"Bearer {token}"
+    try:
+        r = http_requests.get(
+            f"https://api.github.com/repos/{_GITHUB_REPO}/git/trees/{_GITHUB_BRANCH}?recursive=1",
+            headers=hdrs, timeout=10,
+        )
+        if r.status_code != 200:
+            return None
+        return {
+            item["path"]: item["sha"]
+            for item in r.json().get("tree", [])
+            if item["path"] in _MONITOR_PATHS
+        }
+    except Exception:
+        return None
+
+
 def _poide_dispatcher():
-    global _poide_cache
+    global _poide_cache, _monitor_baseline
     token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
-    dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/poide-a.yml/dispatches"
+    dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/tread-a.yml/dispatches"
     api_log_url = "https://api.github.com/repos/fxg55647/leima/contents/status-log.jsonl?ref=gh-pages"
     cdn_log_url = "https://fxg55647.github.io/leima/status-log.jsonl"
     api_hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
@@ -1149,6 +1355,27 @@ def _poide_dispatcher():
                         cache_populated = True
         except Exception:
             pass
+
+        # Suora Render + GitHub -vertailu — ei TREAD:sta riippuvainen
+        deploying_direct, live_commit = _fetch_render_state()
+        github_head = _fetch_github_head(token) if live_commit else None
+        if deploying_direct is not None and _poide_cache is not None:
+            _poide_cache = dict(_poide_cache)
+            _poide_cache["deploying"] = deploying_direct
+            if live_commit and github_head:
+                _poide_cache["deployment_ok"] = live_commit.startswith(github_head[:7]) or github_head.startswith(live_commit[:7])
+
+        # Riippumaton valvontatiedostojen hash-tarkistus git tree API:lta
+        hashes = _fetch_monitor_hashes(token)
+        if hashes:
+            if _monitor_baseline is None:
+                _monitor_baseline = hashes
+            else:
+                changed = [p for p, sha in hashes.items() if _monitor_baseline.get(p) != sha]
+                if _poide_cache is not None:
+                    _poide_cache = dict(_poide_cache)
+                    _poide_cache["dispatcher_monitor_changed"] = changed if changed else []
+
         if token:
             try:
                 http_requests.post(dispatch_url, headers=api_hdrs, json={"ref": "main"}, timeout=10)
@@ -1526,6 +1753,7 @@ async def version():
         "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
         "service": os.getenv("RENDER_SERVICE_NAME", "local"),
         "model": MODEL,
+        "security_model": "1.0",
         "poide": {
             "ok": cache.get("ok"),
             "checked_at": cache.get("ts"),
@@ -1539,6 +1767,8 @@ async def version():
             "deploying":            cache.get("deploying"),
             "deploying_commit":     cache.get("deploying_commit"),
             "deploying_commit_ok":  cache.get("deploying_commit_ok"),
+            "monitor_files":        cache.get("monitor_files", {}),
+            "dispatcher_monitor_changed": cache.get("dispatcher_monitor_changed", []),
             "commit_matches_poide": (
                 bool(running_commit and cache.get("commit") and
                      running_commit.startswith(cache["commit"][:7]))
@@ -1702,7 +1932,7 @@ async def files(request: Request, session_id: str, formats: list[str] = Form(def
     try:
         irys_tx = _irys_upload(record_bytes, "application/json", {"Leima-Type": "stamp-record"})
     except Exception as e:
-        return HTMLResponse(f'<p class="error">Arweave upload failed: {e}</p>')
+        return HTMLResponse(f'<p class="error">Arweave upload failed: {_html_escape(str(e))}</p>')
 
     irys_url = f"{IRYS_GATEWAY}/{irys_tx}"
     entry["manifest"] = {**stamp_record, "stamp": {"tx_id": irys_tx, "url": irys_url}}
@@ -1741,6 +1971,32 @@ async def download_manifest(session_id: str):
         content=json.dumps(entry["manifest"], indent=2, ensure_ascii=False),
         media_type="application/json",
         headers={"Content-Disposition": "attachment; filename=manifest.json"},
+    )
+
+
+@app.get("/verdict-fragment/{session_id}")
+async def verdict_fragment(request: Request, session_id: str):
+    entry = store.get(session_id)
+    if not entry:
+        return HTMLResponse('<div class="error">Result not found — it may have expired.</div>', status_code=404)
+    return templates.TemplateResponse(
+        "partials/answer.html",
+        {
+            "request": request,
+            "passes": entry["passes"],
+            "question": entry["question"],
+            "summary_verdict": entry.get("summary_verdict", ""),
+            "verdict_category": entry.get("verdict_category", ""),
+            "verdict_prefix": "Document (with evaluation)",
+            "filename": entry.get("input_label", "browser capture"),
+            "input_hash": entry["input_hash"],
+            "verdict_hash": entry.get("verdict_hash", ""),
+            "session_id": session_id,
+            "timestamp": entry["timestamp"],
+            "poide_snap": _poide_cache,
+            "irys_gateway": IRYS_GATEWAY,
+            "c2pa": None,
+        },
     )
 
 
@@ -2182,6 +2438,10 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         "source_ext": source_ext, "source_mime": source_mime,
         "passes": result["passes"], "question": question,
         "timestamp": result["timestamp"], "input_hash": input_hash,
+        "verdict_hash": verdict_hash,
+        "summary_verdict": result["summary_verdict"],
+        "verdict_category": result.get("verdict_category", ""),
+        "input_label": input_label,
         "_stored_at": time.time(),
     }
     return {
@@ -2211,6 +2471,7 @@ async def ask(
     pdf_url: str = Form(""),
     web_url: str = Form(""),
     image_file: UploadFile = File(None),
+    image_url: str = Form(""),
     assess_credibility: str = Form(""),
     gh_repo: str = Form(""),
     gh_ref: str = Form("main"),
@@ -2231,18 +2492,44 @@ async def ask(
     MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
     if active_tab == "image":
-        if not image_file or not image_file.filename:
-            return HTMLResponse('<div class="error">Please upload an image.</div>')
-        mime = _detect_image_mime(image_file.filename)
-        if not mime:
-            return HTMLResponse('<div class="error">Unsupported image format. Use JPG, PNG, GIF, WebP, HEIC, or HEIF.</div>')
-        if image_file.size and image_file.size > MAX_UPLOAD_BYTES:
-            return HTMLResponse('<div class="error">File too large (max 20 MB).</div>')
-        input_bytes = await image_file.read()
-        c2pa_info = _check_c2pa(input_bytes, mime)
-        input_label = mime
-        source_ext = image_file.filename.rsplit(".", 1)[-1].lower()
-        source_mime = mime
+        if image_url.strip():
+            try:
+                _check_ssrf(image_url.strip())
+                resp = _safe_get(image_url.strip(), timeout=20, stream=True)
+                resp.raise_for_status()
+                ct = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+                url_ext = image_url.strip().rsplit(".", 1)[-1].lower() if "." in image_url else ""
+                mime = ct if ct in _IMAGE_MIMES.values() else _IMAGE_MIMES.get(url_ext)
+                if not mime:
+                    return HTMLResponse('<div class="error">URL does not point to a supported image format.</div>')
+                chunks, total = [], 0
+                for chunk in resp.iter_content(chunk_size=65536):
+                    total += len(chunk)
+                    if total > MAX_UPLOAD_BYTES:
+                        return HTMLResponse('<div class="error">Image too large (max 20 MB).</div>')
+                    chunks.append(chunk)
+                input_bytes = b"".join(chunks)
+            except ValueError as e:
+                return HTMLResponse(f'<div class="error">{e}</div>')
+            except Exception as e:
+                return HTMLResponse(f'<div class="error">Could not fetch image: {e}</div>')
+            c2pa_info = _check_c2pa(input_bytes, mime)
+            input_label = image_url.strip()
+            source_ext = url_ext or mime.split("/")[-1]
+            source_mime = mime
+        elif image_file and image_file.filename:
+            mime = _detect_image_mime(image_file.filename)
+            if not mime:
+                return HTMLResponse('<div class="error">Unsupported image format. Use JPG, PNG, GIF, WebP, HEIC, or HEIF.</div>')
+            if image_file.size and image_file.size > MAX_UPLOAD_BYTES:
+                return HTMLResponse('<div class="error">File too large (max 20 MB).</div>')
+            input_bytes = await image_file.read()
+            c2pa_info = _check_c2pa(input_bytes, mime)
+            input_label = mime
+            source_ext = image_file.filename.rsplit(".", 1)[-1].lower()
+            source_mime = mime
+        else:
+            return HTMLResponse('<div class="error">Please upload an image or enter a URL.</div>')
         contents.append(types.Part.from_bytes(data=input_bytes, mime_type=mime))
         if c2pa_info and c2pa_info.get("present"):
             source_context = {
@@ -2439,9 +2726,7 @@ async def ask(
                                source_context)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
-    except Exception as _exc:
-        import logging
-        logging.exception("Analysis failed")
+    except Exception:
         return HTMLResponse('<div class="error">Analysis failed. Please try again.</div>')
 
     if active_tab == "image" and c2pa_info:
@@ -2481,33 +2766,174 @@ class CodeReviewRequest(BaseModel):
     token: str = ""    # GitHub token for private repos
 
 
-BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
-BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
+BROWSERLESS_API_KEY = os.getenv("BROWSERLESS_API_KEY", "")
+
+_pw_instance = None
+_pw_sessions: dict = {}  # session_id -> {browser, page, last_click}
+_capture_jobs: dict = {}  # job_id -> status dict
+_PW_SESSION_LIMIT = 10
+
+
+async def _get_playwright():
+    global _pw_instance
+    if _pw_instance is None:
+        from playwright.async_api import async_playwright
+        _pw_instance = await async_playwright().start()
+    return _pw_instance
+
+
+async def _get_pw_page(session_id: str):
+    if session_id in _pw_sessions:
+        try:
+            await _pw_sessions[session_id]["page"].title(timeout=5000)
+            return _pw_sessions[session_id]
+        except Exception:
+            _pw_sessions.pop(session_id, None)
+            raise RuntimeError("Browser session expired — please reload the browser and try again.")
+    if len(_pw_sessions) >= _PW_SESSION_LIMIT:
+        oldest_key = next(iter(_pw_sessions))
+        try:
+            await _pw_sessions[oldest_key]["browser"].close()
+        except Exception as e:
+            print(f"[pw] evict close error: {e}", flush=True)
+        _pw_sessions.pop(oldest_key, None)
+    pw = await _get_playwright()
+    connect_url = f"wss://chrome.browserless.io?token={BROWSERLESS_API_KEY}"
+    last_err: Exception | None = None
+    for attempt in range(3):
+        try:
+            browser = await pw.chromium.connect_over_cdp(connect_url, timeout=30000)
+            break
+        except Exception as e:
+            last_err = e
+            if "429" in str(e) and attempt < 2:
+                await asyncio.sleep(4 ** attempt)  # 1s, 4s
+                continue
+            raise
+    else:
+        raise last_err  # type: ignore[misc]
+    ctx = browser.contexts[0]
+    page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+    _pw_sessions[session_id] = {"browser": browser, "page": page, "last_click": None}
+
+    async def _keepalive():
+        while session_id in _pw_sessions:
+            try:
+                await _pw_sessions[session_id]["page"].title(timeout=3000)
+            except Exception:
+                _pw_sessions.pop(session_id, None)
+                break
+            await asyncio.sleep(20)
+
+    asyncio.create_task(_keepalive())
+    return _pw_sessions[session_id]
 
 
 @app.post("/browser-session")
-async def browser_session():
-    if not BROWSERBASE_API_KEY or not BROWSERBASE_PROJECT_ID:
-        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
+async def browser_session(request: Request):
+    if not BROWSERLESS_API_KEY:
+        return JSONResponse({"error": "Browserless not configured"}, status_code=503)
+    # Close all existing sessions before opening a new one (Browserless concurrent limit)
+    for key in list(_pw_sessions.keys()):
+        try:
+            await _pw_sessions[key]["browser"].close()
+        except Exception as e:
+            print(f"[browser-session] close error for {key}: {e}", flush=True)
+    _pw_sessions.clear()
     try:
-        resp = http_requests.post(
-            "https://www.browserbase.com/v1/sessions",
-            headers={"x-bb-api-key": BROWSERBASE_API_KEY, "Content-Type": "application/json"},
-            json={"projectId": BROWSERBASE_PROJECT_ID},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        session = resp.json()
-        session_id = session["id"]
-        debug_resp = http_requests.get(
-            f"https://www.browserbase.com/v1/sessions/{session_id}/debug",
-            headers={"x-bb-api-key": BROWSERBASE_API_KEY},
-            timeout=10,
-        )
-        debug_resp.raise_for_status()
-        live_url = debug_resp.json().get("debuggerFullscreenUrl", "")
-        return JSONResponse({"session_id": session_id, "live_url": live_url})
+        import uuid
+        session_id = str(uuid.uuid4())
+        await _get_pw_page(session_id)
+        return JSONResponse({"session_id": session_id})
     except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/browser-screenshot/{session_id}")
+async def browser_screenshot(session_id: str):
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return Response(status_code=400)
+    conn = _pw_sessions.get(session_id)
+    if not conn:
+        return Response(status_code=404)
+    try:
+        last = conn.get("last_click")
+        if last:
+            await conn["page"].evaluate("""(p) => {
+                document.getElementById('_lc')?.remove();
+                const d = document.createElement('div');
+                d.id = '_lc';
+                d.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;'
+                  + 'width:28px;height:28px;border-radius:50%;border:3px solid #e74c3c;'
+                  + 'background:rgba(231,76,60,0.2);'
+                  + 'left:' + (p.x-14) + 'px;top:' + (p.y-14) + 'px;';
+                document.body?.appendChild(d);
+                const ae = document.activeElement;
+                if (ae && ae !== document.body && ae.tagName !== 'HTML')
+                    ae.style.outline = '2px solid #e74c3c';
+            }""", last)
+        img = await conn["page"].screenshot(type="jpeg", quality=82, full_page=False)
+        return Response(content=img, media_type="image/jpeg",
+                        headers={"Cache-Control": "no-store, no-cache"})
+    except Exception:
+        return Response(status_code=500)
+
+
+@app.post("/browser-click/{session_id}")
+async def browser_click(session_id: str, request: Request):
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return JSONResponse({"error": "invalid"}, status_code=400)
+    conn = _pw_sessions.get(session_id)
+    if not conn:
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    try:
+        body = await request.json()
+        vp = conn["page"].viewport_size or {"width": 1280, "height": 800}
+        x = float(body["x"]) * vp["width"]
+        y = float(body["y"]) * vp["height"]
+        conn["last_click"] = {"x": x, "y": y}
+        await conn["page"].mouse.click(x, y)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/browser-key/{session_id}")
+async def browser_key(session_id: str, request: Request):
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return JSONResponse({"error": "invalid"}, status_code=400)
+    conn = _pw_sessions.get(session_id)
+    if not conn:
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    try:
+        body = await request.json()
+        key = body.get("key", "")
+        text = body.get("text", "")
+        if key:
+            await conn["page"].keyboard.press(key)
+        elif text:
+            await conn["page"].keyboard.type(text)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/browser-scroll")
+async def browser_scroll(request: Request):
+    body = await request.json()
+    session_id = body.get("session_id", "").strip()
+    direction = body.get("direction", "down")
+    if not session_id:
+        return JSONResponse({"error": "session_id required"}, status_code=400)
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return JSONResponse({"error": "Invalid session_id"}, status_code=400)
+    pixels = -600 if direction == "up" else 600
+    try:
+        conn = await _get_pw_page(session_id)
+        await conn["page"].evaluate(f"window.scrollBy(0, {pixels})")
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        _pw_sessions.pop(session_id, None)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
@@ -2518,24 +2944,71 @@ async def browser_navigate(request: Request):
     url = body.get("url", "").strip()
     if not session_id or not url:
         return JSONResponse({"error": "session_id and url required"}, status_code=400)
-    if not BROWSERBASE_API_KEY:
-        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", session_id):
+        return JSONResponse({"error": "Invalid session_id"}, status_code=400)
     try:
-        from playwright.async_api import async_playwright
-        async with async_playwright() as p:
-            connect_url = (
-                f"wss://connect.browserbase.com"
-                f"?apiKey={BROWSERBASE_API_KEY}"
-                f"&sessionId={session_id}"
-            )
-            browser = await p.chromium.connect_over_cdp(connect_url)
-            ctx = browser.contexts[0]
-            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-            await page.goto(url, timeout=30000)
-            await browser.close()
+        _check_ssrf(url)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    try:
+        conn = await _get_pw_page(session_id)
+        await conn["page"].goto(url, timeout=30000)
         return JSONResponse({"ok": True})
     except Exception as e:
+        _pw_sessions.pop(session_id, None)
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def _run_capture_job(job_id: str, session_id: str, question: str) -> None:
+    job = _capture_jobs[job_id]
+    try:
+        job["msg"] = "Connecting to browser…"
+        conn = await _get_pw_page(session_id)
+        page = conn["page"]
+
+        job["msg"] = "Taking screenshot…"
+        screenshot_bytes = await page.screenshot(full_page=False, type="jpeg", quality=88)
+        current_url = page.url
+        page_text = await page.evaluate(
+            "document.body ? document.body.innerText.slice(0, 4000) : ''"
+        )
+
+        job["msg"] = "Analysing with AI…"
+        parsed = urlparse(current_url)
+        source_context = {
+            "type": "browser_capture",
+            "domain": parsed.netloc,
+            "url": current_url,
+            "fetched_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        }
+        contents = [
+            types.Part.from_bytes(data=screenshot_bytes, mime_type="image/jpeg"),
+            types.Part(text=f"Visible page text:\n{page_text}") if page_text else None,
+        ]
+        contents = [c for c in contents if c is not None]
+        _loop = asyncio.get_running_loop()
+        result = await asyncio.wait_for(
+            _loop.run_in_executor(
+                None,
+                lambda: _run_analysis(
+                    question, contents, screenshot_bytes,
+                    input_label=current_url,
+                    source_ext="jpg", source_mime="image/jpeg",
+                    source_context=source_context,
+                ),
+            ),
+            timeout=180.0,
+        )
+        job["status"] = "done"
+        job["session_id"] = result["session_id"]
+        job["verdict_category"] = result.get("verdict_category", "")
+        job["summary_verdict"] = result["summary_verdict"]
+    except asyncio.TimeoutError:
+        job["status"] = "error"
+        job["msg"] = "Analysis timed out — please try again."
+    except Exception as e:
+        job["status"] = "error"
+        job["msg"] = str(e)
 
 
 @app.post("/browser-capture")
@@ -2547,69 +3020,23 @@ async def browser_capture(request: Request):
         return JSONResponse({"error": "session_id required"}, status_code=400)
     if not question:
         return JSONResponse({"error": "question required"}, status_code=400)
-    if not BROWSERBASE_API_KEY:
-        return JSONResponse({"error": "Browserbase not configured"}, status_code=503)
-    try:
-        from playwright.async_api import async_playwright
-        async with async_playwright() as p:
-            connect_url = (
-                f"wss://connect.browserbase.com"
-                f"?apiKey={BROWSERBASE_API_KEY}"
-                f"&sessionId={session_id}"
-            )
-            browser = await p.chromium.connect_over_cdp(connect_url)
-            ctx = browser.contexts[0]
-            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-            screenshot_bytes = await page.screenshot(full_page=True, type="png")
-            current_url = page.url
-            await browser.close()
-    except Exception as e:
-        return JSONResponse({"error": f"Capture failed: {e}"}, status_code=500)
 
-    from urllib.parse import urlparse as _up
-    parsed = _up(current_url)
-    source_context = {
-        "type": "browser_capture",
-        "domain": parsed.netloc,
-        "url": current_url,
-        "fetched_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
-    }
-    contents = [types.Part.from_bytes(data=screenshot_bytes, mime_type="image/png")]
-    try:
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: _run_analysis(
-                question, contents, screenshot_bytes,
-                input_label=current_url,
-                source_ext="png", source_mime="image/png",
-                source_context=source_context,
-            )
-        )
-    except Exception as e:
-        return JSONResponse({"error": f"Analysis failed: {e}"}, status_code=500)
+    cutoff = time.time() - 1800
+    for jid in [k for k, v in _capture_jobs.items() if v.get("created_at", 0) < cutoff]:
+        _capture_jobs.pop(jid, None)
 
-    from fastapi.templating import Jinja2Templates as _T
-    tmpl = _T(directory="templates")
-    html = tmpl.get_template("result.html").render({
-        "passes": result["passes"],
-        "summary_verdict": result["summary_verdict"],
-        "verdict_category": result.get("verdict_category", ""),
-        "timestamp": result["timestamp"],
-        "input_hash": result["input_hash"],
-        "verdict_hash": result["verdict_hash"],
-        "session_id": result["session_id"],
-        "input_label": result["input_label"],
-        "poide_snap": result["poide_snap"],
-        "source_context": source_context,
-    }) if False else ""
+    job_id = uuid.uuid4().hex
+    _capture_jobs[job_id] = {"status": "pending", "msg": "Starting…", "created_at": time.time()}
+    asyncio.create_task(_run_capture_job(job_id, session_id, question))
+    return JSONResponse({"job_id": job_id})
 
-    return JSONResponse({
-        "session_id": result["session_id"],
-        "summary_verdict": result["summary_verdict"],
-        "verdict_category": result.get("verdict_category", ""),
-        "input_hash": result["input_hash"],
-        "url": current_url,
-    })
+
+@app.get("/browser-capture/{job_id}")
+async def browser_capture_status(job_id: str):
+    job = _capture_jobs.get(job_id)
+    if not job:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+    return JSONResponse(job)
 
 
 @app.post("/api/stamp")
@@ -3468,6 +3895,8 @@ Markdown==3.7
 bleach==6.2.0
 pypdf==5.1.0
 asn1crypto==1.5.1
+playwright>=1.40.0
+Pillow>=10.0.0
 
 ```
 
@@ -3631,6 +4060,25 @@ asn1crypto==1.5.1
       color: var(--blue-deep);
       border-bottom-color: var(--blue-deep);
     }
+
+    .sub-row {
+      display: flex;
+      gap: 0.35rem;
+      padding: 0.5rem 0 0;
+    }
+    .sub-btn {
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 100px;
+      color: var(--text-muted);
+      padding: 0.18rem 0.75rem;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-family: 'Spectral', Georgia, serif;
+      transition: all 0.15s;
+    }
+    .sub-btn:hover { color: var(--blue-deep); border-color: var(--blue-border); }
+    .sub-btn.active { background: var(--blue-dim); color: var(--blue-deep); border-color: var(--blue-border); }
 
     /* White content card */
     .card {
@@ -4101,7 +4549,7 @@ asn1crypto==1.5.1
 </div>
 
 <div id="poide-bar">
-  <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
+  <div style="max-width:760px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
     <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
     <span id="poide-text"></span>
   </div>
@@ -4124,13 +4572,24 @@ asn1crypto==1.5.1
     </header>
     <div class="tabs-wrap">
       <div class="tabs">
-        <button type="button" class="tab-btn active" onclick="switchTab('web', this)">Web</button>
-        <button type="button" class="tab-btn" onclick="switchTab('pdf', this)">PDF</button>
-        <button type="button" class="tab-btn" onclick="switchTab('image', this)">Image</button>
-        <button type="button" class="tab-btn" onclick="switchTab('text', this)">Text</button>
-        <button type="button" class="tab-btn" onclick="switchTab('email', this)">IMAP</button>
-        <button type="button" class="tab-btn" onclick="switchTab('github', this)">GitHub</button>
-        <button type="button" class="tab-btn" onclick="switchTab('live', this)">Live</button>
+        <button type="button" class="tab-btn active" onclick="switchCat('web', this)">Web</button>
+        <button type="button" class="tab-btn" onclick="switchCat('text', this)">Text</button>
+        <button type="button" class="tab-btn" onclick="switchCat('image', this)">Image</button>
+        <button type="button" class="tab-btn" onclick="switchCat('email', this)">Email</button>
+        <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
+      </div>
+      <div class="sub-row" id="sub-web">
+        <button type="button" class="sub-btn active" onclick="switchTab('live', this)">Browser</button>
+        <button type="button" class="sub-btn" onclick="switchTab('web', this)">URL</button>
+      </div>
+      <div class="sub-row" id="sub-text" style="display:none;">
+        <button type="button" class="sub-btn active" onclick="switchTab('text', this)">Paste</button>
+        <button type="button" class="sub-btn" onclick="switchTab('pdf', this, 'upload')">PDF</button>
+        <button type="button" class="sub-btn" onclick="switchTab('pdf', this, 'url')">From URL</button>
+      </div>
+      <div class="sub-row" id="sub-image" style="display:none;">
+        <button type="button" class="sub-btn active" onclick="switchTab('image', this)">Upload</button>
+        <button type="button" class="sub-btn" onclick="switchTab('image-url', this)">From URL</button>
       </div>
     </div>
   </div>
@@ -4145,7 +4604,7 @@ asn1crypto==1.5.1
       id="main-form"
     >
       <div id="form-wrap">
-        <input type="hidden" name="active_tab" id="active-tab" value="web">
+        <input type="hidden" name="active_tab" id="active-tab" value="live">
 
         <div class="question-label">
           <span class="question-title">What do you want to prove about this document?</span>
@@ -4176,15 +4635,21 @@ asn1crypto==1.5.1
         </div>
 
         <div id="tab-image" class="tab-panel">
-          <div class="drop-zone" id="image-drop-zone" onclick="document.getElementById('image-input').click()">
-            <div class="drop-zone-icon">🖼</div>
-            <div id="image-drop-label">Click or drop an image here</div>
-            <input type="file" id="image-input" name="image_file" accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif" onchange="onImageSelect(this)">
+          <div id="image-upload-section">
+            <div class="drop-zone" id="image-drop-zone" onclick="document.getElementById('image-input').click()">
+              <div class="drop-zone-icon">🖼</div>
+              <div id="image-drop-label">Click or drop an image here</div>
+              <input type="file" id="image-input" name="image_file" accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.heif" onchange="onImageSelect(this)">
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:0.25rem">JPG, PNG, GIF, WebP, HEIC, HEIF</div>
           </div>
-          <div style="font-size:0.72rem;color:var(--text-faint);margin-top:0.25rem">JPG, PNG, GIF, WebP, HEIC, HEIF</div>
+          <div id="image-url-section" style="display:none;">
+            <input type="url" name="image_url" id="image-url-input" class="url-input" placeholder="https://example.com/photo.jpg">
+            <div style="font-size:0.72rem;color:var(--text-faint);margin-top:0.25rem">JPG, PNG, GIF, WebP, HEIC, HEIF — max 20 MB</div>
+          </div>
         </div>
 
-        <div id="tab-web" class="tab-panel active">
+        <div id="tab-web" class="tab-panel">
           <input type="url" name="web_url" id="web-url" class="url-input"
             placeholder="https://example.com/article">
         </div>
@@ -4251,27 +4716,55 @@ asn1crypto==1.5.1
           <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
         </div>
 
-        <div id="tab-live" class="tab-panel">
+        <div id="tab-live" class="tab-panel active">
           <div style="margin-bottom:0.75rem;">
-            <input type="url" id="live-url" class="url-input" placeholder="https://vero.fi — leave empty to start blank">
+            <input type="url" id="live-url" class="url-input" placeholder="https://vero.fi"
+              data-stampd-field="target-url">
           </div>
-          <button type="button" class="fetch-btn" id="live-open-btn" onclick="openLiveBrowser()">Open browser</button>
+          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+            <button type="button" class="fetch-btn" id="live-open-btn" onclick="openLiveBrowser()" style="margin-bottom:0;"
+              data-stampd-action="open-url">Load page</button>
+            <span id="live-status" style="font-size:0.8rem;color:var(--text-muted);"
+              data-stampd-status="session"></span>
+          </div>
           <div id="live-browser-wrap" style="display:none;margin-top:0.75rem;">
-            <iframe id="live-iframe" style="width:100%;height:480px;border:1px solid var(--border);border-radius:6px;" allowfullscreen></iframe>
-            <div style="margin-top:0.625rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-              <button type="button" class="fetch-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()">Capture &amp; analyse</button>
-              <span id="live-status" style="font-size:0.8rem;color:var(--text-muted);"></span>
+            <div style="position:relative;display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+              <div id="live-click-notice" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:#fff;font-size:0.75rem;padding:0.25rem 0.75rem;border-radius:100px;pointer-events:none;z-index:10;white-space:nowrap;">Processing click…</div>
+              <div id="live-latency-modal" style="display:none;position:absolute;inset:0;z-index:20;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem 1.75rem;max-width:300px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+                  <p style="font-weight:600;margin:0 0 0.6rem;color:var(--text);font-size:0.95rem;">Live browser — short delay</p>
+                  <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 1.25rem;line-height:1.55;">Clicks and keypresses take <strong style="color:var(--text);">1–2 seconds</strong> to register — the browser runs in the cloud. Make your move, then wait a moment for the page to respond.</p>
+                  <button type="button" onclick="document.getElementById('live-latency-modal').style.display='none'" style="width:100%;padding:0.45rem 1rem;background:var(--blue-deep);color:#fff;border:1px solid var(--blue-deep);border-radius:4px;font-size:0.75rem;font-weight:500;font-family:'Spectral',Georgia,serif;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">Got it</button>
+                </div>
+              </div>
+              <img id="live-img" tabindex="0"
+                style="flex:1;min-width:0;height:520px;object-fit:contain;display:block;cursor:crosshair;outline:none;background:#1a1a2e;"
+                alt="Live browser" data-stampd-view="live-browser">
+              <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;user-select:none;">
+                <button type="button" onclick="scrollLiveBrowser('up')" style="padding:0.6rem 0;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;flex-shrink:0;" title="Scroll up" data-stampd-action="scroll-up">↑</button>
+                <div style="flex:1;"></div>
+                <button type="button" onclick="scrollLiveBrowser('down')" style="padding:0.6rem 0;background:none;border:none;border-top:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;flex-shrink:0;" title="Scroll down" data-stampd-action="scroll-down">↓</button>
+              </div>
+            </div>
+            <div data-stampd-current-url id="live-current-url" style="font-size:0.72rem;color:var(--text-faint);margin-top:0.3rem;word-break:break-all;"></div>
+            <div id="live-capture-section" style="display:none;margin-top:1rem;">
+              <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.625rem;">When the page shows evidence for your claim, press:</p>
+              <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                <button type="button" class="fetch-btn" id="live-capture-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()"
+                  data-stampd-action="capture-evidence">Analyse this page</button>
+                <span id="live-capture-status" style="font-size:0.8rem;color:var(--text-muted);"></span>
+              </div>
             </div>
           </div>
-          <input type="hidden" id="live-session-id" value="">
+          <input type="hidden" id="live-session-id" value="" data-stampd-session-id>
         </div>
 
         <div class="submit-row">
-          <button type="submit" id="submit-btn">
+          <button type="submit" id="submit-btn" style="display:none;">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Analyse
           </button>
-          <div class="credibility-options">
+          <div class="credibility-options" style="display:none;">
             <label class="credibility-option">
               <input type="radio" name="assess_credibility" value="1" checked>
               Evaluate whether the claim is true
@@ -4329,9 +4822,13 @@ asn1crypto==1.5.1
     reader.readAsText(input.files[0], 'utf-8');
   }
 
+  let _currentTab = 'live';
+  let _currentCat = 'web';
+
   function tabHasContent(tab) {
-    if (tab === 'pdf') return document.getElementById('pdf-input').files.length > 0;
+    if (tab === 'pdf') return document.getElementById('pdf-input').files.length > 0 || document.getElementById('pdf-url').value.trim() !== '';
     if (tab === 'image') return document.getElementById('image-input').files.length > 0;
+    if (tab === 'image-url') return document.getElementById('image-url-input').value.trim() !== '';
     if (tab === 'web') return document.getElementById('web-url').value.trim() !== '';
     if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
@@ -4363,10 +4860,11 @@ asn1crypto==1.5.1
       document.getElementById('drop-label').textContent = 'Click or drop a PDF here';
       document.getElementById('drop-zone-wrap').style.display = 'block';
       document.getElementById('url-input-wrap').style.display = 'none';
-    } else if (tab === 'image') {
+    } else if (tab === 'image' || tab === 'image-url') {
       document.getElementById('image-input').value = '';
       document.getElementById('image-drop-zone').classList.remove('has-file');
       document.getElementById('image-drop-label').textContent = 'Click or drop an image here';
+      document.getElementById('image-url-input').value = '';
     } else if (tab === 'web') {
       document.getElementById('web-url').value = '';
     } else if (tab === 'text') {
@@ -4382,6 +4880,11 @@ asn1crypto==1.5.1
       document.getElementById('email-fetch-results').innerHTML = '';
       document.getElementById('email-session-id').value = '';
       document.getElementById('email-idx').value = '';
+    } else if (tab === 'live') {
+      if (_liveScreenshotInterval) { clearInterval(_liveScreenshotInterval); _liveScreenshotInterval = null; }
+      document.getElementById('live-session-id').value = '';
+      document.getElementById('live-browser-wrap').style.display = 'none';
+      document.getElementById('live-img').src = '';
     }
   }
 
@@ -4393,57 +4896,178 @@ asn1crypto==1.5.1
   }
 
   const TAB_HINTS = {
-    pdf:    'e.g. <em>"this invoice shows the payment was completed"</em>',
-    image:  'e.g. <em>"this C2PA image shows a cut-down tree at 60.1699, 24.9384"</em>',
-    text:   'e.g. <em>"the source claims that X"</em>',
-    web:    'e.g. <em>"Apple announced Vision Pro on this page"</em>',
-    email:  'e.g. <em>"Tesla offered me a job in this email"</em>',
-    github: 'e.g. <em>"this code follows best security practices"</em>',
-    live:   'e.g. <em>"my tax decision for 2024 shows income of X"</em>',
+    pdf:       'e.g. <em>"this invoice shows the payment was completed"</em>',
+    'image':   'e.g. <em>"this C2PA image shows a cut-down tree at 60.1699, 24.9384"</em>',
+    'image-url': 'e.g. <em>"this photo shows a flooded street"</em>',
+    text:      'e.g. <em>"the source claims that X"</em>',
+    web:       'e.g. <em>"Apple announced Vision Pro on this page"</em>',
+    email:     'e.g. <em>"Tesla offered me a job in this email"</em>',
+    github:    'e.g. <em>"this code follows best security practices"</em>',
+    live:      'e.g. <em>"my tax decision for 2024 shows income of X"</em>',
   };
   const TAB_PLACEHOLDERS = {
-    pdf: 'this contract was signed by both parties',
-    image: 'this book page states that Napoleon was born in 1769',
-    text: 'this text contains a refund promise',
-    web: 'this website advertises free worldwide shipping',
-    email: 'the sender promised delivery before Friday',
-    github: 'this repository contains hardcoded secrets',
-    live: 'the balance shown is at least 10 000 EUR',
+    pdf:       'this contract was signed by both parties',
+    image:     'this book page states that Napoleon was born in 1769',
+    'image-url': 'this photo shows damage to the property',
+    text:      'this text contains a refund promise',
+    web:       'this website advertises free worldwide shipping',
+    email:     'the sender promised delivery before Friday',
+    github:    'this repository contains hardcoded secrets',
+    live:      'the balance shown is at least 10 000 EUR',
   };
+
+  const CAT_DEFAULT = {web: 'live', text: 'text', image: 'image', email: 'email', github: 'github'};
+  const CAT_HAS_SUB = new Set(['web', 'text', 'image']);
+
+  function switchCat(cat, btn) {
+    if (cat === _currentCat) return;
+    if (tabHasContent(_currentTab) && !confirm('Unsaved data will be lost. Continue?')) return;
+    clearTab(_currentTab);
+    document.querySelector('[name="question"]').value = '';
+    document.getElementById('answer-area').innerHTML = '';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _currentCat = cat;
+    document.querySelectorAll('.sub-row').forEach(r => r.style.display = 'none');
+    if (CAT_HAS_SUB.has(cat)) {
+      const row = document.getElementById('sub-' + cat);
+      row.style.display = 'flex';
+      row.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+      row.querySelector('.sub-btn').classList.add('active');
+    }
+    _activateTab(CAT_DEFAULT[cat]);
+  }
+
+  function switchTab(tab, btn, pdfMode) {
+    if (tabHasContent(_currentTab) && tab !== _currentTab && !confirm('Unsaved data will be lost. Continue?')) return;
+    clearTab(_currentTab);
+    document.querySelector('[name="question"]').value = '';
+    document.getElementById('answer-area').innerHTML = '';
+    if (btn) {
+      const row = btn.closest('.sub-row');
+      if (row) { row.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+    }
+    _activateTab(tab, pdfMode);
+  }
+
+  function _activateTab(tab, pdfMode) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    const panelId = tab === 'image-url' ? 'image' : tab;
+    document.getElementById('tab-' + panelId).classList.add('active');
+    if (tab === 'image') {
+      document.getElementById('image-upload-section').style.display = 'block';
+      document.getElementById('image-url-section').style.display = 'none';
+    } else if (tab === 'image-url') {
+      document.getElementById('image-upload-section').style.display = 'none';
+      document.getElementById('image-url-section').style.display = 'block';
+    }
+    if (tab === 'pdf') { pdfMode === 'url' ? showUrlInput() : showDropZone(); }
+    document.getElementById('active-tab').value = tab === 'image-url' ? 'image' : tab;
+    _currentTab = tab;
+    const isLive = tab === 'live', isGithub = tab === 'github';
+    document.getElementById('submit-btn').style.display = isLive ? 'none' : '';
+    document.querySelector('.credibility-options').style.display = (isGithub || isLive) ? 'none' : '';
+    document.getElementById('submit-btn').disabled = (tab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
+    const hint = TAB_HINTS[tab];
+    if (hint) { document.getElementById('question-sub').innerHTML = hint; document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[tab] || ''; }
+  }
+
+  let _liveScreenshotInterval = null;
+
+  function _startScreenshotPoll(sessionId) {
+    if (_liveScreenshotInterval) clearInterval(_liveScreenshotInterval);
+    const img = document.getElementById('live-img');
+    const refresh = () => {
+      const tmp = new Image();
+      tmp.onload = () => { img.src = tmp.src; };
+      tmp.src = '/browser-screenshot/' + sessionId + '?t=' + Date.now();
+    };
+    refresh();
+    _liveScreenshotInterval = setInterval(refresh, 2000);
+
+    img.onclick = async (e) => {
+      const rect = img.getBoundingClientRect();
+      img.focus();
+      await fetch('/browser-click/' + sessionId, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height}),
+      });
+      setTimeout(refresh, 600);
+    };
+
+    const SPECIAL = {Enter:'Enter',Backspace:'Backspace',Tab:'Tab',Escape:'Escape',
+      ArrowUp:'ArrowUp',ArrowDown:'ArrowDown',ArrowLeft:'ArrowLeft',ArrowRight:'ArrowRight',
+      Delete:'Delete',Home:'Home',End:'End',PageUp:'PageUp',PageDown:'PageDown'};
+    img.onkeydown = async (e) => {
+      const key = SPECIAL[e.key];
+      if (key || (e.key.length === 1 && !e.ctrlKey && !e.metaKey)) {
+        e.preventDefault();
+        await fetch('/browser-key/' + sessionId, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(key ? {key} : {text: e.key}),
+        });
+        setTimeout(refresh, 400);
+      }
+    };
+  }
 
   async function openLiveBrowser() {
     const btn = document.getElementById('live-open-btn');
     const status = document.getElementById('live-status');
     btn.disabled = true;
-    btn.textContent = 'Opening…';
+    btn.textContent = 'Loading…';
     status.textContent = '';
     try {
+      const startUrl = document.getElementById('live-url').value.trim();
       const r = await fetch('/browser-session', {method: 'POST'});
       const d = await r.json();
       if (d.error) throw new Error(d.error);
-      document.getElementById('live-session-id').value = d.session_id;
-      document.getElementById('live-iframe').src = d.live_url;
-      const startUrl = document.getElementById('live-url').value.trim();
-      if (startUrl) {
-        await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: d.session_id, url: startUrl})}).catch(()=>{});
-      }
+      const sessionId = d.session_id;
+      document.getElementById('live-session-id').value = sessionId;
       document.getElementById('live-browser-wrap').style.display = 'block';
-      status.textContent = 'Browser open — navigate freely, then capture.';
+      document.getElementById('live-capture-section').style.display = 'block';
+      _startScreenshotPoll(sessionId);
+      if (startUrl) {
+        status.textContent = 'Navigating…';
+        const nr = await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: sessionId, url: startUrl})});
+        const nd = await nr.json();
+        if (nd.error) throw new Error('Navigate failed: ' + nd.error);
+        document.getElementById('live-current-url').textContent = startUrl;
+      }
+      status.textContent = 'Browser open — click to interact, then press Analyse.';
     } catch(e) {
       status.textContent = 'Error: ' + e.message;
     }
     btn.disabled = false;
-    btn.textContent = 'Open browser';
+    btn.textContent = 'Load page';
+  }
+
+  async function scrollLiveBrowser(direction) {
+    const sessionId = document.getElementById('live-session-id').value;
+    const status = document.getElementById('live-status');
+    if (!sessionId) return;
+    try {
+      await fetch('/browser-scroll', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id: sessionId, direction}),
+      });
+    } catch(e) {
+      status.textContent = 'Error: ' + e.message;
+    }
   }
 
   async function captureLiveBrowser() {
     const sessionId = document.getElementById('live-session-id').value;
     const question = document.getElementById('question-input').value.trim();
-    const status = document.getElementById('live-status');
+    const status = document.getElementById('live-capture-status');
+    const btn = document.getElementById('live-capture-btn');
     if (!sessionId) { status.textContent = 'Open a browser first.'; return; }
-    if (!question) { status.textContent = 'Enter a claim first.'; return; }
-    status.textContent = 'Capturing…';
+    if (!question) { status.textContent = 'Enter a claim above first.'; return; }
+    btn.disabled = true;
+    status.textContent = 'Connecting…';
     document.getElementById('answer-area').innerHTML = '';
+    let ticker = null;
     try {
       const r = await fetch('/browser-capture', {
         method: 'POST',
@@ -4452,34 +5076,71 @@ asn1crypto==1.5.1
       });
       const d = await r.json();
       if (d.error) throw new Error(d.error);
-      status.textContent = 'Done — verdict: ' + d.verdict_category;
-      document.getElementById('answer-area').innerHTML =
-        '<div style="padding:1rem;font-size:0.9rem;color:var(--text-muted)">Analysis complete. <a href="/download/' + d.session_id + '/verdict.pdf" style="color:var(--blue-deep)">Download verdict PDF</a></div>';
+      const jobId = d.job_id;
+
+      const start = Date.now();
+      ticker = setInterval(() => {
+        const s = Math.round((Date.now() - start) / 1000);
+        status.textContent = `Analysing with AI… (${s}s)`;
+      }, 1000);
+      status.textContent = 'Analysing with AI…';
+
+      while (true) {
+        await new Promise(res => setTimeout(res, 3000));
+        const pr = await fetch(`/browser-capture/${jobId}`);
+        const job = await pr.json();
+        if (job.error) throw new Error(job.error);
+        if (job.status === 'done') {
+          clearInterval(ticker);
+          status.textContent = 'Done — ' + job.verdict_category;
+          const frag = await fetch('/verdict-fragment/' + job.session_id);
+          document.getElementById('answer-area').innerHTML = await frag.text();
+          if (window.htmx) htmx.process(document.getElementById('answer-area'));
+          document.getElementById('answer-area').scrollIntoView({behavior: 'smooth', block: 'start'});
+          break;
+        } else if (job.status === 'error') {
+          throw new Error(job.msg);
+        } else {
+          status.textContent = job.msg + '…';
+        }
+      }
     } catch(e) {
       status.textContent = 'Error: ' + e.message;
+    } finally {
+      clearInterval(ticker);
+      btn.disabled = false;
     }
   }
 
-  function switchTab(newTab, btn) {
-    const current = document.getElementById('active-tab').value;
-    if (current === newTab) return;
-    if (tabHasContent(current) && !confirm('Unsaved data will be lost. Continue?')) return;
-    clearTab(current);
-    document.querySelector('[name="question"]').value = '';
-    document.getElementById('answer-area').innerHTML = '';
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + newTab).classList.add('active');
-    btn.classList.add('active');
-    document.getElementById('active-tab').value = newTab;
-    document.getElementById('submit-btn').disabled = (newTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
-    document.getElementById('submit-btn').style.display = newTab === 'live' ? 'none' : '';
-    document.querySelector('.credibility-options').style.display = (newTab === 'github' || newTab === 'live') ? 'none' : '';
-    if (TAB_HINTS[newTab]) {
-      document.getElementById('question-sub').innerHTML = TAB_HINTS[newTab];
-      document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[newTab] || '';
+  (function() {
+    const dot = document.getElementById('poide-dot');
+    const text = document.getElementById('poide-text');
+    let _savedText = '', _savedDot = '';
+    function goOffline() {
+      _savedText = text.textContent;
+      _savedDot = dot.style.background;
+      text.textContent = 'No connection';
+      dot.style.background = '#e57373';
     }
-  }
+    function goOnline() {
+      text.textContent = _savedText;
+      dot.style.background = _savedDot || '#2a4a62';
+    }
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    if (!navigator.onLine) goOffline();
+  })();
+
+  window.addEventListener('blur', () => {
+    if (document.getElementById('active-tab').value !== 'live') return;
+    if (!document.getElementById('live-session-id').value) return;
+    const notice = document.getElementById('live-click-notice');
+    if (!notice) return;
+    notice.style.display = 'block';
+    clearTimeout(notice._t);
+    notice._t = setTimeout(() => { notice.style.display = 'none'; }, 1500);
+  });
+
 
   function onFileSelect(input) {
     if (input.files[0]) { document.getElementById('drop-label').textContent = input.files[0].name; document.getElementById('drop-zone').classList.add('has-file'); }
@@ -4516,13 +5177,46 @@ asn1crypto==1.5.1
     const suppressCb = document.getElementById('poide-modal-suppress-cb');
     const closeBtn = document.getElementById('poide-modal-close');
     let lastCheckedAt = null;
+    let lastPollAt = null;
     const SUPPRESS_DURATION_MS = 60 * 60 * 1000;
     const REPEAT_INTERVAL_MS = 60 * 1000;
     let lastModalShownAt = 0;
     let lastModalKey = '';
+    let _deployStart = null;
+    let _deployTicker = null;
+    const _DEPLOY_LS_KEY = 'leima_deploy_start';
+
+    function startDeployTicker() {
+      if (_deployTicker) return;
+      if (!_deployStart) {
+        try {
+          const stored = localStorage.getItem(_DEPLOY_LS_KEY);
+          _deployStart = stored ? parseInt(stored, 10) : Date.now();
+          localStorage.setItem(_DEPLOY_LS_KEY, _deployStart);
+        } catch { _deployStart = Date.now(); }
+      }
+      _deployTicker = setInterval(() => {
+        const el = document.getElementById('poide-deploy-elapsed');
+        if (el) el.textContent = '(' + Math.round((Date.now() - _deployStart) / 1000) + 's)';
+      }, 1000);
+    }
+    function stopDeployTicker() {
+      if (_deployTicker) { clearInterval(_deployTicker); _deployTicker = null; }
+      _deployStart = null;
+      try { localStorage.removeItem(_DEPLOY_LS_KEY); } catch {}
+    }
 
     function isSuppressed(key) {
       try { const v = localStorage.getItem('poide_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
+    }
+    function checkMonitorFiles(current) {
+      const LS_KEY = 'leima_monitor_files';
+      let prev = null;
+      try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
+      try { localStorage.setItem(LS_KEY, JSON.stringify(current)); } catch {}
+      if (!prev || !Object.keys(current).length) return null;
+      const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
+      return changed.length ? changed : null;
     }
     function showWarning(key, message) {
       if (isSuppressed(key)) return;
@@ -4537,22 +5231,22 @@ asn1crypto==1.5.1
     }
     document.addEventListener('visibilitychange', function() { if (!document.hidden) { lastModalShownAt = 0; update(); } });
 
-    function timeAgo() {
-      if (!lastCheckedAt) return '';
-      const s = Math.floor((Date.now() - lastCheckedAt) / 1000);
-      return s < 60 ? s + 's ago' : Math.floor(s / 60) + 'm ago';
+    function ago(ts) {
+      if (!ts) return '—';
+      const s = Math.floor((Date.now() - ts) / 1000);
+      return s < 60 ? s + 's' : Math.floor(s / 60) + 'm';
     }
     function setDot(mode) {
       if (mode === 'danger') { dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;'; dot.textContent = '⛔'; }
       else { dot.textContent = ''; const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#2a4a62'; dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;'; }
     }
     function row(statusText, statusColor, reason) {
-      const ago = timeAgo();
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
-           + (reason ? ' <span style="color:#fff;font-weight:400">— ' + reason + '</span>' : '')
-           + ' <span style="color:#aaa;font-size:0.78rem;margin-left:0.3rem">· <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#aaa;text-decoration:underline;text-underline-offset:2px;">TREAD</a>'
-           + (ago ? ' · <span id="poide-ago-inner">' + ago + '</span>' : '<span id="poide-ago-inner"></span>')
-           + ' · <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener" style="color:#aaa;text-decoration:underline;text-underline-offset:2px;">audit log</a></span>';
+           + (reason ? ' <span style="color:#fff;font-weight:400">' + reason + '</span>' : '')
+           + ' <span style="color:#fff;font-size:0.78rem;margin-left:0.3rem">· TREAD check:'
+           + ' <span id="poide-ago-inner">' + ago(lastPollAt) + '/' + ago(lastCheckedAt) + '</span>'
+           + ' · <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">log</a>'
+           + ' · <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">info</a></span>';
     }
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
@@ -4563,11 +5257,20 @@ asn1crypto==1.5.1
         const p = d.poide || {};
         const running = d.commit || '';
         const verified = p.verified_commit || '';
+        lastPollAt = Date.now();
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
+        const changedFiles = checkMonitorFiles(p.monitor_files || {});
+        const dispatcherChanged = p.dispatcher_monitor_changed && p.dispatcher_monitor_changed.length > 0;
+        if (changedFiles || dispatcherChanged) {
+          const files = changedFiles || p.dispatcher_monitor_changed;
+          showWarning('monitor_changed', 'Surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
+          fadeSet(row('Danger', '#ff6b6b', 'surveillance files changed'), 'danger');
+          return;
+        }
         if (p.review_stuck) {
-          fadeSet(row('Please note', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
+          fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
         } else {
           const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
           if (dangerousDeploy) {
@@ -4575,22 +5278,28 @@ asn1crypto==1.5.1
               'An unauthorized commit is being deployed to production:\n' + (p.deploying_commit||'?').slice(0,7) + ' ≠ ' + (p.verified_commit||'?').slice(0,7) + '\n\nDo not submit sensitive documents until this is resolved.\nCheck GitHub Actions and the Render dashboard.');
             fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
           } else if (p.deploying) {
-            fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+            startDeployTicker();
+            const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
+            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="poide-deploy-elapsed">(' + s + 's)</span>'), 'warning');
           } else if (!unknownCommit && verified && !commitMatch) {
-            fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+            startDeployTicker();
+            const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
+            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="poide-deploy-elapsed">(' + s + 's)</span>'), 'warning');
           } else if (p.ok || commitMatch) {
-            fadeSet(row('OK', '#fff', 'live server matches verified build'), 'ok');
+            stopDeployTicker();
+            fadeSet(row('deploy matches git', '#fff', ''), 'ok');
           } else if (p.ok === false) {
-            fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed'), 'danger');
+            stopDeployTicker();
+            fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'key missing' : 'mismatch'), 'danger');
           } else {
-            fadeSet(row('Checking…', '#555', ''), 'loading');
+            fadeSet(row('Checking…', '#aaa', ''), 'loading');
           }
         }
-      }).catch(() => { lastCheckedAt = null; fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">TREAD</span>', 'loading'); });
+      }).catch(() => { lastCheckedAt = null; fadeSet(row('Server or network error', '#f0a030', ''), 'warning'); });
     }
     update();
     setInterval(update, 20000);
-    setInterval(() => { if (lastCheckedAt) { const el = document.getElementById('poide-ago-inner'); if (el) el.textContent = timeAgo(); } }, 15000);
+    setInterval(() => { const el = document.getElementById('poide-ago-inner'); if (el) el.textContent = ago(lastPollAt) + '/' + ago(lastCheckedAt); }, 15000);
   })();
 </script>
 
@@ -5624,6 +6333,15 @@ asn1crypto==1.5.1
       setTimeout(() => { if (dotMode) setDot(dotMode); text.innerHTML = html; text.style.opacity = '1'; }, 280);
     }
 
+    function checkMonitorFiles(current) {
+      const LS_KEY = 'leima_monitor_files';
+      let prev = null;
+      try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
+      try { localStorage.setItem(LS_KEY, JSON.stringify(current)); } catch {}
+      if (!prev || !Object.keys(current).length) return null;
+      const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
+      return changed.length ? changed : null;
+    }
     function update() {
       fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
         const p = d.poide || {};
@@ -5632,6 +6350,11 @@ asn1crypto==1.5.1
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
+        const changedFiles = checkMonitorFiles(p.monitor_files || {});
+        if (changedFiles) {
+          fadeSet(row('Danger', '#ff6b6b', 'surveillance files changed'), 'danger');
+          return;
+        }
         if (p.deploying) {
           fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
         } else if (!unknownCommit && verified && !commitMatch) {
