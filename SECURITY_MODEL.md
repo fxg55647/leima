@@ -1,6 +1,6 @@
 # Leiman tietoturvamalli
 
-Tämä dokumentti kuvaa Leiman valvonta-arkkitehtuurin, kunkin komponentin suojausominaisuudet ja tunnistetut haavoittuvuudet.
+Tämä dokumentti kuvaa Leiman valvonta-arkkitehtuurin, kunkin komponentin suojausominaisuudet ja tunnistetut haavoittuvuudet. Yleiskuvaus protokollasta: [TREAD.md](TREAD.md).
 
 Viimeksi päivitetty: 2026-05-29
 

@@ -24,6 +24,8 @@ The code never needs to be public. The policy file is public. The verdict is pub
 
 ## How Leima implements TREAD
 
+*For a detailed threat model and vulnerability analysis of each component, see [SECURITY_MODEL.md](SECURITY_MODEL.md).*
+
 Leima runs five GitHub Actions workflows on a staggered schedule, together achieving one-minute polling resolution:
 
 ```
