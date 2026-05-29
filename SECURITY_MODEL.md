@@ -249,13 +249,15 @@ t=13min+   Käyttäjä on suojattu vain jos:
 
 | Uhka | Suojaus |
 |---|---|
-| Kaikkien komponenttien muokkaus | Vaatii commitin → TREAD-palkki näyttää "Deploying" 8–13 min |
-| Väärät hashit status.json:iin | Tampermonkey käyttää git tree API:a, ei luota status.json:iin |
-| Deploy-aikaikkuna | Käyttäjällä 8–13 min näkyvää varoitusaikaa |
-| Historian peittäminen | Arweave-arkisto on muuttumaton — aiempi oikea tila säilyy |
+| Valvontatiedostojen muokkaus | Tampermonkey havaitsee minuutin sisällä ✅ |
+| Deploy ilman code review -porttia | TREAD commit-mismatch → Danger ✅ |
+| Deploy ohi code reviewin | TREAD commit-mismatch → Danger ✅ |
+| Väärät hashit status.json:iin | Tampermonkey laskee hashit itse git tree API:lta ✅ |
+| Historian peittäminen | Arweave muuttumaton ✅ |
+| Haitallinen koodi joka **läpäisee AI-koodiarvion** eikä muokkaa valvottuja tiedostoja | ❌ Ei varoitusta |
 | Alustatason hyökkäys | Riippuu hosting-ympäristön eristystasosta |
 
-⚠️ **Osittainen suojaus — havaittavissa deploy-aikana, mutta ei estettävissä. Täydellinen suojaus vaatii TEE:n.**
+⚠️ **Ainoa havaitsematon aukko: hienostunut haitallinen koodi joka läpäisee AI-koodiarvion muuttamatta valvottuja tiedostoja. Kaikki muut hyökkäysvektorit tuottavat varoituksen.**
 
 ---
 
