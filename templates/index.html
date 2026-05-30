@@ -485,32 +485,35 @@
       background: #07111e;
       color: #6a8899;
       width: 100%;
-      padding: 3rem 2rem 1.5rem 0;
+      padding: 3rem 2rem 1.5rem 2rem;
       border-top: 3px solid #c0392b;
     }
     .footer-inner {
-      display: flex;
-      gap: 3rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 2rem 3rem;
     }
-    .footer-brand { flex: 1.5; }
+    .footer-logo-mark {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+      margin-bottom: 0.75rem;
+    }
     .footer-logo {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 1.5rem;
       font-weight: 700;
       color: #c8dff0;
       letter-spacing: 0.14em;
-      display: block;
     }
     .footer-domain {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 0.65rem;
       color: #c0392b;
       letter-spacing: 0.22em;
-      display: block;
-      margin-bottom: 0.75rem;
     }
     .footer-brand p { font-size: 0.82rem; color: #6a8899; line-height: 1.6; }
-    .footer-col { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+    .footer-col { display: flex; flex-direction: column; gap: 0.5rem; }
     .footer-col-title {
       font-size: 0.65rem;
       font-weight: 600;
@@ -846,8 +849,10 @@
 <footer>
   <div class="footer-inner">
     <div class="footer-col footer-brand">
-      <span class="footer-logo">LEIMA</span>
-      <span class="footer-domain">leima.io</span>
+      <div class="footer-logo-mark">
+        <span class="footer-logo">LEIMA</span>
+        <span class="footer-domain">leima.io</span>
+      </div>
       <p>Permanent digital notary.<br>Documents verified by AI and sealed on Arweave.</p>
     </div>
     <div class="footer-col">
@@ -874,6 +879,21 @@
     </div>
     <div class="footer-col">
       <span class="footer-col-title">Transparency (copy)</span>
+      <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/SECURITY_MODEL.md" target="_blank" rel="noopener">Data policy</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener">TREAD — what's this?</a>
+      <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
+      <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
+    </div>
+    <div class="footer-col">
+      <span class="footer-col-title">Product (copy 2)</span>
+      <a href="/validate">Validate</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/README.md" target="_blank" rel="noopener">How it works</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/USECASES.md" target="_blank" rel="noopener">Use cases</a>
+      <a href="#">Pricing</a>
+    </div>
+    <div class="footer-col">
+      <span class="footer-col-title">Transparency (copy 2)</span>
       <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/fxg55647/leima/blob/main/SECURITY_MODEL.md" target="_blank" rel="noopener">Data policy</a>
       <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener">TREAD — what's this?</a>
