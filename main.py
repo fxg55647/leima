@@ -90,8 +90,8 @@ NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.io>")
 NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
 LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.io")
 
-_poide_cache: dict | None = None
-_poide_cache_ready = threading.Event()
+_tread_cache: dict | None = None
+_tread_cache_ready = threading.Event()
 _PAGES_URL = "https://fxg55647.github.io/leima"
 
 _RENDER_API_KEY    = os.getenv("RENDER_API_KEY", "")
@@ -177,8 +177,8 @@ def _fetch_monitor_hashes(token: str) -> dict | None:
         return None
 
 
-def _poide_dispatcher():
-    global _poide_cache, _monitor_baseline
+def _tread_dispatcher():
+    global _tread_cache, _monitor_baseline
     token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
     dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/tread-a.yml/dispatches"
     api_log_url = "https://api.github.com/repos/fxg55647/leima/contents/status-log.jsonl?ref=gh-pages"
@@ -193,16 +193,16 @@ def _poide_dispatcher():
                     content = base64.b64decode(r.json()["content"]).decode()
                     lines = [l for l in content.strip().splitlines() if l]
                     if lines:
-                        _poide_cache = json.loads(lines[-1])
-                        _poide_cache_ready.set()
+                        _tread_cache = json.loads(lines[-1])
+                        _tread_cache_ready.set()
                         cache_populated = True
             else:
                 r = http_requests.get(cdn_log_url, timeout=10)
                 if r.status_code == 200:
                     lines = [l for l in r.text.strip().splitlines() if l]
                     if lines:
-                        _poide_cache = json.loads(lines[-1])
-                        _poide_cache_ready.set()
+                        _tread_cache = json.loads(lines[-1])
+                        _tread_cache_ready.set()
                         cache_populated = True
         except Exception:
             pass
@@ -210,11 +210,11 @@ def _poide_dispatcher():
         # Suora Render + GitHub -vertailu — ei TREAD:sta riippuvainen
         deploying_direct, live_commit = _fetch_render_state()
         github_head = _fetch_github_head(token) if live_commit else None
-        if deploying_direct is not None and _poide_cache is not None:
-            _poide_cache = dict(_poide_cache)
-            _poide_cache["deploying"] = deploying_direct
+        if deploying_direct is not None and _tread_cache is not None:
+            _tread_cache = dict(_tread_cache)
+            _tread_cache["deploying"] = deploying_direct
             if live_commit and github_head:
-                _poide_cache["deployment_ok"] = live_commit.startswith(github_head[:7]) or github_head.startswith(live_commit[:7])
+                _tread_cache["deployment_ok"] = live_commit.startswith(github_head[:7]) or github_head.startswith(live_commit[:7])
 
         # Riippumaton valvontatiedostojen hash-tarkistus git tree API:lta
         hashes = _fetch_monitor_hashes(token)
@@ -223,9 +223,9 @@ def _poide_dispatcher():
                 _monitor_baseline = hashes
             else:
                 changed = [p for p, sha in hashes.items() if _monitor_baseline.get(p) != sha]
-                if _poide_cache is not None:
-                    _poide_cache = dict(_poide_cache)
-                    _poide_cache["dispatcher_monitor_changed"] = changed if changed else []
+                if _tread_cache is not None:
+                    _tread_cache = dict(_tread_cache)
+                    _tread_cache["dispatcher_monitor_changed"] = changed if changed else []
 
         if token:
             try:
@@ -234,7 +234,7 @@ def _poide_dispatcher():
                 pass
         time.sleep(30 if cache_populated else 5)
 
-threading.Thread(target=_poide_dispatcher, daemon=True).start()
+threading.Thread(target=_tread_dispatcher, daemon=True).start()
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -599,13 +599,13 @@ async def notary_poll(request: Request):
 
 @app.get("/version")
 async def version():
-    cache = _poide_cache.copy() if _poide_cache else {}
+    cache = _tread_cache.copy() if _tread_cache else {}
     return {
         "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
         "service": os.getenv("RENDER_SERVICE_NAME", "local"),
         "model": MODEL,
         "security_model": "1.0",
-        "poide": {
+        "tread": {
             "ok": cache.get("ok"),
             "checked_at": cache.get("ts"),
             "verified_commit": cache.get("commit", ""),
@@ -620,7 +620,7 @@ async def version():
             "deploying_commit_ok":  cache.get("deploying_commit_ok"),
             "monitor_files":        cache.get("monitor_files", {}),
             "dispatcher_monitor_changed": cache.get("dispatcher_monitor_changed", []),
-            "commit_matches_poide": (
+            "commit_matches_tread": (
                 bool(running_commit and cache.get("commit") and
                      running_commit.startswith(cache["commit"][:7]))
                 if (running_commit := os.getenv("RENDER_GIT_COMMIT", ""))
@@ -844,7 +844,7 @@ async def verdict_fragment(request: Request, session_id: str):
             "verdict_hash": entry.get("verdict_hash", ""),
             "session_id": session_id,
             "timestamp": entry["timestamp"],
-            "poide_snap": _poide_cache,
+            "tread_snap": _tread_cache,
             "irys_gateway": IRYS_GATEWAY,
             "c2pa": None,
         },
@@ -1261,8 +1261,8 @@ def _text_to_input_pdf(text: str) -> bytes:
 def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str,
                   source_ext: str = "pdf", source_mime: str = "application/pdf",
                   source_context: dict | None = None) -> dict:
-    _poide_cache_ready.wait(timeout=10)
-    poide_snap = _poide_cache.copy() if _poide_cache else None
+    _tread_cache_ready.wait(timeout=10)
+    tread_snap = _tread_cache.copy() if _tread_cache else None
 
     result = analyse(question, contents, source_context=source_context)
     input_hash = sha256(input_bytes)
@@ -1274,13 +1274,13 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         input_hash=input_hash,
         verdict_hash=verdict_hash,
     )
-    if poide_snap and poide_snap.get("tx"):
-        manifest["poide"] = {
-            "tx": poide_snap["tx"],
-            "url": f"{IRYS_GATEWAY}/{poide_snap['tx']}",
-            "checked_at": poide_snap.get("ts", ""),
-            "commit": poide_snap.get("commit", ""),
-            "ok": poide_snap.get("ok", False),
+    if tread_snap and tread_snap.get("tx"):
+        manifest["tread"] = {
+            "tx": tread_snap["tx"],
+            "url": f"{IRYS_GATEWAY}/{tread_snap['tx']}",
+            "checked_at": tread_snap.get("ts", ""),
+            "commit": tread_snap.get("commit", ""),
+            "ok": tread_snap.get("ok", False),
         }
     session_id = uuid.uuid4().hex
     _evict_old_sessions()
@@ -1304,7 +1304,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         "verdict_pdf": verdict_pdf,
         "verdict_hash": verdict_hash,
         "manifest": manifest,
-        "poide_snap": poide_snap,
+        "tread_snap": tread_snap,
         "session_id": session_id,
         "input_label": input_label,
     }
@@ -1597,7 +1597,7 @@ async def ask(
             "verdict_hash": result["verdict_hash"],
             "session_id": result["session_id"],
             "timestamp": result["timestamp"],
-            "poide_snap": result.get("poide_snap"),
+            "tread_snap": result.get("tread_snap"),
             "irys_gateway": IRYS_GATEWAY,
             "c2pa": c2pa_info if active_tab == "image" else None,
         },

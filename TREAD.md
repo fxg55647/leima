@@ -38,13 +38,13 @@ tread-e: 4-59/5 * * * *    ← minutes 4, 9, 14 ...
 
 The policy file (`POLICY.example.md`) is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy that governs each review cannot be changed retroactively.
 
-Each workflow runs `tread_check.py`, which checks three conditions and publishes a combined `status.json` to the `gh-pages` branch:
+Each workflow runs `tread_check.py`, which evaluates three conditions for `ok: true` and publishes a combined `status.json` to the `gh-pages` branch:
 
-1. **Deployment match** — calls the Render API and the GitHub API, verifies the live commit matches the repository HEAD
-2. **No deploy in progress** — flags if Render reports an active build or update
-3. **Code review passed** — queries the GitHub Actions API for the result of the latest `TREAD Code Review` run
+1. **Deployment safe** — the live commit matches the repository HEAD, or a legitimate deployment is currently in progress
+2. **Cron fresh** — at least one of the five TREAD workflows ran within the last 10 minutes
+3. **No disabled workflows** — all monitored workflows remain active
 
-`ok: true` requires all three to pass simultaneously.
+`review_ok` (whether the latest code review passed) is tracked and published in `status.json` but does not gate `ok` directly — code review gates deployment via the deploy hook, so a commit that failed review never reaches production in the first place.
 
 The code review (`code_review.py`) runs automatically on every push to `main`. It sends all Python and JavaScript source files together with `POLICY.example.md` to an AI model, which checks whether the code complies with the stated data policy. If a violation is found, the workflow fails and the deployment is blocked — the server continues running the previous commit. Only when the review passes does the workflow trigger a Render deploy via a deploy hook, after which the new commit goes live.
 
@@ -62,13 +62,14 @@ push → code_review.yml → Gemini audits code vs POLICY.example.md
                                     ↓ pass only
                               Render deploy hook → new commit live
                                     ↓
-cron (every minute) → tread_check.py → deployment match?
-                                      → review passed?
-                                      → no deploy in progress?
+cron (every minute) → tread_check.py → deployment safe?
+                                      → cron fresh?
+                                      → no disabled workflows?
+                                      → review_ok? (tracked separately)
                                                  → status.json → gh-pages (public)
 ```
 
-The check passes if the deployed commit matches the GitHub HEAD and the code review is green. If an unauthorised deployment has occurred — a commit that did not go through the review gate — the check fails and the GitHub Actions badge turns red.
+The check passes if the deployed commit matches the repository HEAD, the cron workflows are running, and no monitored workflow has been disabled. If an unauthorised deployment has occurred — a commit that did not go through the review gate — `deployment_ok` turns false and the GitHub Actions badge turns red.
 
 **The result is public and independently verifiable.** Anyone can visit the [Actions tab](../../actions) to see the continuous check history, or fetch `status.json` directly. The checks run on GitHub's infrastructure — not Render's — so they cannot be influenced by a compromise of the hosting environment. This does mean GitHub Actions is part of the trust boundary: a compromise of GitHub's infrastructure or the repository's Actions configuration could in principle affect the monitoring results. This is a real but theoretical risk — GitHub is a large platform with its own security controls, and the attack surface is meaningfully different from a single hosting provider. It is worth naming openly rather than treating TREAD as fully independent of all platforms.
 

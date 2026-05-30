@@ -2,7 +2,7 @@
 Upload the current TREAD status.json to Arweave and append the tx_id to the
 cumulative log (pages-output/status-log.jsonl).
 
-Run after tread_check.py. Exits 0 on success, 1 on failure — but poide-run.yml
+Run after tread_check.py. Exits 0 on success, 1 on failure — but tread-run.yml
 marks this step continue-on-error so a failure never blocks the TREAD check itself.
 """
 import json, os, sys

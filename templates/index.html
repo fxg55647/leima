@@ -534,7 +534,7 @@
     }
 
     /* TREAD warning modal */
-    #poide-modal-overlay {
+    #tread-modal-overlay {
       display: none;
       position: fixed;
       inset: 0;
@@ -543,8 +543,8 @@
       align-items: center;
       justify-content: center;
     }
-    #poide-modal-overlay.visible { display: flex; }
-    #poide-modal {
+    #tread-modal-overlay.visible { display: flex; }
+    #tread-modal {
       background: #0f1e30;
       border: 1px solid #c0392b;
       border-radius: 8px;
@@ -554,7 +554,7 @@
       color: #c8dff0;
       font-family: 'Spectral', Georgia, serif;
     }
-    #poide-modal h2 {
+    #tread-modal h2 {
       font-size: 1rem;
       font-weight: 700;
       color: #e05555;
@@ -562,17 +562,17 @@
       letter-spacing: 0.04em;
       font-family: 'Playfair Display', Georgia, serif;
     }
-    #poide-modal p {
+    #tread-modal p {
       font-size: 0.875rem;
       line-height: 1.6;
       color: #6a8899;
       margin-bottom: 1.25rem;
       white-space: pre-line;
     }
-    #poide-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-    #poide-modal-suppress { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #6a8899; cursor: pointer; }
-    #poide-modal-suppress input { cursor: pointer; accent-color: var(--blue-mid); }
-    #poide-modal-close {
+    #tread-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    #tread-modal-suppress { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #6a8899; cursor: pointer; }
+    #tread-modal-suppress input { cursor: pointer; accent-color: var(--blue-mid); }
+    #tread-modal-close {
       background: #c85555;
       color: #fff;
       border: none;
@@ -585,10 +585,10 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    #poide-modal-close:hover { background: #a84444; }
+    #tread-modal-close:hover { background: #a84444; }
 
     /* TREAD status bar */
-    #poide-bar {
+    #tread-bar {
       width: 100%;
       background: #07111e;
       height: 26px;
@@ -600,10 +600,10 @@
       letter-spacing: 0.02em;
       flex-shrink: 0;
     }
-    #poide-dot { transition: background 0.5s ease; animation: poidePulse 2.4s ease-in-out infinite; transform-origin: center; flex-shrink: 0; }
-    #poide-text { transition: opacity 0.28s ease; }
+    #tread-dot { transition: background 0.5s ease; animation: treadPulse 2.4s ease-in-out infinite; transform-origin: center; flex-shrink: 0; }
+    #tread-text { transition: opacity 0.28s ease; }
 
-    @keyframes poidePulse {
+    @keyframes treadPulse {
       0%, 100% { transform: scale(1); }
       50%       { transform: scale(1.75); }
     }
@@ -630,24 +630,24 @@
 </head>
 <body>
 
-<div id="poide-modal-overlay">
-  <div id="poide-modal">
-    <h2 id="poide-modal-title">⚠ TREAD WARNING</h2>
-    <p id="poide-modal-body"></p>
-    <div id="poide-modal-footer">
-      <label id="poide-modal-suppress">
-        <input type="checkbox" id="poide-modal-suppress-cb">
+<div id="tread-modal-overlay">
+  <div id="tread-modal">
+    <h2 id="tread-modal-title">⚠ TREAD WARNING</h2>
+    <p id="tread-modal-body"></p>
+    <div id="tread-modal-footer">
+      <label id="tread-modal-suppress">
+        <input type="checkbox" id="tread-modal-suppress-cb">
         Don't show again for 1 hour
       </label>
-      <button id="poide-modal-close">Acknowledge</button>
+      <button id="tread-modal-close">Acknowledge</button>
     </div>
   </div>
 </div>
 
-<div id="poide-bar">
+<div id="tread-bar">
   <div style="max-width:760px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
-    <span id="poide-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
-    <span id="poide-text"></span>
+    <span id="tread-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
+    <span id="tread-text"></span>
   </div>
 </div>
 
@@ -1209,8 +1209,8 @@
   }
 
   (function() {
-    const dot = document.getElementById('poide-dot');
-    const text = document.getElementById('poide-text');
+    const dot = document.getElementById('tread-dot');
+    const text = document.getElementById('tread-text');
     let _savedText = '', _savedDot = '';
     function goOffline() {
       _savedText = text.textContent;
@@ -1266,12 +1266,12 @@
 
 <script>
   (function() {
-    const dot = document.getElementById('poide-dot');
-    const text = document.getElementById('poide-text');
-    const overlay = document.getElementById('poide-modal-overlay');
-    const modalBody = document.getElementById('poide-modal-body');
-    const suppressCb = document.getElementById('poide-modal-suppress-cb');
-    const closeBtn = document.getElementById('poide-modal-close');
+    const dot = document.getElementById('tread-dot');
+    const text = document.getElementById('tread-text');
+    const overlay = document.getElementById('tread-modal-overlay');
+    const modalBody = document.getElementById('tread-modal-body');
+    const suppressCb = document.getElementById('tread-modal-suppress-cb');
+    const closeBtn = document.getElementById('tread-modal-close');
     let lastCheckedAt = null;
     let lastPollAt = null;
     const SUPPRESS_DURATION_MS = 60 * 60 * 1000;
@@ -1292,7 +1292,7 @@
         } catch { _deployStart = Date.now(); }
       }
       _deployTicker = setInterval(() => {
-        const el = document.getElementById('poide-deploy-elapsed');
+        const el = document.getElementById('tread-deploy-elapsed');
         if (el) el.textContent = '(' + Math.round((Date.now() - _deployStart) / 1000) + 's)';
       }, 1000);
     }
@@ -1303,7 +1303,7 @@
     }
 
     function isSuppressed(key) {
-      try { const v = localStorage.getItem('poide_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
+      try { const v = localStorage.getItem('tread_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
     }
     function checkMonitorFiles(current) {
       const LS_KEY = 'leima_monitor_files';
@@ -1321,7 +1321,7 @@
       lastModalShownAt = now; lastModalKey = key; suppressCb.checked = false;
       modalBody.textContent = message; overlay.classList.add('visible');
       closeBtn.onclick = function() {
-        if (suppressCb.checked) { try { localStorage.setItem('poide_suppress_' + key, Date.now().toString()); } catch(e) {} }
+        if (suppressCb.checked) { try { localStorage.setItem('tread_suppress_' + key, Date.now().toString()); } catch(e) {} }
         overlay.classList.remove('visible');
       };
     }
@@ -1334,13 +1334,13 @@
     }
     function setDot(mode) {
       if (mode === 'danger') { dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;'; dot.textContent = '⛔'; }
-      else { dot.textContent = ''; const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#2a4a62'; dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:poidePulse 2.4s ease-in-out infinite;transform-origin:center;'; }
+      else { dot.textContent = ''; const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#2a4a62'; dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:treadPulse 2.4s ease-in-out infinite;transform-origin:center;'; }
     }
     function row(statusText, statusColor, reason) {
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
            + (reason ? ' <span style="color:#fff;font-weight:400">' + reason + '</span>' : '')
            + ' <span style="color:#fff;font-size:0.78rem;margin-left:0.3rem">· TREAD check:'
-           + ' <span id="poide-ago-inner">' + ago(lastPollAt) + '/' + ago(lastCheckedAt) + '</span>'
+           + ' <span id="tread-ago-inner">' + ago(lastPollAt) + '/' + ago(lastCheckedAt) + '</span>'
            + ' · <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">log</a>'
            + ' · <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">info</a></span>';
     }
@@ -1350,7 +1350,7 @@
     }
     function update() {
       fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
-        const p = d.poide || {};
+        const p = d.tread || {};
         const running = d.commit || '';
         const verified = p.verified_commit || '';
         lastPollAt = Date.now();
@@ -1376,11 +1376,11 @@
           } else if (p.deploying) {
             startDeployTicker();
             const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
-            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="poide-deploy-elapsed">(' + s + 's)</span>'), 'warning');
+            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');
           } else if (!unknownCommit && verified && !commitMatch) {
             startDeployTicker();
             const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
-            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="poide-deploy-elapsed">(' + s + 's)</span>'), 'warning');
+            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');
           } else if (p.ok || commitMatch) {
             stopDeployTicker();
             fadeSet(row('deploy matches git', '#fff', ''), 'ok');
@@ -1395,7 +1395,7 @@
     }
     update();
     setInterval(update, 20000);
-    setInterval(() => { const el = document.getElementById('poide-ago-inner'); if (el) el.textContent = ago(lastPollAt) + '/' + ago(lastCheckedAt); }, 15000);
+    setInterval(() => { const el = document.getElementById('tread-ago-inner'); if (el) el.textContent = ago(lastPollAt) + '/' + ago(lastCheckedAt); }, 15000);
   })();
 </script>
 

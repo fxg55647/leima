@@ -1,13 +1,13 @@
 # Leima — ohjeet Claude Codelle
 
-## POIDE-workflowt (KRIITTINEN)
+## TREAD-workflowt (KRIITTINEN)
 
-**ÄLÄ KOSKAAN** lisää `concurrency`-ryhmää `poide-run.yml`:ään.
+**ÄLÄ KOSKAAN** lisää `concurrency`-ryhmää `tread-run.yml`:ään.
 Concurrency-ryhmä jonottaa ajot → jonoburstit → GitHub:n abuse-suojaus aktivoituu → kaikki scheduled cron-ajot pysähtyvät tunniksi.
 
-**ÄLÄ KOSKAAN** muuta `poide-run.yml`:ää useita kertoja samassa sessiossa ilman että odotat että cron pyörii kunnolla välissä.
+**ÄLÄ KOSKAAN** muuta `tread-run.yml`:ää useita kertoja samassa sessiossa ilman että odotat että cron pyörii kunnolla välissä.
 
-**ÄLÄ KOSKAAN** palauta `sys.exit(1)` `tread_check.py`:hyn tai "Fail if check failed" -steppiä `poide-run.yml`:ään.
+**ÄLÄ KOSKAAN** palauta `sys.exit(1)` `tread_check.py`:hyn tai "Fail if check failed" -steppiä `tread-run.yml`:ään.
 Workflow täytyy aina exitata 0:lla — muuten GitHub passivoi scheduled-ajot.
 
 ## Git push — code review -seuranta (PAKOLLINEN)

@@ -152,6 +152,20 @@ The combination creates a verifiable bracket around the entire service relations
 
 ---
 
+### Continuous corporate due diligence
+
+A company publishes a continuously updated evidence package — bank balances, cash flows, accounting exports, invoicing data, contract lists — with each source hashed at the moment of retrieval, analysed by AI, and stamped permanently. The source list is explicit: which accounting system, which bank accounts, which payment processors. An auditor can confirm coverage — that the listed sources constitute the company's material financial records — without conducting a full-scope audit. The AI runs continuously, flagging inconsistencies across sources and deviations from prior periods. Trust accumulates through the history: a company with two years of consistent, uncontradicted evidence packages has demonstrated something no single point-in-time audit can establish. For small companies that cannot afford institutional verification, this is a lightweight trust infrastructure that is meaningfully stronger than self-reported figures. See [CONTINUOUS_DD.md](CONTINUOUS_DD.md) for a full description.
+
+---
+
+### Continuous physical inspection
+
+A standardised observation protocol — conducted by drone, by a person carrying a camera, or by any capture device — produces a continuous, cryptographically anchored record of a physical location or asset over time. The system directs what to capture and when; the observer follows instructions. A challenge-response layer requires real-time compliance with unpredictable commands, making pre-recorded or fabricated footage significantly harder to present convincingly. The AI analyses each session, compares it to prior sessions, and flags changes and inconsistencies.
+
+Applications include construction progress monitoring for lenders, pre-sale property condition records, forestry and environmental change detection, agricultural verification for microfinance, and incremental trust-building for borrowers without credit history. See [INSPECTION.md](INSPECTION.md) for a full description of the protocol, the trust model, and the range of use cases.
+
+---
+
 ### Evidence bundles
 
 A single stamp covering multiple documents of different types — PDFs, emails, photographs, contracts — submitted together as a coherent body of evidence. The AI evaluates the bundle as a whole, assessing internal consistency and the combined support for a claim rather than treating each document in isolation.
