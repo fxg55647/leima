@@ -285,6 +285,8 @@ Your task: weigh the two analyses and deliver a verdict. First check whether the
 {scope_note}
 If the evidence clearly favours one side, say so directly. Do not hedge. A clear verdict is more useful than a balanced non-answer.
 
+Include a brief note on source credibility in your reasoning — whether the source type (e.g. domain authority, cryptographic signature, DKIM, commit verification) strengthens or weakens the overall verdict.
+
 Privacy: if the user asked to keep specific details private in their claim, replace those details with the same generic placeholders used by the analysts throughout your verdict and summary — including in the VERDICT line.
 
 Start your response with exactly two lines in this format:
