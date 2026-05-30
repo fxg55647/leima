@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fi">
 <head>
   <meta charset="UTF-8">
@@ -485,12 +485,10 @@
       background: #07111e;
       color: #6a8899;
       width: 100%;
-      padding: 3rem 2rem 1.5rem;
+      padding: 3rem 2rem 1.5rem 0;
       border-top: 3px solid #c0392b;
     }
     .footer-inner {
-      max-width: 680px;
-      margin: 0 auto;
       display: flex;
       gap: 3rem;
     }
@@ -524,8 +522,7 @@
     .footer-col a { color: #6a8899; text-decoration: none; font-size: 0.85rem; transition: color 0.15s; }
     .footer-col a:hover { color: #c8dff0; }
     .footer-bottom {
-      max-width: 680px;
-      margin: 2rem auto 0;
+      margin: 2rem 0 0;
       padding-top: 1.25rem;
       border-top: 1px solid #1a2d40;
       font-size: 0.75rem;
@@ -675,10 +672,7 @@
         <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
         <button type="button" class="tab-btn" onclick="switchCat('bundle', this)">Bundle</button>
       </div>
-      <div class="sub-row" id="sub-web">
-        <button type="button" class="sub-btn active" onclick="switchTab('live', this)">Browser</button>
-        <button type="button" class="sub-btn" onclick="switchTab('web', this)">URL</button>
-      </div>
+
       <div class="sub-row" id="sub-text" style="display:none;">
         <button type="button" class="sub-btn active" onclick="switchTab('text', this)">Paste</button>
         <button type="button" class="sub-btn" onclick="switchTab('pdf', this, 'upload')">PDF</button>
@@ -746,7 +740,7 @@
           </div>
         </div>
 
-        <div id="tab-web" class="tab-panel">
+        <div id="tab-web" class="tab-panel active">
           <input type="url" name="web_url" id="web-url" class="url-input"
             placeholder="https://example.com/article">
         </div>
@@ -819,51 +813,9 @@
           <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
         </div>
 
-        <div id="tab-live" class="tab-panel active">
-          <div style="margin-bottom:0.75rem;">
-            <input type="url" id="live-url" class="url-input" placeholder="https://vero.fi"
-              data-stampd-field="target-url">
-          </div>
-          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;">
-            <button type="button" class="fetch-btn" id="live-open-btn" onclick="openLiveBrowser()" style="margin-bottom:0;"
-              data-stampd-action="open-url">Load page</button>
-            <span id="live-status" style="font-size:0.8rem;color:var(--text-muted);"
-              data-stampd-status="session"></span>
-          </div>
-          <div id="live-browser-wrap" style="display:none;margin-top:0.75rem;">
-            <div style="position:relative;display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-              <div id="live-click-notice" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:#fff;font-size:0.75rem;padding:0.25rem 0.75rem;border-radius:100px;pointer-events:none;z-index:10;white-space:nowrap;">Processing click…</div>
-              <div id="live-latency-modal" style="display:none;position:absolute;inset:0;z-index:20;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
-                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem 1.75rem;max-width:300px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-                  <p style="font-weight:600;margin:0 0 0.6rem;color:var(--text);font-size:0.95rem;">Live browser — short delay</p>
-                  <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 1.25rem;line-height:1.55;">Clicks and keypresses take <strong style="color:var(--text);">1–2 seconds</strong> to register — the browser runs in the cloud. Make your move, then wait a moment for the page to respond.</p>
-                  <button type="button" onclick="document.getElementById('live-latency-modal').style.display='none'" style="width:100%;padding:0.45rem 1rem;background:var(--blue-deep);color:#fff;border:1px solid var(--blue-deep);border-radius:4px;font-size:0.75rem;font-weight:500;font-family:'Spectral',Georgia,serif;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">Got it</button>
-                </div>
-              </div>
-              <img id="live-img" tabindex="0"
-                style="flex:1;min-width:0;height:520px;object-fit:contain;display:block;cursor:crosshair;outline:none;background:#1a1a2e;"
-                alt="Live browser" data-stampd-view="live-browser">
-              <div style="display:flex;flex-direction:column;width:36px;background:var(--surface-input);border-left:1px solid var(--border);flex-shrink:0;user-select:none;">
-                <button type="button" onclick="scrollLiveBrowser('up')" style="padding:0.6rem 0;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;flex-shrink:0;" title="Scroll up" data-stampd-action="scroll-up">↑</button>
-                <div style="flex:1;"></div>
-                <button type="button" onclick="scrollLiveBrowser('down')" style="padding:0.6rem 0;background:none;border:none;border-top:1px solid var(--border);cursor:pointer;font-size:1.1rem;color:var(--text-muted);line-height:1;flex-shrink:0;" title="Scroll down" data-stampd-action="scroll-down">↓</button>
-              </div>
-            </div>
-            <div data-stampd-current-url id="live-current-url" style="font-size:0.72rem;color:var(--text-faint);margin-top:0.3rem;word-break:break-all;"></div>
-            <div id="live-capture-section" style="display:none;margin-top:1rem;">
-              <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 0.625rem;">When the page shows evidence for your claim, press:</p>
-              <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-                <button type="button" class="fetch-btn" id="live-capture-btn" style="margin-bottom:0;" onclick="captureLiveBrowser()"
-                  data-stampd-action="capture-evidence">Analyse this page</button>
-                <span id="live-capture-status" style="font-size:0.8rem;color:var(--text-muted);"></span>
-              </div>
-            </div>
-          </div>
-          <input type="hidden" id="live-session-id" value="" data-stampd-session-id>
-        </div>
 
         <div class="submit-row">
-          <button type="submit" id="submit-btn" style="display:none;">
+          <button type="submit" id="submit-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Analyse
           </button>
@@ -913,6 +865,21 @@
       <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
       <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
     </div>
+    <div class="footer-col">
+      <span class="footer-col-title">Product (copy)</span>
+      <a href="/validate">Validate</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/README.md" target="_blank" rel="noopener">How it works</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/USECASES.md" target="_blank" rel="noopener">Use cases</a>
+      <a href="#">Pricing</a>
+    </div>
+    <div class="footer-col">
+      <span class="footer-col-title">Transparency (copy)</span>
+      <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/SECURITY_MODEL.md" target="_blank" rel="noopener">Data policy</a>
+      <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener">TREAD — what's this?</a>
+      <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
+      <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
+    </div>
   </div>
   <div class="footer-bottom">© 2026 Leima — Open source</div>
 </footer>
@@ -925,7 +892,7 @@
     reader.readAsText(input.files[0], 'utf-8');
   }
 
-  let _currentTab = 'live';
+  let _currentTab = 'web';
   let _currentCat = 'web';
 
   function tabHasContent(tab) {
@@ -936,7 +903,7 @@
     if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
     if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
-    if (tab === 'live') return !!document.getElementById('live-session-id').value;
+
     if (tab === 'bundle') return Array.from(document.querySelectorAll('#bundle-entries input[name="bundle_tx_ids"]')).some(i => i.value.trim());
     return false;
   }
@@ -984,11 +951,6 @@
       document.getElementById('email-fetch-results').innerHTML = '';
       document.getElementById('email-session-id').value = '';
       document.getElementById('email-idx').value = '';
-    } else if (tab === 'live') {
-      if (_liveScreenshotInterval) { clearInterval(_liveScreenshotInterval); _liveScreenshotInterval = null; }
-      document.getElementById('live-session-id').value = '';
-      document.getElementById('live-browser-wrap').style.display = 'none';
-      document.getElementById('live-img').src = '';
     } else if (tab === 'bundle') {
       _resetBundleEntries();
     }
@@ -1009,7 +971,6 @@
     web:       'e.g. <em>"Apple announced Vision Pro on this page"</em>',
     email:     'e.g. <em>"Tesla offered me a job in this email"</em>',
     github:    'e.g. <em>"this code follows best security practices"</em>',
-    live:      'e.g. <em>"my tax decision for 2024 shows income of X"</em>',
     bundle:    'e.g. <em>"these stamps together prove the contract was valid at the time of signing"</em>',
   };
   const TAB_PLACEHOLDERS = {
@@ -1020,12 +981,11 @@
     web:       'this website advertises free worldwide shipping',
     email:     'the sender promised delivery before Friday',
     github:    'this repository contains hardcoded secrets',
-    live:      'the balance shown is at least 10 000 EUR',
     bundle:    'all three stamps originate from the same signatory',
   };
 
-  const CAT_DEFAULT = {web: 'live', text: 'text', image: 'image', email: 'email', github: 'github', bundle: 'bundle'};
-  const CAT_HAS_SUB = new Set(['web', 'text', 'image']);
+  const CAT_DEFAULT = {web: 'web', text: 'text', image: 'image', email: 'email', github: 'github', bundle: 'bundle'};
+  const CAT_HAS_SUB = new Set(['text', 'image']);
 
   function switchCat(cat, btn) {
     if (cat === _currentCat) return;
@@ -1072,9 +1032,9 @@
     if (tab === 'pdf') { pdfMode === 'url' ? showUrlInput() : showDropZone(); }
     document.getElementById('active-tab').value = tab === 'image-url' ? 'image' : tab;
     _currentTab = tab;
-    const isLive = tab === 'live', isGithub = tab === 'github', isBundle = tab === 'bundle';
-    document.getElementById('submit-btn').style.display = isLive ? 'none' : '';
-    document.querySelector('.credibility-options').style.display = (isGithub || isLive || isBundle) ? 'none' : '';
+    const isGithub = tab === 'github', isBundle = tab === 'bundle';
+    document.getElementById('submit-btn').style.display = '';
+    document.querySelector('.credibility-options').style.display = (isGithub || isBundle) ? 'none' : '';
     if (isBundle) { document.getElementById('submit-btn').disabled = false; }
     document.getElementById('submit-btn').disabled = (tab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
     const hint = TAB_HINTS[tab];
@@ -1130,146 +1090,6 @@
   // initialise bundle entries on page load
   (function() { _resetBundleEntries(); })();
 
-  let _liveScreenshotInterval = null;
-
-  function _startScreenshotPoll(sessionId) {
-    if (_liveScreenshotInterval) clearInterval(_liveScreenshotInterval);
-    const img = document.getElementById('live-img');
-    const refresh = () => {
-      const tmp = new Image();
-      tmp.onload = () => { img.src = tmp.src; };
-      tmp.src = '/browser-screenshot/' + sessionId + '?t=' + Date.now();
-    };
-    refresh();
-    _liveScreenshotInterval = setInterval(refresh, 2000);
-
-    img.onclick = async (e) => {
-      const rect = img.getBoundingClientRect();
-      img.focus();
-      await fetch('/browser-click/' + sessionId, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height}),
-      });
-      setTimeout(refresh, 600);
-    };
-
-    const SPECIAL = {Enter:'Enter',Backspace:'Backspace',Tab:'Tab',Escape:'Escape',
-      ArrowUp:'ArrowUp',ArrowDown:'ArrowDown',ArrowLeft:'ArrowLeft',ArrowRight:'ArrowRight',
-      Delete:'Delete',Home:'Home',End:'End',PageUp:'PageUp',PageDown:'PageDown'};
-    img.onkeydown = async (e) => {
-      const key = SPECIAL[e.key];
-      if (key || (e.key.length === 1 && !e.ctrlKey && !e.metaKey)) {
-        e.preventDefault();
-        await fetch('/browser-key/' + sessionId, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(key ? {key} : {text: e.key}),
-        });
-        setTimeout(refresh, 400);
-      }
-    };
-  }
-
-  async function openLiveBrowser() {
-    const btn = document.getElementById('live-open-btn');
-    const status = document.getElementById('live-status');
-    btn.disabled = true;
-    btn.textContent = 'Loading…';
-    status.textContent = '';
-    try {
-      const startUrl = document.getElementById('live-url').value.trim();
-      const r = await fetch('/browser-session', {method: 'POST'});
-      const d = await r.json();
-      if (d.error) throw new Error(d.error);
-      const sessionId = d.session_id;
-      document.getElementById('live-session-id').value = sessionId;
-      document.getElementById('live-browser-wrap').style.display = 'block';
-      document.getElementById('live-capture-section').style.display = 'block';
-      _startScreenshotPoll(sessionId);
-      if (startUrl) {
-        status.textContent = 'Navigating…';
-        const nr = await fetch('/browser-navigate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: sessionId, url: startUrl})});
-        const nd = await nr.json();
-        if (nd.error) throw new Error('Navigate failed: ' + nd.error);
-        document.getElementById('live-current-url').textContent = startUrl;
-      }
-      status.textContent = 'Browser open — click to interact, then press Analyse.';
-    } catch(e) {
-      status.textContent = 'Error: ' + e.message;
-    }
-    btn.disabled = false;
-    btn.textContent = 'Load page';
-  }
-
-  async function scrollLiveBrowser(direction) {
-    const sessionId = document.getElementById('live-session-id').value;
-    const status = document.getElementById('live-status');
-    if (!sessionId) return;
-    try {
-      await fetch('/browser-scroll', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({session_id: sessionId, direction}),
-      });
-    } catch(e) {
-      status.textContent = 'Error: ' + e.message;
-    }
-  }
-
-  async function captureLiveBrowser() {
-    const sessionId = document.getElementById('live-session-id').value;
-    const question = document.getElementById('question-input').value.trim();
-    const status = document.getElementById('live-capture-status');
-    const btn = document.getElementById('live-capture-btn');
-    if (!sessionId) { status.textContent = 'Open a browser first.'; return; }
-    if (!question) { status.textContent = 'Enter a claim above first.'; return; }
-    btn.disabled = true;
-    status.textContent = 'Connecting…';
-    document.getElementById('answer-area').innerHTML = '';
-    let ticker = null;
-    try {
-      const r = await fetch('/browser-capture', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({session_id: sessionId, question}),
-      });
-      const d = await r.json();
-      if (d.error) throw new Error(d.error);
-      const jobId = d.job_id;
-
-      const start = Date.now();
-      ticker = setInterval(() => {
-        const s = Math.round((Date.now() - start) / 1000);
-        status.textContent = `Analysing with AI… (${s}s)`;
-      }, 1000);
-      status.textContent = 'Analysing with AI…';
-
-      while (true) {
-        await new Promise(res => setTimeout(res, 3000));
-        const pr = await fetch(`/browser-capture/${jobId}`);
-        const job = await pr.json();
-        if (job.error) throw new Error(job.error);
-        if (job.status === 'done') {
-          clearInterval(ticker);
-          status.textContent = 'Done — ' + job.verdict_category;
-          const frag = await fetch('/verdict-fragment/' + job.session_id);
-          document.getElementById('answer-area').innerHTML = await frag.text();
-          if (window.htmx) htmx.process(document.getElementById('answer-area'));
-          document.getElementById('answer-area').scrollIntoView({behavior: 'smooth', block: 'start'});
-          break;
-        } else if (job.status === 'error') {
-          throw new Error(job.msg);
-        } else {
-          status.textContent = job.msg + '…';
-        }
-      }
-    } catch(e) {
-      status.textContent = 'Error: ' + e.message;
-    } finally {
-      clearInterval(ticker);
-      btn.disabled = false;
-    }
-  }
-
   (function() {
     const dot = document.getElementById('tread-dot');
     const text = document.getElementById('tread-text');
@@ -1288,17 +1108,6 @@
     window.addEventListener('online', goOnline);
     if (!navigator.onLine) goOffline();
   })();
-
-  window.addEventListener('blur', () => {
-    if (document.getElementById('active-tab').value !== 'live') return;
-    if (!document.getElementById('live-session-id').value) return;
-    const notice = document.getElementById('live-click-notice');
-    if (!notice) return;
-    notice.style.display = 'block';
-    clearTimeout(notice._t);
-    notice._t = setTimeout(() => { notice.style.display = 'none'; }, 1500);
-  });
-
 
   function onFileSelect(input) {
     if (input.files[0]) { document.getElementById('drop-label').textContent = input.files[0].name; document.getElementById('drop-zone').classList.add('has-file'); }
