@@ -171,6 +171,25 @@ def _source_block(source_context: dict | None) -> str:
             "Note that this is a specific point-in-time snapshot of the repository — "
             "the commit hash ties these exact file contents to a specific moment in version control history."
         )
+    elif t == "bundle":
+        count = source_context.get("count", 0)
+        stamps = source_context.get("stamps", [])
+        has_content = any(s.get("verdict_summary") or s.get("question") for s in stamps)
+        if has_content:
+            return (
+                f"Source type: Bundle of {count} independently Arweave-sealed Leima verdicts. "
+                "Each stamp was previously verified and cryptographically committed to Arweave — "
+                "the verdict content and timestamps are immutable. "
+                "Analyse whether the stamps together support, contradict, or are relevant to the meta-claim. "
+                "Be explicit about which stamps contribute most to the conclusion and how they relate to each other."
+            )
+        else:
+            return (
+                f"Source type: Bundle of {count} Arweave-sealed Leima stamps. "
+                "The stamps have been fetched and verified from Arweave — they are authentic Leima records. "
+                "The specific verdict text is not available in this bundle (older manifest format without embedded summaries). "
+                "Analyse based on the available metadata: timestamps, TX IDs, and models used."
+            )
     else:
         return (
             "Content analysis mode: assess only what the document contains or states. "

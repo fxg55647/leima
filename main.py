@@ -424,8 +424,11 @@ def build_manifest(
     model: str,
     input_hash: str,
     verdict_hash: str,
+    question: str = "",
+    verdict_summary: str = "",
+    verdict_category: str = "",
 ) -> dict:
-    return {
+    m: dict = {
         "version": "1",
         "timestamp": timestamp,
         "model": model,
@@ -433,6 +436,13 @@ def build_manifest(
         "input": {"sha256": input_hash},
         "verdict_pdf": {"sha256": verdict_hash},
     }
+    if question:
+        m["question"] = question
+    if verdict_summary:
+        m["verdict_summary"] = verdict_summary
+    if verdict_category:
+        m["verdict_category"] = verdict_category
+    return m
 
 
 _CR_SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
@@ -1273,6 +1283,9 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         model=MODEL,
         input_hash=input_hash,
         verdict_hash=verdict_hash,
+        question=question,
+        verdict_summary=result.get("summary_verdict", ""),
+        verdict_category=result.get("verdict_category", ""),
     )
     if tread_snap and tread_snap.get("tx"):
         manifest["tread"] = {
@@ -1330,6 +1343,7 @@ async def ask(
     gh_paths: str = Form(""),
     review_mode: str = Form("claim"),
     rules_url: str = Form(""),
+    bundle_tx_ids: list[str] = Form([]),
 ):
     if review_mode != "code_review" and not question.strip():
         return HTMLResponse('<div class="error">Please enter a claim.</div>')
@@ -1559,6 +1573,49 @@ async def ask(
         )
         input_label = "email"
         contents.append(f"Email from: {msg['from']}\nSubject: {msg['subject']}\nDate: {msg['date']}\n\n{body}")
+
+    elif active_tab == "bundle":
+        tx_ids = [t.strip() for t in bundle_tx_ids if t.strip()]
+        if len(tx_ids) < 2:
+            return HTMLResponse('<div class="error">Add at least 2 stamps to create a bundle.</div>')
+        if len(tx_ids) > 10:
+            return HTMLResponse('<div class="error">Maximum 10 stamps per bundle.</div>')
+        stamps = []
+        for tx_id in tx_ids:
+            if not re.match(r'^[A-Za-z0-9_\-]{30,60}$', tx_id):
+                return HTMLResponse(f'<div class="error">Invalid TX ID: {_html_escape(tx_id[:24])}</div>')
+            try:
+                resp = http_requests.get(f"{IRYS_GATEWAY}/{tx_id}", timeout=15)
+                resp.raise_for_status()
+                mdata = resp.json()
+            except Exception as e:
+                return HTMLResponse(f'<div class="error">Could not fetch stamp {_html_escape(tx_id[:8])}…: {e}</div>')
+            if not isinstance(mdata, dict) or mdata.get("version") not in ("1",):
+                return HTMLResponse(f'<div class="error">TX {_html_escape(tx_id[:8])}… is not a valid Leima stamp.</div>')
+            stamps.append({
+                "tx_id": tx_id,
+                "timestamp": mdata.get("timestamp", ""),
+                "question": mdata.get("question", ""),
+                "verdict_summary": mdata.get("verdict_summary", ""),
+                "verdict_category": mdata.get("verdict_category", ""),
+                "model": mdata.get("model", ""),
+            })
+        lines = ["Bundle of Arweave-verified Leima stamps:\n"]
+        for i, s in enumerate(stamps, 1):
+            lines.append(f"Stamp {i} — TX: {s['tx_id']}")
+            lines.append(f"  Sealed at: {s['timestamp']}")
+            if s["question"]:
+                lines.append(f"  Verified claim: {s['question']}")
+            if s["verdict_summary"]:
+                lines.append(f"  Verdict summary: {s['verdict_summary']}")
+            if s["verdict_category"]:
+                lines.append(f"  Category: {s['verdict_category']}")
+            lines.append("")
+        bundle_text = "\n".join(lines)
+        input_bytes = bundle_text.encode("utf-8")
+        input_label = f"bundle:{len(stamps)}-stamps"
+        source_context = {"type": "bundle", "count": len(stamps), "stamps": stamps}
+        contents.append(bundle_text)
 
     else:
         return HTMLResponse('<div class="error">Unknown input type.</div>')

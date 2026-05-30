@@ -673,6 +673,7 @@
         <button type="button" class="tab-btn" onclick="switchCat('image', this)">Image</button>
         <button type="button" class="tab-btn" onclick="switchCat('email', this)">Email</button>
         <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
+        <button type="button" class="tab-btn" onclick="switchCat('bundle', this)">Bundle</button>
       </div>
       <div class="sub-row" id="sub-web">
         <button type="button" class="sub-btn active" onclick="switchTab('live', this)">Browser</button>
@@ -779,6 +780,12 @@
             <label class="field-label">GitHub token <span style="font-weight:400;color:var(--text-muted);">(optional — required for private repos)</span></label>
             <input type="password" name="gh_token" id="gh-token" class="field-input" placeholder="ghp_...">
           </div>
+        </div>
+
+        <div id="tab-bundle" class="tab-panel">
+          <div id="bundle-entries" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem;"></div>
+          <button type="button" onclick="addBundleEntry()" id="bundle-add-btn" class="fetch-btn" style="margin-bottom:0.25rem;">+ Add stamp</button>
+          <div style="font-size:0.75rem;color:var(--text-faint);margin-top:0.3rem;">2–10 stamps · Arweave TX IDs from previous leima.io verdicts</div>
         </div>
 
         <div id="tab-email" class="tab-panel">
@@ -930,6 +937,7 @@
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
     if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
     if (tab === 'live') return !!document.getElementById('live-session-id').value;
+    if (tab === 'bundle') return Array.from(document.querySelectorAll('#bundle-entries input[name="bundle_tx_ids"]')).some(i => i.value.trim());
     return false;
   }
 
@@ -981,6 +989,8 @@
       document.getElementById('live-session-id').value = '';
       document.getElementById('live-browser-wrap').style.display = 'none';
       document.getElementById('live-img').src = '';
+    } else if (tab === 'bundle') {
+      _resetBundleEntries();
     }
   }
 
@@ -1000,6 +1010,7 @@
     email:     'e.g. <em>"Tesla offered me a job in this email"</em>',
     github:    'e.g. <em>"this code follows best security practices"</em>',
     live:      'e.g. <em>"my tax decision for 2024 shows income of X"</em>',
+    bundle:    'e.g. <em>"these stamps together prove the contract was valid at the time of signing"</em>',
   };
   const TAB_PLACEHOLDERS = {
     pdf:       'this contract was signed by both parties',
@@ -1010,9 +1021,10 @@
     email:     'the sender promised delivery before Friday',
     github:    'this repository contains hardcoded secrets',
     live:      'the balance shown is at least 10 000 EUR',
+    bundle:    'all three stamps originate from the same signatory',
   };
 
-  const CAT_DEFAULT = {web: 'live', text: 'text', image: 'image', email: 'email', github: 'github'};
+  const CAT_DEFAULT = {web: 'live', text: 'text', image: 'image', email: 'email', github: 'github', bundle: 'bundle'};
   const CAT_HAS_SUB = new Set(['web', 'text', 'image']);
 
   function switchCat(cat, btn) {
@@ -1060,13 +1072,63 @@
     if (tab === 'pdf') { pdfMode === 'url' ? showUrlInput() : showDropZone(); }
     document.getElementById('active-tab').value = tab === 'image-url' ? 'image' : tab;
     _currentTab = tab;
-    const isLive = tab === 'live', isGithub = tab === 'github';
+    const isLive = tab === 'live', isGithub = tab === 'github', isBundle = tab === 'bundle';
     document.getElementById('submit-btn').style.display = isLive ? 'none' : '';
-    document.querySelector('.credibility-options').style.display = (isGithub || isLive) ? 'none' : '';
+    document.querySelector('.credibility-options').style.display = (isGithub || isLive || isBundle) ? 'none' : '';
+    if (isBundle) { document.getElementById('submit-btn').disabled = false; }
     document.getElementById('submit-btn').disabled = (tab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
     const hint = TAB_HINTS[tab];
     if (hint) { document.getElementById('question-sub').innerHTML = hint; document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[tab] || ''; }
   }
+
+  function _makeBundleEntry(idx, canRemove) {
+    const div = document.createElement('div');
+    div.className = 'bundle-entry';
+    div.style.cssText = 'display:flex;align-items:center;gap:0.5rem;';
+    div.innerHTML =
+      `<span style="font-size:0.72rem;color:var(--text-muted);width:1.25rem;text-align:right;flex-shrink:0;">${idx}</span>` +
+      `<input type="text" name="bundle_tx_ids" class="field-input" placeholder="Arweave TX ID" maxlength="60" style="flex:1;font-family:monospace;font-size:0.82rem;">` +
+      `<button type="button" onclick="removeBundleEntry(this)" class="bundle-remove" style="${canRemove ? '' : 'display:none;'}background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:0 0.3rem;line-height:1;">×</button>`;
+    return div;
+  }
+
+  function _resetBundleEntries() {
+    const c = document.getElementById('bundle-entries');
+    c.innerHTML = '';
+    c.appendChild(_makeBundleEntry(1, false));
+    c.appendChild(_makeBundleEntry(2, false));
+    document.getElementById('bundle-add-btn').disabled = false;
+  }
+
+  function addBundleEntry() {
+    const c = document.getElementById('bundle-entries');
+    const entries = c.querySelectorAll('.bundle-entry');
+    if (entries.length >= 10) return;
+    c.appendChild(_makeBundleEntry(entries.length + 1, true));
+    _updateBundleRemoveButtons();
+    if (c.querySelectorAll('.bundle-entry').length >= 10)
+      document.getElementById('bundle-add-btn').disabled = true;
+  }
+
+  function removeBundleEntry(btn) {
+    const c = document.getElementById('bundle-entries');
+    if (c.querySelectorAll('.bundle-entry').length <= 2) return;
+    btn.closest('.bundle-entry').remove();
+    c.querySelectorAll('.bundle-entry').forEach((el, i) => {
+      const span = el.querySelector('span'); if (span) span.textContent = i + 1;
+    });
+    _updateBundleRemoveButtons();
+    document.getElementById('bundle-add-btn').disabled = false;
+  }
+
+  function _updateBundleRemoveButtons() {
+    const entries = document.querySelectorAll('#bundle-entries .bundle-entry');
+    const show = entries.length > 2;
+    entries.forEach(el => { const b = el.querySelector('.bundle-remove'); if (b) b.style.display = show ? '' : 'none'; });
+  }
+
+  // initialise bundle entries on page load
+  (function() { _resetBundleEntries(); })();
 
   let _liveScreenshotInterval = null;
 
