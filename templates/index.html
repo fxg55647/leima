@@ -380,6 +380,34 @@
       line-height: 1.4;
     }
     .credibility-option input { margin-top: 0.15rem; flex-shrink: 0; accent-color: var(--blue-deep); }
+    .help-btn {
+      background: none; border: none; padding: 0; cursor: pointer;
+      color: var(--blue-mid); font-size: 0.8rem; font-weight: 700;
+      line-height: 1; flex-shrink: 0; margin-top: 0.1rem;
+      position: relative;
+    }
+    .help-btn::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 7px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a3a5c;
+      color: #fff;
+      padding: 0.35rem 0.65rem;
+      border-radius: 5px;
+      font-size: 0.72rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      white-space: normal;
+      width: 220px;
+      line-height: 1.45;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 200;
+    }
+    .help-btn:hover::after, .help-btn.pinned::after { opacity: 1; }
 
     button[type="submit"] {
       background: var(--blue-deep);
@@ -998,14 +1026,17 @@
             <label class="credibility-option" id="content-only-label">
               <input type="radio" name="assess_credibility" value="0" checked>
               Evaluate only what the source says about the claim
+              <button type="button" class="help-btn" data-tip="AI reads only the attached source. Does the source support or contradict the claim? No external knowledge used." onclick="toggleHelpBtn(this)">?</button>
             </label>
             <label class="credibility-option">
               <input type="radio" name="assess_credibility" value="1">
               Evaluate whether the claim is true
+              <button type="button" class="help-btn" data-tip="AI uses its own knowledge to judge whether the claim is factually correct, regardless of what the source says." onclick="toggleHelpBtn(this)">?</button>
             </label>
             <label class="credibility-option">
               <input type="radio" name="assess_credibility" value="1_web">
               Evaluate whether the claim is true and include web search
+              <button type="button" class="help-btn" data-tip="AI searches the web in real time to find current evidence for or against the claim." onclick="toggleHelpBtn(this)">?</button>
             </label>
           </div>
         </div>
@@ -1476,6 +1507,17 @@
     toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
   }
 
+
+  function toggleHelpBtn(btn) {
+    const pinned = btn.classList.contains('pinned');
+    document.querySelectorAll('.help-btn.pinned').forEach(b => b.classList.remove('pinned'));
+    if (!pinned) btn.classList.add('pinned');
+  }
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.help-btn')) {
+      document.querySelectorAll('.help-btn.pinned').forEach(b => b.classList.remove('pinned'));
+    }
+  });
 
   function switchCat(cat, btn) {
     if (cat === _currentCat) return;
