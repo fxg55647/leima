@@ -240,6 +240,13 @@
     .footer-col-title { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--blue-mid); margin-bottom: 0.25rem; }
     .footer-col a { color: #6a8899; text-decoration: none; font-size: 0.85rem; transition: color 0.15s; }
     .footer-col a:hover { color: #c8dff0; }
+    .footer-col-readme {}
+    .footer-readme-body { font-size: 0.82rem; color: #6a8899; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
+    .footer-readme-body h1 { font-size: 0.95rem; color: #c8dff0; margin-bottom: 0.4rem; }
+    .footer-readme-body strong { color: #a8c4d8; }
+    .footer-readme-body p { margin-bottom: 0.5rem; }
+    .footer-readme-more { color: #5a8fb0; font-size: 0.8rem; margin-top: 0.25rem; }
+    .footer-readme-more:hover { color: #c8dff0; }
     .footer-bottom { margin: 2rem 0 0; padding-top: 1.25rem; border-top: 1px solid #1a2d40; font-size: 0.75rem; color: #334a5c; letter-spacing: 0.04em; }
 
     @media (max-width: 520px) {
@@ -343,6 +350,16 @@
       <a href="/docs/tread">TREAD — what's this?</a>
       <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
       <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
+    </div>
+    <div class="footer-col footer-col-readme">
+      <span class="footer-col-title">About</span>
+      <div class="footer-readme-body">{{ readme_intro | safe }}</div>
+      <a class="footer-readme-more" href="/docs/readme">Read more →</a>
+    </div>
+    <div class="footer-col footer-col-readme">
+      <span class="footer-col-title">TREAD</span>
+      <div class="footer-readme-body">{{ tread_intro | safe }}</div>
+      <a class="footer-readme-more" href="/docs/tread">Read more →</a>
     </div>
   </div>
   <div class="footer-bottom">© 2026 Leima — Open source</div>

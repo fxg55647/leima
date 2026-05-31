@@ -670,6 +670,22 @@ _DOCS: dict[str, tuple[str, str]] = {
     "tread":    ("TREAD.md",         "TREAD — What is this?"),
 }
 
+# Reverse map: filename.md → /docs/slug (for rewriting internal links)
+_DOC_LINKS: dict[str, str] = {
+    filename: f"/docs/{slug}" for slug, (filename, _) in _DOCS.items()
+}
+
+def _fix_doc_links(html: str) -> str:
+    """Rewrite .md hrefs to /docs/slug; add target=_blank to external links."""
+    def replace(m: re.Match) -> str:
+        href = m.group(1)
+        if href in _DOC_LINKS:
+            return f'href="{_DOC_LINKS[href]}"'
+        if href.startswith("http://") or href.startswith("https://"):
+            return f'href="{href}" target="_blank" rel="noopener"'
+        return m.group(0)
+    return re.sub(r'href="([^"]+)"', replace, html)
+
 @app.get("/docs/{name}", response_class=HTMLResponse)
 async def doc_page(request: Request, name: str):
     mapping = _DOCS.get(name)
@@ -679,10 +695,11 @@ async def doc_page(request: Request, name: str):
     try:
         path = os.path.join(os.path.dirname(__file__), filename)
         text = open(path, encoding="utf-8").read()
-        content = _md.markdown(text, extensions=["tables", "fenced_code", "nl2br"])
+        content = _md.markdown(text, extensions=["tables", "fenced_code", "nl2br", "toc"])
+        content = _fix_doc_links(content)
     except FileNotFoundError:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse("doc.html", {"request": request, "title": title, "content": content})
+    return templates.TemplateResponse("doc.html", {"request": request, "title": title, "content": content, "readme_intro": _readme_intro(), "tread_intro": _tread_intro()})
 
 
 @app.get("/", response_class=HTMLResponse)
