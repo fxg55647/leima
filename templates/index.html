@@ -786,8 +786,8 @@
     <div class="tabs-wrap">
       <div class="tabs">
         <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim only</button>
-        <button type="button" class="tab-btn" onclick="switchCat('text', this)">Text</button>
-        <button type="button" class="tab-btn active" onclick="switchCat('web', this)">Web</button>
+        <button type="button" class="tab-btn active" onclick="switchCat('text', this)">Text</button>
+        <button type="button" class="tab-btn" onclick="switchCat('web', this)">Web</button>
         <button type="button" class="tab-btn" onclick="switchCat('image', this)">Image</button>
         <button type="button" class="tab-btn" onclick="switchCat('email', this)">Email</button>
         <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
@@ -1157,6 +1157,68 @@
             <span class="email-guide-toggle" id="text-guide-toggle" onclick="toggleTextGuide()">Show more ↓</span>
           </div>
         </div>
+
+        <div class="email-guide" id="web-guide" style="display:none;">
+          <div class="email-guide-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 16v-4m0-4h.01" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="email-guide-header-title">How to use the Web tab</span>
+          </div>
+          <div class="email-guide-body" id="web-guide-body">
+            <p>Paste a public URL and write a claim about what the page says. The AI fetches the page content at the moment you click Analyse and evaluates your claim against it. The result — including a hash of the fetched content — is stamped permanently on Arweave.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              What you can prove
+            </h4>
+            <p>The stamp proves that at this specific moment, the page at this URL contained the content that supports or contradicts your claim. It captures a snapshot — not a live link. If the page is later edited or taken down, the stamp still stands as evidence of what it said at the time of stamping.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Tips for good results
+            </h4>
+            <ul>
+              <li>Use a direct link to the specific article or page, not a homepage or search result</li>
+              <li>Pages behind a login, paywall, or CAPTCHA cannot be fetched</li>
+              <li>For news articles, government documents, or court filings, the URL itself adds credibility</li>
+              <li>If the page is very long, focus your claim on a specific statement so the AI can evaluate it precisely</li>
+            </ul>
+            <div class="email-guide-fade"></div>
+          </div>
+          <div class="email-guide-footer">
+            <span class="email-guide-toggle" id="web-guide-toggle" onclick="toggleWebGuide()">Show more ↓</span>
+          </div>
+        </div>
+
+        <div class="email-guide" id="github-guide" style="display:none;">
+          <div class="email-guide-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 16v-4m0-4h.01" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="email-guide-header-title">How to use the GitHub tab</span>
+          </div>
+          <div class="email-guide-body" id="github-guide-body">
+            <p>Enter a GitHub repository and optionally a commit hash, branch, or tag. The AI fetches the specified files and evaluates your claim about the code. The result is stamped permanently — proving that this exact code existed in this repository at this point in time.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              What you can prove
+            </h4>
+            <p>The stamp records the repository, the commit reference, and the AI's verdict. It proves that specific code — a function, a file, an algorithm — existed in a public repository at a given commit. This is useful for establishing an invention timeline, verifying a security claim at release time, or proving authorship.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              How to fill in the fields
+            </h4>
+            <ul>
+              <li><strong>Repository:</strong> enter as <code style="font-family:monospace;font-size:0.85em;">owner/repo</code> or paste the full GitHub URL</li>
+              <li><strong>Commit / branch / tag:</strong> leave as <code style="font-family:monospace;font-size:0.85em;">main</code> to use the current HEAD, or enter a specific commit SHA or tag name to pin an exact version</li>
+              <li><strong>File paths:</strong> one path per line, up to 20 files — e.g. <code style="font-family:monospace;font-size:0.85em;">src/auth.py</code>. Leave empty to use the repository README.</li>
+            </ul>
+            <p>Only public repositories are supported without a token. For private repos, generate a GitHub personal access token with <code style="font-family:monospace;font-size:0.85em;">repo</code> read scope and enter it in the token field.</p>
+            <div class="email-guide-fade"></div>
+          </div>
+          <div class="email-guide-footer">
+            <span class="email-guide-toggle" id="github-guide-toggle" onclick="toggleGithubGuide()">Show more ↓</span>
+          </div>
+        </div>
       </div>
     </form>
   </div>
@@ -1212,7 +1274,7 @@
     reader.readAsText(input.files[0], 'utf-8');
   }
 
-  let _currentTab = 'web';
+  let _currentTab = 'text';
   let _currentCat = 'web';
 
   function tabHasContent(tab) {
@@ -1349,6 +1411,20 @@
     toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
   }
 
+  function toggleWebGuide() {
+    const body = document.getElementById('web-guide-body');
+    const toggle = document.getElementById('web-guide-toggle');
+    const expanded = body.classList.toggle('expanded');
+    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
+  }
+
+  function toggleGithubGuide() {
+    const body = document.getElementById('github-guide-body');
+    const toggle = document.getElementById('github-guide-toggle');
+    const expanded = body.classList.toggle('expanded');
+    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
+  }
+
 
   function switchCat(cat, btn) {
     if (cat === _currentCat) return;
@@ -1400,6 +1476,8 @@
     document.getElementById('image-guide').style.display = (tab === 'image' || tab === 'image-url') ? '' : 'none';
     document.getElementById('claim-guide').style.display = (tab === 'claim') ? '' : 'none';
     document.getElementById('text-guide').style.display = (tab === 'text' || tab === 'pdf') ? '' : 'none';
+    document.getElementById('web-guide').style.display = (tab === 'web') ? '' : 'none';
+    document.getElementById('github-guide').style.display = (tab === 'github') ? '' : 'none';
     const isGithub = tab === 'github', isBundle = tab === 'bundle', isClaim = tab === 'claim';
     document.getElementById('submit-btn').style.display = '';
     const coLabel = document.getElementById('content-only-label');
