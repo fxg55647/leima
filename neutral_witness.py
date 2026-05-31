@@ -210,7 +210,13 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
     content_only = (source_context or {}).get("type") == "content_only"
     web_search_note = (
         "\nWeb search results have been retrieved and are included in the context below. "
-        "Consider these alongside the document when evaluating the claim.\n"
+        "Consider these when evaluating the claim. "
+        "When citing web evidence, do not attribute claims to specific URLs. "
+        "Instead, characterize the source landscape: note how many sources addressed this, "
+        "what type they were (e.g. academic, government, news, industry), and how consistent they were — "
+        "e.g. \"multiple independent news sources reported…\", "
+        "\"one official publication stated… but no corroborating sources were found\", "
+        "or \"sources were divided, with some claiming… while others…\"\n"
     ) if (source_context or {}).get("web_search") else ""
     own_note = (
         " If your own knowledge adds relevant context beyond what the document states, "

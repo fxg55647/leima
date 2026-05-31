@@ -1134,7 +1134,7 @@ async def validate(
     )
 
 
-def _fetch_web_context(question: str) -> str:
+def _fetch_web_context(question: str) -> tuple[str, list[str]]:
     try:
         from neutral_witness import _get_client, MODEL
         client = _get_client()
@@ -1145,9 +1145,17 @@ def _fetch_web_context(question: str) -> str:
                 tools=[types.Tool(google_search=types.GoogleSearch())],
             ),
         )
-        return (resp.text or "").strip()
+        text = (resp.text or "").strip()
+        queries: list[str] = []
+        try:
+            gm = resp.candidates[0].grounding_metadata
+            if gm and gm.web_search_queries:
+                queries = list(gm.web_search_queries)
+        except Exception:
+            pass
+        return text, queries
     except Exception:
-        return ""
+        return "", []
 
 
 def _irys_upload(data: bytes, content_type: str, tags: dict) -> str:
@@ -1456,6 +1464,8 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
             "commit": tread_snap.get("commit", ""),
             "ok": tread_snap.get("ok", False),
         }
+    if source_context and source_context.get("web_search_queries"):
+        manifest["web_search_queries"] = source_context["web_search_queries"]
     session_id = uuid.uuid4().hex
     _evict_old_sessions()
     store[session_id] = {
@@ -1829,12 +1839,14 @@ async def ask(
     verdict_prefix = "Document (with evaluation)" if assess_credibility == "1" else "Document"
 
     if use_web_search == "1" and question.strip():
-        web_ctx = _fetch_web_context(question)
+        web_ctx, web_queries = _fetch_web_context(question)
         if web_ctx:
             contents.append(f"Web search context:\n{web_ctx}")
             if source_context is None:
                 source_context = {}
             source_context["web_search"] = True
+            if web_queries:
+                source_context["web_search_queries"] = web_queries
 
     try:
         result = _run_analysis(question, contents, input_bytes, input_label,
