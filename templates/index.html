@@ -774,7 +774,7 @@
     <div id="tread-modal-footer">
       <label id="tread-modal-suppress">
         <input type="checkbox" id="tread-modal-suppress-cb">
-        Don't show again for 1 hour
+        Don't show again for 2 minutes
       </label>
       <button id="tread-modal-close">Acknowledge</button>
     </div>
@@ -1687,7 +1687,7 @@
     const closeBtn = document.getElementById('tread-modal-close');
     let lastCheckedAt = null;
     let lastPollAt = null;
-    const SUPPRESS_DURATION_MS = 60 * 60 * 1000;
+    const SUPPRESS_DURATION_MS = 2 * 60 * 1000;
     const REPEAT_INTERVAL_MS = 60 * 1000;
     let lastModalShownAt = 0;
     let lastModalKey = '';
