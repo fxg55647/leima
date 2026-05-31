@@ -456,6 +456,82 @@
     }
     .fetch-btn:hover { background: var(--blue-deep); color: #fff; }
 
+    .email-guide {
+      margin-top: 1.6rem;
+      border: 1px solid var(--blue-border);
+      border-radius: 7px;
+      background: #f4f8fc;
+      overflow: hidden;
+    }
+    .email-guide-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--blue-border);
+      background: #eaf3fb;
+    }
+    .email-guide-header svg { flex-shrink: 0; color: var(--blue-deep); }
+    .email-guide-header-title {
+      font-family: 'Spectral', Georgia, serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--blue-deep);
+      letter-spacing: 0.01em;
+    }
+    .email-guide-body {
+      position: relative;
+      overflow: hidden;
+      max-height: 8em;
+      transition: max-height 0.45s ease;
+      padding: 0.9rem 1rem 0;
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .email-guide-body.expanded { max-height: 60em; }
+    .email-guide-fade {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2.5em;
+      background: linear-gradient(to bottom, transparent, #f4f8fc);
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .email-guide-body.expanded .email-guide-fade { opacity: 0; }
+    .email-guide-footer {
+      padding: 0.4rem 1rem 0.55rem;
+      border-top: 1px solid var(--blue-border);
+    }
+    .email-guide-toggle {
+      font-size: 0.82rem;
+      color: var(--blue-mid);
+      cursor: pointer;
+      user-select: none;
+    }
+    .email-guide-toggle:hover { color: var(--blue-deep); }
+    .email-guide h4 {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: 'Spectral', Georgia, serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--text);
+      margin: 1rem 0 0.3rem;
+      letter-spacing: 0.015em;
+      text-transform: uppercase;
+    }
+    .email-guide h4:first-of-type { margin-top: 0.5rem; }
+    .email-guide h4 svg { color: var(--blue-mid); flex-shrink: 0; }
+    .email-guide ol, .email-guide ul {
+      padding-left: 1.3em;
+      margin: 0.25rem 0 0.6rem;
+    }
+    .email-guide li { margin-bottom: 0.25rem; }
+    .email-guide p { margin-bottom: 0.55rem; }
+    .email-guide a { color: var(--blue-mid); }
+
     .email-split {
       display: flex;
       border: 1px solid var(--border);
@@ -505,17 +581,19 @@
       background: #07111e;
       color: #6a8899;
       width: 100%;
-      padding: 2rem 2rem 3rem;
+      padding: 2rem 0 3rem;
       border-top: 3px solid #c0392b;
     }
     .footer-inner {
+      max-width: 760px;
+      margin: 0 auto;
       display: grid;
-      grid-template-columns: repeat(3, 232px);
+      grid-template-columns: repeat(3, 1fr);
       align-items: start;
       gap: 2rem;
     }
     @media (min-width: 1352px) {
-      .footer-inner { grid-template-columns: repeat(5, 232px); justify-content: start; }
+      .footer-inner { max-width: 1288px; grid-template-columns: repeat(5, 1fr); }
     }
     .footer-logo-mark {
       display: flex;
@@ -888,6 +966,51 @@
         <div class="htmx-indicator">
           <span class="spinner"></span>Analysing...
         </div>
+
+        <div class="email-guide" id="email-guide" style="display:none;">
+          <div class="email-guide-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 16v-4m0-4h.01" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="email-guide-header-title">How to use the Email tab</span>
+          </div>
+          <div class="email-guide-body" id="email-guide-body">
+            <p>Use this tab to create a permanent, verifiable proof that a specific person sent you an email on a given date — before a deadline, before a decision, before a dispute. The stamp is stored on Arweave and cannot be altered or deleted. Anyone can verify it independently.</p>
+            <p>Enter your email address and an app password, then specify the sender and a date range. Click <strong>Fetch emails</strong> to retrieve matching messages, select one, and stamp it.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              What you can prove
+            </h4>
+            <p>The stamp records the sender's address, the date, and a cryptographic hash of the message. It proves that a specific sender sent this exact message before the moment of stamping. It does not prove the content is true — only that it exists and was sent.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+              Gmail: create an app password
+            </h4>
+            <p>Gmail requires an app-specific password for IMAP — your regular Gmail password will not work here.</p>
+            <ol>
+              <li>Make sure 2-Step Verification is enabled on your Google account.</li>
+              <li>Go to <strong>myaccount.google.com → Security → App passwords</strong>.</li>
+              <li>Choose <em>Mail</em> as the app and give it any name.</li>
+              <li>Copy the 16-character password shown and paste it into the Password field above.</li>
+            </ol>
+            <p>The app password gives read-only access to your email via IMAP. You can revoke it any time from the same page.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Finding the sender and date in Gmail
+            </h4>
+            <ol>
+              <li>Open the message in Gmail.</li>
+              <li>The sender's address is shown next to the name in the <em>From</em> line — hover over the name to reveal the full address.</li>
+              <li>The date is displayed at the top right of the message. For the exact timestamp, click the three-dot menu → <em>Show original</em>.</li>
+              <li>Enter the sender address and a date range that covers that date, then click <strong>Fetch emails</strong>.</li>
+            </ol>
+            <div class="email-guide-fade"></div>
+          </div>
+          <div class="email-guide-footer">
+            <span class="email-guide-toggle" id="email-guide-toggle" onclick="toggleEmailGuide()">Show more ↓</span>
+          </div>
+        </div>
       </div>
     </form>
   </div>
@@ -1040,6 +1163,13 @@
   const CAT_DEFAULT = {web: 'web', text: 'text', image: 'image', email: 'email', github: 'github', bundle: 'bundle', claim: 'claim'};
   const CAT_HAS_SUB = new Set(['text', 'image']);
 
+  function toggleEmailGuide() {
+    const body = document.getElementById('email-guide-body');
+    const toggle = document.getElementById('email-guide-toggle');
+    const expanded = body.classList.toggle('expanded');
+    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
+  }
+
   function switchCat(cat, btn) {
     if (cat === _currentCat) return;
     if (tabHasContent(_currentTab) && !confirm('Unsaved data will be lost. Continue?')) return;
@@ -1085,6 +1215,7 @@
     if (tab === 'pdf') { pdfMode === 'url' ? showUrlInput() : showDropZone(); }
     document.getElementById('active-tab').value = tab === 'image-url' ? 'image' : tab;
     _currentTab = tab;
+    document.getElementById('email-guide').style.display = (tab === 'email') ? '' : 'none';
     const isGithub = tab === 'github', isBundle = tab === 'bundle', isClaim = tab === 'claim';
     document.getElementById('submit-btn').style.display = '';
     const coLabel = document.getElementById('content-only-label');
