@@ -19,5 +19,7 @@ Jokaisen `git push`:n jälkeen käynnistä `/loop` 2 minuutin välein:
 - Jos 8 min kulunut → kerro timeout → lopeta loop
 - **Jos run-ID on sama kuin edellisellä kierroksella eikä uutta ajoa ole käynnistynyt → ei ole mitään odotettavaa → lopeta loop heti**
 
+Ennen `git push`ia tai sen yhteydessä kerro lyhyesti mitä juuri pushasit: mitkä tiedostot muuttuivat ja miksi. Muutama rivi riittää. Älä odota code review -tulosta — kerro muutoksista heti pushin yhteydessä.
+
 ## Muuta
 - Puhu aina suomea käyttäjälle
