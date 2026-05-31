@@ -196,6 +196,29 @@
     .sub-btn:hover { color: var(--blue-deep); border-color: var(--blue-border); }
     .sub-btn.active { background: var(--blue-dim); color: var(--blue-deep); border-color: var(--blue-border); }
 
+    /* Tooltips */
+    [data-tip] { position: relative; }
+    [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 7px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a3a5c;
+      color: #fff;
+      padding: 0.3rem 0.6rem;
+      border-radius: 5px;
+      font-size: 0.72rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
+    }
+    [data-tip]:hover::after { opacity: 1; }
+
     /* White content card */
     .card {
       padding: 1.75rem 1.5rem;
@@ -804,28 +827,28 @@
         <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
         <p style="font-size: 0.8rem; color: var(--text-faint);">Business · Finance · Research</p>
       </div>
-      <a href="/validate" class="validate-btn"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:0.3em"><path d="M20 6L9 17l-5-5"/></svg>Validate</a>
+      <a href="/validate" class="validate-btn" data-tip="Verify an existing Leima stamp"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:0.3em"><path d="M20 6L9 17l-5-5"/></svg>Validate</a>
     </header>
     <div class="tabs-wrap">
       <div class="tabs">
-        <button type="button" class="tab-btn active" onclick="switchCat('text', this)">Text</button>
-        <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim only</button>
-        <button type="button" class="tab-btn" onclick="switchCat('web', this)">Web</button>
-        <button type="button" class="tab-btn" onclick="switchCat('image', this)">Image</button>
-        <button type="button" class="tab-btn" onclick="switchCat('email', this)">Email</button>
-        <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
-        <button type="button" class="tab-btn" onclick="switchCat('bundle', this)">Bundle</button>
+        <button type="button" class="tab-btn active" onclick="switchCat('text', this)" data-tip="Paste or upload a document">Text</button>
+        <button type="button" class="tab-btn" onclick="switchCat('claim', this)" data-tip="Evaluate a factual claim without a source">Claim only</button>
+        <button type="button" class="tab-btn" onclick="switchCat('web', this)" data-tip="Fetch and analyse a web page">Web</button>
+        <button type="button" class="tab-btn" onclick="switchCat('image', this)" data-tip="Analyse an image or photo">Image</button>
+        <button type="button" class="tab-btn" onclick="switchCat('email', this)" data-tip="Stamp an email as permanent evidence">Email</button>
+        <button type="button" class="tab-btn" onclick="switchCat('github', this)" data-tip="Analyse a GitHub repository">GitHub</button>
+        <button type="button" class="tab-btn" onclick="switchCat('bundle', this)" data-tip="Combine multiple stamps into one verdict">Bundle</button>
       </div>
       <div class="tabs-scroll-hint" id="tabs-scroll-hint">›</div>
 
       <div class="sub-row" id="sub-text" style="display:none;">
-        <button type="button" class="sub-btn active" onclick="switchTab('text', this)">Paste</button>
-        <button type="button" class="sub-btn" onclick="switchTab('pdf', this, 'upload')">PDF</button>
-        <button type="button" class="sub-btn" onclick="switchTab('pdf', this, 'url')">From URL</button>
+        <button type="button" class="sub-btn active" onclick="switchTab('text', this)" data-tip="Paste text directly">Paste</button>
+        <button type="button" class="sub-btn" onclick="switchTab('pdf', this, 'upload')" data-tip="Upload a PDF file">PDF</button>
+        <button type="button" class="sub-btn" onclick="switchTab('pdf', this, 'url')" data-tip="Fetch a PDF from a URL">From URL</button>
       </div>
       <div class="sub-row" id="sub-image" style="display:none;">
-        <button type="button" class="sub-btn active" onclick="switchTab('image', this)">Upload</button>
-        <button type="button" class="sub-btn" onclick="switchTab('image-url', this)">From URL</button>
+        <button type="button" class="sub-btn active" onclick="switchTab('image', this)" data-tip="Upload an image file">Upload</button>
+        <button type="button" class="sub-btn" onclick="switchTab('image-url', this)" data-tip="Fetch an image from a URL">From URL</button>
       </div>
     </div>
   </div>
@@ -967,7 +990,7 @@
 
 
         <div class="submit-row">
-          <button type="submit" id="submit-btn">
+          <button type="submit" id="submit-btn" data-tip="Analyse and stamp permanently on Arweave">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Analyse
           </button>
