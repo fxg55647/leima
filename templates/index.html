@@ -870,8 +870,8 @@
       <div class="tabs-scroll-hint" id="tabs-scroll-hint">›</div>
 
       <div class="sub-row" id="sub-text" style="display:none;">
-        <button type="button" class="sub-btn active" onclick="switchTab('text', this)" data-tip="Paste text directly">Paste</button>
-        <button type="button" class="sub-btn" onclick="switchTab('pdf', this, 'upload')" data-tip="Upload a PDF file">PDF</button>
+        <button type="button" class="sub-btn active" onclick="switchTab('pdf', this, 'upload')" data-tip="Upload a PDF file">PDF</button>
+        <button type="button" class="sub-btn" onclick="switchTab('text', this)" data-tip="Paste text directly">Paste</button>
         <button type="button" class="sub-btn" onclick="switchTab('pdf', this, 'url')" data-tip="Fetch a PDF from a URL">From URL</button>
       </div>
       <div class="sub-row" id="sub-image" style="display:none;">
@@ -1209,26 +1209,26 @@
             <span class="email-guide-header-title">How to use the Text tab</span>
           </div>
           <div class="email-guide-body" id="text-guide-body">
-            <p>Paste any text directly — a contract clause, a statement, a message, an article excerpt — and write a claim about what it says or proves. You can also upload a <code style="font-family:monospace;font-size:0.85em;">.txt</code> file. The AI evaluates the claim against the pasted content and stamps the result permanently on Arweave.</p>
-            <p>Use this tab when you have the text itself but no public URL, or when you want to stamp the exact wording rather than a live webpage that could change.</p>
+            <p>Use this tab to stamp any document you have in hand. Use the sub-menu to choose how to bring it in: upload a <strong>PDF</strong>, paste text directly, upload a <code style="font-family:monospace;font-size:0.85em;">.txt</code> file, or fetch a <strong>PDF from a URL</strong>. The AI evaluates your claim against the content and stamps the result permanently on Arweave.</p>
 
             <h4>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              What you can prove
+              Due diligence example
             </h4>
-            <p>The stamp records a hash of the text and the AI's verdict on your claim. It proves that this exact wording existed and that the claim was evaluated at this point in time. Unlike a web stamp, the content is captured at the moment of stamping — a later edit to the original source cannot affect it.</p>
+            <p>A company shares confidential financial projections during due diligence. The buyer stamps the document with a claim such as <em>"this document shows projected revenue above €10M for 2026"</em> — the verdict characterises the content without reproducing the sensitive figures in full.</p>
+            <p>The stamp records a cryptographic hash of the exact document. If either party later disputes what the document said, anyone can verify by fingerprint whether a given file matches the stamped source. A substituted or altered document will not match — revealing any attempt to misrepresent what was shared.</p>
 
             <h4>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-              What to paste
+              What to bring in
             </h4>
             <ul>
-              <li>Contract clauses or terms you want to timestamp</li>
+              <li>Contracts, term sheets, or NDA clauses</li>
+              <li>Financial statements or projections shared in confidence</li>
               <li>A statement or promise made in writing</li>
-              <li>An excerpt from a document, report, or article</li>
-              <li>A chat message or email body copied out of its original context</li>
+              <li>An excerpt from a report, article, or chat thread</li>
             </ul>
-            <p>There is no strict length limit, but shorter, focused excerpts give more precise verdicts than entire documents.</p>
+            <p>Shorter, focused excerpts give more precise verdicts than entire documents. Use redaction in your claim to keep sensitive details out of the public verdict.</p>
             <div class="email-guide-fade"></div>
           </div>
           <div class="email-guide-footer">
@@ -1354,7 +1354,7 @@
     reader.readAsText(input.files[0], 'utf-8');
   }
 
-  let _currentTab = 'text';
+  let _currentTab = 'pdf';
   let _currentCat = 'text';
 
   function tabHasContent(tab) {
@@ -1455,7 +1455,7 @@
     claim:     'the first commercial jet passenger flight took place in 1952',
   };
 
-  const CAT_DEFAULT = {web: 'web', text: 'text', image: 'image', email: 'email', github: 'github', bundle: 'bundle', claim: 'claim'};
+  const CAT_DEFAULT = {web: 'web', text: 'pdf', image: 'image', email: 'email', github: 'github', bundle: 'bundle', claim: 'claim'};
   const CAT_HAS_SUB = new Set(['text', 'image']);
 
   function toggleEmailGuide() {
