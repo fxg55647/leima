@@ -7,6 +7,7 @@
          hx-target="#email-preview-pane"
          hx-swap="innerHTML"
          {% if loop.first %}hx-trigger="load, click"{% else %}hx-trigger="click"{% endif %}
+         data-raw="{{ msg.body | b64encode }}"
          onclick="selectEmail(this, {{ loop.index0 }}, '{{ session_id }}')">
       <div class="email-item-subject">{{ msg.subject }}</div>
       <div class="email-item-date">{{ msg.date[:25] }}</div>

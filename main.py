@@ -239,6 +239,7 @@ threading.Thread(target=_tread_dispatcher, daemon=True).start()
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+templates.env.filters["b64encode"] = lambda s: base64.b64encode(s.encode("utf-8")).decode("ascii") if isinstance(s, str) else base64.b64encode(s).decode("ascii")
 _MD_ALLOWED_TAGS = ["p", "strong", "em", "ul", "ol", "li", "blockquote", "code", "pre", "br", "h1", "h2", "h3"]
 templates.env.filters["md"] = lambda text: bleach.clean(
     _md.markdown(text or "", extensions=["nl2br"]),
@@ -609,7 +610,18 @@ async def notary_poll(request: Request):
 
 @app.get("/version")
 async def version():
-    cache = _tread_cache.copy() if _tread_cache else {}
+    if _tread_cache is not None:
+        cache = _tread_cache.copy()
+    else:
+        try:
+            r = http_requests.get(_PAGES_URL + "/status-log.jsonl", timeout=8)
+            if r.status_code == 200:
+                lines = [l for l in r.text.strip().splitlines() if l]
+                cache = json.loads(lines[-1]) if lines else {}
+            else:
+                cache = {}
+        except Exception:
+            cache = {}
     return {
         "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
         "service": os.getenv("RENDER_SERVICE_NAME", "local"),
@@ -1420,6 +1432,7 @@ async def ask(
     text_input: str = Form(""),
     email_session_id: str = Form(""),
     email_idx: str = Form(""),
+    email_raw: str = Form(""),
     pdf_file: UploadFile = File(None),
     pdf_url: str = Form(""),
     web_url: str = Form(""),
@@ -1647,11 +1660,18 @@ async def ask(
 """)
 
     elif active_tab == "email":
-        _entry = email_sessions.get(email_session_id)
-        msgs = _entry["messages"] if _entry else None
-        if not msgs or not email_idx.isdigit() or int(email_idx) >= len(msgs):
-            return HTMLResponse('<div class="error">No email selected.</div>')
-        msg = msgs[int(email_idx)]
+        if email_raw.strip():
+            try:
+                body = base64.b64decode(email_raw.encode()).decode("utf-8")
+            except Exception:
+                body = email_raw
+            msg = {"from": "", "to": "", "subject": "(email)", "date": "", "message_id": "", "dkim": "unknown", "body": body}
+        else:
+            _entry = email_sessions.get(email_session_id)
+            msgs = _entry["messages"] if _entry else None
+            if not msgs or not email_idx.isdigit() or int(email_idx) >= len(msgs):
+                return HTMLResponse('<div class="error">No email selected.</div>')
+            msg = msgs[int(email_idx)]
         body = msg["body"]
         body_hash = sha256(body.encode())
         sender_domain = msg["from"].split("@")[-1].rstrip(">").strip() if "@" in msg["from"] else ""

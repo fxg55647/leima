@@ -900,6 +900,7 @@
 
         <input type="hidden" name="email_session_id" id="email-session-id" value="">
         <input type="hidden" name="email_idx" id="email-idx" value="">
+        <input type="hidden" name="email_raw" id="email-raw" value="">
 
         <div id="tab-github" class="tab-panel">
           <input type="hidden" name="review_mode" value="claim">
@@ -1358,6 +1359,7 @@
       document.getElementById('email-fetch-results').innerHTML = '';
       document.getElementById('email-session-id').value = '';
       document.getElementById('email-idx').value = '';
+      document.getElementById('email-raw').value = '';
     } else if (tab === 'bundle') {
       _resetBundleEntries();
     }
@@ -1368,6 +1370,7 @@
     el.classList.add('active');
     document.getElementById('email-session-id').value = sessionId;
     document.getElementById('email-idx').value = idx;
+    document.getElementById('email-raw').value = el.dataset.raw || '';
   }
 
   const TAB_TITLES = {
