@@ -975,8 +975,8 @@
 
         <div id="tab-bundle" class="tab-panel">
           <div id="bundle-entries" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem;"></div>
-          <button type="button" onclick="addBundleEntry()" id="bundle-add-btn" class="fetch-btn" style="margin-bottom:0.25rem;">+ Add verdict</button>
-          <div style="font-size:0.75rem;color:var(--text-faint);margin-top:0.3rem;">2–10 stamps · manifest.json + verdict.pdf per stamp</div>
+          <button type="button" onclick="addBundleEntry()" id="bundle-add-btn" class="fetch-btn" style="margin-bottom:0.25rem;">+ Add Leima files</button>
+          <div style="font-size:0.75rem;color:var(--text-faint);margin-top:0.3rem;">2–10 Leima files · manifest.json + verdict.pdf per file</div>
         </div>
 
         <div id="tab-claim" class="tab-panel">
@@ -1440,7 +1440,7 @@
     web:       'e.g. <em>"Apple announced Vision Pro on this page"</em>',
     email:     'e.g. <em>"Tesla offered me a job in this email"</em>',
     github:    'e.g. <em>"this code follows best security practices"</em>',
-    bundle:    'e.g. <em>"these stamps together prove the contract was valid at the time of signing"</em>',
+    bundle:    'e.g. <em>"all three verdicts confirm the payment was made before the deadline"</em>',
     claim:     'e.g. <em>"the first commercial jet passenger flight took place in 1952"</em>',
   };
   const TAB_PLACEHOLDERS = {
@@ -1451,7 +1451,7 @@
     web:       'this website advertises free worldwide shipping',
     email:     'the sender promised delivery before Friday',
     github:    'this repository contains hardcoded secrets',
-    bundle:    'all three stamps originate from the same signatory',
+    bundle:    'taken together, these verdicts confirm the agreement was in place before the dispute arose',
     claim:     'the first commercial jet passenger flight took place in 1952',
   };
 
@@ -1599,7 +1599,7 @@
     div.innerHTML =
       `<div style="display:flex;align-items:center;gap:0.5rem;">` +
         `<span style="font-size:0.72rem;color:var(--text-muted);width:1.25rem;text-align:right;flex-shrink:0;">${idx}</span>` +
-        `<span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);flex:1;">Stamp ${idx}</span>` +
+        `<span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);flex:1;">Leima file ${idx}</span>` +
         `<button type="button" onclick="removeBundleEntry(this)" class="bundle-remove" style="${canRemove ? '' : 'display:none;'}background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:0 0.3rem;line-height:1;">×</button>` +
       `</div>` +
       `<div style="display:flex;gap:0.5rem;align-items:center;padding-left:1.75rem;">` +
