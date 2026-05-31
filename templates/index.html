@@ -1810,7 +1810,12 @@
             fadeSet(row('deploy matches git', '#fff', ''), 'ok');
           } else if (p.ok === false) {
             stopDeployTicker();
-            fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'key missing' : 'mismatch'), 'danger');
+            const _isNotConf = p.deploy_status === 'not_configured';
+            showWarning(_isNotConf ? 'tread_not_configured' : 'tread_mismatch',
+              _isNotConf
+                ? 'TREAD verification key is missing. Cannot confirm this deployment matches the audited code.\n\nDo not submit sensitive documents until this is resolved.'
+                : 'TREAD reports a mismatch: the deployed code does not match the last verified commit.\n\nDo not submit sensitive documents until this is resolved. Check the TREAD audit log for details.');
+            fadeSet(row('Danger', '#ff6b6b', _isNotConf ? 'key missing' : 'mismatch'), 'danger');
           } else {
             fadeSet(row('Checking…', '#aaa', ''), 'loading');
           }
