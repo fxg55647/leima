@@ -96,6 +96,9 @@ _PAGES_URL = "https://fxg55647.github.io/leima"
 
 _RENDER_API_KEY    = os.getenv("RENDER_API_KEY", "")
 _RENDER_SERVICE_ID = os.getenv("RENDER_SERVICE_ID", "")
+_VERCEL_TOKEN      = os.getenv("VERCEL_TOKEN", "")
+_VERCEL_PROJECT_ID = os.getenv("VERCEL_PROJECT_ID", "")
+_VERCEL_BUILDING   = {"BUILDING", "QUEUED", "INITIALIZING"}
 _IN_PROGRESS_STATUSES = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
 
 _MONITOR_PATHS = {
@@ -137,6 +140,32 @@ def _fetch_render_state() -> tuple[bool | None, str | None]:
             deploy = item.get("deploy", {})
             if deploy.get("status") == "live":
                 live_commit = deploy.get("commit", {}).get("id")
+                break
+        return deploying, live_commit
+    except Exception:
+        return None, None
+
+
+def _fetch_vercel_state() -> tuple[bool | None, str | None]:
+    """Returns (deploying, live_commit). None values = API unavailable."""
+    if not _VERCEL_TOKEN or not _VERCEL_PROJECT_ID:
+        return None, None
+    try:
+        r = http_requests.get(
+            f"https://api.vercel.com/v6/deployments?projectId={_VERCEL_PROJECT_ID}&limit=10",
+            headers={"Authorization": f"Bearer {_VERCEL_TOKEN}"},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return None, None
+        deployments = r.json().get("deployments", [])
+        if not deployments:
+            return None, None
+        deploying = deployments[0].get("state") in _VERCEL_BUILDING
+        live_commit = None
+        for d in deployments:
+            if d.get("state") == "READY" and d.get("target") == "production":
+                live_commit = (d.get("meta") or {}).get("githubCommitSha")
                 break
         return deploying, live_commit
     except Exception:
@@ -207,14 +236,19 @@ def _tread_dispatcher():
         except Exception:
             pass
 
-        # Suora Render + GitHub -vertailu — ei TREAD:sta riippuvainen
+        # Suora Render + Vercel + GitHub -vertailu — ei TREAD:sta riippuvainen
         deploying_direct, live_commit = _fetch_render_state()
-        github_head = _fetch_github_head(token) if live_commit else None
-        if deploying_direct is not None and _tread_cache is not None:
+        vercel_deploying, vercel_live_commit = _fetch_vercel_state()
+        any_live = live_commit or vercel_live_commit
+        github_head = _fetch_github_head(token) if any_live else None
+        if _tread_cache is not None and (deploying_direct is not None or vercel_deploying is not None):
             _tread_cache = dict(_tread_cache)
-            _tread_cache["deploying"] = deploying_direct
-            if live_commit and github_head:
-                _tread_cache["deployment_ok"] = live_commit.startswith(github_head[:7]) or github_head.startswith(live_commit[:7])
+            _tread_cache["deploying"] = bool(deploying_direct or vercel_deploying)
+            if github_head:
+                render_ok = bool(live_commit and (live_commit.startswith(github_head[:7]) or github_head.startswith(live_commit[:7])))
+                vercel_ok = bool(vercel_live_commit and (vercel_live_commit.startswith(github_head[:7]) or github_head.startswith(vercel_live_commit[:7])))
+                _tread_cache["deployment_ok"] = render_ok or vercel_ok
+                _tread_cache["vercel_deployment_ok"] = vercel_ok if vercel_live_commit else None
 
         # Riippumaton valvontatiedostojen hash-tarkistus git tree API:lta
         hashes = _fetch_monitor_hashes(token)
@@ -634,6 +668,7 @@ async def version():
             "tx": cache.get("tx"),
             "deploy_status": cache.get("deploy_status"),
             "deployment_ok":        cache.get("deployment_ok"),
+            "vercel_deployment_ok": cache.get("vercel_deployment_ok"),
             "review_ok":            cache.get("review_ok"),
             "review_stuck":         cache.get("review_stuck"),
             "review_consecutive_failures": cache.get("review_consecutive_failures", 0),

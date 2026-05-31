@@ -32,12 +32,15 @@ def hash_monitor_files() -> dict[str, str | None]:
 
 RENDER_API_KEY    = os.environ.get("RENDER_API_KEY", "")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID", "")
+VERCEL_TOKEN      = os.environ.get("VERCEL_TOKEN", "")
+VERCEL_PROJECT_ID = os.environ.get("VERCEL_PROJECT_ID", "")
 GITHUB_REPO       = os.environ.get("GITHUB_REPO", "fxg55647/leima")
 GITHUB_BRANCH     = os.environ.get("GITHUB_BRANCH", "main")
 GITHUB_TOKEN      = os.environ.get("GITHUB_TOKEN", "")
 
 _IN_PROGRESS      = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
 _COMPLETED        = {"live", "deactivated"}
+_VERCEL_BUILDING  = {"BUILDING", "QUEUED", "INITIALIZING"}
 
 
 def render_state():
@@ -70,6 +73,36 @@ def render_state():
         if deploy.get("status") == "live":
             return deploy.get("commit", {}).get("id"), "live", deploying, service_url, deploying_commit
     return None, "no_live_deploy", deploying, service_url, deploying_commit
+
+
+def vercel_state():
+    """Returns (live_commit, deploying, deploying_commit, service_url)."""
+    if not VERCEL_TOKEN or not VERCEL_PROJECT_ID:
+        return None, False, None, None
+    headers = {"Authorization": f"Bearer {VERCEL_TOKEN}"}
+    resp = requests.get(
+        f"https://api.vercel.com/v6/deployments?projectId={VERCEL_PROJECT_ID}&limit=10",
+        headers=headers,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    deployments = resp.json().get("deployments", [])
+    if not deployments:
+        return None, False, None, None
+    deploying = deployments[0].get("state") in _VERCEL_BUILDING
+    deploying_commit = None
+    if deploying:
+        m = deployments[0].get("meta") or {}
+        deploying_commit = m.get("githubCommitSha")
+    live_commit = None
+    service_url = None
+    for d in deployments:
+        if d.get("state") == "READY" and d.get("target") == "production":
+            live_commit = (d.get("meta") or {}).get("githubCommitSha")
+            if d.get("url"):
+                service_url = f"https://{d['url']}"
+            break
+    return live_commit, deploying, deploying_commit, service_url
 
 
 def github_commit():
@@ -237,6 +270,12 @@ except Exception as e:
     deployed, deploy_status, deploying, service_url, deploying_commit, error = None, "error", False, None, None, str(e)
 
 try:
+    vercel_deployed, vercel_deploying, vercel_deploying_commit, vercel_service_url = vercel_state()
+except Exception as e:
+    vercel_deployed, vercel_deploying, vercel_deploying_commit, vercel_service_url = None, False, None, None
+    error = (error + "; " if error else "") + f"vercel: {e}"
+
+try:
     expected = github_commit()
 except Exception as e:
     expected = None
@@ -268,8 +307,15 @@ except Exception as e:
     history = {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
     error = (error + "; " if error else "") + str(e)
 
-deployment_ok = bool(deployed and expected and deployed == expected)
-deploying_commit_ok = bool(deploying and deploying_commit and expected and deploying_commit.startswith(expected[:7]))
+render_deployment_ok = bool(deployed and expected and deployed == expected)
+vercel_deployment_ok = bool(vercel_deployed and expected and (
+    vercel_deployed.startswith(expected[:7]) or expected.startswith(vercel_deployed[:7])
+))
+deployment_ok = render_deployment_ok or vercel_deployment_ok
+deploying_commit_ok = bool(
+    (deploying and deploying_commit and expected and deploying_commit.startswith(expected[:7])) or
+    (vercel_deploying and vercel_deploying_commit and expected and vercel_deploying_commit.startswith(expected[:7]))
+)
 review_ok = review_conclusion == "success"
 # deployment_safe: running code is the expected code, or the mismatch is explained
 # by the normal deploy gate (review running or failed → old safe code still live)
@@ -284,6 +330,10 @@ result = {
     "ok": ok,
     "rapid_deploy_warning": rapid_deploy_warning,
     "deployment_ok": deployment_ok,
+    "vercel_deployment_ok": vercel_deployment_ok,
+    "vercel_deployed_commit": vercel_deployed,
+    "vercel_deploying": vercel_deploying,
+    "vercel_service_url": vercel_service_url or "",
     "review_ok": review_ok,
     "review_consecutive_failures": review_consecutive_failures,
     "review_stuck": review_stuck,
