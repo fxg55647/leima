@@ -1382,7 +1382,8 @@ async def ask(
     gh_paths: str = Form(""),
     review_mode: str = Form("claim"),
     rules_url: str = Form(""),
-    bundle_tx_ids: list[str] = Form([]),
+    bundle_manifests: list[UploadFile] = File([]),
+    bundle_verdicts: list[UploadFile] = File([]),
     use_web_search: str = Form(""),
 ):
     if review_mode != "code_review" and not question.strip():
@@ -1615,41 +1616,58 @@ async def ask(
         contents.append(f"Email from: {msg['from']}\nSubject: {msg['subject']}\nDate: {msg['date']}\n\n{body}")
 
     elif active_tab == "bundle":
-        tx_ids = [t.strip() for t in bundle_tx_ids if t.strip()]
-        if len(tx_ids) < 2:
-            return HTMLResponse('<div class="error">Add at least 2 stamps to create a bundle.</div>')
-        if len(tx_ids) > 10:
+        manifest_uploads = [f for f in bundle_manifests if f and f.filename]
+        verdict_uploads = [f for f in bundle_verdicts if f and f.filename]
+        if len(manifest_uploads) < 2:
+            return HTMLResponse('<div class="error">Add at least 2 stamp pairs to create a bundle.</div>')
+        if len(manifest_uploads) > 10:
             return HTMLResponse('<div class="error">Maximum 10 stamps per bundle.</div>')
+        if verdict_uploads and len(verdict_uploads) != len(manifest_uploads):
+            return HTMLResponse('<div class="error">Upload a verdict.pdf for each manifest, or leave all verdict fields empty.</div>')
         stamps = []
-        for tx_id in tx_ids:
-            if not re.match(r'^[A-Za-z0-9_\-]{30,60}$', tx_id):
-                return HTMLResponse(f'<div class="error">Invalid TX ID: {_html_escape(tx_id[:24])}</div>')
+        for i, mf in enumerate(manifest_uploads):
             try:
-                resp = http_requests.get(f"{IRYS_GATEWAY}/{tx_id}", timeout=15)
-                resp.raise_for_status()
-                mdata = resp.json()
-            except Exception as e:
-                return HTMLResponse(f'<div class="error">Could not fetch stamp {_html_escape(tx_id[:8])}…: {e}</div>')
+                raw = await mf.read()
+                mdata = json.loads(raw)
+            except Exception:
+                return HTMLResponse(f'<div class="error">Could not read {_html_escape(mf.filename or "file")}: not valid JSON.</div>')
             if not isinstance(mdata, dict) or mdata.get("version") not in ("1",):
-                return HTMLResponse(f'<div class="error">TX {_html_escape(tx_id[:8])}… is not a valid Leima stamp.</div>')
+                return HTMLResponse(f'<div class="error">{_html_escape(mf.filename or "file")} is not a valid Leima manifest.</div>')
+            pdf_text = ""
+            if i < len(verdict_uploads):
+                vf = verdict_uploads[i]
+                if vf and vf.filename:
+                    try:
+                        import io as _io
+                        from pypdf import PdfReader
+                        pdf_bytes = await vf.read()
+                        reader = PdfReader(_io.BytesIO(pdf_bytes))
+                        pdf_text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+                    except Exception:
+                        pdf_text = ""
             stamps.append({
-                "tx_id": tx_id,
+                "filename": mf.filename or "",
                 "timestamp": mdata.get("timestamp", ""),
                 "question": mdata.get("question", ""),
                 "verdict_summary": mdata.get("verdict_summary", ""),
                 "verdict_category": mdata.get("verdict_category", ""),
                 "model": mdata.get("model", ""),
+                "tx_id": mdata.get("stamp", {}).get("tx_id", "") if isinstance(mdata.get("stamp"), dict) else "",
+                "pdf_text": pdf_text,
             })
-        lines = ["Bundle of Arweave-verified Leima stamps:\n"]
+        lines = ["Bundle of uploaded Leima stamps:\n"]
         for i, s in enumerate(stamps, 1):
-            lines.append(f"Stamp {i} — TX: {s['tx_id']}")
-            lines.append(f"  Sealed at: {s['timestamp']}")
+            lines.append(f"Stamp {i} — {s['filename']}")
+            if s["timestamp"]:
+                lines.append(f"  Sealed at: {s['timestamp']}")
             if s["question"]:
                 lines.append(f"  Verified claim: {s['question']}")
             if s["verdict_summary"]:
                 lines.append(f"  Verdict summary: {s['verdict_summary']}")
             if s["verdict_category"]:
                 lines.append(f"  Category: {s['verdict_category']}")
+            if s["pdf_text"]:
+                lines.append(f"  Full verdict:\n{s['pdf_text']}")
             lines.append("")
         bundle_text = "\n".join(lines)
         input_bytes = bundle_text.encode("utf-8")

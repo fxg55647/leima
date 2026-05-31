@@ -34,6 +34,22 @@ Both parties can demand these stamps before the first substantive meeting. The r
 
 ---
 
+## Legal and regulatory compliance
+
+A common problem in business and science is establishing whether a specific situation is consistent with a stated rule — a law, a regulation, a contract clause, or an internal policy. Traditionally this requires a lawyer, which is expensive and slow. For many routine questions, the actual analytical task is straightforward: does the described situation match or conflict with what the document says?
+
+**How it works.** The user combines two things in a single document: the relevant law or contract text, and a description of the situation being evaluated. The claim is then stated plainly — for example, *"the situation described in this document is consistent with the stated regulation"* — and Leima analyses it. The AI identifies which provisions are relevant, what the document says about them, and whether the described situation satisfies or violates those provisions. The verdict is stamped and permanently recorded.
+
+This is not legal advice. Leima assesses what the document states and whether the described situation matches it. It does not advise on legal strategy, predict court outcomes, or represent either party. The value is a dated, tamper-proof record of what a neutral analytical reading of the document concluded — before any dispute arose.
+
+**Business compliance.** A company can submit a contract clause alongside a description of their current practice and ask whether the practice is within the agreed terms. An employer can submit a collective agreement and a proposed staffing decision and ask whether the decision is consistent with the agreement. A procurement officer can submit a tender specification and a supplier's response and ask whether the response meets the stated requirements.
+
+**Regulatory filing.** A company preparing a regulatory submission can stamp an analysis of their documentation against the relevant requirements before filing. This creates a record of what was checked, when, and what conclusion was reached — independent of the regulator's own assessment. If the filing is later challenged, the stamp shows that compliance was assessed at the time of submission, not constructed retroactively.
+
+**Scientific and research contexts.** Researchers can evaluate whether a proposed study design is consistent with an ethics guideline, whether a published claim is supported by the cited regulation, or whether a data handling practice falls within a stated data protection framework. The result is a verifiable, timestamped analysis rather than an informal opinion.
+
+---
+
 ## Consumer documentation
 
 **Service records and receipts.** When a service provider sends a receipt by email — a car service, a repair, an appliance installation — the owner can stamp that email in Leima. The DKIM signature confirms the message came from the service provider's domain. The stamp creates a permanent, tamper-proof record: this work was done, on this date, confirmed by this provider. Useful for warranty claims, insurance disputes, and resale documentation where a buyer wants to verify the service history.

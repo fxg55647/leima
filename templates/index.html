@@ -785,13 +785,13 @@
     </header>
     <div class="tabs-wrap">
       <div class="tabs">
-        <button type="button" class="tab-btn active" onclick="switchCat('web', this)">Web</button>
+        <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim only</button>
         <button type="button" class="tab-btn" onclick="switchCat('text', this)">Text</button>
+        <button type="button" class="tab-btn active" onclick="switchCat('web', this)">Web</button>
         <button type="button" class="tab-btn" onclick="switchCat('image', this)">Image</button>
         <button type="button" class="tab-btn" onclick="switchCat('email', this)">Email</button>
         <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
         <button type="button" class="tab-btn" onclick="switchCat('bundle', this)">Bundle</button>
-        <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim only</button>
       </div>
       <div class="tabs-scroll-hint" id="tabs-scroll-hint">›</div>
 
@@ -820,7 +820,7 @@
         <input type="hidden" name="active_tab" id="active-tab" value="live">
 
         <div class="question-label">
-          <span class="question-title">What do you want to prove about this document?</span>
+          <span class="question-title" id="question-title">What do you want to prove about this source?</span>
           <span class="question-sub" id="question-sub">e.g. <em>"Apple announced Vision Pro on this page"</em></span>
         </div>
         <input type="text" name="question" id="question-input" placeholder="this website advertises free worldwide shipping" required>
@@ -900,8 +900,8 @@
 
         <div id="tab-bundle" class="tab-panel">
           <div id="bundle-entries" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem;"></div>
-          <button type="button" onclick="addBundleEntry()" id="bundle-add-btn" class="fetch-btn" style="margin-bottom:0.25rem;">+ Add stamp</button>
-          <div style="font-size:0.75rem;color:var(--text-faint);margin-top:0.3rem;">2–10 stamps · Arweave TX IDs from previous leima.io verdicts</div>
+          <button type="button" onclick="addBundleEntry()" id="bundle-add-btn" class="fetch-btn" style="margin-bottom:0.25rem;">+ Add manifest</button>
+          <div style="font-size:0.75rem;color:var(--text-faint);margin-top:0.3rem;">2–10 stamps · manifest.json + verdict.pdf per stamp</div>
         </div>
 
         <div id="tab-claim" class="tab-panel">
@@ -1011,6 +1011,152 @@
             <span class="email-guide-toggle" id="email-guide-toggle" onclick="toggleEmailGuide()">Show more ↓</span>
           </div>
         </div>
+
+        <div class="email-guide" id="bundle-guide" style="display:none;">
+          <div class="email-guide-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 16v-4m0-4h.01" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="email-guide-header-title">How to use the Bundle tab</span>
+          </div>
+          <div class="email-guide-body" id="bundle-guide-body">
+            <p>Use this tab to draw a new conclusion from two or more existing Leima stamps. For each stamp, upload the <code style="font-family:monospace;font-size:0.85em;">manifest.json</code> and <code style="font-family:monospace;font-size:0.85em;">verdict.pdf</code> — both appear in the download row below any verdict. The system validates each manifest, reads the full verdict content, and lets the AI reason across all of them to evaluate your new combined claim.</p>
+            <p>For example: three reference letters stamped separately each prove one thing. A bundle can then prove <em>"this person has three verified references."</em></p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              What you can prove
+            </h4>
+            <p>The bundle verdict is itself a new permanent stamp. It proves that on this date, a set of independently sealed verdicts was examined and found to support your combined claim. The original stamps remain unchanged on Arweave — the bundle is an additional layer of reasoning on top of them.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Where to find the manifest file
+            </h4>
+            <p>After any stamp is created, a download row appears below the verdict with buttons for <strong>⬇ manifest.json</strong> and <strong>⬇ verdict.pdf</strong>. Save both files and upload them here — one pair per stamp, 2–10 pairs total. The manifest contains the sealed claim and metadata; the verdict PDF contains the full AI analysis.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Writing a good claim
+            </h4>
+            <p>Describe what the documents <em>together</em> prove — a timeline, an agreement, or a sequence of events across multiple sources. For example:</p>
+            <ul>
+              <li><em>"These documents show that the contractor delivered the work before the payment deadline."</em></li>
+              <li><em>"Taken together, these stamps prove that both parties agreed to the terms before the contract was signed."</em></li>
+            </ul>
+            <div class="email-guide-fade"></div>
+          </div>
+          <div class="email-guide-footer">
+            <span class="email-guide-toggle" id="bundle-guide-toggle" onclick="toggleBundleGuide()">Show more ↓</span>
+          </div>
+        </div>
+
+        <div class="email-guide" id="image-guide" style="display:none;">
+          <div class="email-guide-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 16v-4m0-4h.01" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="email-guide-header-title">How to use the Image tab</span>
+          </div>
+          <div class="email-guide-body" id="image-guide-body">
+            <p>Upload a photo or paste an image URL, then write a claim about what it shows. The AI analyses the visual content and stamps the result permanently on Arweave. If the image contains C2PA provenance data, the stamp also records whether the image is authentic and unmodified.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              What you can prove
+            </h4>
+            <p>The stamp records a hash of the image and the AI's verdict on your claim. It proves that this specific image existed and that the claim was evaluated at this point in time. If the image has valid C2PA data, the stamp additionally confirms that it has not been altered since it was captured.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              What is C2PA?
+            </h4>
+            <p>C2PA (Coalition for Content Provenance and Authenticity) is a standard that embeds a cryptographically signed certificate inside an image at the moment of capture. It records the device, the time, and any edits made afterwards. If the image is modified after capture, the signature becomes invalid.</p>
+            <p>When a C2PA certificate is present and valid, the verdict states that the image's origin is cryptographically established. When it is invalid, the verdict notes that the image was modified after capture. When there is no C2PA data, the AI analyses the content only — no origin claim is made.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              Which images have C2PA?
+            </h4>
+            <p>C2PA is supported by a growing number of cameras and apps:</p>
+            <ul>
+              <li><strong>Cameras:</strong> Sony α9 III and newer, Leica M11-P, Nikon Z9 (firmware update), selected Canon EOS R models</li>
+              <li><strong>Smartphones:</strong> Some Qualcomm Snapdragon 8 Gen 3 devices, and apps like Truepic that embed C2PA at capture</li>
+              <li><strong>AI generators:</strong> Adobe Firefly, Microsoft Designer, and others that sign generated images to disclose AI origin</li>
+            </ul>
+            <p>Most ordinary smartphone photos and screenshots do not contain C2PA data — they can still be stamped, but without origin verification.</p>
+            <div class="email-guide-fade"></div>
+          </div>
+          <div class="email-guide-footer">
+            <span class="email-guide-toggle" id="image-guide-toggle" onclick="toggleImageGuide()">Show more ↓</span>
+          </div>
+        </div>
+
+        <div class="email-guide" id="claim-guide" style="display:none;">
+          <div class="email-guide-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 16v-4m0-4h.01" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="email-guide-header-title">How to use Claim only</span>
+          </div>
+          <div class="email-guide-body" id="claim-guide-body">
+            <p>Use this tab when you want to stamp a factual claim without attaching any source document. The AI evaluates the claim using its own knowledge and records the verdict permanently on Arweave. No URL, file, or email is needed.</p>
+            <p>Type your claim in the field above and click Analyse. The stamp proves that this specific claim was evaluated at this exact moment in time.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              What you can prove
+            </h4>
+            <p>The stamp records the claim text and the AI's verdict. It proves that on this date, the claim was evaluated and found to be supported or not supported by AI knowledge available at that moment. This is useful for establishing that a fact was considered established — or disputed — at a given point in time.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              When to use it
+            </h4>
+            <ul>
+              <li>Stamping a factual assertion you want to record at a specific date</li>
+              <li>Establishing that a scientific consensus or historical fact was recognised before a dispute arose</li>
+              <li>Creating a timestamped record of your own statement without needing to share any document</li>
+            </ul>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Limitations
+            </h4>
+            <p>The AI's knowledge has a training cutoff — very recent events may not be reflected. For claims about recent news, documents, or communications, use the Web, Email, or other source tabs instead. The stamp records the AI's verdict, not an independent fact-check.</p>
+            <div class="email-guide-fade"></div>
+          </div>
+          <div class="email-guide-footer">
+            <span class="email-guide-toggle" id="claim-guide-toggle" onclick="toggleClaimGuide()">Show more ↓</span>
+          </div>
+        </div>
+
+        <div class="email-guide" id="text-guide" style="display:none;">
+          <div class="email-guide-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 16v-4m0-4h.01" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="email-guide-header-title">How to use the Text tab</span>
+          </div>
+          <div class="email-guide-body" id="text-guide-body">
+            <p>Paste any text directly — a contract clause, a statement, a message, an article excerpt — and write a claim about what it says or proves. You can also upload a <code style="font-family:monospace;font-size:0.85em;">.txt</code> file. The AI evaluates the claim against the pasted content and stamps the result permanently on Arweave.</p>
+            <p>Use this tab when you have the text itself but no public URL, or when you want to stamp the exact wording rather than a live webpage that could change.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              What you can prove
+            </h4>
+            <p>The stamp records a hash of the text and the AI's verdict on your claim. It proves that this exact wording existed and that the claim was evaluated at this point in time. Unlike a web stamp, the content is captured at the moment of stamping — a later edit to the original source cannot affect it.</p>
+
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              What to paste
+            </h4>
+            <ul>
+              <li>Contract clauses or terms you want to timestamp</li>
+              <li>A statement or promise made in writing</li>
+              <li>An excerpt from a document, report, or article</li>
+              <li>A chat message or email body copied out of its original context</li>
+            </ul>
+            <p>There is no strict length limit, but shorter, focused excerpts give more precise verdicts than entire documents.</p>
+            <div class="email-guide-fade"></div>
+          </div>
+          <div class="email-guide-footer">
+            <span class="email-guide-toggle" id="text-guide-toggle" onclick="toggleTextGuide()">Show more ↓</span>
+          </div>
+        </div>
       </div>
     </form>
   </div>
@@ -1078,7 +1224,7 @@
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
     if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
 
-    if (tab === 'bundle') return Array.from(document.querySelectorAll('#bundle-entries input[name="bundle_tx_ids"]')).some(i => i.value.trim());
+    if (tab === 'bundle') return Array.from(document.querySelectorAll('#bundle-entries input[name="bundle_manifests"]')).some(i => i.files && i.files.length > 0);
     return false;
   }
 
@@ -1137,6 +1283,11 @@
     document.getElementById('email-idx').value = idx;
   }
 
+  const TAB_TITLES = {
+    claim: 'What is your claim?',
+  };
+  const DEFAULT_QUESTION_TITLE = 'What do you want to prove about this source?';
+
   const TAB_HINTS = {
     pdf:       'e.g. <em>"this invoice shows the payment was completed"</em>',
     'image':   'e.g. <em>"this C2PA image shows a cut-down tree at 60.1699, 24.9384"</em>',
@@ -1169,6 +1320,35 @@
     const expanded = body.classList.toggle('expanded');
     toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
   }
+
+  function toggleBundleGuide() {
+    const body = document.getElementById('bundle-guide-body');
+    const toggle = document.getElementById('bundle-guide-toggle');
+    const expanded = body.classList.toggle('expanded');
+    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
+  }
+
+  function toggleImageGuide() {
+    const body = document.getElementById('image-guide-body');
+    const toggle = document.getElementById('image-guide-toggle');
+    const expanded = body.classList.toggle('expanded');
+    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
+  }
+
+  function toggleClaimGuide() {
+    const body = document.getElementById('claim-guide-body');
+    const toggle = document.getElementById('claim-guide-toggle');
+    const expanded = body.classList.toggle('expanded');
+    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
+  }
+
+  function toggleTextGuide() {
+    const body = document.getElementById('text-guide-body');
+    const toggle = document.getElementById('text-guide-toggle');
+    const expanded = body.classList.toggle('expanded');
+    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
+  }
+
 
   function switchCat(cat, btn) {
     if (cat === _currentCat) return;
@@ -1216,6 +1396,10 @@
     document.getElementById('active-tab').value = tab === 'image-url' ? 'image' : tab;
     _currentTab = tab;
     document.getElementById('email-guide').style.display = (tab === 'email') ? '' : 'none';
+    document.getElementById('bundle-guide').style.display = (tab === 'bundle') ? '' : 'none';
+    document.getElementById('image-guide').style.display = (tab === 'image' || tab === 'image-url') ? '' : 'none';
+    document.getElementById('claim-guide').style.display = (tab === 'claim') ? '' : 'none';
+    document.getElementById('text-guide').style.display = (tab === 'text' || tab === 'pdf') ? '' : 'none';
     const isGithub = tab === 'github', isBundle = tab === 'bundle', isClaim = tab === 'claim';
     document.getElementById('submit-btn').style.display = '';
     const coLabel = document.getElementById('content-only-label');
@@ -1237,16 +1421,27 @@
     document.getElementById('submit-btn').disabled = (tab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
     const hint = TAB_HINTS[tab];
     if (hint) { document.getElementById('question-sub').innerHTML = hint; document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[tab] || ''; }
+    document.getElementById('question-title').textContent = TAB_TITLES[tab] || DEFAULT_QUESTION_TITLE;
   }
 
   function _makeBundleEntry(idx, canRemove) {
     const div = document.createElement('div');
     div.className = 'bundle-entry';
-    div.style.cssText = 'display:flex;align-items:center;gap:0.5rem;';
+    div.style.cssText = 'display:flex;flex-direction:column;gap:0.3rem;padding:0.5rem 0.625rem;border:1px solid var(--border);border-radius:5px;background:var(--surface-input);';
     div.innerHTML =
-      `<span style="font-size:0.72rem;color:var(--text-muted);width:1.25rem;text-align:right;flex-shrink:0;">${idx}</span>` +
-      `<input type="text" name="bundle_tx_ids" class="field-input" placeholder="Arweave TX ID" maxlength="60" style="flex:1;font-family:monospace;font-size:0.82rem;">` +
-      `<button type="button" onclick="removeBundleEntry(this)" class="bundle-remove" style="${canRemove ? '' : 'display:none;'}background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:0 0.3rem;line-height:1;">×</button>`;
+      `<div style="display:flex;align-items:center;gap:0.5rem;">` +
+        `<span style="font-size:0.72rem;color:var(--text-muted);width:1.25rem;text-align:right;flex-shrink:0;">${idx}</span>` +
+        `<span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);flex:1;">Stamp ${idx}</span>` +
+        `<button type="button" onclick="removeBundleEntry(this)" class="bundle-remove" style="${canRemove ? '' : 'display:none;'}background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:0 0.3rem;line-height:1;">×</button>` +
+      `</div>` +
+      `<div style="display:flex;gap:0.5rem;align-items:center;padding-left:1.75rem;">` +
+        `<label style="font-size:0.75rem;color:var(--text-muted);width:5.5rem;flex-shrink:0;">manifest.json</label>` +
+        `<input type="file" name="bundle_manifests" accept=".json,application/json" style="flex:1;font-size:0.8rem;color:var(--text);">` +
+      `</div>` +
+      `<div style="display:flex;gap:0.5rem;align-items:center;padding-left:1.75rem;">` +
+        `<label style="font-size:0.75rem;color:var(--text-muted);width:5.5rem;flex-shrink:0;">verdict.pdf</label>` +
+        `<input type="file" name="bundle_verdicts" accept=".pdf,application/pdf" style="flex:1;font-size:0.8rem;color:var(--text);">` +
+      `</div>`;
     return div;
   }
 
@@ -1484,13 +1679,14 @@
 
 <script>
   (function() {
-    var W = 237; // 205px column + 32px gap (2rem)
-    var S = 32;  // footer padding = 2rem
     function alignFooter() {
       var inner = document.querySelector('.footer-inner');
-      if (!inner) return;
-      var C = Math.max(0, (window.innerWidth - 760) / 2);
-      inner.style.marginLeft = C > S ? (C - S) % W + 'px' : '0';
+      var frame = document.querySelector('.col-frame');
+      if (!inner || !frame) return;
+      if (document.documentElement.clientWidth >= 1352) { inner.style.marginLeft = ''; return; }
+      var frameLeft = frame.getBoundingClientRect().left;
+      var footerPad = parseFloat(window.getComputedStyle(inner.parentElement).paddingLeft) || 0;
+      inner.style.marginLeft = Math.max(0, frameLeft - footerPad) + 'px';
     }
     window.addEventListener('resize', alignFooter);
     alignFooter();

@@ -17,6 +17,7 @@ Jokaisen `git push`:n jälkeen käynnistä `/loop` 2 minuutin välein:
 - Jos completed → kerro tulos käyttäjälle suomeksi → lopeta loop (älä aseta uutta ajastinta)
 - Jos ei valmis ja alle 8 min kulunut pushista → jatka loopia
 - Jos 8 min kulunut → kerro timeout → lopeta loop
+- **Jos run-ID on sama kuin edellisellä kierroksella eikä uutta ajoa ole käynnistynyt → ei ole mitään odotettavaa → lopeta loop heti**
 
 ## Muuta
 - Puhu aina suomea käyttäjälle
