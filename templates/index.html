@@ -1110,12 +1110,16 @@
     document.getElementById('submit-btn').style.display = '';
     const coLabel = document.getElementById('content-only-label');
     const coInput = coLabel ? coLabel.querySelector('input') : null;
-    if (isClaim) {
+    if (isClaim || isGithub) {
       document.getElementById('credibility-options').style.display = '';
       if (coLabel) coLabel.style.display = 'none';
       if (coInput) { coInput.disabled = true; if (coInput.checked) document.querySelector('[name="assess_credibility"][value="1"]').checked = true; }
+    } else if (isBundle) {
+      document.getElementById('credibility-options').style.display = 'none';
+      if (coLabel) coLabel.style.display = '';
+      if (coInput) coInput.disabled = false;
     } else {
-      document.getElementById('credibility-options').style.display = (isGithub || isBundle) ? 'none' : '';
+      document.getElementById('credibility-options').style.display = '';
       if (coLabel) coLabel.style.display = '';
       if (coInput) coInput.disabled = false;
     }
