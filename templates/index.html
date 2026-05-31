@@ -505,12 +505,12 @@
       background: #07111e;
       color: #6a8899;
       width: 100%;
-      padding: 3rem 2rem 1.5rem;
+      padding: 6rem 2rem 3rem;
       border-top: 3px solid #c0392b;
     }
     .footer-inner {
       display: grid;
-      grid-template-columns: repeat(auto-fill, 160px);
+      grid-template-columns: repeat(auto-fill, 200px);
       gap: 2rem;
     }
     .footer-logo-mark {
@@ -922,35 +922,10 @@
       <div class="footer-readme-body">{{ readme_intro | safe }}</div>
       <a class="footer-readme-more" href="https://github.com/fxg55647/leima/blob/main/README.md" target="_blank" rel="noopener">Read more →</a>
     </div>
-    <div class="footer-col">
-      <span class="footer-col-title">Product (copy)</span>
-      <a href="/validate">Validate</a>
-      <a href="https://github.com/fxg55647/leima/blob/main/README.md" target="_blank" rel="noopener">How it works</a>
-      <a href="https://github.com/fxg55647/leima/blob/main/USECASES.md" target="_blank" rel="noopener">Use cases</a>
-      <a href="#">Pricing</a>
-    </div>
-    <div class="footer-col">
-      <span class="footer-col-title">Transparency (copy)</span>
-      <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/fxg55647/leima/blob/main/SECURITY_MODEL.md" target="_blank" rel="noopener">Data policy</a>
-      <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener">TREAD — what's this?</a>
-      <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
-      <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
-    </div>
-    <div class="footer-col">
-      <span class="footer-col-title">Product (copy 2)</span>
-      <a href="/validate">Validate</a>
-      <a href="https://github.com/fxg55647/leima/blob/main/README.md" target="_blank" rel="noopener">How it works</a>
-      <a href="https://github.com/fxg55647/leima/blob/main/USECASES.md" target="_blank" rel="noopener">Use cases</a>
-      <a href="#">Pricing</a>
-    </div>
-    <div class="footer-col">
-      <span class="footer-col-title">Transparency (copy 2)</span>
-      <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/fxg55647/leima/blob/main/SECURITY_MODEL.md" target="_blank" rel="noopener">Data policy</a>
-      <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener">TREAD — what's this?</a>
-      <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
-      <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
+    <div class="footer-col footer-col-readme">
+      <span class="footer-col-title">TREAD</span>
+      <div class="footer-readme-body">{{ tread_intro | safe }}</div>
+      <a class="footer-readme-more" href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener">Read more →</a>
     </div>
   </div>
   <div class="footer-bottom">© 2026 Leima — Open source</div>
@@ -1374,7 +1349,7 @@
 
 <script>
   (function() {
-    var W = 192; // 160px column + 32px gap (2rem)
+    var W = 232; // 200px column + 32px gap (2rem)
     var S = 32;  // footer padding = 2rem
     function alignFooter() {
       var inner = document.querySelector('.footer-inner');

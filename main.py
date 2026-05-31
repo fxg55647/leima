@@ -649,9 +649,19 @@ def _readme_intro() -> str:
         print(f"_readme_intro error: {e!r}")
         return ""
 
+
+def _tread_intro() -> str:
+    try:
+        text = open(os.path.join(os.path.dirname(__file__), "TREAD.md"), encoding="utf-8").read()
+        intro = text.split("---")[0].strip()
+        return _md.markdown(intro)
+    except Exception as e:
+        print(f"_tread_intro error: {e!r}")
+        return ""
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro()})
+    return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro(), "tread_intro": _tread_intro()})
 
 
 @app.get("/validate", response_class=HTMLResponse)
