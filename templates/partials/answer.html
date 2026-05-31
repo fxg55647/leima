@@ -94,7 +94,7 @@
         hx-target="#files-{{ session_id }}"
         hx-swap="innerHTML"
         hx-include="#fmt-{{ session_id }}"
-        hx-on::after-request="document.getElementById('gen-wrap-{{ session_id }}').remove()">
+        hx-on::after-request="if(event.detail.successful) document.getElementById('gen-wrap-{{ session_id }}').remove()">
         ⬇ Generate files
       </button>
       <button type="button" class="options-btn"

@@ -816,7 +816,7 @@ async def files(request: Request, session_id: str, formats: list[str] = Form(def
     try:
         irys_tx = _irys_upload(record_bytes, "application/json", {"Leima-Type": "stamp-record"})
     except Exception as e:
-        return HTMLResponse(f'<p class="error">Arweave upload failed: {_html_escape(str(e))}</p>')
+        return HTMLResponse(f'<p class="error">Arweave upload failed: {_html_escape(str(e))}</p>', status_code=503)
 
     irys_url = f"{IRYS_GATEWAY}/{irys_tx}"
     entry["manifest"] = {**stamp_record, "stamp": {"tx_id": irys_tx, "url": irys_url}}
@@ -1689,14 +1689,14 @@ async def ask(
     if question.strip():
         contents.append(question)
 
+    if assess_credibility == "1_web":
+        assess_credibility = "1"
+        use_web_search = "1"
+
     if assess_credibility != "1":
         source_context = {"type": "content_only"}
 
     verdict_prefix = "Document (with evaluation)" if assess_credibility == "1" else "Document"
-
-    if assess_credibility == "1_web":
-        assess_credibility = "1"
-        use_web_search = "1"
 
     if use_web_search == "1" and question.strip():
         web_ctx = _fetch_web_context(question)
