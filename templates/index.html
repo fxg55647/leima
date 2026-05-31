@@ -689,7 +689,7 @@
         <button type="button" class="tab-btn" onclick="switchCat('email', this)">Email</button>
         <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
         <button type="button" class="tab-btn" onclick="switchCat('bundle', this)">Bundle</button>
-        <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim</button>
+        <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim only</button>
       </div>
 
       <div class="sub-row" id="sub-text" style="display:none;">
@@ -802,13 +802,9 @@
         </div>
 
         <div id="tab-claim" class="tab-panel">
-          <div style="font-size:0.85rem;color:var(--text-muted);padding:0.25rem 0 0.75rem;line-height:1.55;">
+          <div style="font-size:0.85rem;color:var(--text-muted);padding:0.25rem 0;line-height:1.55;">
             No source document needed. AI evaluates the claim using its own knowledge.
           </div>
-          <label class="credibility-option">
-            <input type="checkbox" name="use_web_search" value="1" id="claim-web-search-cb">
-            Include web search for context
-          </label>
         </div>
 
         <div id="tab-email" class="tab-panel">
@@ -849,13 +845,13 @@
             Analyse
           </button>
           <div class="credibility-options" id="credibility-options" style="display:none;">
-            <label class="credibility-option">
-              <input type="radio" name="assess_credibility" value="1" checked>
-              Evaluate whether the claim is true
+            <label class="credibility-option" id="content-only-label">
+              <input type="radio" name="assess_credibility" value="0" checked>
+              Evaluate only what the source says about the claim
             </label>
             <label class="credibility-option">
-              <input type="radio" name="assess_credibility" value="0">
-              Evaluate only what the source says about the claim
+              <input type="radio" name="assess_credibility" value="1">
+              Evaluate whether the claim is true
             </label>
             <label class="credibility-option">
               <input type="radio" name="assess_credibility" value="1_web">
@@ -1027,7 +1023,7 @@
     email:     'e.g. <em>"Tesla offered me a job in this email"</em>',
     github:    'e.g. <em>"this code follows best security practices"</em>',
     bundle:    'e.g. <em>"these stamps together prove the contract was valid at the time of signing"</em>',
-    claim:     'e.g. <em>"mRNA vaccines were first approved for human use in 2020"</em>',
+    claim:     'e.g. <em>"the first commercial jet passenger flight took place in 1952"</em>',
   };
   const TAB_PLACEHOLDERS = {
     pdf:       'this contract was signed by both parties',
@@ -1038,7 +1034,7 @@
     email:     'the sender promised delivery before Friday',
     github:    'this repository contains hardcoded secrets',
     bundle:    'all three stamps originate from the same signatory',
-    claim:     'this technology did not exist before 2019',
+    claim:     'the first commercial jet passenger flight took place in 1952',
   };
 
   const CAT_DEFAULT = {web: 'web', text: 'text', image: 'image', email: 'email', github: 'github', bundle: 'bundle', claim: 'claim'};
@@ -1091,7 +1087,17 @@
     _currentTab = tab;
     const isGithub = tab === 'github', isBundle = tab === 'bundle', isClaim = tab === 'claim';
     document.getElementById('submit-btn').style.display = '';
-    document.getElementById('credibility-options').style.display = (isGithub || isBundle || isClaim) ? 'none' : '';
+    const coLabel = document.getElementById('content-only-label');
+    const coInput = coLabel ? coLabel.querySelector('input') : null;
+    if (isClaim) {
+      document.getElementById('credibility-options').style.display = '';
+      if (coLabel) coLabel.style.display = 'none';
+      if (coInput) { coInput.disabled = true; if (coInput.checked) document.querySelector('[name="assess_credibility"][value="1"]').checked = true; }
+    } else {
+      document.getElementById('credibility-options').style.display = (isGithub || isBundle) ? 'none' : '';
+      if (coLabel) coLabel.style.display = '';
+      if (coInput) coInput.disabled = false;
+    }
     if (isBundle) { document.getElementById('submit-btn').disabled = false; }
     document.getElementById('submit-btn').disabled = (tab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
     const hint = TAB_HINTS[tab];
