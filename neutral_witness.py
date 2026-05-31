@@ -27,6 +27,8 @@ def _get_client() -> genai.Client:
 
 _SCOPE = """Leima is a tool for economic activity, scientific work, and the verification of factual claims. It is not a law enforcement tool, does not serve state authorities, and is not designed for resolving disputes between parties.
 
+Compliance and regulatory analysis is within scope: a user may submit a document that combines a law, regulation, or contract with a description of a situation, and ask whether the situation is consistent with the stated rules. This is treated as a factual claim about document content — not legal advice. Leima assesses what the document states and whether the described situation matches or conflicts with it, without advising on consequences or representing either party.
+
 Because of this, Leima does not make exceptions based on whether content appears illegal or harmful. The scope is defined by purpose, not by content:
 
 Testing, curiosity, humorous or trivial claims, and sports analytics or verification of public sporting events and results are explicitly permitted.
@@ -196,18 +198,6 @@ def _source_block(source_context: dict | None) -> str:
             "Do not evaluate source authenticity, origin, or credibility."
         )
 
-def _scope_prompt(question: str) -> str:
-    return (
-        "You are a scope filter for Leima, a document analysis tool.\n\n"
-        + _SCOPE + "\n\n"
-        f'The claim to be evaluated is: "{question}"\n\n'
-        "Review the document and the claim against the scope rules above. "
-        "If the request is permitted, respond with exactly: APPROVED\n"
-        "If the request falls outside permitted use, respond with exactly: "
-        "REJECTED: This request falls outside the permitted use of Leima."
-    )
-
-
 def _build_pass_prompts(source_context: dict | None, question: str = "") -> list[str]:
     source_block = _source_block(source_context) + "\n\n"
     content_only = (source_context or {}).get("type") == "content_only"
@@ -229,8 +219,18 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
         'Respond entirely in the same language as the claim. '
         'Direct quotes from the document must be reproduced verbatim in their original language — do not translate them.'
     )
+    scope_gate = (
+        "SCOPE CHECK — do this first, before any analysis:\n\n"
+        + _SCOPE + "\n\n"
+        f'The claim to be evaluated: "{question}"\n\n'
+        "If the request falls outside permitted use, respond with exactly:\n"
+        "REJECTED: This request falls outside the permitted use of Leima.\n\n"
+        "If the request is permitted, proceed with the following analysis:\n\n"
+        "---\n\n"
+    )
     p1 = (
-        "You are a document analyst for Leima, a legal evidence tool.\n\n"
+        scope_gate
+        + "You are a document analyst for Leima, a legal evidence tool.\n\n"
         "Identify what in the document supports the claim, and under which assumptions. "
         "Be specific. Quote directly from the document using quotation marks. "
         "Do not consider contradictions or gaps."
@@ -365,24 +365,18 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
     """
     client = _get_client()
 
-    scope_resp = client.models.generate_content(
-        model=MODEL,
-        contents=contents,
-        config=types.GenerateContentConfig(system_instruction=_scope_prompt(question)),
-    )
-    scope_text = (scope_resp.text or "").strip()
-    if not scope_text.startswith("APPROVED"):
-        raise ValueError(scope_text or "Model returned no response during scope check")
-
     pass_prompts = _build_pass_prompts(source_context, question)
     passes = []
-    for prompt, label in zip(pass_prompts, PASS_LABELS):
+    for i, (prompt, label) in enumerate(zip(pass_prompts, PASS_LABELS)):
         resp = client.models.generate_content(
             model=MODEL,
             contents=contents,
             config=types.GenerateContentConfig(system_instruction=prompt),
         )
-        passes.append((label, resp.text or ""))
+        text = (resp.text or "").strip()
+        if i == 0 and text.startswith("REJECTED"):
+            raise ValueError(text or "Model returned no response")
+        passes.append((label, text))
 
     synth = _synthesis_prompt(question, passes[0][1], passes[1][1], source_context)
     synth_resp = client.models.generate_content(
