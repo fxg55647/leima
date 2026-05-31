@@ -227,6 +227,7 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
     )
     language = (
         f'The user\'s claim is: "{question}". '
+        'If the claim is phrased as a question (e.g. "Does X contain Y?" or "Is X true?"), interpret it as the corresponding factual assertion (e.g. "X contains Y" or "X is true") and evaluate that assertion. '
         'Respond entirely in the same language as the claim. '
         'Direct quotes from the document must be reproduced verbatim in their original language — do not translate them.'
     )
@@ -282,7 +283,7 @@ def _synthesis_prompt(question: str, support: str, refutation: str, source_conte
 
     return f"""You are the final judge for Leima, a legal evidence tool.
 
-The claim being evaluated: "{question}"
+The claim being evaluated: "{question}" (if phrased as a question, treat it as the corresponding factual assertion)
 
 Two independent analysts have reviewed the document:
 
