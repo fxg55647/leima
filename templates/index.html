@@ -750,8 +750,9 @@
       .card { padding: 1.1rem 0.75rem; }
       #answer-area { padding: 0 0.75rem 1.5rem; }
       header { flex-wrap: wrap; row-gap: 0.4rem; }
+      header > div { order: 3; width: 100%; }
       .logo-text { font-size: 1.5rem; }
-      .validate-btn { margin-left: auto; }
+      .validate-btn { order: 2; margin-left: auto; }
       .question-row { flex-direction: column; }
       .question-row input[type="text"] { width: 100%; }
       button[type="submit"] { width: 100%; justify-content: center; }
@@ -884,7 +885,7 @@
           </div>
         </div>
 
-        <div id="tab-web" class="tab-panel active">
+        <div id="tab-web" class="tab-panel">
           <input type="url" name="web_url" id="web-url" class="url-input"
             placeholder="https://example.com/article">
         </div>
@@ -1297,7 +1298,7 @@
   }
 
   let _currentTab = 'text';
-  let _currentCat = 'web';
+  let _currentCat = 'text';
 
   function tabHasContent(tab) {
     if (tab === 'pdf') return document.getElementById('pdf-input').files.length > 0 || document.getElementById('pdf-url').value.trim() !== '';
@@ -1450,7 +1451,6 @@
 
   function switchCat(cat, btn) {
     if (cat === _currentCat) return;
-    if (tabHasContent(_currentTab) && !confirm('Unsaved data will be lost. Continue?')) return;
     clearTab(_currentTab);
     document.querySelector('[name="question"]').value = '';
     document.getElementById('answer-area').innerHTML = '';
@@ -1468,7 +1468,6 @@
   }
 
   function switchTab(tab, btn, pdfMode) {
-    if (tabHasContent(_currentTab) && tab !== _currentTab && !confirm('Unsaved data will be lost. Continue?')) return;
     clearTab(_currentTab);
     document.querySelector('[name="question"]').value = '';
     document.getElementById('answer-area').innerHTML = '';
@@ -1517,7 +1516,6 @@
       if (coLabel) coLabel.style.display = '';
       if (coInput) coInput.disabled = false;
     }
-    if (isBundle) { document.getElementById('submit-btn').disabled = false; }
     document.getElementById('submit-btn').disabled = (tab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
     const hint = TAB_HINTS[tab];
     if (hint) { document.getElementById('question-sub').innerHTML = hint; document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[tab] || ''; }
@@ -1581,7 +1579,14 @@
   }
 
   // initialise bundle entries and activate default tab on page load
-  (function() { _resetBundleEntries(); _activateTab(_currentTab); })();
+  (function() {
+    _resetBundleEntries();
+    _activateTab(_currentTab);
+    if (CAT_HAS_SUB.has(_currentCat)) {
+      const subRow = document.getElementById('sub-' + _currentCat);
+      if (subRow) subRow.style.display = 'flex';
+    }
+  })();
 
   (function() {
     const tabs = document.querySelector('.tabs');
@@ -1654,6 +1659,17 @@
     const file = e.dataTransfer.files[0];
     if (file && file.type === 'application/pdf') { const input = document.getElementById('pdf-input'); const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; onFileSelect(input); }
   });
+
+  (function() {
+    const form = document.getElementById('main-form');
+    const btn = document.getElementById('submit-btn');
+    form.addEventListener('htmx:beforeRequest', function() {
+      btn.disabled = true;
+    });
+    form.addEventListener('htmx:afterRequest', function() {
+      btn.disabled = (_currentTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
+    });
+  })();
 </script>
 
 <script>
