@@ -1,12 +1,11 @@
 <!DOCTYPE html>
-<html lang="fi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leima – Validate</title>
+  <title>Leima — {{ title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -92,12 +91,6 @@
       letter-spacing: 0.22em;
     }
 
-    header p {
-      color: var(--text-muted);
-      font-size: 0.82rem;
-      margin-top: 0.1rem;
-    }
-
     .back-btn {
       margin-left: auto;
       background: transparent;
@@ -116,96 +109,143 @@
     }
     .back-btn:hover { background: var(--blue-deep); color: #fff; }
 
-    .card {
-      padding: 1.75rem 1.5rem;
+    .doc-title {
       width: 100%;
       max-width: 680px;
+      padding: 1.5rem 1.5rem 0;
+    }
+    .doc-title h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.02em;
     }
 
-    .card-title {
-      font-size: 0.95rem;
-      font-weight: 600;
-      margin-bottom: 1.25rem;
+    .prose {
+      width: 100%;
+      max-width: 680px;
+      padding: 1.25rem 1.5rem 3rem;
+      line-height: 1.75;
+      font-size: 0.925rem;
       color: var(--text);
     }
 
-    .upload-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      margin-bottom: 1.25rem;
+    .prose h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2rem 0 0.75rem;
+      letter-spacing: 0.02em;
     }
-
-    .upload-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .upload-label {
-      font-size: 0.72rem;
-      font-weight: 500;
+    .prose h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
       color: var(--blue-deep);
-      letter-spacing: 0.08em;
+      margin: 1.75rem 0 0.6rem;
+      letter-spacing: 0.01em;
+    }
+    .prose h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1.25rem 0 0.4rem;
+      letter-spacing: 0.01em;
       text-transform: uppercase;
-      width: 110px;
-      flex-shrink: 0;
+      letter-spacing: 0.06em;
+      font-size: 0.78rem;
+      color: var(--blue-mid);
+    }
+    .prose h4 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin: 1rem 0 0.35rem;
+    }
+    .prose h1:first-child,
+    .prose h2:first-child { margin-top: 0; }
+
+    .prose p { margin-bottom: 0.875rem; }
+    .prose p:last-child { margin-bottom: 0; }
+
+    .prose ul, .prose ol {
+      padding-left: 1.5em;
+      margin-bottom: 0.875rem;
+    }
+    .prose li { margin-bottom: 0.3rem; }
+    .prose li > ul, .prose li > ol { margin-top: 0.3rem; margin-bottom: 0.3rem; }
+
+    .prose a { color: var(--blue-mid); text-underline-offset: 2px; }
+    .prose a:hover { color: var(--blue-deep); }
+
+    .prose strong { font-weight: 600; color: var(--text); }
+    .prose em { font-style: italic; }
+
+    .prose hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.75rem 0;
     }
 
-    .file-input-btn {
-      display: inline-block;
+    .prose blockquote {
+      border-left: 3px solid var(--blue-border);
+      margin: 1rem 0;
+      padding: 0.5rem 1rem;
+      color: var(--text-muted);
+      background: var(--surface-input);
+      border-radius: 0 4px 4px 0;
+    }
+    .prose blockquote p { margin-bottom: 0; }
+
+    .prose code {
+      font-family: "SF Mono", Consolas, "Liberation Mono", monospace;
+      font-size: 0.82em;
       background: var(--surface-input);
       border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.1em 0.35em;
+      color: var(--blue-deep);
+    }
+
+    .prose pre {
+      background: #0f1c2e;
       border-radius: 6px;
-      padding: 0.45rem 0.875rem;
-      font-size: 0.85rem;
-      font-family: 'Spectral', Georgia, serif;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      padding: 1rem 1.1rem;
+      overflow-x: auto;
+      margin-bottom: 1rem;
     }
-    .file-input-btn:hover { border-color: var(--blue-deep); background: var(--blue-dim); }
-    .file-input-btn.has-file { border-color: var(--blue-deep); color: var(--blue-deep); background: var(--blue-dim); }
-
-    input[type="file"] { display: none; }
-
-    button[type="submit"] {
-      background: var(--blue-deep);
-      color: #fff;
+    .prose pre code {
+      font-size: 0.82rem;
+      background: none;
       border: none;
-      border-radius: 4px;
-      padding: 0.625rem 1.5rem;
-      font-size: 0.8rem;
+      padding: 0;
+      color: #c8dff0;
+    }
+
+    .prose table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+    .prose th {
+      background: var(--surface-input);
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.75rem;
+      text-align: left;
       font-weight: 600;
-      font-family: 'Spectral', Georgia, serif;
-      letter-spacing: 0.08em;
+      color: var(--blue-deep);
+      font-size: 0.78rem;
       text-transform: uppercase;
-      cursor: pointer;
-      transition: background 0.15s;
+      letter-spacing: 0.05em;
     }
-    button[type="submit"]:hover { background: #163f6a; }
-    button[type="submit"]:disabled { background: var(--border); cursor: not-allowed; color: var(--text-muted); }
-
-    .htmx-indicator { display: none; color: var(--text-muted); font-size: 0.875rem; margin-top: 1rem; }
-    .htmx-request .htmx-indicator { display: block; }
-
-    .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid var(--border);
-      border-top-color: var(--blue-deep);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 0.4rem;
+    .prose td {
+      border: 1px solid var(--border);
+      padding: 0.45rem 0.75rem;
+      vertical-align: top;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    #result { margin-top: 1.5rem; }
+    .prose tr:nth-child(even) td { background: var(--surface-input); }
 
     footer {
       background: #07111e;
@@ -273,7 +313,6 @@
     }
     #tread-dot { transition: background 0.5s ease; animation: treadPulse 2.4s ease-in-out infinite; transform-origin: center; flex-shrink: 0; }
     #tread-text { transition: opacity 0.28s ease; }
-
     @keyframes treadPulse {
       0%, 100% { transform: scale(1); }
       50%       { transform: scale(1.75); }
@@ -282,23 +321,19 @@
     @media (max-width: 520px) {
       .col-frame { box-shadow: none; }
       .header-zone { padding: 1.25rem 0.75rem 1rem; }
-      .card { padding: 1.1rem 0.75rem; }
-      header { flex-wrap: wrap; row-gap: 0.4rem; }
+      .doc-title { padding: 1.25rem 0.75rem 0; }
+      .prose { padding: 1rem 0.75rem 2rem; }
       .logo-text { font-size: 1.5rem; }
-      .back-btn { margin-left: auto; }
-      .upload-row { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
-      .upload-label { width: auto; }
-      .file-input-btn { width: 100%; }
-      button[type="submit"] { width: 100%; }
       .footer-inner { flex-direction: column; gap: 2rem; }
       footer { padding: 2rem 1.25rem 1.25rem; }
+      .prose pre { margin-left: -0.75rem; margin-right: -0.75rem; border-radius: 0; }
     }
   </style>
 </head>
 <body>
 
 <div id="tread-bar">
-  <div style="max-width:680px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
+  <div style="max-width:760px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
     <span id="tread-dot" style="width:6px;height:6px;border-radius:50%;background:#2a4a62;display:inline-block"></span>
     <span id="tread-text"></span>
   </div>
@@ -313,77 +348,19 @@
         <span class="logo-text">LEIMA</span>
         <span class="logo-domain">leima.io</span>
       </a>
-      <div>
-        <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
-      </div>
       <a href="/" class="back-btn">← Back</a>
     </header>
   </div>
 
-  <div class="card">
-    <form
-      hx-post="/validate"
-      hx-target="#result"
-      hx-swap="innerHTML"
-      hx-encoding="multipart/form-data"
-      hx-indicator="#form-wrap"
-      id="val-form"
-    >
-      <div id="form-wrap">
-        {% if tx %}
-
-        <p class="card-title">Verify notarized email</p>
-        <input type="hidden" name="tx_id" value="{{ tx }}">
-
-        <div class="upload-grid">
-          <div class="upload-row">
-            <span class="upload-label">original.eml</span>
-            <label class="file-input-btn" id="label-eml" for="input-eml">Choose file…</label>
-            <input type="file" id="input-eml" name="eml_file" accept=".eml,message/rfc822"
-              onchange="setLabel(this, 'label-eml')">
-          </div>
-        </div>
-        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.25rem;">The .eml file is attached to the notarization email you received.</p>
-
-        {% else %}
-
-        <p class="card-title">Upload all three files to verify integrity</p>
-
-        <div class="upload-grid">
-          <div class="upload-row">
-            <span class="upload-label">source</span>
-            <label class="file-input-btn" id="label-source" for="input-source">Choose file…</label>
-            <input type="file" id="input-source" name="source_file"
-              onchange="setLabel(this, 'label-source')">
-          </div>
-          <div class="upload-row">
-            <span class="upload-label">verdict.pdf</span>
-            <label class="file-input-btn" id="label-verdict" for="input-verdict">Choose file…</label>
-            <input type="file" id="input-verdict" name="verdict_file" accept="application/pdf"
-              onchange="setLabel(this, 'label-verdict')">
-          </div>
-          <div class="upload-row">
-            <span class="upload-label">manifest.json</span>
-            <label class="file-input-btn" id="label-manifest" for="input-manifest">Choose file…</label>
-            <input type="file" id="input-manifest" name="manifest_file" accept="application/json"
-              onchange="setLabel(this, 'label-manifest')">
-          </div>
-        </div>
-
-        {% endif %}
-
-        <button type="submit">Validate</button>
-
-        <div class="htmx-indicator">
-          <span class="spinner"></span>Verifying…
-        </div>
-      </div>
-    </form>
-
-    <div id="result"></div>
+  <div class="doc-title">
+    <h1>{{ title }}</h1>
   </div>
 
-</div><!-- /.col-frame -->
+  <div class="prose">
+    {{ content | safe }}
+  </div>
+
+</div>
 </main>
 
 <footer>
@@ -398,7 +375,6 @@
       <a href="/">Leima</a>
       <a href="/docs/readme">How it works</a>
       <a href="/docs/usecases">Use cases</a>
-      <a href="#">Pricing</a>
     </div>
     <div class="footer-col">
       <span class="footer-col-title">Transparency</span>
@@ -413,26 +389,9 @@
 </footer>
 
 <script>
-  function setLabel(input, labelId) {
-    const label = document.getElementById(labelId);
-    if (input.files[0]) {
-      label.textContent = input.files[0].name;
-      label.classList.add('has-file');
-    }
-  }
-</script>
-
-<script>
   (function() {
     const dot  = document.getElementById('tread-dot');
     const text = document.getElementById('tread-text');
-    let lastCheckedAt = null;
-
-    function timeAgo() {
-      if (!lastCheckedAt) return '';
-      const s = Math.floor((Date.now() - lastCheckedAt) / 1000);
-      return s < 60 ? 'checked ' + s + 's ago' : 'checked ' + Math.floor(s / 60) + 'm ago';
-    }
 
     function setDot(mode) {
       if (mode === 'danger') {
@@ -445,61 +404,32 @@
       }
     }
 
-    function row(statusText, statusColor, reason) {
-      return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
-           + (reason ? ' <span style="color:#fff;font-weight:400">— ' + reason + '</span>' : '')
-           + ' <span style="color:#fff"> - </span><span style="color:#fff;font-weight:500">TREAD</span>'
-           + ' <span id="tread-ago-inner" style="color:#fff">' + timeAgo() + '</span>'
-           + ' <a href="https://github.com/fxg55647/leima/blob/main/TREAD.md" target="_blank" rel="noopener"'
-           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">read more</a>'
-           + ' <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener"'
-           + ' style="color:#fff;text-decoration:underline;text-underline-offset:2px;margin-left:0.3rem">status</a>';
-    }
-
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
       setTimeout(() => { if (dotMode) setDot(dotMode); text.innerHTML = html; text.style.opacity = '1'; }, 280);
     }
 
-    function checkMonitorFiles(current) {
-      const LS_KEY = 'leima_monitor_files';
-      let prev = null;
-      try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
-      try { localStorage.setItem(LS_KEY, JSON.stringify(current)); } catch {}
-      if (!prev || !Object.keys(current).length) return null;
-      const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
-      return changed.length ? changed : null;
-    }
     function update() {
       fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
         const p = d.tread || {};
         const running = d.commit || '';
         const verified = p.verified_commit || '';
-        lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
-        const changedFiles = checkMonitorFiles(p.monitor_files || {});
-        if (changedFiles) {
-          fadeSet(row('Danger', '#ff6b6b', 'surveillance files changed'), 'danger');
-          return;
-        }
-        if (p.deploying) {
-          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
-        } else if (!unknownCommit && verified && !commitMatch) {
-          fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
+        if (p.deploying || (!unknownCommit && verified && !commitMatch)) {
+          fadeSet('<span style="font-weight:600;color:#f0a030">Notice!</span> <span style="color:#fff">Deploying</span> <span style="color:#fff">· <a href="/docs/tread" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">TREAD</a></span>', 'warning');
         } else if (p.ok || commitMatch) {
-          fadeSet(row('OK', '#fff'), 'ok');
+          fadeSet('<span style="font-weight:600;color:#fff">deploy matches git</span> <span style="color:#fff">· <a href="/docs/tread" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">TREAD</a></span>', 'ok');
         } else if (p.ok === false) {
-          fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed'), 'danger');
+          fadeSet('<span style="font-weight:600;color:#ff6b6b">Danger</span> <span style="color:#fff">· <a href="/docs/tread" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">TREAD</a></span>', 'danger');
         } else {
-          fadeSet(row('Checking…', '#555', ''), 'loading');
+          fadeSet('<span style="color:#555">Checking…</span>', 'loading');
         }
-      }).catch(() => { lastCheckedAt = null; fadeSet('<span style="color:#555">Unavailable</span> <span style="color:#fff;font-weight:500">TREAD</span>', 'loading'); });
+      }).catch(() => fadeSet('<span style="color:#f0a030">Network error</span>', 'warning'));
     }
 
     update();
     setInterval(update, 20000);
-    setInterval(() => { if (lastCheckedAt) { const el = document.getElementById('tread-ago-inner'); if (el) el.textContent = timeAgo(); } }, 15000);
   })();
 </script>
 

@@ -20,7 +20,7 @@ from html import escape as _html_escape
 import markdown as _md
 import bleach
 import requests as http_requests
-from fastapi import FastAPI, File, Form, UploadFile, Request
+from fastapi import FastAPI, File, Form, UploadFile, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
@@ -662,6 +662,28 @@ def _tread_intro() -> str:
     except Exception as e:
         print(f"_tread_intro error: {e!r}")
         return ""
+
+_DOCS: dict[str, tuple[str, str]] = {
+    "readme":   ("README.md",        "How it works"),
+    "usecases": ("USECASES.md",      "Use cases"),
+    "security": ("SECURITY_MODEL.md","Data policy"),
+    "tread":    ("TREAD.md",         "TREAD — What is this?"),
+}
+
+@app.get("/docs/{name}", response_class=HTMLResponse)
+async def doc_page(request: Request, name: str):
+    mapping = _DOCS.get(name)
+    if not mapping:
+        raise HTTPException(status_code=404)
+    filename, title = mapping
+    try:
+        path = os.path.join(os.path.dirname(__file__), filename)
+        text = open(path, encoding="utf-8").read()
+        content = _md.markdown(text, extensions=["tables", "fenced_code", "nl2br"])
+    except FileNotFoundError:
+        raise HTTPException(status_code=404)
+    return templates.TemplateResponse("doc.html", {"request": request, "title": title, "content": content})
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
