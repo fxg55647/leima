@@ -652,6 +652,31 @@ async def version():
     }
 
 
+@app.get("/tread-cron")
+async def tread_cron(request: Request):
+    cron_secret = os.getenv("CRON_SECRET", "")
+    if cron_secret:
+        if request.headers.get("Authorization", "") != f"Bearer {cron_secret}":
+            raise HTTPException(status_code=401)
+    token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
+    if not token:
+        return JSONResponse({"dispatched": False, "error": "no_token"}, status_code=500)
+    try:
+        r = http_requests.post(
+            f"https://api.github.com/repos/{_GITHUB_REPO}/actions/workflows/tread-a.yml/dispatches",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+            json={"ref": _GITHUB_BRANCH},
+            timeout=10,
+        )
+        return {"dispatched": r.status_code == 204}
+    except Exception as e:
+        return JSONResponse({"dispatched": False, "error": str(e)}, status_code=500)
+
+
 def _readme_intro() -> str:
     try:
         text = open(os.path.join(os.path.dirname(__file__), "README.md"), encoding="utf-8").read()
