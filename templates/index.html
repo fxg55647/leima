@@ -133,13 +133,18 @@
       gap: 0.25rem;
       border-bottom: 1px solid rgba(26,75,124,0.2);
       margin-bottom: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .tabs::-webkit-scrollbar { display: none; }
 
     .tab-btn {
       background: none;
       border: none;
       border-bottom: 2px solid transparent;
       color: rgba(26,75,124,0.55);
+      flex-shrink: 0;
       padding: 0.4rem 0.875rem 0.6rem;
       cursor: pointer;
       font-size: 0.82rem;
