@@ -510,9 +510,12 @@
     }
     .footer-inner {
       display: grid;
-      grid-template-columns: repeat(auto-fill, 232px);
+      grid-template-columns: repeat(3, 232px);
       align-items: start;
       gap: 2rem;
+    }
+    @media (min-width: 1352px) {
+      .footer-inner { grid-template-columns: repeat(5, 232px); justify-content: start; }
     }
     .footer-logo-mark {
       display: flex;
@@ -659,7 +662,7 @@
       .email-split { flex-direction: column; height: auto; }
       .email-list { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 160px; }
       .email-preview-pane { max-height: 200px; }
-      .footer-inner { flex-direction: column; gap: 2rem; }
+      .footer-inner { grid-template-columns: 1fr; }
       footer { padding: 2rem 1.25rem 1.25rem; }
     }
   </style>
