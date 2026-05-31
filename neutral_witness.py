@@ -224,7 +224,7 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
         "e.g. **Own assessment:** or **Note:** — clearly separated from document evidence."
     ) if not content_only else ""
     privacy_note = (
-        "\nPrivacy: the user may ask you to keep specific details private by writing "
+        "\nRedaction: the user may request that specific details be redacted from the public verdict by writing "
         "\"keep [X] private\" or \"don't mention [X]\" in their claim. If they do, replace "
         "those details with generic placeholders (e.g. \"Company A\", \"Party B\", \"a named individual\", "
         "\"a specific amount\") throughout your entire response — including direct quotes. "
@@ -305,7 +305,7 @@ If the evidence clearly favours one side, say so directly. Do not hedge. A clear
 
 Include a brief note on source credibility in your reasoning — whether the source type (e.g. domain authority, cryptographic signature, DKIM, commit verification) strengthens or weakens the overall verdict.
 
-Privacy: if the user asked to keep specific details private in their claim, replace those details with the same generic placeholders used by the analysts throughout your verdict and summary — including in the VERDICT line.
+Redaction: if the user requested that specific details be redacted from the public verdict, replace those details with the same generic placeholders used by the analysts throughout your verdict and summary — including in the VERDICT line.
 
 Identifiers: your verdict and explanation must explicitly name any specific identifiers present in the claim or source — such as a person's full name, email address, company name, account number, date, or document title. Do not replace these with generic references like "the person" or "the company" unless the user has requested privacy. A reader of the verdict alone, without access to the original document, must be able to identify exactly who or what is being referred to.
 
