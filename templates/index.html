@@ -1131,8 +1131,8 @@
     entries.forEach(el => { const b = el.querySelector('.bundle-remove'); if (b) b.style.display = show ? '' : 'none'; });
   }
 
-  // initialise bundle entries on page load
-  (function() { _resetBundleEntries(); })();
+  // initialise bundle entries and activate default tab on page load
+  (function() { _resetBundleEntries(); _activateTab(_currentTab); })();
 
   (function() {
     const dot = document.getElementById('tread-dot');
