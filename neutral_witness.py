@@ -173,6 +173,13 @@ def _source_block(source_context: dict | None) -> str:
             "Note that this is a specific point-in-time snapshot of the repository — "
             "the commit hash ties these exact file contents to a specific moment in version control history."
         )
+    elif t == "claim_only":
+        return (
+            "Source type: Claim only — no external document provided. "
+            "Evaluate the claim based on your training knowledge and reasoning. "
+            "Be explicit about the basis for your evaluation (established facts, scientific consensus, expert consensus, etc.). "
+            "If you are uncertain about the claim's accuracy, say so directly and explain why."
+        )
     elif t == "bundle":
         count = source_context.get("count", 0)
         stamps = source_context.get("stamps", [])

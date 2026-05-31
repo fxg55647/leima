@@ -689,6 +689,7 @@
         <button type="button" class="tab-btn" onclick="switchCat('email', this)">Email</button>
         <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
         <button type="button" class="tab-btn" onclick="switchCat('bundle', this)">Bundle</button>
+        <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim</button>
       </div>
 
       <div class="sub-row" id="sub-text" style="display:none;">
@@ -800,6 +801,16 @@
           <div style="font-size:0.75rem;color:var(--text-faint);margin-top:0.3rem;">2–10 stamps · Arweave TX IDs from previous leima.io verdicts</div>
         </div>
 
+        <div id="tab-claim" class="tab-panel">
+          <div style="font-size:0.85rem;color:var(--text-muted);padding:0.25rem 0 0.75rem;line-height:1.55;">
+            No source document needed. AI evaluates the claim using its own knowledge.
+          </div>
+          <label class="credibility-option">
+            <input type="checkbox" name="use_web_search" value="1" id="claim-web-search-cb">
+            Include web search for context
+          </label>
+        </div>
+
         <div id="tab-email" class="tab-panel">
           <div class="field-group">
             <label class="field-label">Your email</label>
@@ -837,7 +848,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Analyse
           </button>
-          <div class="credibility-options" style="display:none;">
+          <div class="credibility-options" id="credibility-options" style="display:none;">
             <label class="credibility-option">
               <input type="radio" name="assess_credibility" value="1" checked>
               Evaluate whether the claim is true
@@ -846,9 +857,9 @@
               <input type="radio" name="assess_credibility" value="0">
               Evaluate only what the source says about the claim
             </label>
-            <label class="credibility-option" id="web-search-option" style="margin-top:0.15rem;padding-top:0.15rem;border-top:1px solid var(--border);">
-              <input type="checkbox" name="use_web_search" value="1" id="web-search-cb">
-              Include web search for context
+            <label class="credibility-option">
+              <input type="radio" name="assess_credibility" value="1_web">
+              Evaluate whether the claim is true and include web search
             </label>
           </div>
         </div>
@@ -1016,6 +1027,7 @@
     email:     'e.g. <em>"Tesla offered me a job in this email"</em>',
     github:    'e.g. <em>"this code follows best security practices"</em>',
     bundle:    'e.g. <em>"these stamps together prove the contract was valid at the time of signing"</em>',
+    claim:     'e.g. <em>"mRNA vaccines were first approved for human use in 2020"</em>',
   };
   const TAB_PLACEHOLDERS = {
     pdf:       'this contract was signed by both parties',
@@ -1026,9 +1038,10 @@
     email:     'the sender promised delivery before Friday',
     github:    'this repository contains hardcoded secrets',
     bundle:    'all three stamps originate from the same signatory',
+    claim:     'this technology did not exist before 2019',
   };
 
-  const CAT_DEFAULT = {web: 'web', text: 'text', image: 'image', email: 'email', github: 'github', bundle: 'bundle'};
+  const CAT_DEFAULT = {web: 'web', text: 'text', image: 'image', email: 'email', github: 'github', bundle: 'bundle', claim: 'claim'};
   const CAT_HAS_SUB = new Set(['text', 'image']);
 
   function switchCat(cat, btn) {
@@ -1076,9 +1089,9 @@
     if (tab === 'pdf') { pdfMode === 'url' ? showUrlInput() : showDropZone(); }
     document.getElementById('active-tab').value = tab === 'image-url' ? 'image' : tab;
     _currentTab = tab;
-    const isGithub = tab === 'github', isBundle = tab === 'bundle';
+    const isGithub = tab === 'github', isBundle = tab === 'bundle', isClaim = tab === 'claim';
     document.getElementById('submit-btn').style.display = '';
-    document.querySelector('.credibility-options').style.display = (isGithub || isBundle) ? 'none' : '';
+    document.getElementById('credibility-options').style.display = (isGithub || isBundle || isClaim) ? 'none' : '';
     if (isBundle) { document.getElementById('submit-btn').disabled = false; }
     document.getElementById('submit-btn').disabled = (tab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
     const hint = TAB_HINTS[tab];

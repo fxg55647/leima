@@ -1643,6 +1643,14 @@ async def ask(
         source_context = {"type": "bundle", "count": len(stamps), "stamps": stamps}
         contents.append(bundle_text)
 
+    elif active_tab == "claim":
+        input_bytes = question.encode("utf-8")
+        input_label = "claim-only"
+        source_context = {"type": "claim_only"}
+        source_ext = "txt"
+        source_mime = "text/plain"
+        # contents stays empty — question appended below by common code
+
     else:
         return HTMLResponse('<div class="error">Unknown input type.</div>')
 
@@ -1653,6 +1661,10 @@ async def ask(
         source_context = {"type": "content_only"}
 
     verdict_prefix = "Document (with evaluation)" if assess_credibility == "1" else "Document"
+
+    if assess_credibility == "1_web":
+        assess_credibility = "1"
+        use_web_search = "1"
 
     if use_web_search == "1" and question.strip():
         web_ctx = _fetch_web_context(question)
