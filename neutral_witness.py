@@ -307,6 +307,8 @@ Include a brief note on source credibility in your reasoning — whether the sou
 
 Privacy: if the user asked to keep specific details private in their claim, replace those details with the same generic placeholders used by the analysts throughout your verdict and summary — including in the VERDICT line.
 
+Identifiers: your verdict and explanation must explicitly name any specific identifiers present in the claim or source — such as a person's full name, email address, company name, account number, date, or document title. Do not replace these with generic references like "the person" or "the company" unless the user has requested privacy. A reader of the verdict alone, without access to the original document, must be able to identify exactly who or what is being referred to.
+
 Start your response with exactly two lines in this format:
 CATEGORY: <exactly one of: Strongly matches / Mostly matches / Equally supports and contradicts / Mostly does not match / Does not match>
 VERDICT: <one sentence in the same language as the claim, max 15 words>
