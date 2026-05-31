@@ -75,6 +75,21 @@
     .tabs-wrap {
       width: 100%;
       max-width: 680px;
+      position: relative;
+    }
+    .tabs-scroll-hint {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 1px;
+      display: flex;
+      align-items: center;
+      padding: 0 0.3rem 0 1rem;
+      background: linear-gradient(to right, transparent, #fff 55%);
+      color: rgba(26,75,124,0.45);
+      font-size: 0.85rem;
+      pointer-events: none;
+      transition: opacity 0.2s;
     }
 
     .validate-btn {
@@ -696,6 +711,7 @@
         <button type="button" class="tab-btn" onclick="switchCat('bundle', this)">Bundle</button>
         <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim only</button>
       </div>
+      <div class="tabs-scroll-hint" id="tabs-scroll-hint">›</div>
 
       <div class="sub-row" id="sub-text" style="display:none;">
         <button type="button" class="sub-btn active" onclick="switchTab('text', this)">Paste</button>
@@ -1157,6 +1173,20 @@
 
   // initialise bundle entries and activate default tab on page load
   (function() { _resetBundleEntries(); _activateTab(_currentTab); })();
+
+  (function() {
+    const tabs = document.querySelector('.tabs');
+    const hint = document.getElementById('tabs-scroll-hint');
+    function updateHint() {
+      if (!tabs || !hint) return;
+      const scrollable = tabs.scrollWidth > tabs.clientWidth + 4;
+      const atEnd = tabs.scrollLeft + tabs.clientWidth >= tabs.scrollWidth - 4;
+      hint.style.opacity = (scrollable && !atEnd) ? '1' : '0';
+    }
+    tabs.addEventListener('scroll', updateHint);
+    window.addEventListener('resize', updateHint);
+    updateHint();
+  })();
 
   (function() {
     const dot = document.getElementById('tread-dot');
