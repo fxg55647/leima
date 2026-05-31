@@ -201,6 +201,10 @@ def _source_block(source_context: dict | None) -> str:
 def _build_pass_prompts(source_context: dict | None, question: str = "") -> list[str]:
     source_block = _source_block(source_context) + "\n\n"
     content_only = (source_context or {}).get("type") == "content_only"
+    web_search_note = (
+        "\nWeb search results have been retrieved and are included in the context below. "
+        "Consider these alongside the document when evaluating the claim.\n"
+    ) if (source_context or {}).get("web_search") else ""
     own_note = (
         " If your own knowledge adds relevant context beyond what the document states, "
         "include it at the end of your analysis under a short heading in bold, "
@@ -234,7 +238,7 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
         "Identify what in the document supports the claim, and under which assumptions. "
         "Be specific. Quote directly from the document using quotation marks. "
         "Do not consider contradictions or gaps."
-        + own_note + privacy_note + "\n\n"
+        + own_note + privacy_note + web_search_note + "\n\n"
         + source_block + language
     )
     p2 = (
@@ -242,7 +246,7 @@ def _build_pass_prompts(source_context: dict | None, question: str = "") -> list
         "Identify what in the document contradicts the claim, or fails to support it. "
         "Note what is absent, inconsistent, or requires assumptions not stated in the document. "
         "Quote directly when relevant. Do not consider supporting evidence."
-        + own_note + privacy_note + "\n\n"
+        + own_note + privacy_note + web_search_note + "\n\n"
         + source_block + language
     )
     return [p1, p2]

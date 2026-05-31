@@ -640,9 +640,18 @@ async def version():
     }
 
 
+def _readme_intro() -> str:
+    try:
+        text = open(os.path.join(os.path.dirname(__file__), "README.md"), encoding="utf-8").read()
+        intro = text.split("---")[0].strip()
+        return _md.markdown(intro)
+    except Exception as e:
+        print(f"_readme_intro error: {e!r}")
+        return ""
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro()})
 
 
 @app.get("/validate", response_class=HTMLResponse)
@@ -987,6 +996,22 @@ async def validate(
         "partials/validation_result.html",
         {"request": request, "results": results, "all_ok": all_ok},
     )
+
+
+def _fetch_web_context(question: str) -> str:
+    try:
+        from neutral_witness import _get_client, MODEL
+        client = _get_client()
+        resp = client.models.generate_content(
+            model=MODEL,
+            contents=f'Search the web and find relevant factual context for evaluating this claim: "{question}". Summarize what authoritative sources say.',
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+            ),
+        )
+        return (resp.text or "").strip()
+    except Exception:
+        return ""
 
 
 def _irys_upload(data: bytes, content_type: str, tags: dict) -> str:
@@ -1344,6 +1369,7 @@ async def ask(
     review_mode: str = Form("claim"),
     rules_url: str = Form(""),
     bundle_tx_ids: list[str] = Form([]),
+    use_web_search: str = Form(""),
 ):
     if review_mode != "code_review" and not question.strip():
         return HTMLResponse('<div class="error">Please enter a claim.</div>')
@@ -1627,6 +1653,14 @@ async def ask(
         source_context = {"type": "content_only"}
 
     verdict_prefix = "Document (with evaluation)" if assess_credibility == "1" else "Document"
+
+    if use_web_search == "1" and question.strip():
+        web_ctx = _fetch_web_context(question)
+        if web_ctx:
+            contents.append(f"Web search context:\n{web_ctx}")
+            if source_context is None:
+                source_context = {}
+            source_context["web_search"] = True
 
     try:
         result = _run_analysis(question, contents, input_bytes, input_label,
