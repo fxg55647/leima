@@ -26,10 +26,10 @@
   },
   "disabled_workflows": [],
   "history": {
-    "scanned_deploys": 99,
+    "scanned_deploys": 98,
     "last_mismatch_at": null,
     "last_mismatch_commit": null,
-    "clean_since": "2026-05-28T23:26:29.389876Z",
+    "clean_since": "2026-05-28T23:36:37.181403Z",
     "deploys_last_hour": 6
   },
   "service_url": "https://leima.onrender.com",
@@ -51,6 +51,6 @@
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26726051624",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26726051624"
+  "actions_run_id": "26726051965",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26726051965"
 }
