@@ -84,9 +84,9 @@
       bottom: 1px;
       display: flex;
       align-items: center;
-      padding: 0 0.3rem 0 1rem;
-      background: linear-gradient(to right, transparent, #fff 55%);
-      color: rgba(26,75,124,0.45);
+      padding: 0 0.4rem 0 2rem;
+      background: linear-gradient(to right, transparent, #fff 60%);
+      color: var(--blue-mid);
       font-size: 0.85rem;
       pointer-events: none;
       transition: opacity 0.2s;
@@ -729,9 +729,9 @@
       bottom: 0;
       display: flex;
       align-items: center;
-      padding: 0 0.3rem 0 1rem;
-      background: linear-gradient(to right, transparent, #07111e 55%);
-      color: rgba(255,255,255,0.35);
+      padding: 0 0.5rem 0 4rem;
+      background: linear-gradient(to right, transparent, #07111e 65%);
+      color: rgba(255,255,255,0.7);
       font-size: 0.8rem;
       pointer-events: none;
       transition: opacity 0.2s;
@@ -1738,7 +1738,18 @@
     }
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
-      setTimeout(() => { if (dotMode) setDot(dotMode); text.innerHTML = html; text.style.opacity = '1'; }, 280);
+      setTimeout(() => {
+        if (dotMode) setDot(dotMode);
+        text.innerHTML = html;
+        text.style.opacity = '1';
+        const th = document.getElementById('tread-scroll-hint');
+        const bar = document.getElementById('tread-bar');
+        if (th && bar) {
+          const scrollable = bar.scrollWidth > bar.clientWidth + 4;
+          const atEnd = bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 4;
+          th.style.opacity = (scrollable && !atEnd) ? '1' : '0';
+        }
+      }, 280);
     }
     function update() {
       fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
