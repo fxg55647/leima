@@ -510,7 +510,8 @@
     }
     .footer-inner {
       display: grid;
-      grid-template-columns: repeat(auto-fill, 200px);
+      grid-template-columns: repeat(auto-fill, 205px);
+      align-items: start;
       gap: 2rem;
     }
     .footer-logo-mark {
@@ -550,7 +551,7 @@
       color: #6a8899;
       line-height: 1.65;
       display: -webkit-box;
-      -webkit-line-clamp: 4;
+      -webkit-line-clamp: 8;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -1349,7 +1350,7 @@
 
 <script>
   (function() {
-    var W = 232; // 200px column + 32px gap (2rem)
+    var W = 237; // 205px column + 32px gap (2rem)
     var S = 32;  // footer padding = 2rem
     function alignFooter() {
       var inner = document.querySelector('.footer-inner');

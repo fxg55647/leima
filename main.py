@@ -654,7 +654,11 @@ def _tread_intro() -> str:
     try:
         text = open(os.path.join(os.path.dirname(__file__), "TREAD.md"), encoding="utf-8").read()
         intro = text.split("---")[0].strip()
-        return _md.markdown(intro)
+        paras = [p.strip() for p in intro.split("\n\n") if p.strip()
+                 and not p.strip().startswith("#")
+                 and not (p.strip().startswith("*") and p.strip().endswith("*"))]
+        excerpt = "\n\n".join(paras[:2])
+        return _md.markdown(excerpt)
     except Exception as e:
         print(f"_tread_intro error: {e!r}")
         return ""
