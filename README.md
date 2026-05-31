@@ -543,3 +543,13 @@ chmod +x .git/hooks/pre-push   # Linux/macOS only
 ```
 
 Before every `git push`, the hook fetches the latest TREAD status. If a deploy is in progress it waits (up to 3 minutes). If a mismatch is active it blocks the push and explains why. Override with `git push --no-verify` if needed.
+
+
+---
+
+## Contact
+
+**Teemu Lantta**
+[teemun.geemeili@gmail.com](mailto:teemun.geemeili@gmail.com)
+[linkedin.com/in/teemu-lantta-90440366](https://www.linkedin.com/in/teemu-lantta-90440366/)
+[github.com/fxg55647/leima](https://github.com/fxg55647/leima)

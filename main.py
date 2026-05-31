@@ -663,11 +663,22 @@ def _tread_intro() -> str:
         print(f"_tread_intro error: {e!r}")
         return ""
 
+def _community_intro() -> str:
+    try:
+        text = open(os.path.join(os.path.dirname(__file__), "COMMUNITY.md"), encoding="utf-8").read()
+        paras = [p.strip() for p in text.split("\n\n") if p.strip() and not p.strip().startswith("#")]
+        excerpt = "\n\n".join(paras[:2])
+        return _md.markdown(excerpt)
+    except Exception as e:
+        print(f"_community_intro error: {e!r}")
+        return ""
+
 _DOCS: dict[str, tuple[str, str]] = {
-    "readme":   ("README.md",        "How it works"),
-    "usecases": ("USECASES.md",      "Use cases"),
-    "security": ("SECURITY_MODEL.md","Data policy"),
-    "tread":    ("TREAD.md",         "TREAD — What is this?"),
+    "readme":     ("README.md",        "How it works"),
+    "usecases":   ("USECASES.md",      "Use cases"),
+    "security":   ("SECURITY_MODEL.md","Data policy"),
+    "tread":      ("TREAD.md",         "TREAD — What is this?"),
+    "community":  ("COMMUNITY.md",     "Open Source"),
 }
 
 # Reverse map: filename.md → /docs/slug (for rewriting internal links)
@@ -699,12 +710,12 @@ async def doc_page(request: Request, name: str):
         content = _fix_doc_links(content)
     except FileNotFoundError:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse("doc.html", {"request": request, "title": title, "content": content, "readme_intro": _readme_intro(), "tread_intro": _tread_intro()})
+    return templates.TemplateResponse("doc.html", {"request": request, "title": title, "content": content, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro()})
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro(), "tread_intro": _tread_intro()})
+    return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro()})
 
 
 @app.get("/validate", response_class=HTMLResponse)
