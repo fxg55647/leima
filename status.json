@@ -1,8 +1,8 @@
 {
-  "ok": true,
+  "ok": false,
   "rapid_deploy_warning": false,
   "deployment_ok": false,
-  "review_ok": false,
+  "review_ok": true,
   "review_consecutive_failures": 0,
   "review_stuck": false,
   "deploying": false,
@@ -11,7 +11,7 @@
   "deployed_commit": "2d97d581eda3941d1ef10529c80941ffb75f5e18",
   "expected_commit": null,
   "deploy_status": "live",
-  "review_conclusion": "in_progress",
+  "review_conclusion": "success",
   "cron_fresh": true,
   "workflow_states": {
     "tread-a.yml": "active",
@@ -31,7 +31,7 @@
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-05-31 14:19:55 UTC",
+  "checked_at": "2026-05-31 14:19:56 UTC",
   "monitor_files": {
     ".github/workflows/tread-a.yml": "4ea3fdf861d3edc101fd1b06d5ce2794152b7cbe8f8c24943742311bec466aae",
     ".github/workflows/tread-b.yml": "6f7e151e016d34c597d56e43f1b8b1ad9d44a2523fd0df2c823e6dfe9499914e",
@@ -47,6 +47,6 @@
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26715081270",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26715081270"
+  "actions_run_id": "26715086848",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26715086848"
 }
