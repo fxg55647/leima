@@ -12,32 +12,32 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 
 ## Contents
 
-- [What it does](#what-it-does)
-- [How the proof works](#how-the-proof-works)
-- [Use cases](#use-cases) — see also [USECASES.md](USECASES.md) for extended examples
-- [Why this matters](#why-this-matters)
-- [A public good](#a-public-good)
-- [Contributing](#contributing)
-- [Document sources](#document-sources)
-- [Browser tab](#browser-tab)
-- [API](#api)
-- [Trust model](#trust-model)
-- [Threat model](#threat-model)
-- [Stack](#stack)
-- [Setup](#setup)
-- [Validation](#validation)
-- [Deployment](#deployment)
-- [Deployment integrity (TREAD)](#deployment-integrity-tread)
-- [Independent verification (verify.py)](#independent-verification-verifypy)
-- [Self-characterisation for due diligence (bundle_source.py)](#self-characterisation-for-due-diligence-bundle_sourcepy)
-- [Browser userscript (TREAD client-side monitor)](#browser-userscript-tread-client-side-monitor)
-- [Developer pre-push hook](#developer-pre-push-hook)
+- [What it does](#1-what-it-does)
+- [How the proof works](#2-how-the-proof-works)
+- [Use cases](#3-use-cases) — see also [USECASES.md](USECASES.md) for extended examples
+- [Why this matters](#4-why-this-matters)
+- [A public good](#5-a-public-good)
+- [Contributing](#6-contributing)
+- [Document sources](#7-document-sources)
+- [Browser tab](#8-browser-tab)
+- [API](#9-api)
+- [Trust model](#10-trust-model)
+- [Threat model](#11-threat-model)
+- [Stack](#13-stack)
+- [Setup](#14-setup)
+- [Validation](#15-validation)
+- [Deployment](#16-deployment)
+- [Deployment integrity (TREAD)](#17-deployment-integrity-tread)
+- [Independent verification (verify.py)](#18-independent-verification-verifypy)
+- [Self-characterisation for due diligence (bundle_source.py)](#19-self-characterisation-for-due-diligence-bundle_sourcepy)
+- [Browser userscript (TREAD client-side monitor)](#20-browser-userscript-tread-client-side-monitor)
+- [Developer pre-push hook](#21-developer-pre-push-hook)
 - [Data policy](POLICY.example.md)
 - [SAIA and zero-knowledge systems (ZKSE.md)](ZKSE.md)
 
 ---
 
-## What it does
+## 1. What it does
 
 You provide a document and a claim. Leima runs three independent AI passes:
 
@@ -73,7 +73,7 @@ These layers serve different purposes and can be relied on for different things.
 
 ---
 
-## How the proof works
+## 2. How the proof works
 
 ```
 source.pdf  ──sha256──►  input.sha256  ──┐
@@ -87,7 +87,7 @@ The stamp record is the immutable on-chain object: it contains the hashes, times
 
 ---
 
-## Use cases
+## 3. Use cases
 
 **Due diligence**
 - Any material — contracts, financial statements, code, patent applications — can be partially disclosed: the AI characterises the content and stamps a verdict, while the hash commits to the full document. If fraudulent or misleading data was provided, the hash exposes it later
@@ -130,7 +130,7 @@ For extended examples and context see [USECASES.md](USECASES.md).
 
 ---
 
-## Why this matters
+## 4. Why this matters
 
 Leima's value does not depend on AI being infallible. It rests on two separate foundations.
 
@@ -156,7 +156,7 @@ This is the inverse of the usual leapfrog story. Normally, developing countries 
 
 ---
 
-## A public good
+## 5. A public good
 
 The value Leima creates depends on its neutrality. A neutral witness cannot have a financial stake in verdicts. A permanent record loses meaning if the infrastructure can be shut down by a single owner. These properties are structurally incompatible with a standard commercial model — the moment a company controls the service and needs to extract revenue from it, the neutrality that makes it useful begins to erode.
 
@@ -170,7 +170,7 @@ A related risk: anyone can fork the codebase and run a version that does not res
 
 ---
 
-## Contributing
+## 6. Contributing
 
 Leima is designed to be a public good. That only works if it is built and governed by more than one person.
 
@@ -188,7 +188,7 @@ To get involved: open an issue or pull request on GitHub, or contact via the rep
 
 ---
 
-## Document sources
+## 7. Document sources
 
 | Source | Notes |
 |--------|-------|
@@ -202,7 +202,7 @@ To get involved: open an issue or pull request on GitHub, or contact via the rep
 
 ---
 
-## Browser tab
+## 8. Browser tab
 
 The **Browser** tab opens a live, remotely controlled browser session inside the Leima UI. It is intended for pages that require authentication, dynamic rendering, or manual navigation before a claim can be evaluated — content that a simple URL fetch cannot reach.
 
@@ -221,7 +221,7 @@ The flow:
 
 ---
 
-## API
+## 9. API
 
 Agents and automated pipelines can call Leima directly without the UI:
 
@@ -256,7 +256,7 @@ Response:
 
 ---
 
-## Trust model
+## 10. Trust model
 
 For a complete description of what data Leima collects, where it goes, and what triggers re-consent when code changes, see [POLICY.example.md](POLICY.example.md).
 
@@ -303,7 +303,7 @@ A future option will allow switching to AI providers that operate under strict, 
 
 ---
 
-## Threat model
+## 11. Threat model
 
 | Threat | Covered? | Notes |
 |--------|----------|-------|
@@ -325,7 +325,7 @@ A future option will allow switching to AI providers that operate under strict, 
 
 ---
 
-## Economic case
+## 12. Economic case
 
 Deployment transparency has historically required either expensive infrastructure or accepting "trust us" as the answer. This has had a real cost.
 
@@ -353,7 +353,7 @@ For AI applications specifically, fully on-chain execution is not a realistic op
 
 ---
 
-## Stack
+## 13. Stack
 
 - **Backend** — FastAPI + Uvicorn
 - **AI** — Google Gemini 3.1 Flash Lite
@@ -363,7 +363,7 @@ For AI applications specifically, fully on-chain execution is not a realistic op
 
 ---
 
-## Setup
+## 14. Setup
 
 ```bash
 git clone https://github.com/fxg55647/leima
@@ -406,7 +406,7 @@ uvicorn main:app --reload
 
 ---
 
-## Validation
+## 15. Validation
 
 **AI verdict flow.** Any party who receives the three files can verify integrity at `/validate`:
 
@@ -420,7 +420,7 @@ If all three pass, the verdict is authentic and unmodified.
 
 ---
 
-## Deployment
+## 16. Deployment
 
 Connect the GitHub repository in the Render dashboard. Create a **Web Service** with:
 
@@ -435,7 +435,7 @@ To enable the email notary, add a **Cron Job** service pointing at `POST /notary
 
 ---
 
-## Deployment integrity (TREAD)
+## 17. Deployment integrity (TREAD)
 
 The full trust chain on every commit:
 
@@ -456,7 +456,7 @@ Before submitting sensitive documents, verify that the TREAD Code Review and the
 
 ---
 
-## Independent verification (verify.py)
+## 18. Independent verification (verify.py)
 
 `verify.py` is a standalone script you can run from anywhere — on your own machine, without contacting the Leima service at all — to confirm that the monitoring infrastructure has not been tampered with.
 
@@ -484,7 +484,7 @@ Arweave records cannot be altered retroactively. A TX you trusted six months ago
 
 ---
 
-## Self-characterisation for due diligence (bundle_source.py)
+## 19. Self-characterisation for due diligence (bundle_source.py)
 
 `bundle_source.py` bundles the entire codebase — source files, `README.md`, `POLICY.example.md`, and `requirements.txt` — into a single `source_bundle.txt` ready for Leima upload.
 
@@ -505,7 +505,7 @@ The claim and AI analysis are permanently public on Arweave. To anonymise specif
 
 ---
 
-## Browser userscript (TREAD client-side monitor)
+## 20. Browser userscript (TREAD client-side monitor)
 
 `tread.user.js` is a Tampermonkey userscript that runs silently in your browser when you visit leima.io. It checks the TREAD status on each page load and shows a centred modal warning if a deployment mismatch or unauthorised deploy is detected. Under normal conditions it does nothing visible.
 
@@ -531,7 +531,7 @@ The claim and AI analysis are permanently public on Arweave. To anonymise specif
 
 ---
 
-## Developer pre-push hook
+## 21. Developer pre-push hook
 
 A git hook prevents accidentally pushing during an active commit mismatch or mid-deploy, which would widen the mismatch window.
 
@@ -547,7 +547,7 @@ Before every `git push`, the hook fetches the latest TREAD status. If a deploy i
 
 ---
 
-## Contact
+## 22. Contact
 
 **Teemu Lantta**
 [teemun.geemeili@gmail.com](mailto:teemun.geemeili@gmail.com)
