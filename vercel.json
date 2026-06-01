@@ -1,3 +1,4 @@
 {
-"crons": [{"path": "/tread-cron", "schedule": "0 0 * * *"}]
+  "ignoreCommand": "exit 0",
+  "crons": [{"path": "/tread-cron", "schedule": "0 0 * * *"}]
 }
