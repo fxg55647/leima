@@ -1,5 +1,5 @@
 {
-  "ok": true,
+  "ok": false,
   "rapid_deploy_warning": false,
   "deployment_ok": false,
   "vercel_deployment_ok": false,
@@ -15,8 +15,8 @@
   "deployed_commit": "377a1ad4f3192dd94e132ade0ced8b664f313832",
   "expected_commit": null,
   "deploy_status": "live",
-  "review_conclusion": "in_progress",
-  "cron_fresh": true,
+  "review_conclusion": null,
+  "cron_fresh": false,
   "workflow_states": {
     "tread-a.yml": "active",
     "tread-b.yml": "active",
@@ -51,6 +51,6 @@
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26730067364",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26730067364"
+  "actions_run_id": "26730068221",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26730068221"
 }
