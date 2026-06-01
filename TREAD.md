@@ -143,7 +143,7 @@ These incidents illustrate different points in the supply chain where code can b
 
 Both share the same structure: the trust signal users had — a familiar domain, a green padlock, a known developer's name on a commit — said nothing about what code was actually executing. TREAD adds a missing signal at the runtime end of the chain. Sigstore, SLSA, and reproducible builds address the earlier stages; together they cover the full path from source to running instance.
 
-**A note on XZ Utils (2024).** The XZ backdoor is sometimes cited in the context of deployment transparency. It is not a strong fit here: the attack was primarily a build and release provenance problem — the malicious code appeared in distributed tarballs but not in the same form in the git repository. TREAD monitors the gap between repository state and running instance; it does not address the gap between source code and build artifacts. That layer is better covered by Sigstore, SLSA, and reproducible builds.
+**On the prevalence of hosting-layer abuse.** In practice, hosting providers and infrastructure operators are rarely caught accessing user data or running modified code — not because it never happens, but because it is very difficult to detect. There is no reliable way for a user to verify what code is actually executing on a remote server, and providers have no strong incentive to make this auditable. The true frequency of quiet abuse is unknowable. TREAD does not eliminate this risk, but it makes any tampering detectable rather than invisible.
 
 ---
 
