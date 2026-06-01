@@ -1,4 +1,4 @@
 {
   "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"gh-pages\" ]; then exit 0; else exit 1; fi",
-  "crons": [{"path": "/tread-cron", "schedule": "0 * * * *"}]
+  "crons": [{"path": "/tread-cron", "schedule": "0 0 * * *"}]
 }
