@@ -234,7 +234,7 @@ Continuous code review against a fixed policy opens up use cases beyond user-fac
 
 - **Compliance reporting.** For regulated industries — fintech, healthcare, legal — the permanent Arweave record provides a timestamped compliance trail without additional tooling. "The code was reviewed against policy X at commit Y on date Z, and passed" is a statement that can be independently verified.
 
-The gap between "we have a security policy" and "we can prove the running code follows it" is normally bridged by expensive audits and manual processes. TREAD closes that gap for code-level compliance continuously and automatically.
+The gap between "we have a security policy" and "we have strong, independently verifiable evidence that the running code follows it" is normally bridged by expensive audits and manual processes. TREAD closes that gap for code-level compliance continuously and automatically.
 
 ---
 

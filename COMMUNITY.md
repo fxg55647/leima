@@ -1,6 +1,6 @@
 # Open Source
 
-Leima is fully open source. The source code is on GitHub and every deployment is publicly auditable through the TREAD system — a continuous verification layer that proves the running code matches the reviewed source.
+Leima is fully open source. The source code is on GitHub and every deployment is publicly auditable through the TREAD system — a continuous verification layer that provides strong, independently verifiable evidence that the running code matches the reviewed source.
 
 ## Why this should be common property
 

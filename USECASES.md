@@ -12,7 +12,7 @@ For documents that carry cryptographic provenance, verification happens at submi
 
 **Partial disclosure with hash commitment.** Any material — a contract, a financial statement, a codebase, a patent application — can be partially disclosed. The submitting party shows the evaluating party a redacted or summarised version, and Leima stamps an AI verdict characterising what the document contains: its nature, scope, and the specific claim being evaluated. The cryptographic hash of the full, unredacted document is recorded in the stamp.
 
-If the submitting party later claims they provided different information, or if it emerges that the disclosed version misrepresented the full document, the hash exposes the fraud: the stamp proves exactly what was shown, when, and what the AI concluded from it. The evaluator cannot later claim they were not informed; the submitter cannot later claim they showed something different.
+If the submitting party later claims they provided different information, or if it emerges that the disclosed version misrepresented the full document, the hash exposes the fraud: the stamp establishes a tamper-evident record of exactly what was shown, when, and what the AI concluded from it. The evaluator cannot later claim they were not informed; the submitter cannot later claim they showed something different.
 
 This works for:
 - Financial statements where some figures are commercially sensitive
@@ -56,7 +56,7 @@ This is not legal advice. Leima assesses what the document states and whether th
 
 **High-value vehicle and equipment maintenance.** A Ferrari engine overhaul can cost €100,000. At that level, both parties have a strong interest in a tamper-proof record: the owner needs to prove what was done and when, the workshop needs to prove it delivered what it invoiced, and any future buyer will pay a significant premium for a service history they can actually verify. A stamped email from the workshop — DKIM-confirmed from their domain, with the work order attached — creates a record that cannot be silently altered. If a dispute arises about what was or was not done, the hash settles it. The same applies to any high-value asset with meaningful maintenance history: classic cars, race vehicles, aircraft, marine engines, specialist industrial equipment.
 
-**Insurance evidence.** Purchases and valuations sent by email — a jeweller's appraisal, a specialist's estimate, a purchase confirmation — can be stamped at the time of receipt. If the item is later lost, stolen, or damaged, the stamp proves the item existed and was valued at a specific amount on a specific date, before the claim arose. The record cannot be backdated.
+**Insurance evidence.** Purchases and valuations sent by email — a jeweller's appraisal, a specialist's estimate, a purchase confirmation — can be stamped at the time of receipt. If the item is later lost, stolen, or damaged, the stamp provides strong evidence that the item existed and was valued at a specific amount on a specific date, before the claim arose. The record cannot be backdated.
 
 **Subscription and terms changes.** When a service changes its terms of service or pricing and notifies users by email, stamping that notification creates a dated record of what was agreed or communicated at that time — useful in disputes about what was promised before a change.
 
@@ -72,7 +72,7 @@ The sender's domain is the trust anchor. DKIM is not a claim the sender makes ab
 
 **Receipt and service documentation.** A car workshop, appliance repair company, or specialist service provider adds one BCC address to their outgoing email template. Every customer automatically receives a notarized copy of their receipt, work order, or service confirmation — without the customer needing to do anything. When the car is sold, the buyer can verify the service history by uploading the `.eml` file and checking the Arweave record. The record exists independently of the workshop, the email provider, or the customer's inbox.
 
-**Dispute prevention.** The notarization is symmetric: it proves what was said, not who was right. A message from a landlord stating that a repair was completed, or from a contractor confirming the scope of work, becomes a reference point that neither party can later reinterpret. This is most valuable before a relationship deteriorates — the record captures the agreed state before either side had an incentive to revise it.
+**Dispute prevention.** The notarization is symmetric: it records what was said, not who was right. A message from a landlord stating that a repair was completed, or from a contractor confirming the scope of work, becomes a reference point that neither party can later reinterpret. This is most valuable before a relationship deteriorates — the record captures the agreed state before either side had an incentive to revise it.
 
 **Due diligence correspondence.** Investors and founders conducting due diligence exchange significant commitments by email — term sheet summaries, representations about portfolios or technology, confirmations of financial standing. Adding BCC to this correspondence notarizes the exchange automatically. If a dispute later arises about what was represented before the deal was signed, the notarized record provides the reference point without requiring either party to have anticipated the dispute.
 
@@ -200,7 +200,7 @@ A user provides an API endpoint, authentication credentials, and any required pa
 
 **Financial and market data.** A contract whose terms reference a specific exchange rate, commodity price, or index value at a specific date can be anchored to an independently stamped API call. If a dispute arises about what the rate actually was, the stamp provides a reference point that neither party controls.
 
-**Prediction markets and information credentialing.** Before a contested outcome resolves, an API call to an authoritative data source — a sports result, an election outcome, a scientific measurement — can be stamped independently. The stamp proves what the source reported, at the moment it reported it, without requiring either party to have preserved a screenshot that the other could dispute.
+**Prediction markets and information credentialing.** Before a contested outcome resolves, an API call to an authoritative data source — a sports result, an election outcome, a scientific measurement — can be stamped independently. The stamp records what the source reported, at the moment it reported it, without requiring either party to have preserved a screenshot that the other could dispute.
 
 **AI model output.** An API call to a language model can be stamped at the moment of execution: this prompt, this model, this response, this date. If a model is later updated or its behaviour changes, the stamp provides a verifiable record of what it said before the change. Useful for auditing AI-assisted decisions in regulated contexts, or for establishing what a model's output was at a specific point in a workflow.
 
