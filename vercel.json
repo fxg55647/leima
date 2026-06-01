@@ -1,4 +1,3 @@
 {
-  "git": {"deploymentEnabled": false},
   "crons": [{"path": "/tread-cron", "schedule": "0 0 * * *"}]
 }
