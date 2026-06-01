@@ -25,6 +25,8 @@
       --text-faint: #8aaabf;
     }
 
+    html { overflow-x: hidden; }
+
     body {
       font-family: 'Spectral', Georgia, serif;
       background: var(--bg);
@@ -51,6 +53,7 @@
       box-shadow:
         4px 0 28px -4px rgba(15,28,46,0.12),
         -4px 0 28px -4px rgba(15,28,46,0.12);
+      overflow-x: hidden;
     }
 
     /* White header zone */
@@ -386,14 +389,9 @@
       background: none; border: none; padding: 0; cursor: pointer;
       color: var(--blue-mid); font-size: 0.8rem; font-weight: 700;
       line-height: 1; flex-shrink: 0; margin-top: 0.1rem;
-      position: relative;
     }
-    .help-btn::after {
-      content: attr(data-tip);
-      position: absolute;
-      bottom: calc(100% + 7px);
-      left: 0;
-      transform: none;
+    .help-tip-popup {
+      position: fixed;
       background: #1a3a5c;
       color: #fff;
       padding: 0.35rem 0.65rem;
@@ -405,11 +403,8 @@
       width: min(220px, calc(100vw - 2rem));
       line-height: 1.45;
       pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.15s;
-      z-index: 200;
+      z-index: 9999;
     }
-    .help-btn:hover::after, .help-btn.pinned::after { opacity: 1; }
 
     button[type="submit"] {
       background: var(--blue-deep);
@@ -836,7 +831,7 @@
   </div>
 </div>
 
-<div style="position:relative;">
+<div style="position:relative;overflow:hidden;">
   <div id="tread-bar">
     <div id="tread-bar-inner" style="max-width:760px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
       <span id="tread-dot" style="width:6px;height:6px;border-radius:50%;background:#3d6a8a;display:inline-block"></span>
@@ -1513,16 +1508,51 @@
   }
 
 
-  function toggleHelpBtn(btn) {
-    const pinned = btn.classList.contains('pinned');
-    document.querySelectorAll('.help-btn.pinned').forEach(b => b.classList.remove('pinned'));
-    if (!pinned) btn.classList.add('pinned');
+  let _helpPopup = null;
+  let _activeHelpBtn = null;
+
+  function _removeHelpPopup() {
+    if (_helpPopup) { _helpPopup.remove(); _helpPopup = null; }
+    _activeHelpBtn = null;
   }
+
+  function toggleHelpBtn(btn) {
+    if (_activeHelpBtn === btn) { _removeHelpPopup(); return; }
+    _removeHelpPopup();
+    const tip = btn.getAttribute('data-tip');
+    if (!tip) return;
+
+    const popup = document.createElement('div');
+    popup.className = 'help-tip-popup';
+    popup.textContent = tip;
+    document.body.appendChild(popup);
+    _helpPopup = popup;
+    _activeHelpBtn = btn;
+
+    // Position the popup above the button, clamped within viewport
+    const rect = btn.getBoundingClientRect();
+    const popupW = Math.min(220, window.innerWidth - 16);
+    popup.style.width = popupW + 'px';
+    // Force layout to get popup height
+    const popupH = popup.offsetHeight;
+    const MARGIN = 8;
+    let left = rect.left + rect.width / 2 - popupW / 2;
+    left = Math.max(MARGIN, Math.min(left, window.innerWidth - popupW - MARGIN));
+    let top = rect.top - popupH - 7;
+    if (top < MARGIN) top = rect.bottom + 7; // flip below if no space above
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+  }
+
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.help-btn')) {
-      document.querySelectorAll('.help-btn.pinned').forEach(b => b.classList.remove('pinned'));
+      _removeHelpPopup();
     }
   });
+
+  // Reposition popup on scroll/resize
+  window.addEventListener('scroll', _removeHelpPopup, true);
+  window.addEventListener('resize', _removeHelpPopup);
 
   function switchCat(cat, btn) {
     if (cat === _currentCat) return;
