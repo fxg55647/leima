@@ -2,7 +2,7 @@
 
 Tämä dokumentti kuvaa Leiman deploy-prosessin. Päivitetään aina kun prosessi muuttuu.
 
-Viimeksi päivitetty: 2026-05-29
+Viimeksi päivitetty: 2026-06-01
 
 ---
 
@@ -13,7 +13,7 @@ git push origin main
     ↓
 GitHub Actions: POIDE Code Review (.github/workflows/code_review.yml)
     ↓ (koodiarvio + hyväksyntä)
-Render: automaattinen deploy
+Vercel: deploy API-kutsuilla (target: production)
     ↓
 leima.io live
 ```
@@ -52,13 +52,13 @@ Workflow käynnistyy automaattisesti jokaisen main-pushin yhteydessä.
 
 Workflow tekee järjestyksessä:
 1. **Leima code review** — ajaa koodiarvion muuttuneista tiedostoista
-2. **Deploy to Render and wait** — triggeroi Render-deployn ja odottaa sen valmistumista
+2. **Deploy to Vercel and wait** — triggeroi Vercel-deployn API-kutsuilla (target: production) ja odottaa sen valmistumista
 3. **Wake up TREAD** — käynnistää TREAD-tarkistuksen (deployment-validointi)
 4. **Complete job**
 
 Kesto normaalisti: **5–10 minuuttia**.
 
-**Turvaominaisuus:** Code review -workflow on ainoa laillinen deploy-reitti. Jos deploy tapahtuu tämän putken ulkopuolelta (esim. suoraan Render-dashboardilta), deployattu commit ei täsmää GitHubin main-branchin kanssa — TREAD havaitsee tämän välittömästi ja näyttää "Danger"-tilan. Tämä takuu on voimassa kun käyttäjä on verifioinut session alussa että valvontatiedostot ovat muuttumattomia.
+**Turvaominaisuus:** Code review -workflow on ainoa laillinen deploy-reitti. Jos deploy tapahtuu tämän putken ulkopuolelta, deployattu commit ei täsmää GitHubin main-branchin kanssa — TREAD havaitsee tämän välittömästi ja näyttää "Danger"-tilan. Tämä takuu on voimassa kun käyttäjä on verifioinut session alussa että valvontatiedostot ovat muuttumattomia.
 
 ### Seuranta pushin jälkeen
 
@@ -73,21 +73,15 @@ gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclu
 
 ---
 
-## Vaihe 3: Render deploy
+## Vaihe 3: Vercel deploy
 
-Render triggeröityy automaattisesti kun GitHub Actions hyväksyy koodin.
+Workflow triggeroi Vercel-deployn API-kutsuilla code reviewin hyväksymisen jälkeen. Auto-deploy git-pushista on estetty "Ignored Build Step: exit 0" -asetuksella.
 
-Render ajaa:
-1. **Build command** (settings.json tai Render dashboard):
-   ```
-   pip install -r requirements.txt
-   ```
-2. **Start command:**
-   ```
-   uvicorn main:app --host 0.0.0.0 --port $PORT
-   ```
+Vercel ajaa:
+1. **Build command:** `pip install -r requirements.txt`
+2. **Start command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
-Palvelu on live osoitteessa `leima.io` kun Render ilmoittaa "Your service is live".
+Palvelu on live osoitteessa `leima.io` kun Vercel ilmoittaa status `READY`.
 
 ---
 
@@ -117,16 +111,16 @@ Väliversion pushaaminen jonoon ei ole sallittua — se tuuttaa versioita toiste
 | Ongelma | Syy | Ratkaisu |
 |---|---|---|
 | Workflow epäonnistuu heti | Koodiarvio hylkäsi | Korjaa koodi, pushaa uudelleen |
-| Workflow jää roikkumaan | Render-deploy jumissa | `gh run cancel`, tutki Render-logit |
-| "Browserless not configured" | Env-muuttujat puuttuu Renderistä | Tarkista Render → Environment |
-| Deploy onnistui mutta koodi ei muuttunut | Cache-ongelma | Render dashboard → Clear build cache and deploy |
+| Workflow jää roikkumaan | Vercel-deploy jumissa | `gh run cancel`, tutki Vercel-logit |
+| "Browserless not configured" | Env-muuttujat puuttuu Vercelistä | Tarkista Vercel → Environment Variables |
+| Deploy onnistui mutta koodi ei muuttunut | Cache-ongelma | Vercel dashboard → Redeploy with cleared cache |
 | TREAD-hookki estää pushin | Edellinen deploy ei läpäissyt | Katso TREAD-status sivun yläpalkista |
 
 ---
 
-## Ympäristömuuttujat (Render)
+## Ympäristömuuttujat (Vercel)
 
-Nämä pitää olla asetettuna Renderin dashboardissa:
+Nämä pitää olla asetettuna Vercel-projektin Environment Variables -osiossa:
 
 - `GEMINI_API_KEY`
 - `BROWSERLESS_API_KEY`
@@ -141,13 +135,6 @@ Nämä pitää olla asetettuna Renderin dashboardissa:
 
 ## Tietoturvahuomiot
 
-**Renderin natiivi Python-ympäristö (ei Dockeria):**
-- `/proc/<pid>/mem` on luettavissa — käynnissä olevan prosessin muisti ei ole suojattu
-- `seccomp: 0` — ei järjestelmäkutsusuodatusta, ptrace todennäköisesti sallittu
-- Käytännössä: Web Shell -pääsy = pääsy prosessin muistiin
-
-**Mitä tämä tarkoittaa:** Efemeerit avaimet tai muut muistissa olevat salaisuudet eivät tarjoa suojaa tässä ympäristössä. Docker + seccomp + CAP_SYS_PTRACE dropped sulkisi tämän reiän.
-
 **Operaattorin luottamusvaatimus:** Leima vaatii luottamuksen operaattoriin samoin kuin notaari — ei enempää eikä vähempää. Tämä pitää kommunikoida käyttäjille rehellisesti.
 
 ---
@@ -160,3 +147,4 @@ Nämä pitää olla asetettuna Renderin dashboardissa:
 | 2026-05-29 | Pre-push hookki estää pushin jos workflow käynnissä. Post-push käyttää gh run watch. asyncRewake poistettu — ei luotettava aktiivisessa chatissa. push.ps1 synkroninen vaihtoehto. |
 | 2026-05-29 | Tietoturvatesti: /proc/mem readable, seccomp=0. Docker tarvitaan muistieristykseen. |
 | 2026-05-29 | Browserbase → Browserless (sessioraja ylittyi). Seuranta: gh run watch → /loop 2min välein. |
+| 2026-06-01 | Render → Vercel. Deploy API-kutsuilla (target: production). Auto-deploy estetty exit 0. |
