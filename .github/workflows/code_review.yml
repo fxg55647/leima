@@ -74,7 +74,7 @@ jobs:
             sleep 15
             DEPLOY_JSON=$(curl -s \
               -H "Authorization: Bearer $VERCEL_TOKEN" \
-              "https://api.vercel.com/v13/deployments?projectId=$PROJECT_ID&limit=1&target=production")
+              "https://api.vercel.com/v13/deployments?projectId=$PROJECT_ID&limit=1")
             DEPLOY_ID=$(echo "$DEPLOY_JSON" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['deployments'][0]['uid'] if d.get('deployments') else '')" 2>/dev/null || echo "")
             STATUS=$(echo "$DEPLOY_JSON" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['deployments'][0]['state'] if d.get('deployments') else 'unknown')" 2>/dev/null || echo "unknown")
             CREATED=$(echo "$DEPLOY_JSON" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['deployments'][0].get('createdAt',0)//1000 if d.get('deployments') else 0)" 2>/dev/null || echo "0")
