@@ -268,7 +268,8 @@ def _tread_dispatcher():
                 pass
         time.sleep(30 if cache_populated else 5)
 
-threading.Thread(target=_tread_dispatcher, daemon=True).start()
+if not os.getenv("VERCEL"):
+    threading.Thread(target=_tread_dispatcher, daemon=True).start()
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
