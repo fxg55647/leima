@@ -787,6 +787,8 @@ _DOCS: dict[str, tuple[str, str]] = {
     "tread":      ("TREAD.md",         "TREAD — What is this?"),
     "community":  ("COMMUNITY.md",     "Open Source"),
     "zkse":       ("ZKSE.md",          "Zero-Knowledge Semantic Evaluation"),
+    "policy":     ("POLICY.example.md","Data policy"),
+    "inspection": ("INSPECTION.md",    "Inspection protocol"),
 }
 
 # Reverse map: filename.md → /docs/slug (for rewriting internal links)
