@@ -692,8 +692,8 @@ async def version():
             if cache:
                 _kv_set(cache)
     return {
-        "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
-        "service": os.getenv("RENDER_SERVICE_NAME", "local"),
+        "commit": os.getenv("RENDER_GIT_COMMIT") or os.getenv("VERCEL_GIT_COMMIT_SHA", "unknown"),
+        "service": os.getenv("RENDER_SERVICE_NAME") or os.getenv("VERCEL_URL", "local"),
         "model": MODEL,
         "security_model": "1.0",
         "tread": {
@@ -715,7 +715,7 @@ async def version():
             "commit_matches_tread": (
                 bool(running_commit and cache.get("commit") and
                      running_commit.startswith(cache["commit"][:7]))
-                if (running_commit := os.getenv("RENDER_GIT_COMMIT", ""))
+                if (running_commit := (os.getenv("RENDER_GIT_COMMIT") or os.getenv("VERCEL_GIT_COMMIT_SHA", "")))
                 else None
             ),
         },
