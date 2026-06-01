@@ -1,21 +1,21 @@
 {
   "ok": true,
   "rapid_deploy_warning": false,
-  "deployment_ok": true,
+  "deployment_ok": false,
   "vercel_deployment_ok": false,
   "vercel_deployed_commit": null,
   "vercel_deploying": false,
   "vercel_service_url": "",
-  "review_ok": true,
+  "review_ok": false,
   "review_consecutive_failures": 0,
   "review_stuck": false,
-  "deploying": false,
-  "deploying_commit": null,
-  "deploying_commit_ok": false,
-  "deployed_commit": "9b1418c5c07bdb5faa7d3a20c88f0165689c9887",
+  "deploying": true,
+  "deploying_commit": "9b1418c5c07bdb5faa7d3a20c88f0165689c9887",
+  "deploying_commit_ok": true,
+  "deployed_commit": "bc7607a93060cf008acee7a47454829b360c6bf3",
   "expected_commit": "9b1418c5c07bdb5faa7d3a20c88f0165689c9887",
   "deploy_status": "live",
-  "review_conclusion": "success",
+  "review_conclusion": "in_progress",
   "cron_fresh": true,
   "workflow_states": {
     "tread-a.yml": "active",
@@ -26,11 +26,11 @@
   },
   "disabled_workflows": [],
   "history": {
-    "scanned_deploys": 100,
+    "scanned_deploys": 99,
     "last_mismatch_at": null,
     "last_mismatch_commit": null,
     "clean_since": "2026-05-29T13:51:31.072459Z",
-    "deploys_last_hour": 2
+    "deploys_last_hour": 1
   },
   "service_url": "https://leima.onrender.com",
   "repo": "fxg55647/leima",
@@ -51,6 +51,6 @@
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26731924090",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26731924090"
+  "actions_run_id": "26731914477",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26731914477"
 }
