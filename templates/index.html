@@ -1890,7 +1890,7 @@
       }).catch(() => { lastCheckedAt = null; fadeSet(row('Server or network error', '#f0a030', ''), 'warning'); });
     }
     update();
-    setInterval(update, 20000);
+    setInterval(update, 10000);
     setInterval(() => { const el = document.getElementById('tread-ago-inner'); if (el) el.textContent = ago(lastPollAt) + '/' + ago(lastCheckedAt); }, 15000);
   })();
 </script>

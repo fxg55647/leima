@@ -90,6 +90,11 @@ NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.io>")
 NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
 LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.io")
 
+_KV_URL   = os.getenv("KV_REST_API_URL", "")
+_KV_TOKEN = os.getenv("KV_REST_API_TOKEN", "")
+_KV_KEY   = "tread_v"
+_KV_TTL   = 10  # seconds
+
 _tread_cache: dict | None = None
 _tread_cache_ready = threading.Event()
 _PAGES_URL = "https://fxg55647.github.io/leima"
@@ -119,6 +124,31 @@ _MONITOR_PATHS = {
 _GITHUB_REPO = "fxg55647/leima"
 _GITHUB_BRANCH = "main"
 _monitor_baseline: dict | None = None
+
+
+def _kv_get() -> dict | None:
+    if not _KV_URL or not _KV_TOKEN:
+        return None
+    try:
+        r = http_requests.get(f"{_KV_URL}/get/{_KV_KEY}",
+                               headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
+        val = r.json().get("result") if r.status_code == 200 else None
+        if val:
+            return json.loads(base64.urlsafe_b64decode(val.encode()).decode())
+    except Exception:
+        pass
+    return None
+
+
+def _kv_set(data: dict) -> None:
+    if not _KV_URL or not _KV_TOKEN:
+        return
+    try:
+        val = base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
+        http_requests.post(f"{_KV_URL}/set/{_KV_KEY}/{val}?EX={_KV_TTL}",
+                           headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
+    except Exception:
+        pass
 
 
 def _fetch_render_state() -> tuple[bool | None, str | None]:
@@ -648,15 +678,19 @@ async def version():
     if _tread_cache is not None:
         cache = _tread_cache.copy()
     else:
-        try:
-            r = http_requests.get(_PAGES_URL + "/status-log.jsonl", timeout=8)
-            if r.status_code == 200:
-                lines = [l for l in r.text.strip().splitlines() if l]
-                cache = json.loads(lines[-1]) if lines else {}
-            else:
+        cache = _kv_get()
+        if cache is None:
+            try:
+                r = http_requests.get(_PAGES_URL + "/status-log.jsonl", timeout=8)
+                if r.status_code == 200:
+                    lines = [l for l in r.text.strip().splitlines() if l]
+                    cache = json.loads(lines[-1]) if lines else {}
+                else:
+                    cache = {}
+            except Exception:
                 cache = {}
-        except Exception:
-            cache = {}
+            if cache:
+                _kv_set(cache)
     return {
         "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
         "service": os.getenv("RENDER_SERVICE_NAME", "local"),
