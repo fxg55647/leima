@@ -32,6 +32,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow-x: hidden;
     }
 
     main {
@@ -211,7 +212,8 @@
       font-size: 0.72rem;
       font-family: 'Inter', sans-serif;
       font-weight: 400;
-      white-space: nowrap;
+      white-space: normal;
+      max-width: min(220px, calc(100vw - 2rem));
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.15s;
@@ -390,8 +392,8 @@
       content: attr(data-tip);
       position: absolute;
       bottom: calc(100% + 7px);
-      left: 50%;
-      transform: translateX(-50%);
+      left: 0;
+      transform: none;
       background: #1a3a5c;
       color: #fff;
       padding: 0.35rem 0.65rem;
@@ -400,7 +402,7 @@
       font-family: 'Inter', sans-serif;
       font-weight: 400;
       white-space: normal;
-      width: 220px;
+      width: min(220px, calc(100vw - 2rem));
       line-height: 1.45;
       pointer-events: none;
       opacity: 0;
