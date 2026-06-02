@@ -1,6 +1,7 @@
 name: POIDE Code Review
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   actions: write
