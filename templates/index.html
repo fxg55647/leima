@@ -2015,10 +2015,8 @@
           stopDeployTicker();
           _wasDeploying = false;
           fadeSet(row('deploy matches git', '#fff', ''), 'ok');
-        } else if (p.ok === false && monitor && monitor.ok === true) {
-          stopDeployTicker();
-          _wasDeploying = false;
-          fadeSet(row('deploy matches git', '#fff', ''), 'ok');
+        } else if (p.ok === null && lastCheckedAt) {
+          fadeSet(row('Notice!', '#f0a030', 'GitHub API unavailable — verification incomplete'), 'warning');
         } else {
           fadeSet(row('Checking…', '#aaa', ''), 'loading');
         }

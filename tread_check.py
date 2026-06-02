@@ -2,16 +2,11 @@ import hashlib, os, sys, json, requests
 from datetime import datetime, timezone
 from pathlib import Path
 
-TREAD_WORKFLOWS   = ["tread-a.yml", "tread-b.yml", "tread-c.yml", "tread-d.yml", "tread-e.yml"]
+TREAD_WORKFLOWS   = ["tread.yml"]
 MAX_CRON_AGE_MIN  = 10  # 5-min schedule with 2× headroom
 
 MONITOR_FILES = [
-    ".github/workflows/tread-a.yml",
-    ".github/workflows/tread-b.yml",
-    ".github/workflows/tread-c.yml",
-    ".github/workflows/tread-d.yml",
-    ".github/workflows/tread-e.yml",
-    ".github/workflows/tread-run.yml",
+    ".github/workflows/tread.yml",
     ".github/workflows/monthly-audit.yml",
     ".github/workflows/code_review.yml",
     "tread_check.py",
@@ -102,8 +97,9 @@ def github_commit():
         timeout=10,
     )
     if resp.status_code != 200:
-        return None
-    return resp.text.strip()
+        print(f"github_commit: HTTP {resp.status_code} — {resp.text[:200]}", file=sys.stderr)
+        return None, resp.status_code
+    return resp.text.strip(), 200
 
 
 def check_workflow_states() -> dict[str, str]:
@@ -268,10 +264,12 @@ except Exception as e:
     vercel_deployed, vercel_deploying, vercel_deploying_commit, vercel_service_url, vercel_source_ok, vercel_source_mismatches = None, False, None, None, None, []
     error = str(e)
 
+github_commit_status = 200
 try:
-    expected = github_commit()
+    expected, github_commit_status = github_commit()
 except Exception as e:
     expected = None
+    github_commit_status = None
     error = (error + "; " if error else "") + str(e)
 
 try:
@@ -308,26 +306,27 @@ deploying_commit_ok = bool(
     vercel_deploying_commit.startswith(expected[:7])
 )
 review_ok = review_conclusion == "success"
-# When GitHub commit API returns None (transient API failure), we can't verify the match.
-# Use review status as proxy: a recent passing review means the deployed code was approved.
 github_commit_unknown = expected is None
-if github_commit_unknown:
-    deployment_safe = review_ok
-else:
-    # deployment_safe: running code is the expected code, or the mismatch is explained
-    # by the normal deploy gate (review running or failed → old safe code still live)
-    deployment_safe = deployment_ok or deploying_commit_ok or review_conclusion in ("in_progress", "failure")
+# deployment_safe: running code is the expected code, or the mismatch is explained
+# by the normal deploy gate (review running or failed → old safe code still live)
+deployment_safe = deployment_ok or deploying_commit_ok or review_conclusion in ("in_progress", "failure")
 # review_stuck: code review has failed repeatedly — commits are not deploying
 REVIEW_STUCK_THRESHOLD = 3
 review_stuck = (review_consecutive_failures or 0) >= REVIEW_STUCK_THRESHOLD
 rapid_deploy_warning = history.get("deploys_last_hour", 0) >= RAPID_DEPLOY_THRESHOLD
-ok = deployment_safe and (cron_fresh is not False) and not disabled_workflows
+# When GitHub API fails to return expected commit, the result is indeterminate (null),
+# not a mismatch (false). Returning false would be a false positive danger alarm.
+if github_commit_unknown:
+    ok = None
+else:
+    ok = deployment_safe and (cron_fresh is not False) and not disabled_workflows
 
 result = {
     "ok": ok,
     "rapid_deploy_warning": rapid_deploy_warning,
     "deployment_ok": deployment_ok,
     "github_commit_unknown": github_commit_unknown,
+    "github_commit_http_status": github_commit_status,
     "vercel_deployed_commit": vercel_deployed,
     "vercel_deploying": vercel_deploying,
     "vercel_service_url": vercel_service_url or "",

@@ -111,12 +111,7 @@ _VERCEL_TEAM_ID    = os.getenv("VERCEL_TEAM_ID", "")
 _VERCEL_BUILDING   = {"BUILDING", "QUEUED", "INITIALIZING"}
 
 _MONITOR_PATHS = {
-    ".github/workflows/tread-a.yml",
-    ".github/workflows/tread-b.yml",
-    ".github/workflows/tread-c.yml",
-    ".github/workflows/tread-d.yml",
-    ".github/workflows/tread-e.yml",
-    ".github/workflows/tread-run.yml",
+    ".github/workflows/tread.yml",
     ".github/workflows/monthly-audit.yml",
     ".github/workflows/code_review.yml",
     "tread_check.py",
@@ -646,6 +641,9 @@ async def version():
     }
 
 
+_KV_TREAD_CRON_LAST = "tread_cron_last_dispatch"
+_TREAD_CRON_COOLDOWN = 50  # seconds — prevents double-firing from concurrent deployments
+
 @app.get("/tread-cron")
 async def tread_cron(request: Request):
     cron_secret = os.getenv("CRON_SECRET", "")
@@ -655,9 +653,15 @@ async def tread_cron(request: Request):
     token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
     if not token:
         return JSONResponse({"dispatched": False, "error": "no_token"}, status_code=500)
+
+    # Rate limit: skip dispatch if another instance already dispatched within cooldown window
+    last = _kv_get(_KV_TREAD_CRON_LAST)
+    if last and time.time() - last.get("ts", 0) < _TREAD_CRON_COOLDOWN:
+        return {"dispatched": False, "reason": "cooldown", "next_in": round(_TREAD_CRON_COOLDOWN - (time.time() - last["ts"]))}
+
     try:
         r = http_requests.post(
-            f"https://api.github.com/repos/{_GITHUB_REPO}/actions/workflows/tread-a.yml/dispatches",
+            f"https://api.github.com/repos/{_GITHUB_REPO}/actions/workflows/tread.yml/dispatches",
             headers={
                 "Authorization": f"Bearer {token}",
                 "Accept": "application/vnd.github+json",
@@ -666,6 +670,8 @@ async def tread_cron(request: Request):
             json={"ref": _GITHUB_BRANCH},
             timeout=10,
         )
+        if r.status_code == 204:
+            _kv_set({"ts": time.time()}, _KV_TREAD_CRON_LAST, ttl=_TREAD_CRON_COOLDOWN + 10)
         return {"dispatched": r.status_code == 204}
     except Exception as e:
         return JSONResponse({"dispatched": False, "error": str(e)}, status_code=500)
