@@ -421,6 +421,24 @@ Vercelissä ei ole pitkäikäistä palvelinprosessia, joten server-puolen dispat
 
 Sovelluksen `_tread_dispatcher`-threadin itsenäinen TREAD-workflow-dispatching on perusteltu myös siksi, että jos yhteys GitHubiin katkeaa jostain syystä (GitHub-katkos, rate limit, DNS-ongelma), scheduled-cronit eivät käynnisty. Itsenäinen dispatcher takaa että TREAD-ajot käynnistyvät uudelleen heti kun yhteys palautuu — riippumatta siitä toimivatko GitHub Actions -ajastimet normaalisti.
 
+**4. Deploy estetään jos varoitus ei ole ehtinyt frontille — ja KV-kirjoitusoikeus**
+
+Politiikka lisättävä: deploy on laiton jos frontti ei ole ehtinyt saada varoitusta ajoissa. Käytännössä: TREAD-check havaitsee muutoksen → kirjoittaa DANGER KV:hen → frontti lukee sen → vasta sitten uusi deploy sallitaan (tai ei sallita). Tämä vaatii että Vercel/Render pre-deploy hook tarkistaa KV:n tilan ennen hyväksyntää.
+
+Kriittinen turvaongelma: tällä hetkellä sekä vanha että uusi deploy jakavat saman `KV_REST_API_TOKEN`:in, eli pahis-deploy voi kirjoittaa KV:n päälle ja pyyhkiä varoituksen. Ratkaisu: Upstash tukee read-only tokenia erikseen — sovellus saa vain read-only tokenin, TREAD (GitHub Actions) saa write-tokenin. Näin kompromisoitu deploy ei pysty siistimään KV:tä.
+
+**5. TODO: Selvitetään mitä käy jos tosi moni käyttää Tampermonkeyta yhtä aikaa**
+
+Tampermonkey hakee git tree:n GitHubista suoraan. Jos käyttäjiä on paljon ja kaikki pollaavat samaan aikaan, voiko GitHub rate limit tulla vastaan? Pitää selvittää onko limit per IP (käyttäjäkohtainen) vai per repo/token, ja onko tarvetta throttlaukselle tai yhteiselle välikerrokselle.
+
+**6. TEHTY: Toteutetaan server-side GitHub tree -pollaus + frontend 10s polling**
+
+Frontend pollaa Leiman serveriä 10 sekunnin välein. Serveri tarkistaa KV:stä onko GitHub tree SHA -tulos alle 10 sekuntia vanha — jos on, palauttaa sen suoraan. Jos ei, tekee GitHub API -kutsun, vertaa tulosta KV:hen tallennettuun baselineen, kirjoittaa tuloksen KV:hen TTL=10s ja palauttaa sen frontille. Frontend pollaa lisäksi status.json:ia josta näkee onko uusi koodi tarkistuksessa.
+
+Miksi: Vercel-deploy kestää 1–3 minuuttia. Sinä aikana vanha (rehellinen) serveri vastaa vielä pyyntoihin. Jos hyökkääjä pushaa muutoksia, vanha serveri havaitsee uuden GitHub tree SHA:n, kirjoittaa DANGER KV:hen ja frontend näyttää varoituksen — ennen kuin uusi deploy ehtii korvata vanhan. Kaikki samanaikaiset käyttäjät jakavat yhden GitHub API -kutsun per 10 sekuntia KV-cachen ansiosta (360/tunti vs GitHub:n 5000/tunti autentikoituna). Erillistä Render-prosessia tai ulkoista cron-palvelua ei tarvita niin kauan kuin sivulla on yksikin käyttäjä.
+
+Toteutuksessa havaittiin että vanha `checkMonitorFiles`-funktio teki käytännössä saman asian mutta `tread_check.py`:n kautta — joka tarkoitti että kompromisoitu `tread_check.py` olisi voinut pettää sen kokonaan. Uusi `/tread-monitor` hakee suoraan GitHub API:sta ilman välikäsiä. `checkMonitorFiles` poistettiin ja korvattiin `checkGitTree`:llä joka tallentaa git tree SHA:t käyttäjän localStorageen. Nyt sekä KV-baseline (palvelinpuoli) että localStorage (käyttäjän selain) havaitsevat muutokset toisistaan riippumatta.
+
 ---
 
 ## Operaattorin luottamusvaatimus
