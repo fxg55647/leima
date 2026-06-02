@@ -13,3 +13,23 @@
 ## .env.example
 
 - Line 7 — Uses "PoDe" as a comment but all other files use "POIDE". Should be standardised to "POIDE".
+
+---
+
+## DEPLOY.md
+
+*Päivitettävä — nykytilanne muuttunut 2026-06-02*
+
+- **Yleiskuva ja vaihe 1** — Kuvaa edelleen pushin suoraan `main`-haaraan. Todellinen flow on `staging` → code review → automaattinen merge mainiin. Korjattava vastaamaan todellisuutta.
+
+- **Staging-arkkitehtuuri puuttuu kokonaan** — Lisättävä kuvaus siitä että staging-haara on kehittäjän työskentelyalue ja main on "hyväksytty, tuotantovalmis". Push stagingiin ei deployta automaattisesti — vaatii erillisen hyväksynnän.
+
+- **Render poistettu** — Versiohistoriaan merkintä 2026-06-02: dispatcher-säie poistettu, Vercel cron `* * * * *` (joka minuutti) korvaa sen. GitHub secrets poistettava: `RENDER_API_KEY`, `RENDER_SERVICE_ID`, `RENDER_DEPLOY_HOOK`.
+
+- **Suunnitteilla: staging-palvelin** — Erillinen staging-ympäristö (Vercel preview tai oma) jonne voi pushata vapaasti ilman TREAD-valvontaa. Tuotantodeploy on eksplisiittinen erillinen toimenpide.
+
+- **Suunnitteilla: pre-deploy signal** — Ennen tuotantodeployta `code_review.yml` lähettää signaalin Leiman `/api/pre-deploy`-endpointiin. Leima tallentaa tämän KV:hen (TTL 10 min). Jos `p.ok === false` mutta signaali löytyy → ei varoitusta käyttäjälle. Ratkaisee TREAD-false alarm -ongelman deploy-ikkunassa.
+
+## templates/index.html (TREAD-varoituslogiikka)
+
+- **Auto-clear toteutettu 2026-06-02** — Kun `p.ok` palaa `true`:ksi, `leima_tread_mismatch` -LocalStorage-lippu poistetaan automaattisesti. Käyttäjä ei enää näe vanhentunutta varoitusta. Dokumentoi tämä käyttäytyminen TREAD.md:hen tai vastaavaan.
