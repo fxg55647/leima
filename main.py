@@ -791,7 +791,7 @@ async def tread_monitor():
 
 def _validate_deploy_token(request: Request):
     token = os.getenv("PRE_DEPLOY_TOKEN", "")
-    if token and request.headers.get("Authorization", "") != f"Bearer {token}":
+    if not token or request.headers.get("Authorization", "") != f"Bearer {token}":
         raise HTTPException(status_code=401)
 
 def _parse_sha(body: dict) -> str:
