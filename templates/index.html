@@ -1816,6 +1816,7 @@
     let _treadMismatch = false;
     let _treadMismatchAcceptedAt = null;
     let _wasDeploying = false;
+    let _lastMonitor = null;
 
     howLink.addEventListener('click', e => { e.preventDefault(); verifyDiv.style.display = verifyDiv.style.display === 'none' ? 'block' : 'none'; });
 
@@ -1864,7 +1865,8 @@
       const now = Date.now();
       if (lastModalKey === key && now - lastModalShownAt < REPEAT_INTERVAL_MS) return;
       lastModalShownAt = now; lastModalKey = key; suppressCb.checked = false;
-      modalBody.textContent = message; overlay.classList.add('visible');
+      const debugInfo = '\n\n─── Debug ───────────────────────────────\nTrigger: ' + key + '\nMonitor: ' + JSON.stringify(_lastMonitor, null, 2) + '\nChecked: ' + new Date().toISOString() + '\n─────────────────────────────────────────';
+      modalBody.textContent = message + debugInfo; overlay.classList.add('visible');
       verifyDiv.style.display = 'none';
       const instructions = opts && opts.instructions;
       const hashes = opts && opts.hashes;
@@ -1929,6 +1931,7 @@
         fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
         fetch('/tread-monitor?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).catch(() => null),
       ]).then(([d, monitor]) => {
+        _lastMonitor = monitor;
         const p = d.tread || {};
         lastPollAt = Date.now();
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
