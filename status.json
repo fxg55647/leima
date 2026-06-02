@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "rapid_deploy_warning": true,
+  "rapid_deploy_warning": false,
   "deployment_ok": false,
   "vercel_deployed_commit": "feb457886ffa0df2d4f2bb07525c207246ea66d1",
   "vercel_deploying": false,
@@ -25,11 +25,11 @@
     "last_mismatch_at": null,
     "last_mismatch_commit": null,
     "clean_since": "2026-05-29T20:01:45.694000+00:00",
-    "deploys_last_hour": 10
+    "deploys_last_hour": 9
   },
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-06-02 05:24:53 UTC",
+  "checked_at": "2026-06-02 05:25:28 UTC",
   "monitor_files": {
     ".github/workflows/tread-a.yml": "4ea3fdf861d3edc101fd1b06d5ce2794152b7cbe8f8c24943742311bec466aae",
     ".github/workflows/tread-b.yml": "6f7e151e016d34c597d56e43f1b8b1ad9d44a2523fd0df2c823e6dfe9499914e",
@@ -45,6 +45,6 @@
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26800252825",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26800252825"
+  "actions_run_id": "26800270811",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26800270811"
 }
