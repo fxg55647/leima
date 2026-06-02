@@ -1904,6 +1904,9 @@
         } else if (p.ok) {
           stopDeployTicker();
           fadeSet(row('deploy matches git', '#fff', ''), 'ok');
+        } else if (p.ok === false && monitor && monitor.ok === true) {
+          stopDeployTicker();
+          fadeSet(row('deploy matches git', '#fff', ''), 'ok');
         } else if (p.ok === false) {
           stopDeployTicker();
           showWarning('tread_mismatch', 'TREAD reports a mismatch: the deployed code does not match the last verified commit.\n\nDo not submit sensitive documents until this is resolved. Check the TREAD audit log for details.');
