@@ -1,7 +1,5 @@
 name: POIDE Code Review
 on:
-  push:
-    branches: [staging]
   workflow_dispatch:
 
 permissions:
