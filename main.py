@@ -802,10 +802,13 @@ async def tread_monitor():
 
     # Check if deploying commit has an authorized code review
     unauthorized_deploy = False
-    if vercel_deploying and deploying_commit and not review_in_progress:
-        authorized = _check_deploy_authorized(deploying_commit)
-        if authorized is False:
-            unauthorized_deploy = True
+    if vercel_deploying and not review_in_progress:
+        if not deploying_commit:
+            unauthorized_deploy = True  # tuntematon commit -> ei voida tarkistaa
+        else:
+            authorized = _check_deploy_authorized(deploying_commit)
+            if authorized is False:
+                unauthorized_deploy = True
 
     if not hashes:
         result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "cached_at": now}
