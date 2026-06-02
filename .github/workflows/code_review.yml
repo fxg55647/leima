@@ -59,7 +59,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: npx vercel --prod --token "$VERCEL_TOKEN" --yes
+        run: npx vercel --prod --token "$VERCEL_TOKEN" --yes --meta githubCommitSha=$GITHUB_SHA
 
       - name: Wake up TREAD
         continue-on-error: true
