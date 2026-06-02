@@ -654,6 +654,10 @@ async def tread_cron(request: Request):
     if not token:
         return JSONResponse({"dispatched": False, "error": "no_token"}, status_code=500)
 
+    # Staging/preview deployments skip dispatch — GHA cron (*/5 min) is sufficient there
+    if os.getenv("VERCEL_ENV", "production") != "production":
+        return {"dispatched": False, "reason": "non-production deployment"}
+
     # Rate limit: skip dispatch if another instance already dispatched within cooldown window
     last = _kv_get(_KV_TREAD_CRON_LAST)
     if last and time.time() - last.get("ts", 0) < _TREAD_CRON_COOLDOWN:
