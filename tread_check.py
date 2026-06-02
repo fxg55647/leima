@@ -171,7 +171,7 @@ def check_deploy_history() -> dict:
 
     if VERCEL_TOKEN and VERCEL_PROJECT_ID:
         try:
-            params = f"projectId={VERCEL_PROJECT_ID}&limit=10&state=READY&target=production"
+            params = f"projectId={VERCEL_PROJECT_ID}&limit=20&state=READY&target=production"
             if VERCEL_TEAM_ID:
                 params += f"&teamId={VERCEL_TEAM_ID}"
             resp = requests.get(
