@@ -38,7 +38,7 @@ jobs:
           gh workflow run code_review.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref staging
-          sleep 10
+          sleep 15
           RUN_ID=$(gh run list \
             --workflow code_review.yml \
             --repo "$GITHUB_REPOSITORY" \
@@ -47,7 +47,25 @@ jobs:
             --json databaseId \
             --jq '.[0].databaseId')
           echo "Code review run: $RUN_ID"
-          gh run watch "$RUN_ID" --exit-status
+          for i in $(seq 1 20); do
+            sleep 30
+            RESULT=$(gh run view "$RUN_ID" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json status,conclusion \
+              --jq '"status:\(.status) conclusion:\(.conclusion)"')
+            echo "$RESULT"
+            if echo "$RESULT" | grep -q "status:completed"; then
+              if echo "$RESULT" | grep -q "conclusion:success"; then
+                echo "Code review passed"
+                exit 0
+              else
+                echo "Code review failed"
+                exit 1
+              fi
+            fi
+          done
+          echo "Code review timed out after 10 minutes"
+          exit 1
 
       - name: Send pre-deploy signal
         continue-on-error: true
