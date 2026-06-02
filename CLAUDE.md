@@ -35,22 +35,17 @@ Jos completed:
 
 ## Webhook-vastaanotto — SHA-tarkistus (PAKOLLINEN)
 
+Webhook-arkkitehtuuri: `GHA → Hookdeck :8787 → webhook_proxy.py (HMAC-verify) → Claude :8788`
+Viestit: `code_review_done` (success) ja `code_review_failed` (failure) — molemmat stagingista.
+
 Kun saat webhook-viestin jossa on `sha`-kenttä:
 
-1. **Lue** `.claude/push_log.json` (sisältää `sha`, `timestamp`, `pid`)
-2. **Vertaa**: `webhook_sha == push_log["sha"]`
-   - **Täsmää** → tämä agentti pushasi kyseisen commitin → reagoi aktiivisesti:
-     - `code_review_failed`: näytä virhe, ala korjaamaan
-     - `code_review_done` / `success`: kerro käyttäjälle että läpäisi ja mergautui mainiin
-   - **Ei täsmää** → jonkun muun push → kirjaa lokiin mutta älä häiritse käyttäjää
-   - **push_log.json puuttuu** → tuntematon alkuperä → ilmoita lyhyesti mutta älä tulkitse omaksesi
-
-Esimerkki tarkistuksesta:
-```python
-import json, pathlib
-log = json.loads(pathlib.Path(".claude/push_log.json").read_text())
-is_mine = log.get("sha") == webhook_payload.get("sha")
-```
+1. **Aja** `python hooks/webhook_sha_check.py <sha>` — palauttaa JSON: `{"is_mine": bool, ...}`
+2. **Reagoi tuloksen mukaan**:
+   - `is_mine: true` + `code_review_failed` → näytä virhe, ala korjaamaan
+   - `is_mine: true` + `code_review_done` → kerro käyttäjälle että läpäisi ja mergautui mainiin
+   - `is_mine: false` → jonkun muun push → kirjaa lokiin, älä häiritse käyttäjää
+   - `push_log.json puuttuu` → tuntematon alkuperä → ilmoita lyhyesti
 
 ## Muuta
 - Puhu aina suomea käyttäjälle
