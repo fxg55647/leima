@@ -171,7 +171,7 @@ def check_deploy_history() -> dict:
 
     if VERCEL_TOKEN and VERCEL_PROJECT_ID:
         try:
-            params = f"projectId={VERCEL_PROJECT_ID}&limit=100&state=READY&target=production"
+            params = f"projectId={VERCEL_PROJECT_ID}&limit=10&state=READY&target=production"
             if VERCEL_TEAM_ID:
                 params += f"&teamId={VERCEL_TEAM_ID}"
             resp = requests.get(
@@ -207,6 +207,17 @@ def check_deploy_history() -> dict:
                     deploys_in_window += 1
             except ValueError:
                 pass
+
+        if commit_id:
+            r = requests.get(
+                f"https://api.github.com/repos/{GITHUB_REPO}/commits/{commit_id}",
+                headers=gh_headers,
+                timeout=10,
+            )
+            if r.status_code == 404:
+                if last_mismatch_at is None or (created_at and created_at > last_mismatch_at):
+                    last_mismatch_at = created_at
+                    last_mismatch_commit = commit_id[:7]
 
     return {
         "scanned_deploys": scanned,
