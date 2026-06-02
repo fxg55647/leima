@@ -1902,7 +1902,12 @@
         if (p.review_stuck) {
           fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
         } else {
-          if (monitor && monitor.review_in_progress) {
+          if (monitor && monitor.unauthorized_deploy) {
+          showWarning('unauthorized_deploy', 'A Vercel deployment is in progress with no code review on record for this commit.\n\nDo not submit sensitive documents until this is resolved. Check GitHub Actions and the Vercel dashboard.');
+          fadeSet(row('Danger', '#ff6b6b', 'unauthorized deploy detected'), 'danger');
+          return;
+        }
+        if (monitor && monitor.review_in_progress) {
           fadeSet(row('Notice!', '#f0a030', 'code review in progress — deploy imminent'), 'warning');
           return;
         }
