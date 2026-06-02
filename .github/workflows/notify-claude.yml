@@ -2,12 +2,12 @@ name: Notify Claude
 
 on:
   workflow_run:
-    workflows: ["POIDE Code Review"]
+    workflows: ["POIDE Code Review", "Deploy to production"]
     types: [completed]
 
 jobs:
-  notify-failure:
-    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.head_branch == 'staging' }}
+  notify-review-failure:
+    if: ${{ github.event.workflow_run.workflow_id != 0 && github.event.workflow_run.name == 'POIDE Code Review' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.head_branch == 'staging' }}
     runs-on: ubuntu-latest
     steps:
       - name: Send failure webhook to Claude
@@ -24,8 +24,8 @@ jobs:
             -H "X-Webhook-Signature: $SIG" \
             -d "$BODY"
 
-  notify-success:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'staging' }}
+  notify-review-success:
+    if: ${{ github.event.workflow_run.name == 'POIDE Code Review' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'staging' }}
     runs-on: ubuntu-latest
     steps:
       - name: Send success webhook to Claude
@@ -35,7 +35,43 @@ jobs:
         run: |
           RUN_ID="${{ github.event.workflow_run.id }}"
           SHA="${{ github.event.workflow_run.head_sha }}"
-          BODY="{\"event\":\"code_review_done\",\"conclusion\":\"success\",\"run_id\":\"$RUN_ID\",\"sha\":\"$SHA\",\"branch\":\"staging\",\"message\":\"code_review.yml onnistui — SHA $SHA mergautui mainiin\"}"
+          BODY="{\"event\":\"code_review_done\",\"conclusion\":\"success\",\"run_id\":\"$RUN_ID\",\"sha\":\"$SHA\",\"branch\":\"staging\",\"message\":\"code_review.yml onnistui — SHA $SHA — odottaa deploy-pyyntöä\"}"
+          SIG="sha256=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')"
+          curl -s -X POST "$HOOKDECK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Signature: $SIG" \
+            -d "$BODY"
+
+  notify-deploy-done:
+    if: ${{ github.event.workflow_run.name == 'Deploy to production' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send deploy webhook to Claude
+        env:
+          HOOKDECK_URL: ${{ secrets.CLAUDE_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.CLAUDE_WEBHOOK_SECRET }}
+        run: |
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          BODY="{\"event\":\"deploy_done\",\"run_id\":\"$RUN_ID\",\"sha\":\"$SHA\",\"message\":\"Deploy valmis — SHA $SHA on nyt tuotannossa\"}"
+          SIG="sha256=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')"
+          curl -s -X POST "$HOOKDECK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Signature: $SIG" \
+            -d "$BODY"
+
+  notify-deploy-failed:
+    if: ${{ github.event.workflow_run.name == 'Deploy to production' && github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send deploy failure webhook to Claude
+        env:
+          HOOKDECK_URL: ${{ secrets.CLAUDE_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.CLAUDE_WEBHOOK_SECRET }}
+        run: |
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          BODY="{\"event\":\"deploy_failed\",\"run_id\":\"$RUN_ID\",\"sha\":\"$SHA\",\"message\":\"Deploy feilasi — SHA $SHA — aja: gh run view $RUN_ID --log-failed\"}"
           SIG="sha256=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')"
           curl -s -X POST "$HOOKDECK_URL" \
             -H "Content-Type: application/json" \

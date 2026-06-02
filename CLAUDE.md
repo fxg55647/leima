@@ -52,6 +52,8 @@ Kun saat webhook-viestin jossa on `sha`-kenttä:
 2. **Reagoi tuloksen mukaan**:
    - `is_mine: true` + `code_review_failed` → näytä virhe, ala korjaamaan
    - `is_mine: true` + `code_review_done` → kerro käyttäjälle että läpäisi, kysy haluaako deployata
+   - `is_mine: true` + `deploy_done` → kerro käyttäjälle että deploy valmis, uusi versio tuotannossa
+   - `is_mine: true` + `deploy_failed` → näytä virhe
    - `is_mine: false` → jonkun muun push → kirjaa lokiin, älä häiritse käyttäjää
    - `push_log.json puuttuu` → tuntematon alkuperä → ilmoita lyhyesti
 
