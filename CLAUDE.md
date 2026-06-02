@@ -25,7 +25,7 @@ Jos staging on joskus jäljessä mainista (bootstrap-tilanne), se on merkki siit
 Pushausohje (järjestys tärkeä):
 1. **Kerro ensin yhteenveto** mitä tehtiin: mitkä tiedostot muuttuivat ja miksi. Muutama rivi riittää.
 2. **Pushaa** (`git push origin staging` — kaikki muutokset menevät stagingiin, ei suoraan mainiin)
-3. **Aseta ajastin 2 minuuttiin**: `gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclusion,headBranch`
+3. **Aseta ajastin heti pushin jälkeen** — älä odota käyttäjän pyyntöä: `gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclusion,headBranch`
 4. Jos 2 min kuluttua ei valmista → tarkista **kerran lisää** 2 min päästä
 5. Jos silloinkaan ei valmista → totea käyttäjälle että jokin meni pieleen ja ala tutkimaan (`gh run view <id> --log-failed`)
 
