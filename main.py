@@ -95,7 +95,7 @@ _KV_TOKEN            = os.getenv("KV_REST_API_TOKEN", "")
 _KV_KEY              = "tread_v"
 _KV_TTL              = 10  # seconds
 _KV_MONITOR_CACHE    = "tread_monitor_cache"
-_KV_MONITOR_BASELINE = "tread_monitor_baseline"
+_KV_MONITOR_BASELINE = "tread_monitor_baseline_v2"
 
 _tread_cache: dict | None = None
 _tread_cache_ready = threading.Event()
