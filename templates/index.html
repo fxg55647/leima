@@ -1938,6 +1938,7 @@
         const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
         if (localChanged || kvChanged) _gitTreeDanger = true;
         if (monitor && monitor.unauthorized_deploy) _unauthorizedDeploy = true;
+        if (monitor && monitor.sys_env_mismatches && Object.keys(monitor.sys_env_mismatches).length > 0) _gitTreeDanger = true;
         if (p.ok === false && !_wasDeploying) {
           const checkedAt = p.checked_at || '';
           if (!_treadMismatchAcceptedAt || checkedAt !== _treadMismatchAcceptedAt) {

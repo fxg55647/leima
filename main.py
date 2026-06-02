@@ -152,10 +152,28 @@ def _kv_set(data: dict, key: str = _KV_KEY, ttl: int = _KV_TTL) -> None:
 
 
 
-def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None]:
-    """Returns (deploying, live_commit, deploying_commit). None values = API unavailable."""
+def _validate_deployment_source(meta: dict) -> tuple[bool, list[str]]:
+    """Tarkistaa tuleeko deployment odotetusta GitHub-reposta/branchista.
+    Palauttaa (ok, lista poikkeamista)."""
+    expected_org, expected_repo = _GITHUB_REPO.split("/")
+    checks = {
+        "githubOrg":       (meta.get("githubOrg") or meta.get("githubCommitOrg", ""),  expected_org),
+        "githubRepo":      (meta.get("githubRepo") or meta.get("githubCommitRepo", ""), expected_repo),
+        "githubCommitRef": (meta.get("githubCommitRef", ""),                            _GITHUB_BRANCH),
+    }
+    mismatches = [f"{k}: got '{v[0]}' expected '{v[1]}'"
+                  for k, v in checks.items() if v[0] and v[0] != v[1]]
+    no_github_meta = not (meta.get("githubOrg") or meta.get("githubCommitOrg")
+                          or meta.get("githubRepo") or meta.get("githubCommitRepo"))
+    if no_github_meta:
+        return False, ["no_github_integration_meta"]
+    return len(mismatches) == 0, mismatches
+
+
+def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None, bool | None, list]:
+    """Returns (deploying, live_commit, deploying_commit, source_ok, source_mismatches)."""
     if not _VERCEL_TOKEN or not _VERCEL_PROJECT_ID:
-        return None, None, None
+        return None, None, None, None, []
     try:
         params = f"projectId={_VERCEL_PROJECT_ID}&limit=10"
         if _VERCEL_TEAM_ID:
@@ -166,20 +184,23 @@ def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None]:
             timeout=10,
         )
         if r.status_code != 200:
-            return None, None, None
+            return None, None, None, None, []
         deployments = r.json().get("deployments", [])
         if not deployments:
-            return None, None, None
-        deploying = deployments[0].get("state") in _VERCEL_BUILDING
-        deploying_commit = (deployments[0].get("meta") or {}).get("githubCommitSha") if deploying else None
+            return None, None, None, None, []
+        first = deployments[0]
+        deploying = first.get("state") in _VERCEL_BUILDING
+        deploying_meta = first.get("meta") or {}
+        deploying_commit = deploying_meta.get("githubCommitSha") if deploying else None
+        source_ok, source_mismatches = _validate_deployment_source(deploying_meta) if deploying else (None, [])
         live_commit = None
         for d in deployments:
             if d.get("state") == "READY" and d.get("target") == "production":
                 live_commit = (d.get("meta") or {}).get("githubCommitSha")
                 break
-        return deploying, live_commit, deploying_commit
+        return deploying, live_commit, deploying_commit, source_ok, source_mismatches
     except Exception:
-        return None, None, None
+        return None, None, None, None, []
 
 
 def _fetch_github_head(token: str) -> str | None:
@@ -743,21 +764,39 @@ async def tread_monitor():
         f_vercel = ex.submit(_fetch_vercel_state)
         f_review = ex.submit(_fetch_review_in_progress)
         hashes = f_hashes.result()
-        vercel_deploying, vercel_live_commit, deploying_commit = f_vercel.result()
+        vercel_deploying, vercel_live_commit, deploying_commit, source_ok, source_mismatches = f_vercel.result()
         review_in_progress = f_review.result()
 
-    # Check if deploying commit has an authorized code review
+    # Tarkista deploymentin lähde ja code review
     unauthorized_deploy = False
-    if vercel_deploying and not review_in_progress:
-        if not deploying_commit:
-            unauthorized_deploy = True  # tuntematon commit -> ei voida tarkistaa
+    deployment_source_warning = source_mismatches if source_mismatches else []
+    if vercel_deploying:
+        if source_ok is False:
+            # Deployment ei tule odotetusta GitHub-reposta/branchista
+            unauthorized_deploy = True
+        elif not deploying_commit:
+            # Ei GitHub-integraatiota — tuntematon deploy
+            unauthorized_deploy = True
         else:
             authorized = _check_deploy_authorized(deploying_commit)
             if authorized is False:
                 unauthorized_deploy = True
 
+    # Tarkista server-side Vercel system env -muuttujat (ei operaattorin asetettavissa)
+    expected_org, expected_repo = _GITHUB_REPO.split("/")
+    sys_env_checks = {
+        "VERCEL_GIT_PROVIDER":    (os.getenv("VERCEL_GIT_PROVIDER", ""),    "github"),
+        "VERCEL_GIT_REPO_OWNER":  (os.getenv("VERCEL_GIT_REPO_OWNER", ""),  expected_org),
+        "VERCEL_GIT_REPO_SLUG":   (os.getenv("VERCEL_GIT_REPO_SLUG", ""),   expected_repo),
+        "VERCEL_GIT_COMMIT_REF":  (os.getenv("VERCEL_GIT_COMMIT_REF", ""),  _GITHUB_BRANCH),
+        "VERCEL_ENV":             (os.getenv("VERCEL_ENV", ""),              "production"),
+    }
+    sys_env_mismatches = {k: {"actual": v[0], "expected": v[1]}
+                          for k, (actual, expected) in sys_env_checks.items()
+                          if actual != expected}
+
     if not hashes:
-        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "cached_at": now}
+        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
         _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
         return result
 
@@ -765,10 +804,10 @@ async def tread_monitor():
     baseline = _kv_get(_KV_MONITOR_BASELINE)
     if baseline is None:
         _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
-        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "cached_at": now}
+        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
     else:
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
-        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "cached_at": now}
+        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
 
     _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
     return result

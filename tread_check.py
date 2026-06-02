@@ -41,10 +41,28 @@ _COMPLETED        = {"live", "deactivated"}
 _VERCEL_BUILDING  = {"BUILDING", "QUEUED", "INITIALIZING"}
 
 
+def validate_deployment_source(meta: dict) -> tuple[bool, list]:
+    """Tarkistaa tuleeko deployment odotetusta GitHub-reposta/branchista."""
+    expected_org, expected_repo = GITHUB_REPO.split("/")
+    org = meta.get("githubOrg") or meta.get("githubCommitOrg", "")
+    repo = meta.get("githubRepo") or meta.get("githubCommitRepo", "")
+    ref = meta.get("githubCommitRef", "")
+    if not org and not repo:
+        return False, ["no_github_integration_meta"]
+    mismatches = []
+    if org and org != expected_org:
+        mismatches.append(f"githubOrg: got '{org}' expected '{expected_org}'")
+    if repo and repo != expected_repo:
+        mismatches.append(f"githubRepo: got '{repo}' expected '{expected_repo}'")
+    if ref and ref != GITHUB_BRANCH:
+        mismatches.append(f"githubCommitRef: got '{ref}' expected '{GITHUB_BRANCH}'")
+    return len(mismatches) == 0, mismatches
+
+
 def vercel_state():
-    """Returns (live_commit, deploying, deploying_commit, service_url)."""
+    """Returns (live_commit, deploying, deploying_commit, service_url, source_ok, source_mismatches)."""
     if not VERCEL_TOKEN or not VERCEL_PROJECT_ID:
-        return None, False, None, None
+        return None, False, None, None, None, []
     headers = {"Authorization": f"Bearer {VERCEL_TOKEN}"}
     params = f"projectId={VERCEL_PROJECT_ID}&limit=10"
     if VERCEL_TEAM_ID:
@@ -57,12 +75,12 @@ def vercel_state():
     resp.raise_for_status()
     deployments = resp.json().get("deployments", [])
     if not deployments:
-        return None, False, None, None
-    deploying = deployments[0].get("state") in _VERCEL_BUILDING
-    deploying_commit = None
-    if deploying:
-        m = deployments[0].get("meta") or {}
-        deploying_commit = m.get("githubCommitSha")
+        return None, False, None, None, None, []
+    first = deployments[0]
+    deploying = first.get("state") in _VERCEL_BUILDING
+    deploying_meta = first.get("meta") or {}
+    deploying_commit = deploying_meta.get("githubCommitSha") if deploying else None
+    source_ok, source_mismatches = validate_deployment_source(deploying_meta) if deploying else (None, [])
     live_commit = None
     service_url = None
     for d in deployments:
@@ -71,7 +89,7 @@ def vercel_state():
             if d.get("url"):
                 service_url = f"https://{d['url']}"
             break
-    return live_commit, deploying, deploying_commit, service_url
+    return live_commit, deploying, deploying_commit, service_url, source_ok, source_mismatches
 
 
 def github_commit():
@@ -245,9 +263,9 @@ def github_review_status():
 
 error = None
 try:
-    vercel_deployed, vercel_deploying, vercel_deploying_commit, vercel_service_url = vercel_state()
+    vercel_deployed, vercel_deploying, vercel_deploying_commit, vercel_service_url, vercel_source_ok, vercel_source_mismatches = vercel_state()
 except Exception as e:
-    vercel_deployed, vercel_deploying, vercel_deploying_commit, vercel_service_url = None, False, None, None
+    vercel_deployed, vercel_deploying, vercel_deploying_commit, vercel_service_url, vercel_source_ok, vercel_source_mismatches = None, False, None, None, None, []
     error = str(e)
 
 try:
@@ -306,6 +324,8 @@ result = {
     "vercel_deployed_commit": vercel_deployed,
     "vercel_deploying": vercel_deploying,
     "vercel_service_url": vercel_service_url or "",
+    "vercel_source_ok": vercel_source_ok,
+    "vercel_source_mismatches": vercel_source_mismatches,
     "review_ok": review_ok,
     "review_consecutive_failures": review_consecutive_failures,
     "review_stuck": review_stuck,
