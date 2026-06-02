@@ -10,6 +10,16 @@ Concurrency-ryhmä jonottaa ajot → jonoburstit → GitHub:n abuse-suojaus akti
 **ÄLÄ KOSKAAN** palauta `sys.exit(1)` `tread_check.py`:hyn tai "Fail if check failed" -steppiä `tread-run.yml`:ään.
 Workflow täytyy aina exitata 0:lla — muuten GitHub passivoi scheduled-ajot.
 
+## SHA-eheys (KRIITTINEN)
+
+**ÄLÄ KOSKAAN** pushaa suoraan `origin main`:iin.
+**ÄLÄ KOSKAAN** käytä `git rebase` ennen merge-pushia.
+
+Molemmat muuttavat SHA:n — TREAD ei löydä code review -ajoa uudelle SHA:lle → `unauthorized_deploy: true`.
+Ainoa sallittu flow: `git push origin staging` → code review → workflow pushaa SHA:n sellaisenaan mainiin.
+
+Jos staging on joskus jäljessä mainista (bootstrap-tilanne), se on merkki siitä että joku pushasi suoraan mainiin. Synkronoi käsin ja hyväksy kertaluonteinen danger — älä rebasea.
+
 ## Git push — code review -seuranta (PAKOLLINEN)
 
 Pushausohje (järjestys tärkeä):
