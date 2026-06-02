@@ -407,6 +407,22 @@ Hosting-ympäristö                   — matalin, riippuu alustan eristystasost
 
 ---
 
+## Muistiinpanoja tarkennettavaksi
+
+**1. "Kaikki turvatiedostot vaihdetaan yhtäaikaa" -skenaario**
+
+Sekä Tampermonkey että TREAD-palkin frontti vertaavat hasheja *paikallisesti tallennettuun baselineen* — Tampermonkey GM_setValue:ssa, frontti localStoragessa. Vaikka hyökkääjä vaihtaisi kaikki valvontatiedostot yhdellä commitilla JA muokkaisi `tread_check.py`:tä kirjoittamaan uudet hashit CDN:iin, sekä Tampermonkey että frontti havaitsisivat muutoksen seuraavalla pollauskerralla — koska niiden baseline on tallennettu käyttäjän omaan selaimeen, ei palvelimelle. Tämä ansaitsee eksplisiittisen maininnan dokumentaatiossa.
+
+**2. Vercel ja selainpohjainen baseline**
+
+Vercelissä ei ole pitkäikäistä palvelinprosessia, joten server-puolen dispatcher-baseline (`_monitor_baseline`) ei toimi. Tässä ympäristössä selainpohjainen localStorage-vertailu on *ainoa* runtime-tason hash-valvonta. Tämä on arkkitehtonisesti merkittävä ero Renderiin verrattuna ja pitäisi dokumentoida selkeästi.
+
+**3. Itsenäinen pollaus GitHub-katkon varalta**
+
+Sovelluksen `_tread_dispatcher`-threadin itsenäinen TREAD-workflow-dispatching on perusteltu myös siksi, että jos yhteys GitHubiin katkeaa jostain syystä (GitHub-katkos, rate limit, DNS-ongelma), scheduled-cronit eivät käynnisty. Itsenäinen dispatcher takaa että TREAD-ajot käynnistyvät uudelleen heti kun yhteys palautuu — riippumatta siitä toimivatko GitHub Actions -ajastimet normaalisti.
+
+---
+
 ## Operaattorin luottamusvaatimus
 
 Leima vaatii luottamuksen operaattoriin samoin kuin perinteinen notaari — ei enempää eikä vähempää. Järjestelmän valvontamekanismit tekevät mahdollisesta pettämisestä havaittavaa ja historiallisesti todistettavaa, mutta eivät täysin mahdotonta ilman TEE:tä. Tämä kommunikoidaan käyttäjille rehellisesti.
