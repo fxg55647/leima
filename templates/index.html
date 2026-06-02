@@ -822,6 +822,7 @@
   <div id="tread-modal">
     <h2 id="tread-modal-title">⚠ TREAD WARNING</h2>
     <p id="tread-modal-body"></p>
+    <textarea id="tread-modal-debug" readonly style="display:none;width:100%;margin-top:0.8rem;background:#0a1520;color:#7a9bb0;border:1px solid #1e3a4a;border-radius:4px;font-size:0.72rem;font-family:monospace;padding:0.5rem;resize:vertical;height:8rem;box-sizing:border-box;"></textarea>
     <div id="tread-modal-verify" style="display:none;margin-top:1rem;padding:0.9rem;background:#0d1f2d;border-radius:6px;font-size:0.82rem;color:#8ab;">
       <p style="margin:0 0 0.6rem 0;color:#cde;">To dismiss this warning, verify the changed files on GitHub and confirm the changes are legitimate:</p>
       <ol style="margin:0 0 0.8rem 1.2rem;padding:0;color:#8ab;line-height:1.7;">
@@ -1865,8 +1866,12 @@
       const now = Date.now();
       if (lastModalKey === key && now - lastModalShownAt < REPEAT_INTERVAL_MS) return;
       lastModalShownAt = now; lastModalKey = key; suppressCb.checked = false;
-      const debugInfo = '\n\n─── Debug ───────────────────────────────\nTrigger: ' + key + '\nMonitor: ' + JSON.stringify(_lastMonitor, null, 2) + '\nChecked: ' + new Date().toISOString() + '\n─────────────────────────────────────────';
-      modalBody.textContent = message + debugInfo; overlay.classList.add('visible');
+      modalBody.textContent = message; overlay.classList.add('visible');
+      const debugEl = document.getElementById('tread-modal-debug');
+      if (debugEl) {
+        debugEl.value = 'Trigger: ' + key + '\nChecked: ' + new Date().toISOString() + '\nMonitor: ' + JSON.stringify(_lastMonitor, null, 2);
+        debugEl.style.display = 'block';
+      }
       verifyDiv.style.display = 'none';
       const instructions = opts && opts.instructions;
       const hashes = opts && opts.hashes;
