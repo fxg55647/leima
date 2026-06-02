@@ -403,7 +403,7 @@ Hosting-ympäristö                   — matalin, riippuu alustan eristystasost
 | Asia | Tila |
 |---|---|
 | Hosting-ympäristön migraatio | Suunniteltu |
-| RENDER_API_KEY ja RENDER_SERVICE_ID hosting-ympäristöön | Lisättävä Render-dashboardille — dispatcher tarvitsee ne suoraan Render API -kutsuihin |
+| Hosting-ympäristö | Vercel (cron joka minuutti) |
 
 ---
 

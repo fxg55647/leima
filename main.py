@@ -232,56 +232,6 @@ def _fetch_monitor_hashes(token: str) -> dict | None:
         return None
 
 
-def _tread_dispatcher():
-    global _tread_cache, _monitor_baseline
-    token = os.getenv("GITHUB_DISPATCH_TOKEN", "")
-    dispatch_url = "https://api.github.com/repos/fxg55647/leima/actions/workflows/tread-a.yml/dispatches"
-    api_log_url = "https://api.github.com/repos/fxg55647/leima/contents/status-log.jsonl?ref=gh-pages"
-    cdn_log_url = "https://fxg55647.github.io/leima/status-log.jsonl"
-    api_hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-    cache_populated = False
-    while True:
-        try:
-            if token:
-                r = http_requests.get(api_log_url, headers=api_hdrs, timeout=10)
-                if r.status_code == 200:
-                    content = base64.b64decode(r.json()["content"]).decode()
-                    lines = [l for l in content.strip().splitlines() if l]
-                    if lines:
-                        _tread_cache = json.loads(lines[-1])
-                        _tread_cache_ready.set()
-                        cache_populated = True
-            else:
-                r = http_requests.get(cdn_log_url, timeout=10)
-                if r.status_code == 200:
-                    lines = [l for l in r.text.strip().splitlines() if l]
-                    if lines:
-                        _tread_cache = json.loads(lines[-1])
-                        _tread_cache_ready.set()
-                        cache_populated = True
-        except Exception:
-            pass
-
-        # Riippumaton valvontatiedostojen hash-tarkistus git tree API:lta
-        hashes = _fetch_monitor_hashes(token)
-        if hashes:
-            if _monitor_baseline is None:
-                _monitor_baseline = hashes
-            else:
-                changed = [p for p, sha in hashes.items() if _monitor_baseline.get(p) != sha]
-                if _tread_cache is not None:
-                    _tread_cache = dict(_tread_cache)
-                    _tread_cache["dispatcher_monitor_changed"] = changed if changed else []
-
-        if token:
-            try:
-                http_requests.post(dispatch_url, headers=api_hdrs, json={"ref": "main"}, timeout=10)
-            except Exception:
-                pass
-        time.sleep(30 if cache_populated else 5)
-
-if not os.getenv("VERCEL"):
-    threading.Thread(target=_tread_dispatcher, daemon=True).start()
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -1539,7 +1489,6 @@ def _text_to_input_pdf(text: str) -> bytes:
 def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str,
                   source_ext: str = "pdf", source_mime: str = "application/pdf",
                   source_context: dict | None = None) -> dict:
-    _tread_cache_ready.wait(timeout=10)
     tread_snap = _tread_cache.copy() if _tread_cache else None
 
     result = analyse(question, contents, source_context=source_context)

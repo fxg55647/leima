@@ -294,7 +294,7 @@ The blockchain record proves that a specific analysis of a specific document exi
 Leima is open source. You can read the code, verify that the prompts and logic match what is described here, and run your own instance. Trust in the software does not require trust in the people who wrote it.
 
 **Deployment integrity monitoring (TREAD)**
-Open source code is auditable — but only if the running code is the same as the published code. Leima implements TREAD (Transparent Record of Evaluation, Attestation and Deployment): every push to `main` triggers an automated code review against `POLICY.example.md`; Render auto-deploy is disabled, so the deploy hook fires only if the review passes. Five GitHub Actions workflows then run on a staggered schedule, together achieving one-minute polling resolution, querying the Render API for the deployed commit and the GitHub API for the repository HEAD, and publishing the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
+Open source code is auditable — but only if the running code is the same as the published code. Leima implements TREAD (Transparent Record of Evaluation, Attestation and Deployment): every push to `main` triggers an automated code review against `POLICY.example.md`; deployment is disabled unless the review passes. Five GitHub Actions workflows then run on a staggered schedule, together achieving one-minute polling resolution, querying the Vercel API for the deployed commit and the GitHub API for the repository HEAD, and publishing the result publicly. Code that fails the review never reaches production. Anyone can verify deployment integrity without credentials, at any time.
 
 `POLICY.example.md` is permanently stored on Arweave ([`6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR`](https://gateway.irys.xyz/6Fviz2M3kx6BTkkn2fHrdJ7qtX9hRxV476f31WvUDqvR)). Every code review is measured against this immutable copy — not the file in the repository, which could in principle be edited. The policy the AI uses cannot be quietly changed after the fact.
 
@@ -315,7 +315,7 @@ A future option will allow switching to AI providers that operate under strict, 
 | Source file modified after creation | Yes | Hash mismatch detected on validation |
 | Manifest altered locally | Yes | Compared against immutable Arweave copy |
 | Code violates stated data policy | Yes | AI audits all source files against POLICY.example.md on every commit; workflow fails and TREAD turns red if a violation is found |
-| Malicious code change slipped in unnoticed | Partly | Every commit triggers a code review; Render auto-deploy is disabled — deploy hook fires only on review success; TREAD polls every minute; Render returns full deploy history so no deploy can be hidden retroactively. An external attacker who controls the code being reviewed could embed prompt injection to bypass the AI reviewer — see TREAD.md |
+| Malicious code change slipped in unnoticed | Partly | Every commit triggers a code review; deployment fires only on review success; TREAD polls every minute; Vercel returns full deploy history so no deploy can be hidden retroactively. An external attacker who controls the code being reviewed could embed prompt injection to bypass the AI reviewer — see TREAD.md |
 | Maintainer credential theft or deliberate rug pull | Partly | TREAD offers meaningful protection against a maintainer who drifts toward policy violations or acts carelessly — every push is reviewed and every deployment is monitored. Protection is weaker if the maintainer loses repository credentials to an attacker, or decides to actively subvert the system: in either case, the threat actor has legitimate push access and can embed prompt injection to manipulate the AI reviewer's verdict. A careful user who notices an unexpected deployment in progress can pause usage until the record stabilises. Prompt injection hardening is under consideration as a mitigation; simultaneous review by multiple independent models requiring consensus is also planned, which would require a successful attack to fool several architectures at once. Even without full coverage of this scenario, users are significantly worse off without TREAD — any suspicious change is immediately visible in the permanent deployment record rather than going unnoticed entirely. |
 | Deployed commit not present in git repository | Yes | History check verifies every recent Render deploy commit exists in GitHub; mismatch is recorded in status.json and shown in Tampermonkey userscript |
 | Hosting provider (Render) swaps running code silently | Partly | TREAD detects mismatches within ~1 minute; Render API reporting the actual running commit honestly is a residual trust assumption |
@@ -433,7 +433,7 @@ Connect the GitHub repository in the Render dashboard. Create a **Web Service** 
 
 Set all environment variables from `.env.example`. Switch `IRYS_NETWORK` to `mainnet` and remove `IRYS_RPC_URL` for production.
 
-**Disable Render auto-deploy.** In the Render service settings, turn off automatic deploys from git. Deployment is handled by the GitHub Actions workflow instead — a push to `main` triggers the code review, and the deploy hook fires only if the review passes. Set the deploy hook URL as a GitHub Actions secret named `RENDER_DEPLOY_HOOK`. Code that fails the review is never deployed.
+**Disable auto-deploy.** Deployment is handled by the GitHub Actions workflow — a push to `main` triggers the code review, and the deploy hook fires only if the review passes. Code that fails the review is never deployed.
 
 To enable the email notary, add a **Cron Job** service pointing at `POST /notary/poll` with the `X-Notary-Token` header, running at whatever interval you want (e.g. every minute).
 
@@ -446,13 +446,13 @@ The full trust chain on every commit:
 ```
 push → code_review.yml → AI audits code vs POLICY.example.md
                                    ↓ pass only
-                             RENDER_DEPLOY_HOOK → new commit live on Render
+                             deploy hook → new commit live on Vercel
                                    ↓
 cron (every minute) → deployment match? → review passed? → no deploy in progress?
                                                         → status.json → gh-pages (public)
 ```
 
-Five GitHub Actions workflows run on a staggered schedule and together poll deployment status every minute. Each run checks three conditions: the live Render commit matches the GitHub repository HEAD, the latest automated code review passed, and the deploy history contains no commits absent from git. Results are published to the `gh-pages` branch as `status.json`.
+Five GitHub Actions workflows run on a staggered schedule and together poll deployment status every minute. Each run checks three conditions: the live Vercel commit matches the GitHub repository HEAD, the latest automated code review passed, and the deploy history contains no commits absent from git. Results are published to the `gh-pages` branch as `status.json`.
 
 Because Render auto-deploy is disabled, a commit that fails the code review is never deployed — the server continues running the previous commit until a passing commit is pushed.
 
