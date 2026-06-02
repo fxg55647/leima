@@ -1843,7 +1843,7 @@
       try { const v = localStorage.getItem('tread_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
     }
     function checkGitTree(hashes) {
-      const LS_KEY = 'leima_git_tree';
+      const LS_KEY = 'leima_git_tree_v2';
       let prev = null;
       try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
       if (!prev || !Object.keys(hashes).length) {
@@ -1857,7 +1857,7 @@
       return changed.length ? changed : null;
     }
     function acceptGitTreeBaseline(hashes) {
-      try { localStorage.setItem('leima_git_tree', JSON.stringify(hashes)); } catch {}
+      try { localStorage.setItem('leima_git_tree_v2', JSON.stringify(hashes)); } catch {}
     }
     function showWarning(key, message, opts) {
       if (isSuppressed(key)) return;
