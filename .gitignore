@@ -9,3 +9,4 @@ __pycache__/
 .claude/*
 !.claude/commands
 .playwright-mcp/
+webhook-channel/node_modules/
