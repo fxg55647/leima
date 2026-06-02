@@ -617,12 +617,13 @@ async def version():
         cache = _kv_get()
         if cache is None:
             try:
-                r = http_requests.get(_PAGES_URL + "/status-log.jsonl", timeout=8)
-                if r.status_code == 200:
-                    lines = [l for l in r.text.strip().splitlines() if l]
-                    cache = json.loads(lines[-1]) if lines else {}
-                else:
-                    cache = {}
+                # status.json is small and updates fast; status-log.jsonl is large and CDN-cached
+                r = http_requests.get(
+                    _PAGES_URL + "/status.json",
+                    params={"t": int(time.time() // 30)},  # 30s cache-busting
+                    timeout=8,
+                )
+                cache = r.json() if r.status_code == 200 else {}
             except Exception:
                 cache = {}
             if cache:
@@ -632,7 +633,7 @@ async def version():
         "security_model": "1.0",
         "tread": {
             "ok":                          cache.get("ok"),
-            "checked_at":                  cache.get("ts"),
+            "checked_at":                  cache.get("checked_at") or cache.get("ts"),
             "tx":                          cache.get("tx"),
             "review_ok":                   cache.get("review_ok"),
             "review_stuck":                cache.get("review_stuck"),
