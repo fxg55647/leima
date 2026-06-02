@@ -30,21 +30,6 @@ jobs:
             -d "{\"sha\":\"$GITHUB_SHA\"}" \
             "$LEIMA_URL/api/deploy-incoming" || true
 
-      - name: Wait 2 minutes before deploying
-        run: sleep 120
-
-      - name: Send pre-deploy signal
-        continue-on-error: true
-        env:
-          PRE_DEPLOY_TOKEN: ${{ secrets.PRE_DEPLOY_TOKEN }}
-          LEIMA_URL: https://leima.io
-        run: |
-          curl -s --max-time 10 -X POST \
-            -H "Authorization: Bearer $PRE_DEPLOY_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"sha\":\"$GITHUB_SHA\"}" \
-            "$LEIMA_URL/api/pre-deploy" || true
-
       - name: Code review
         env:
           LEIMA_URL: https://leima.io
@@ -81,6 +66,19 @@ jobs:
           echo "$RESULT"
           echo "$RESULT" > /tmp/cr_result.json
           python3 <<< "$CR_CHECK"
+
+      - name: Send pre-deploy signal
+        continue-on-error: true
+        env:
+          PRE_DEPLOY_TOKEN: ${{ secrets.PRE_DEPLOY_TOKEN }}
+          LEIMA_URL: https://leima.io
+        run: |
+          curl -s --max-time 10 -X POST \
+            -H "Authorization: Bearer $PRE_DEPLOY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"sha\":\"$GITHUB_SHA\"}" \
+            "$LEIMA_URL/api/pre-deploy" || true
+          sleep 60
 
       - name: Merge to main
         env:
