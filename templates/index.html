@@ -1812,6 +1812,7 @@
     const _DEPLOY_LS_KEY = 'leima_deploy_start';
     let _pendingHashes = null;
     let _gitTreeDanger = false;
+    let _unauthorizedDeploy = false;
     let _treadMismatch = false;
     let _treadMismatchAcceptedAt = null;
     let _wasDeploying = false;
@@ -1936,6 +1937,7 @@
         const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
         const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
         if (localChanged || kvChanged) _gitTreeDanger = true;
+        if (monitor && monitor.unauthorized_deploy) _unauthorizedDeploy = true;
         if (p.ok === false && !_wasDeploying) {
           const checkedAt = p.checked_at || '';
           if (!_treadMismatchAcceptedAt || checkedAt !== _treadMismatchAcceptedAt) {
@@ -1952,6 +1954,14 @@
             onAccept: () => { _gitTreeDanger = false; }
           });
           fadeSet(row('Danger', '#ff6b6b', 'github files changed'), 'danger');
+          return;
+        }
+        if (_unauthorizedDeploy) {
+          showWarning('unauthorized_deploy', 'A Vercel deployment is in progress with no code review on record for this commit.\n\nDo not submit sensitive documents until this is resolved. Check GitHub Actions and the Vercel dashboard.', {
+            instructions: 'Open GitHub Actions and confirm that code_review.yml ran successfully for this commit. Open the Vercel dashboard and confirm who triggered the deployment and why. If you have verified the deployment is legitimate, accept below.',
+            onAccept: () => { _unauthorizedDeploy = false; }
+          });
+          fadeSet(row('Danger', '#ff6b6b', 'unauthorized deploy detected'), 'danger');
           return;
         }
         if (_treadMismatch) {

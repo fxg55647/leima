@@ -720,6 +720,22 @@ async def tread_monitor():
         except Exception:
             return False
 
+    def _check_deploy_authorized(sha):
+        if not sha or not token:
+            return None
+        try:
+            r = http_requests.get(
+                f"https://api.github.com/repos/{_GITHUB_REPO}/actions/workflows/code_review.yml/runs",
+                params={"head_sha": sha, "status": "completed", "conclusion": "success", "per_page": 1},
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+                timeout=8,
+            )
+            if r.status_code == 200:
+                return bool(r.json().get("workflow_runs"))
+        except Exception:
+            pass
+        return None
+
     # Fetch git tree SHAs, Vercel deploy state and review status in parallel
     import concurrent.futures
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
@@ -727,11 +743,22 @@ async def tread_monitor():
         f_vercel = ex.submit(_fetch_vercel_state)
         f_review = ex.submit(_fetch_review_in_progress)
         hashes = f_hashes.result()
-        vercel_deploying, vercel_live_commit, _ = f_vercel.result()
+        vercel_deploying, vercel_live_commit, deploying_commit = f_vercel.result()
         review_in_progress = f_review.result()
 
+    # Check if deploying commit has an authorized code review
+    # review_in_progress ei riitä suojaksi — tarkistamme commitin SHA:n suoraan
+    unauthorized_deploy = False
+    if vercel_deploying:
+        if not deploying_commit:
+            unauthorized_deploy = True  # tuntematon commit -> ei voida tarkistaa
+        else:
+            authorized = _check_deploy_authorized(deploying_commit)
+            if authorized is False:
+                unauthorized_deploy = True
+
     if not hashes:
-        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "review_in_progress": review_in_progress, "cached_at": now}
+        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "cached_at": now}
         _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
         return result
 
@@ -739,10 +766,10 @@ async def tread_monitor():
     baseline = _kv_get(_KV_MONITOR_BASELINE)
     if baseline is None:
         _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
-        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "review_in_progress": review_in_progress, "cached_at": now}
+        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "cached_at": now}
     else:
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
-        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "review_in_progress": review_in_progress, "cached_at": now}
+        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "cached_at": now}
 
     _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
     return result
