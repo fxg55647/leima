@@ -1818,6 +1818,7 @@
     let _treadMismatchAcceptedAt = null;
     let _wasDeploying = false;
     let _lastMonitor = null;
+    let _lastLocalChanged = null;
 
     howLink.addEventListener('click', e => { e.preventDefault(); verifyDiv.style.display = verifyDiv.style.display === 'none' ? 'block' : 'none'; });
 
@@ -1869,7 +1870,7 @@
       modalBody.textContent = message; overlay.classList.add('visible');
       const debugEl = document.getElementById('tread-modal-debug');
       if (debugEl) {
-        debugEl.value = 'Trigger: ' + key + '\nChecked: ' + new Date().toISOString() + '\nMonitor: ' + JSON.stringify(_lastMonitor, null, 2);
+        debugEl.value = 'Trigger: ' + key + '\nlocalChanged: ' + JSON.stringify(_lastLocalChanged) + '\nChecked: ' + new Date().toISOString() + '\nMonitor: ' + JSON.stringify(_lastMonitor, null, 2);
         debugEl.style.display = 'block';
       }
       verifyDiv.style.display = 'none';
@@ -1943,6 +1944,7 @@
 
         // Päivitä pysyvät liput
         const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
+        _lastLocalChanged = localChanged;
         const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
         if (localChanged || kvChanged) _gitTreeDanger = true;
         if (monitor && monitor.unauthorized_deploy) _unauthorizedDeploy = true;
