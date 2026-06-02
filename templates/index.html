@@ -1948,6 +1948,20 @@
         lastPollAt = Date.now();
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
 
+        // Versiopohjainen reset: jos security_model vaihtuu, kaikki sticky-liput tyhjennetään
+        const _smVersion = d.security_model || '1.0';
+        try {
+          const _prevVersion = localStorage.getItem('leima_sm_version');
+          if (_prevVersion && _prevVersion !== _smVersion) {
+            _lsDel('leima_unauthorized_deploy'); _unauthorizedDeploy = false;
+            _lsDel('leima_tread_mismatch'); _treadMismatch = false; _treadMismatchAcceptedAt = null;
+            try { localStorage.removeItem('leima_tread_mismatch_accepted'); } catch(e) {}
+            try { localStorage.removeItem('leima_git_tree_v3'); } catch(e) {}
+            _gitTreeDanger = false;
+          }
+          localStorage.setItem('leima_sm_version', _smVersion);
+        } catch(e) {}
+
         // Päivitä pysyvät liput
         const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
         _lastLocalChanged = localChanged;
