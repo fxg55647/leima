@@ -208,16 +208,6 @@ def check_deploy_history() -> dict:
             except ValueError:
                 pass
 
-        r = requests.get(
-            f"https://api.github.com/repos/{GITHUB_REPO}/commits/{commit_id}",
-            headers=gh_headers,
-            timeout=10,
-        )
-        if r.status_code == 404:
-            if last_mismatch_at is None or (created_at and created_at > last_mismatch_at):
-                last_mismatch_at = created_at
-                last_mismatch_commit = commit_id[:7]
-
     return {
         "scanned_deploys": scanned,
         "last_mismatch_at": last_mismatch_at,
