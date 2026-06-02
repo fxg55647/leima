@@ -4,13 +4,8 @@ on:
     branches: [staging]
   workflow_dispatch:
 
-concurrency:
-  group: deploy
-  cancel-in-progress: true
-
 permissions:
   actions: write
-  contents: write
 
 jobs:
   review:
@@ -52,38 +47,3 @@ jobs:
           echo "$RESULT"
           echo "$RESULT" > /tmp/cr_result.json
           python3 <<< "$CR_CHECK"
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Send pre-deploy signal
-        continue-on-error: true
-        env:
-          PRE_DEPLOY_TOKEN: ${{ secrets.PRE_DEPLOY_TOKEN }}
-          LEIMA_URL: https://leima.io
-        run: |
-          curl -s --max-time 10 -X POST \
-            -H "Authorization: Bearer $PRE_DEPLOY_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"sha\":\"$GITHUB_SHA\"}" \
-            "$LEIMA_URL/api/pre-deploy" || true
-
-      - name: Merge to main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git push origin HEAD:main
-
-      - name: Wake up TREAD
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          curl -s -X POST \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -d '{"ref":"main"}' \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/tread-a.yml/dispatches"

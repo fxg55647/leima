@@ -25,13 +25,21 @@ Jos staging on joskus jäljessä mainista (bootstrap-tilanne), se on merkki siit
 Pushausohje (järjestys tärkeä):
 1. **Kerro ensin yhteenveto** mitä tehtiin: mitkä tiedostot muuttuivat ja miksi. Muutama rivi riittää.
 2. **Pushaa** (`git push origin staging` — kaikki muutokset menevät stagingiin, ei suoraan mainiin)
-3. **Aseta ajastin heti pushin jälkeen** — älä odota käyttäjän pyyntöä: `gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclusion,headBranch`
-4. Jos 2 min kuluttua ei valmista → tarkista **kerran lisää** 2 min päästä
-5. Jos silloinkaan ei valmista → totea käyttäjälle että jokin meni pieleen ja ala tutkimaan (`gh run view <id> --log-failed`)
+3. **Odota webhookia** — ilmoitus tulee automaattisesti webhookin kautta kun code review valmistuu. Älä aseta ajastinta tai pollaa manuaalisesti.
+4. **Jos webhookia ei tule ~5 min sisällä** → tutki manuaalisesti: `gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclusion,headBranch` ja tarvittaessa `gh run view <id> --log-failed`
 
-Jos completed:
-- `success` → kerro että läpäisi ja mergautui mainiin
-- `failure` → näytä virhe ja korjaa
+Webhook-viesti kertoo tuloksen:
+- `code_review_done` → läpäisi, **odota käyttäjän pyyntöä ennen deployta**
+- `code_review_failed` → näytä virhe ja korjaa
+
+## Deploy tuotantoon (PAKOLLINEN)
+
+**ÄLÄ KOSKAAN** deployaa mainiin ilman käyttäjän eksplisiittistä pyyntöä.
+
+Kun käyttäjä pyytää deployta:
+1. Aja `gh workflow run deploy.yml --repo fxg55647/leima`
+2. Seuraa: `gh run watch $(gh run list --workflow deploy.yml --limit 1 --json databaseId -q '.[0].databaseId') --exit-status`
+3. Kerro käyttäjälle tulos
 
 ## Webhook-vastaanotto — SHA-tarkistus (PAKOLLINEN)
 
@@ -43,7 +51,7 @@ Kun saat webhook-viestin jossa on `sha`-kenttä:
 1. **Aja** `python hooks/webhook_sha_check.py <sha>` — palauttaa JSON: `{"is_mine": bool, ...}`
 2. **Reagoi tuloksen mukaan**:
    - `is_mine: true` + `code_review_failed` → näytä virhe, ala korjaamaan
-   - `is_mine: true` + `code_review_done` → kerro käyttäjälle että läpäisi ja mergautui mainiin
+   - `is_mine: true` + `code_review_done` → kerro käyttäjälle että läpäisi, kysy haluaako deployata
    - `is_mine: false` → jonkun muun push → kirjaa lokiin, älä häiritse käyttäjää
    - `push_log.json puuttuu` → tuntematon alkuperä → ilmoita lyhyesti
 
