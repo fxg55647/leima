@@ -1887,58 +1887,29 @@
           return;
         }
         const p = d.tread || {};
-        const running = d.commit || '';
-        const verified = p.verified_commit || '';
         lastPollAt = Date.now();
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
-        const commitMatch = running && verified && running.startsWith(verified);
-        const unknownCommit = running === 'unknown' || !running;
-        const dispatcherChanged = p.dispatcher_monitor_changed && p.dispatcher_monitor_changed.length > 0;
-        if (dispatcherChanged) {
-          showWarning('monitor_changed', 'Surveillance files have changed:\n' + p.dispatcher_monitor_changed.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
-          fadeSet(row('Danger', '#ff6b6b', 'surveillance files changed'), 'danger');
-          return;
-        }
-        if (p.review_stuck) {
-          fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
-        } else {
-          if (monitor && monitor.unauthorized_deploy) {
+        if (monitor && monitor.unauthorized_deploy) {
           showWarning('unauthorized_deploy', 'A Vercel deployment is in progress with no code review on record for this commit.\n\nDo not submit sensitive documents until this is resolved. Check GitHub Actions and the Vercel dashboard.');
           fadeSet(row('Danger', '#ff6b6b', 'unauthorized deploy detected'), 'danger');
-          return;
-        }
-        if (monitor && monitor.review_in_progress) {
+        } else if (monitor && monitor.review_in_progress) {
           fadeSet(row('Notice!', '#f0a030', 'code review in progress — deploy imminent'), 'warning');
-          return;
-        }
-        const deploying = monitor && monitor.deploying != null ? monitor.deploying : p.deploying;
-          const dangerousDeploy = deploying && p.deploying_commit_ok === false && p.deploying_commit;
-          if (dangerousDeploy) {
-            showWarning('dangerous_deploy_' + (p.deploying_commit || '').slice(0,7),
-              'An unauthorized commit is being deployed to production:\n' + (p.deploying_commit||'?').slice(0,7) + ' ≠ ' + (p.verified_commit||'?').slice(0,7) + '\n\nDo not submit sensitive documents until this is resolved.\nCheck GitHub Actions and the Render dashboard.');
-            fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
-          } else if (deploying) {
-            startDeployTicker();
-            const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
-            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');
-          } else if (!unknownCommit && verified && !commitMatch && !p.ok) {
-            startDeployTicker();
-            const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
-            fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');
-          } else if (p.ok || commitMatch) {
-            stopDeployTicker();
-            fadeSet(row('deploy matches git', '#fff', ''), 'ok');
-          } else if (p.ok === false) {
-            stopDeployTicker();
-            const _isNotConf = p.deploy_status === 'not_configured';
-            showWarning(_isNotConf ? 'tread_not_configured' : 'tread_mismatch',
-              _isNotConf
-                ? 'TREAD verification key is missing. Cannot confirm this deployment matches the audited code.\n\nDo not submit sensitive documents until this is resolved.'
-                : 'TREAD reports a mismatch: the deployed code does not match the last verified commit.\n\nDo not submit sensitive documents until this is resolved. Check the TREAD audit log for details.');
-            fadeSet(row('Danger', '#ff6b6b', _isNotConf ? 'key missing' : 'mismatch'), 'danger');
-          } else {
-            fadeSet(row('Checking…', '#aaa', ''), 'loading');
-          }
+        } else if (monitor && monitor.deploying) {
+          startDeployTicker();
+          const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
+          fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');
+        } else if (p.review_stuck) {
+          stopDeployTicker();
+          fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
+        } else if (p.ok) {
+          stopDeployTicker();
+          fadeSet(row('deploy matches git', '#fff', ''), 'ok');
+        } else if (p.ok === false) {
+          stopDeployTicker();
+          showWarning('tread_mismatch', 'TREAD reports a mismatch: the deployed code does not match the last verified commit.\n\nDo not submit sensitive documents until this is resolved. Check the TREAD audit log for details.');
+          fadeSet(row('Danger', '#ff6b6b', 'mismatch'), 'danger');
+        } else {
+          fadeSet(row('Checking…', '#aaa', ''), 'loading');
         }
       }).catch(() => { lastCheckedAt = null; fadeSet(row('Server or network error', '#f0a030', ''), 'warning'); });
 

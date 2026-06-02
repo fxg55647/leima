@@ -695,32 +695,15 @@ async def version():
             if cache:
                 _kv_set(cache)
     return {
-        "commit": os.getenv("RENDER_GIT_COMMIT") or os.getenv("VERCEL_GIT_COMMIT_SHA", "unknown"),
-        "service": os.getenv("RENDER_SERVICE_NAME") or os.getenv("VERCEL_URL", "local"),
         "model": MODEL,
         "security_model": "1.0",
         "tread": {
-            "ok": cache.get("ok"),
-            "checked_at": cache.get("ts"),
-            "verified_commit": cache.get("commit", ""),
-            "tx": cache.get("tx"),
-            "deploy_status": cache.get("deploy_status"),
-            "deployment_ok":        cache.get("deployment_ok"),
-            "vercel_deployment_ok": cache.get("vercel_deployment_ok"),
-            "review_ok":            cache.get("review_ok"),
-            "review_stuck":         cache.get("review_stuck"),
+            "ok":                          cache.get("ok"),
+            "checked_at":                  cache.get("ts"),
+            "tx":                          cache.get("tx"),
+            "review_ok":                   cache.get("review_ok"),
+            "review_stuck":                cache.get("review_stuck"),
             "review_consecutive_failures": cache.get("review_consecutive_failures", 0),
-            "deploying":            cache.get("deploying"),
-            "deploying_commit":     cache.get("deploying_commit"),
-            "deploying_commit_ok":  cache.get("deploying_commit_ok"),
-            "monitor_files":        cache.get("monitor_files", {}),
-            "dispatcher_monitor_changed": cache.get("dispatcher_monitor_changed", []),
-            "commit_matches_tread": (
-                bool(running_commit and cache.get("commit") and
-                     running_commit.startswith(cache["commit"][:7]))
-                if (running_commit := (os.getenv("RENDER_GIT_COMMIT") or os.getenv("VERCEL_GIT_COMMIT_SHA", "")))
-                else None
-            ),
         },
     }
 
