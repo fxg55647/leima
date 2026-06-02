@@ -445,6 +445,8 @@ Code review -varoitus toteutettiin ilman KV-kirjoitusoikeutta GitHub Actionsille
 
 Lisäksi: kun Vercel API raportoi deployn käynnissä, tarkistetaan GitHub API:sta onko `code_review.yml` ajanut onnistuneesti juuri sille commitille. Jos ajoi → käyttäjä on jo saanut varoituksen review-vaiheessa, deploy on luvallinen. Jos ei → frontend näyttää Danger ("unauthorized deploy detected"). Näin varmistutaan että jokainen Vercel-deploy on kulkenut code review -prosessin läpi.
 
+Jos Vercel ei kerro deployn `githubCommitSha`:ta (esim. CLI- tai dashboard-deploy ilman GitHub-integraatiota), code review -tarkistusta ei voi tehdä → `unauthorized_deploy=True` välittömästi. Tuntematon commit tulkitaan aina luvattomaksi.
+
 ---
 
 ## Operaattorin luottamusvaatimus
