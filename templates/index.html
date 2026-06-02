@@ -1961,6 +1961,12 @@
             _treadMismatch = true;
             _lsSet('leima_tread_mismatch');
           }
+        } else if (p.ok === true && _treadMismatch) {
+          // TREAD kertoo nyt että kaikki ok — varoitus oli hetkellinen (deploy-ikkuna)
+          _treadMismatch = false;
+          _treadMismatchAcceptedAt = p.checked_at || '';
+          _lsDel('leima_tread_mismatch');
+          try { localStorage.setItem('leima_tread_mismatch_accepted', p.checked_at || ''); } catch(e) {}
         }
 
         // Pysyvät liput ensin — mikään ei syrjäytä niitä
