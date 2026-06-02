@@ -13,9 +13,13 @@ jobs:
       - name: Send webhook to Claude
         env:
           HOOKDECK_URL: ${{ secrets.CLAUDE_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.CLAUDE_WEBHOOK_SECRET }}
         run: |
           RUN_ID="${{ github.event.workflow_run.id }}"
           SHA="${{ github.event.workflow_run.head_sha }}"
+          BODY="{\"event\":\"code_review_failed\",\"run_id\":\"$RUN_ID\",\"sha\":\"$SHA\",\"branch\":\"staging\",\"message\":\"code_review.yml feilasi stagingissa — SHA $SHA — aja: gh run view $RUN_ID --log-failed\"}"
+          SIG="sha256=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')"
           curl -s -X POST "$HOOKDECK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"event\":\"code_review_failed\",\"run_id\":\"$RUN_ID\",\"sha\":\"$SHA\",\"branch\":\"staging\",\"message\":\"code_review.yml feilasi stagingissa — SHA $SHA — aja: gh run view $RUN_ID --log-failed\"}"
+            -H "X-Webhook-Signature: $SIG" \
+            -d "$BODY"

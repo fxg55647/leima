@@ -33,5 +33,24 @@ Jos completed:
 - `success` → kerro että läpäisi ja mergautui mainiin
 - `failure` → näytä virhe ja korjaa
 
+## Webhook-vastaanotto — SHA-tarkistus (PAKOLLINEN)
+
+Kun saat webhook-viestin jossa on `sha`-kenttä:
+
+1. **Lue** `.claude/push_log.json` (sisältää `sha`, `timestamp`, `pid`)
+2. **Vertaa**: `webhook_sha == push_log["sha"]`
+   - **Täsmää** → tämä agentti pushasi kyseisen commitin → reagoi aktiivisesti:
+     - `code_review_failed`: näytä virhe, ala korjaamaan
+     - `code_review_done` / `success`: kerro käyttäjälle että läpäisi ja mergautui mainiin
+   - **Ei täsmää** → jonkun muun push → kirjaa lokiin mutta älä häiritse käyttäjää
+   - **push_log.json puuttuu** → tuntematon alkuperä → ilmoita lyhyesti mutta älä tulkitse omaksesi
+
+Esimerkki tarkistuksesta:
+```python
+import json, pathlib
+log = json.loads(pathlib.Path(".claude/push_log.json").read_text())
+is_mine = log.get("sha") == webhook_payload.get("sha")
+```
+
 ## Muuta
 - Puhu aina suomea käyttäjälle
