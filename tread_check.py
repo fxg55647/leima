@@ -176,16 +176,6 @@ RAPID_DEPLOY_THRESHOLD  = 10   # deploys in that window triggers warning
 
 
 def check_deploy_history() -> dict:
-    if not RENDER_API_KEY or not RENDER_SERVICE_ID:
-        return {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
-
-    resp = requests.get(
-        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=100",
-        headers={"Authorization": f"Bearer {RENDER_API_KEY}"},
-        timeout=10,
-    )
-    resp.raise_for_status()
-
     gh_headers = {"Accept": "application/vnd.github+json"}
     if GITHUB_TOKEN:
         gh_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
@@ -197,22 +187,62 @@ def check_deploy_history() -> dict:
     window_cutoff = datetime.now(timezone.utc).timestamp() - RAPID_DEPLOY_WINDOW_MIN * 60
     deploys_in_window = 0
 
-    for item in resp.json():
-        deploy = item.get("deploy", {})
-        if deploy.get("status") not in _COMPLETED:
-            continue
-        commit_id = deploy.get("commit", {}).get("id")
-        created_at = deploy.get("createdAt") or deploy.get("created_at")
-        if not commit_id:
-            continue
+    # Kerää (commit_id, created_at) -parit kaikista lähteistä
+    entries = []
 
+    if RENDER_API_KEY and RENDER_SERVICE_ID:
+        try:
+            resp = requests.get(
+                f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=100",
+                headers={"Authorization": f"Bearer {RENDER_API_KEY}"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            for item in resp.json():
+                deploy = item.get("deploy", {})
+                if deploy.get("status") not in _COMPLETED:
+                    continue
+                commit_id = deploy.get("commit", {}).get("id")
+                created_at = deploy.get("createdAt") or deploy.get("created_at")
+                if commit_id:
+                    entries.append((commit_id, created_at))
+        except Exception:
+            pass
+
+    if VERCEL_TOKEN and VERCEL_PROJECT_ID:
+        try:
+            params = f"projectId={VERCEL_PROJECT_ID}&limit=100&state=READY&target=production"
+            if VERCEL_TEAM_ID:
+                params += f"&teamId={VERCEL_TEAM_ID}"
+            resp = requests.get(
+                f"https://api.vercel.com/v6/deployments?{params}",
+                headers={"Authorization": f"Bearer {VERCEL_TOKEN}"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            for d in resp.json().get("deployments", []):
+                commit_id = (d.get("meta") or {}).get("githubCommitSha")
+                created_at = d.get("createdAt")
+                if created_at:
+                    try:
+                        created_at = datetime.fromtimestamp(
+                            created_at / 1000, tz=timezone.utc
+                        ).isoformat()
+                    except Exception:
+                        pass
+                if commit_id:
+                    entries.append((commit_id, created_at))
+        except Exception:
+            pass
+
+    for commit_id, created_at in entries:
         scanned += 1
         if oldest_at is None or (created_at and created_at < oldest_at):
             oldest_at = created_at
 
         if created_at:
             try:
-                ts = datetime.fromisoformat(created_at.replace("Z", "+00:00")).timestamp()
+                ts = datetime.fromisoformat(str(created_at).replace("Z", "+00:00")).timestamp()
                 if ts > window_cutoff:
                     deploys_in_window += 1
             except ValueError:
