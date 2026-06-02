@@ -1953,7 +1953,6 @@
         try {
           const _prevVersion = localStorage.getItem('leima_sm_version');
           if (_prevVersion && _prevVersion !== _smVersion) {
-            _lsDel('leima_unauthorized_deploy'); _unauthorizedDeploy = false;
             _lsDel('leima_tread_mismatch'); _treadMismatch = false; _treadMismatchAcceptedAt = null;
             try { localStorage.removeItem('leima_tread_mismatch_accepted'); } catch(e) {}
             try { localStorage.removeItem('leima_git_tree_v3'); } catch(e) {}
