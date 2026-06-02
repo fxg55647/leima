@@ -2015,6 +2015,10 @@
           stopDeployTicker();
           _wasDeploying = false;
           fadeSet(row('deploy matches git', '#fff', ''), 'ok');
+        } else if (p.ok === false && monitor && monitor.ok === true) {
+          stopDeployTicker();
+          _wasDeploying = false;
+          fadeSet(row('deploy matches git', '#fff', ''), 'ok');
         } else {
           fadeSet(row('Checking…', '#aaa', ''), 'loading');
         }

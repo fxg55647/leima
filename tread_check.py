@@ -308,9 +308,15 @@ deploying_commit_ok = bool(
     vercel_deploying_commit.startswith(expected[:7])
 )
 review_ok = review_conclusion == "success"
-# deployment_safe: running code is the expected code, or the mismatch is explained
-# by the normal deploy gate (review running or failed → old safe code still live)
-deployment_safe = deployment_ok or deploying_commit_ok or review_conclusion in ("in_progress", "failure")
+# When GitHub commit API returns None (transient API failure), we can't verify the match.
+# Use review status as proxy: a recent passing review means the deployed code was approved.
+github_commit_unknown = expected is None
+if github_commit_unknown:
+    deployment_safe = review_ok
+else:
+    # deployment_safe: running code is the expected code, or the mismatch is explained
+    # by the normal deploy gate (review running or failed → old safe code still live)
+    deployment_safe = deployment_ok or deploying_commit_ok or review_conclusion in ("in_progress", "failure")
 # review_stuck: code review has failed repeatedly — commits are not deploying
 REVIEW_STUCK_THRESHOLD = 3
 review_stuck = (review_consecutive_failures or 0) >= REVIEW_STUCK_THRESHOLD
@@ -321,6 +327,7 @@ result = {
     "ok": ok,
     "rapid_deploy_warning": rapid_deploy_warning,
     "deployment_ok": deployment_ok,
+    "github_commit_unknown": github_commit_unknown,
     "vercel_deployed_commit": vercel_deployed,
     "vercel_deploying": vercel_deploying,
     "vercel_service_url": vercel_service_url or "",
