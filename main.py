@@ -657,6 +657,10 @@ async def tread_cron(request: Request):
     if not token:
         return JSONResponse({"dispatched": False, "error": "no_token"}, status_code=500)
 
+    # Explicit disable — set TREAD_DISPATCH_ENABLED=false in staging Vercel project
+    if os.getenv("TREAD_DISPATCH_ENABLED", "").lower() == "false":
+        return {"dispatched": False, "reason": "disabled"}
+
     # Staging/preview deployments skip dispatch — GHA cron (*/5 min) is sufficient there
     if os.getenv("VERCEL_ENV", "production") != "production":
         return {"dispatched": False, "reason": "non-production deployment"}
