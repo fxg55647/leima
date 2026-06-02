@@ -822,12 +822,24 @@
   <div id="tread-modal">
     <h2 id="tread-modal-title">⚠ TREAD WARNING</h2>
     <p id="tread-modal-body"></p>
+    <div id="tread-modal-verify" style="display:none;margin-top:1rem;padding:0.9rem;background:#0d1f2d;border-radius:6px;font-size:0.82rem;color:#8ab;">
+      <p style="margin:0 0 0.6rem 0;color:#cde;">To dismiss this warning, verify the changed files on GitHub and confirm the changes are legitimate:</p>
+      <ol style="margin:0 0 0.8rem 1.2rem;padding:0;color:#8ab;line-height:1.7;">
+        <li>Open the repository on GitHub</li>
+        <li>Check the git log for the files listed above</li>
+        <li>Confirm no unauthorized changes were made</li>
+      </ol>
+      <button id="tread-modal-accept" style="background:#1a4a2a;color:#6dbb8a;border:1px solid #2a6a3a;padding:0.4rem 1rem;border-radius:4px;cursor:pointer;font-size:0.82rem;">I have verified — accept and update my baseline</button>
+    </div>
     <div id="tread-modal-footer">
       <label id="tread-modal-suppress">
         <input type="checkbox" id="tread-modal-suppress-cb">
         Don't show again for 2 minutes
       </label>
-      <button id="tread-modal-close">Acknowledge</button>
+      <div style="display:flex;gap:0.6rem;align-items:center;">
+        <a id="tread-modal-how" href="#" style="font-size:0.78rem;color:#6a8899;text-decoration:underline;display:none;">How to dismiss this?</a>
+        <button id="tread-modal-close">Acknowledge</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1786,6 +1798,9 @@
     const modalBody = document.getElementById('tread-modal-body');
     const suppressCb = document.getElementById('tread-modal-suppress-cb');
     const closeBtn = document.getElementById('tread-modal-close');
+    const howLink = document.getElementById('tread-modal-how');
+    const verifyDiv = document.getElementById('tread-modal-verify');
+    const acceptBtn = document.getElementById('tread-modal-accept');
     let lastCheckedAt = null;
     let lastPollAt = null;
     const SUPPRESS_DURATION_MS = 2 * 60 * 1000;
@@ -1795,6 +1810,15 @@
     let _deployStart = null;
     let _deployTicker = null;
     const _DEPLOY_LS_KEY = 'leima_deploy_start';
+    let _pendingHashes = null;
+    let _gitTreeDanger = false;
+
+    howLink.addEventListener('click', e => { e.preventDefault(); verifyDiv.style.display = verifyDiv.style.display === 'none' ? 'block' : 'none'; });
+    acceptBtn.addEventListener('click', () => {
+      if (_pendingHashes) { acceptGitTreeBaseline(_pendingHashes); _pendingHashes = null; }
+      _gitTreeDanger = false;
+      overlay.classList.remove('visible'); verifyDiv.style.display = 'none'; howLink.style.display = 'none';
+    });
 
     function startDeployTicker() {
       if (_deployTicker) return;
@@ -1819,7 +1843,7 @@
     function isSuppressed(key) {
       try { const v = localStorage.getItem('tread_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
     }
-    function checkGitTree(hashes, treadOk) {
+    function checkGitTree(hashes) {
       const LS_KEY = 'leima_git_tree';
       let prev = null;
       try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
@@ -1828,20 +1852,32 @@
         return null;
       }
       const changed = Object.keys(hashes).filter(k => hashes[k] !== prev[k]);
-      if (changed.length === 0 || treadOk === true) {
+      if (changed.length === 0) {
         try { localStorage.setItem(LS_KEY, JSON.stringify(hashes)); } catch {}
       }
       return changed.length ? changed : null;
     }
-    function showWarning(key, message) {
+    function acceptGitTreeBaseline(hashes) {
+      try { localStorage.setItem('leima_git_tree', JSON.stringify(hashes)); } catch {}
+    }
+    function showWarning(key, message, hashes) {
       if (isSuppressed(key)) return;
       const now = Date.now();
       if (lastModalKey === key && now - lastModalShownAt < REPEAT_INTERVAL_MS) return;
       lastModalShownAt = now; lastModalKey = key; suppressCb.checked = false;
       modalBody.textContent = message; overlay.classList.add('visible');
+      verifyDiv.style.display = 'none';
+      if (hashes) {
+        _pendingHashes = hashes;
+        howLink.style.display = 'inline';
+      } else {
+        _pendingHashes = null;
+        howLink.style.display = 'none';
+      }
       closeBtn.onclick = function() {
         if (suppressCb.checked) { try { localStorage.setItem('tread_suppress_' + key, Date.now().toString()); } catch(e) {} }
         overlay.classList.remove('visible');
+        verifyDiv.style.display = 'none';
       };
     }
     document.addEventListener('visibilitychange', function() { if (!document.hidden) { lastModalShownAt = 0; update(); } });
@@ -1883,11 +1919,12 @@
         fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
         fetch('/tread-monitor?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).catch(() => null),
       ]).then(([d, monitor]) => {
-        const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes, (d.tread || {}).ok) : null;
+        const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
         const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
-        if (localChanged || kvChanged) {
-          const files = localChanged || monitor.changed;
-          showWarning('github_monitor_changed', 'GitHub surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
+        if (localChanged || kvChanged) _gitTreeDanger = true;
+        if (_gitTreeDanger) {
+          const files = localChanged || (monitor && monitor.changed) || [];
+          showWarning('github_monitor_changed', 'GitHub surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.', monitor && monitor.hashes);
           fadeSet(row('Danger', '#ff6b6b', 'github files changed'), 'danger');
           return;
         }
