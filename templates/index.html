@@ -1902,7 +1902,11 @@
         if (p.review_stuck) {
           fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
         } else {
-          const deploying = monitor && monitor.deploying != null ? monitor.deploying : p.deploying;
+          if (monitor && monitor.review_in_progress) {
+          fadeSet(row('Notice!', '#f0a030', 'code review in progress — deploy imminent'), 'warning');
+          return;
+        }
+        const deploying = monitor && monitor.deploying != null ? monitor.deploying : p.deploying;
           const dangerousDeploy = deploying && p.deploying_commit_ok === false && p.deploying_commit;
           if (dangerousDeploy) {
             showWarning('dangerous_deploy_' + (p.deploying_commit || '').slice(0,7),

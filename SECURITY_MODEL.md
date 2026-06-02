@@ -439,6 +439,10 @@ Miksi: Vercel-deploy kestää 1–3 minuuttia. Sinä aikana vanha (rehellinen) s
 
 Toteutuksessa havaittiin että vanha `checkMonitorFiles`-funktio teki käytännössä saman asian mutta `tread_check.py`:n kautta — joka tarkoitti että kompromisoitu `tread_check.py` olisi voinut pettää sen kokonaan. Uusi `/tread-monitor` hakee suoraan GitHub API:sta ilman välikäsiä. `checkMonitorFiles` poistettiin ja korvattiin `checkGitTree`:llä joka tallentaa git tree SHA:t käyttäjän localStorageen. Nyt sekä KV-baseline (palvelinpuoli) että localStorage (käyttäjän selain) havaitsevat muutokset toisistaan riippumatta.
 
+**7. TEHTY: /tread-monitor hakee code review -statuksen GitHub API:sta**
+
+Code review -varoitus toteutettiin ilman KV-kirjoitusoikeutta GitHub Actionsille: `/tread-monitor` kysyy GitHub API:lta suoraan onko `code_review.yml` juuri käynnissä (`status=in_progress`). Jos on, frontend näyttää "Notice! code review in progress — deploy imminent". Tieto kulkee luotettavasta ulkoisesta lähteestä (GitHub API) eikä vaadi GHA:lle pääsyä KV:hen. Sama 10s pollaus hakee rinnakkain git tree SHA:t, Vercel deploy-tilan ja code review -statuksen.
+
 ---
 
 ## Operaattorin luottamusvaatimus

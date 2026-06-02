@@ -759,16 +759,32 @@ async def tread_monitor():
     if cached and now - cached.get("cached_at", 0) < 10:
         return cached
 
-    # Fetch git tree SHAs and Vercel deploy state in parallel
+    def _fetch_review_in_progress():
+        if not token:
+            return False
+        try:
+            r = http_requests.get(
+                f"https://api.github.com/repos/{_GITHUB_REPO}/actions/workflows/code_review.yml/runs",
+                params={"per_page": 1, "status": "in_progress"},
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+                timeout=8,
+            )
+            return bool(r.status_code == 200 and r.json().get("workflow_runs"))
+        except Exception:
+            return False
+
+    # Fetch git tree SHAs, Vercel deploy state and review status in parallel
     import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
         f_hashes = ex.submit(_fetch_monitor_hashes, token)
         f_vercel = ex.submit(_fetch_vercel_state)
+        f_review = ex.submit(_fetch_review_in_progress)
         hashes = f_hashes.result()
         vercel_deploying, vercel_live_commit = f_vercel.result()
+        review_in_progress = f_review.result()
 
     if not hashes:
-        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "cached_at": now}
+        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "review_in_progress": review_in_progress, "cached_at": now}
         _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
         return result
 
@@ -776,10 +792,10 @@ async def tread_monitor():
     baseline = _kv_get(_KV_MONITOR_BASELINE)
     if baseline is None:
         _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
-        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "cached_at": now}
+        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "review_in_progress": review_in_progress, "cached_at": now}
     else:
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
-        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "cached_at": now}
+        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "review_in_progress": review_in_progress, "cached_at": now}
 
     _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
     return result
