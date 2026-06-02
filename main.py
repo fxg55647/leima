@@ -691,7 +691,7 @@ async def tread_monitor():
 
     # Return cached result if fresh
     cached = _kv_get(_KV_MONITOR_CACHE)
-    if cached and now - cached.get("cached_at", 0) < 10:
+    if cached and now - cached.get("cached_at", 0) < 60:
         return cached
 
     def _fetch_review_in_progress():
@@ -766,7 +766,7 @@ async def tread_monitor():
 
     if not hashes:
         result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deploy_incoming": deploy_incoming, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
-        _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
+        _kv_set(result, _KV_MONITOR_CACHE, ttl=60)
         return result
 
     # Get or set baseline
@@ -787,7 +787,7 @@ async def tread_monitor():
                 break
     result["pre_deploy_active"] = pre_deploy_active
 
-    _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
+    _kv_set(result, _KV_MONITOR_CACHE, ttl=60)
     return result
 
 
