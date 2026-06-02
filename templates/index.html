@@ -1815,7 +1815,7 @@
     const _DEPLOY_LS_KEY = 'leima_deploy_start';
     let _pendingHashes = null;
     let _gitTreeDanger = false;
-    let _unauthorizedDeploy = false;
+    let _unauthorizedDeploy = (() => { try { return !!localStorage.getItem('leima_unauthorized_deploy'); } catch(e) { return false; } })();
     let _treadMismatch = false;
     let _treadMismatchAcceptedAt = null;
     let _wasDeploying = false;
@@ -1949,7 +1949,7 @@
         _lastLocalChanged = localChanged;
         const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
         if (localChanged || kvChanged) _gitTreeDanger = true;
-        if (monitor && monitor.unauthorized_deploy) _unauthorizedDeploy = true;
+        if (monitor && monitor.unauthorized_deploy) { _unauthorizedDeploy = true; try { localStorage.setItem('leima_unauthorized_deploy', '1'); } catch(e) {} }
         if (monitor && monitor.sys_env_mismatches && Object.keys(monitor.sys_env_mismatches).length > 0) _gitTreeDanger = true;
         if (p.ok === false && !_wasDeploying) {
           const checkedAt = p.checked_at || '';
@@ -1972,7 +1972,7 @@
         if (_unauthorizedDeploy) {
           showWarning('unauthorized_deploy', 'A Vercel deployment is in progress with no code review on record for this commit.\n\nDo not submit sensitive documents until this is resolved. Check GitHub Actions and the Vercel dashboard.', {
             instructions: 'Open GitHub Actions and confirm that code_review.yml ran successfully for this commit. Open the Vercel dashboard and confirm who triggered the deployment and why. If you have verified the deployment is legitimate, accept below.',
-            onAccept: () => { _unauthorizedDeploy = false; }
+            onAccept: () => { _unauthorizedDeploy = false; try { localStorage.removeItem('leima_unauthorized_deploy'); } catch(e) {} }
           });
           fadeSet(row('Danger', '#ff6b6b', 'unauthorized deploy detected'), 'danger');
           return;
