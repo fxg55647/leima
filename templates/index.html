@@ -1911,11 +1911,11 @@
             startDeployTicker();
             const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
             fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');
-          } else if (!unknownCommit && verified && !commitMatch && !(p.ok && p.deployment_ok)) {
+          } else if (!unknownCommit && verified && !commitMatch && !p.ok) {
             startDeployTicker();
             const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
             fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');
-          } else if (p.ok || commitMatch || p.deployment_ok) {
+          } else if (p.ok || commitMatch) {
             stopDeployTicker();
             fadeSet(row('deploy matches git', '#fff', ''), 'ok');
           } else if (p.ok === false) {
