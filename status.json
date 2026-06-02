@@ -4,10 +4,10 @@
   "deployment_ok": false,
   "github_commit_unknown": true,
   "github_commit_http_status": 403,
-  "vercel_deployed_commit": "53534441e622e782ff72cb2ea621134694984bcc",
-  "vercel_deploying": true,
-  "vercel_service_url": "https://leima-4hwcme1yj-teemu-lantta-s-projects.vercel.app",
-  "vercel_source_ok": true,
+  "vercel_deployed_commit": "342e7ddc920a09535dfb93871f1c5918d9bc68ae",
+  "vercel_deploying": false,
+  "vercel_service_url": "https://leima-xhx2fq2d3-teemu-lantta-s-projects.vercel.app",
+  "vercel_source_ok": null,
   "vercel_source_mismatches": [],
   "review_ok": true,
   "review_consecutive_failures": 0,
@@ -21,15 +21,15 @@
   },
   "disabled_workflows": [],
   "history": {
-    "scanned_deploys": 92,
+    "scanned_deploys": 93,
     "last_mismatch_at": null,
     "last_mismatch_commit": null,
     "clean_since": "2026-05-29T20:01:45.694000+00:00",
-    "deploys_last_hour": 2
+    "deploys_last_hour": 3
   },
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-06-02 20:58:51 UTC",
+  "checked_at": "2026-06-02 20:59:29 UTC",
   "monitor_files": {
     ".github/workflows/tread.yml": "dee604115e0b0d59454e33cca8401523d3676501f34b344b0b8f10ace26c763a",
     ".github/workflows/monthly-audit.yml": "05b3b6d6a2c1ff304e3815b6bafce8496a842283da855f14b46ac821e88d79b3",
@@ -40,6 +40,6 @@
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26847639024",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26847639024"
+  "actions_run_id": "26847674229",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26847674229"
 }
