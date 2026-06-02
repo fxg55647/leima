@@ -1874,7 +1874,15 @@
       }, 280);
     }
     function update() {
-      fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
+      Promise.all([
+        fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
+        fetch('/tread-monitor?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).catch(() => null),
+      ]).then(([d, monitor]) => {
+        if (monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0) {
+          showWarning('github_monitor_changed', 'GitHub surveillance files have changed since baseline:\n' + monitor.changed.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
+          fadeSet(row('Danger', '#ff6b6b', 'github files changed'), 'danger');
+          return;
+        }
         const p = d.tread || {};
         const running = d.commit || '';
         const verified = p.verified_commit || '';
@@ -1922,6 +1930,7 @@
           }
         }
       }).catch(() => { lastCheckedAt = null; fadeSet(row('Server or network error', '#f0a030', ''), 'warning'); });
+
     }
     update();
     setInterval(update, 10000);

@@ -90,10 +90,12 @@ NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.io>")
 NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
 LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.io")
 
-_KV_URL   = os.getenv("KV_REST_API_URL", "")
-_KV_TOKEN = os.getenv("KV_REST_API_TOKEN", "")
-_KV_KEY   = "tread_v"
-_KV_TTL   = 10  # seconds
+_KV_URL              = os.getenv("KV_REST_API_URL", "")
+_KV_TOKEN            = os.getenv("KV_REST_API_TOKEN", "")
+_KV_KEY              = "tread_v"
+_KV_TTL              = 10  # seconds
+_KV_MONITOR_CACHE    = "tread_monitor_cache"
+_KV_MONITOR_BASELINE = "tread_monitor_baseline"
 
 _tread_cache: dict | None = None
 _tread_cache_ready = threading.Event()
@@ -126,11 +128,11 @@ _GITHUB_BRANCH = "main"
 _monitor_baseline: dict | None = None
 
 
-def _kv_get() -> dict | None:
+def _kv_get(key: str = _KV_KEY) -> dict | None:
     if not _KV_URL or not _KV_TOKEN:
         return None
     try:
-        r = http_requests.get(f"{_KV_URL}/get/{_KV_KEY}",
+        r = http_requests.get(f"{_KV_URL}/get/{key}",
                                headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
         val = r.json().get("result") if r.status_code == 200 else None
         if val:
@@ -140,12 +142,12 @@ def _kv_get() -> dict | None:
     return None
 
 
-def _kv_set(data: dict) -> None:
+def _kv_set(data: dict, key: str = _KV_KEY, ttl: int = _KV_TTL) -> None:
     if not _KV_URL or not _KV_TOKEN:
         return
     try:
         val = base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
-        http_requests.post(f"{_KV_URL}/set/{_KV_KEY}/{val}?EX={_KV_TTL}",
+        http_requests.post(f"{_KV_URL}/set/{key}/{val}?EX={ttl}",
                            headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
     except Exception:
         pass
@@ -745,6 +747,36 @@ async def tread_cron(request: Request):
         return {"dispatched": r.status_code == 204}
     except Exception as e:
         return JSONResponse({"dispatched": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/tread-monitor")
+async def tread_monitor():
+    token = os.getenv("GITHUB_DISPATCH_TOKEN") or os.getenv("GITHUB_TOKEN", "")
+    now = time.time()
+
+    # Return cached result if fresh
+    cached = _kv_get(_KV_MONITOR_CACHE)
+    if cached and now - cached.get("cached_at", 0) < 10:
+        return cached
+
+    # Fetch current git tree SHAs for monitored files
+    hashes = _fetch_monitor_hashes(token)
+    if not hashes:
+        result = {"ok": None, "error": "github_unreachable", "cached_at": now}
+        _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
+        return result
+
+    # Get or set baseline
+    baseline = _kv_get(_KV_MONITOR_BASELINE)
+    if baseline is None:
+        _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
+        result = {"ok": True, "changed": [], "baseline_set": True, "cached_at": now}
+    else:
+        changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
+        result = {"ok": len(changed) == 0, "changed": changed, "cached_at": now}
+
+    _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
+    return result
 
 
 def _readme_intro() -> str:
