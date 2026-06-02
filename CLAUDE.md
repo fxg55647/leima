@@ -12,14 +12,16 @@ Workflow täytyy aina exitata 0:lla — muuten GitHub passivoi scheduled-ajot.
 
 ## Git push — code review -seuranta (PAKOLLINEN)
 
-Jokaisen `git push`:n jälkeen käynnistä `/loop` 2 minuutin välein:
-- Hae uusin code review run: `gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclusion`
-- Jos completed → kerro tulos käyttäjälle suomeksi → lopeta loop (älä aseta uutta ajastinta)
-- Jos ei valmis ja alle 8 min kulunut pushista → jatka loopia
-- Jos 8 min kulunut → kerro timeout → lopeta loop
-- **Jos run-ID on sama kuin edellisellä kierroksella eikä uutta ajoa ole käynnistynyt → ei ole mitään odotettavaa → lopeta loop heti**
+Pushausohje (järjestys tärkeä):
+1. **Kerro ensin yhteenveto** mitä tehtiin: mitkä tiedostot muuttuivat ja miksi. Muutama rivi riittää.
+2. **Pushaa** (`git push origin staging` — kaikki muutokset menevät stagingiin, ei suoraan mainiin)
+3. **Aseta ajastin 2 minuuttiin**: `gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclusion,headBranch`
+4. Jos 2 min kuluttua ei valmista → tarkista **kerran lisää** 2 min päästä
+5. Jos silloinkaan ei valmista → totea käyttäjälle että jokin meni pieleen ja ala tutkimaan (`gh run view <id> --log-failed`)
 
-Ennen `git push`ia tai sen yhteydessä kerro lyhyesti mitä juuri pushasit: mitkä tiedostot muuttuivat ja miksi. Muutama rivi riittää. Älä odota code review -tulosta — kerro muutoksista heti pushin yhteydessä.
+Jos completed:
+- `success` → kerro että läpäisi ja mergautui mainiin
+- `failure` → näytä virhe ja korjaa
 
 ## Muuta
 - Puhu aina suomea käyttäjälle
