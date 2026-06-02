@@ -447,6 +447,29 @@ Lisäksi: kun Vercel API raportoi deployn käynnissä, tarkistetaan GitHub API:s
 
 Jos Vercel ei kerro deployn `githubCommitSha`:ta (esim. CLI- tai dashboard-deploy ilman GitHub-integraatiota), code review -tarkistusta ei voi tehdä → `unauthorized_deploy=True` välittömästi. Tuntematon commit tulkitaan aina luvattomaksi.
 
+**8. TEHTY: Arkkitehtuurin selkeytys — /version vs /tread-monitor**
+
+Aiemmin `/version`-endpoint palautti sekaisin sekä TREAD-historian että reaaliaikaisen monitoring-datan. Nämä on nyt erotettu selkeästi kahteen eri kerrokseen:
+
+**`/tread-monitor` (reaaliaikainen, 10s)** hakee rinnakkain kolmesta lähteestä:
+- GitHub API → git tree SHA:t valvotuille tiedostoille, verrataan KV-baselineen ja käyttäjän localStorageen
+- Vercel API → onko deploy käynnissä ja mille commitille
+- GitHub Actions API → onko `code_review.yml` juuri käynnissä
+
+Lisäksi: jos Vercel raportoi deployn käynnissä, tarkistetaan onko sille commitille olemassa onnistunut `code_review.yml`-ajo. Jos ei löydy (tai commitia ei tunneta) → `unauthorized_deploy: true` → Danger.
+
+**`/version` (TREAD-historia)** palauttaa nyt vain sen mitä GitHub Actions -cron on verifioinut:
+- `ok` — kokonaisarvio (deployment_safe + cron_fresh + ei disabled workflows)
+- `checked_at` — milloin viimeksi tarkistettu
+- `tx` — Arweave-transaktio (menee leiman manifestiin, ei frontille)
+- `review_ok`, `review_stuck`, `review_consecutive_failures` — code review -historia
+
+Poistettu `/version`:sta: `deployment_ok`, `deploying`, `deploying_commit`, `deploying_commit_ok`, `monitor_files`, `dispatcher_monitor_changed`, `commit_matches_tread`, `verified_commit`, `d.commit`. Nämä kaikki tulevat nyt `/tread-monitor`:ista luotettavammista lähteistä.
+
+Frontend-logiikka yksinkertaistui suoraksi prioriteettiketjuksi: unauthorized_deploy → file changes → review_in_progress → deploying → review_stuck → ok → mismatch → checking.
+
+Huom: leiman manifesti lukee `tread_snap`-datan suoraan `_tread_cache`:sta (ei `/version`:n vastauksesta), joten siivouksella ei ole vaikutusta leimaan kirjoitettaviin tietoihin.
+
 ---
 
 ## Operaattorin luottamusvaatimus
