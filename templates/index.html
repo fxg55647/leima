@@ -1902,12 +1902,13 @@
         if (p.review_stuck) {
           fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
         } else {
-          const dangerousDeploy = p.deploying && p.deploying_commit_ok === false && p.deploying_commit;
+          const deploying = monitor && monitor.deploying != null ? monitor.deploying : p.deploying;
+          const dangerousDeploy = deploying && p.deploying_commit_ok === false && p.deploying_commit;
           if (dangerousDeploy) {
             showWarning('dangerous_deploy_' + (p.deploying_commit || '').slice(0,7),
               'An unauthorized commit is being deployed to production:\n' + (p.deploying_commit||'?').slice(0,7) + ' ≠ ' + (p.verified_commit||'?').slice(0,7) + '\n\nDo not submit sensitive documents until this is resolved.\nCheck GitHub Actions and the Render dashboard.');
             fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
-          } else if (p.deploying) {
+          } else if (deploying) {
             startDeployTicker();
             const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
             fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');

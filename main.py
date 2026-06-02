@@ -759,10 +759,16 @@ async def tread_monitor():
     if cached and now - cached.get("cached_at", 0) < 10:
         return cached
 
-    # Fetch current git tree SHAs for monitored files
-    hashes = _fetch_monitor_hashes(token)
+    # Fetch git tree SHAs and Vercel deploy state in parallel
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+        f_hashes = ex.submit(_fetch_monitor_hashes, token)
+        f_vercel = ex.submit(_fetch_vercel_state)
+        hashes = f_hashes.result()
+        vercel_deploying, vercel_live_commit = f_vercel.result()
+
     if not hashes:
-        result = {"ok": None, "error": "github_unreachable", "cached_at": now}
+        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "cached_at": now}
         _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
         return result
 
@@ -770,10 +776,10 @@ async def tread_monitor():
     baseline = _kv_get(_KV_MONITOR_BASELINE)
     if baseline is None:
         _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
-        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "cached_at": now}
+        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "cached_at": now}
     else:
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
-        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "cached_at": now}
+        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "cached_at": now}
 
     _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
     return result
