@@ -628,9 +628,11 @@ async def version():
                 cache = {}
             if cache:
                 _kv_set(cache)
+    github_token = os.getenv("GITHUB_DISPATCH_TOKEN") or os.getenv("GITHUB_TOKEN", "")
     return {
         "model": MODEL,
         "security_model": "1.0",
+        "github_authed": bool(github_token),
         "tread": {
             "ok":                          cache.get("ok"),
             "checked_at":                  cache.get("checked_at") or cache.get("ts"),
