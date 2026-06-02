@@ -105,6 +105,7 @@ _RENDER_API_KEY    = os.getenv("RENDER_API_KEY", "")
 _RENDER_SERVICE_ID = os.getenv("RENDER_SERVICE_ID", "")
 _VERCEL_TOKEN      = os.getenv("VERCEL_TOKEN", "")
 _VERCEL_PROJECT_ID = os.getenv("VERCEL_PROJECT_ID", "")
+_VERCEL_TEAM_ID    = os.getenv("VERCEL_TEAM_ID", "")
 _VERCEL_BUILDING   = {"BUILDING", "QUEUED", "INITIALIZING"}
 _IN_PROGRESS_STATUSES = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
 
@@ -183,8 +184,11 @@ def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None]:
     if not _VERCEL_TOKEN or not _VERCEL_PROJECT_ID:
         return None, None, None
     try:
+        params = f"projectId={_VERCEL_PROJECT_ID}&limit=10"
+        if _VERCEL_TEAM_ID:
+            params += f"&teamId={_VERCEL_TEAM_ID}"
         r = http_requests.get(
-            f"https://api.vercel.com/v6/deployments?projectId={_VERCEL_PROJECT_ID}&limit=10",
+            f"https://api.vercel.com/v6/deployments?{params}",
             headers={"Authorization": f"Bearer {_VERCEL_TOKEN}"},
             timeout=10,
         )

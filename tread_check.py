@@ -34,6 +34,7 @@ RENDER_API_KEY    = os.environ.get("RENDER_API_KEY", "")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID", "")
 VERCEL_TOKEN      = os.environ.get("VERCEL_TOKEN", "")
 VERCEL_PROJECT_ID = os.environ.get("VERCEL_PROJECT_ID", "")
+VERCEL_TEAM_ID    = os.environ.get("VERCEL_TEAM_ID", "")
 GITHUB_REPO       = os.environ.get("GITHUB_REPO", "fxg55647/leima")
 GITHUB_BRANCH     = os.environ.get("GITHUB_BRANCH", "main")
 GITHUB_TOKEN      = os.environ.get("GITHUB_TOKEN", "")
@@ -80,8 +81,11 @@ def vercel_state():
     if not VERCEL_TOKEN or not VERCEL_PROJECT_ID:
         return None, False, None, None
     headers = {"Authorization": f"Bearer {VERCEL_TOKEN}"}
+    params = f"projectId={VERCEL_PROJECT_ID}&limit=10"
+    if VERCEL_TEAM_ID:
+        params += f"&teamId={VERCEL_TEAM_ID}"
     resp = requests.get(
-        f"https://api.vercel.com/v6/deployments?projectId={VERCEL_PROJECT_ID}&limit=10",
+        f"https://api.vercel.com/v6/deployments?{params}",
         headers=headers,
         timeout=10,
     )
