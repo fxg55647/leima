@@ -96,8 +96,10 @@ _KV_KEY              = "tread_v"
 _KV_TTL              = 10  # seconds
 _KV_MONITOR_CACHE    = "tread_monitor_cache"
 _KV_MONITOR_BASELINE = "tread_monitor_baseline_v2"
-_KV_PRE_DEPLOY_PREFIX = "pre_deploy_"
-_KV_PRE_DEPLOY_TTL    = 600  # 10 minutes
+_KV_PRE_DEPLOY_PREFIX  = "pre_deploy_"
+_KV_PRE_DEPLOY_TTL     = 600  # 10 minutes
+_KV_DEPLOY_INCOMING    = "deploy_incoming"
+_KV_DEPLOY_INCOMING_TTL = 300  # 5 minutes
 
 _tread_cache: dict | None = None
 _tread_cache_ready = threading.Event()
@@ -709,15 +711,17 @@ async def tread_monitor():
             pass
         return None
 
-    # Fetch git tree SHAs, Vercel deploy state and review status in parallel
+    # Fetch git tree SHAs, Vercel deploy state, review status and deploy signal in parallel
     import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
         f_hashes = ex.submit(_fetch_monitor_hashes, token)
         f_vercel = ex.submit(_fetch_vercel_state)
         f_review = ex.submit(_fetch_review_in_progress)
+        f_incoming = ex.submit(_kv_get, _KV_DEPLOY_INCOMING)
         hashes = f_hashes.result()
         vercel_deploying, vercel_live_commit, deploying_commit, source_ok, source_mismatches = f_vercel.result()
         review_in_progress = f_review.result()
+        deploy_incoming = bool(f_incoming.result())
 
     # Tarkista deploymentin lähde ja code review
     unauthorized_deploy = False
@@ -748,7 +752,7 @@ async def tread_monitor():
                           if actual != expected}
 
     if not hashes:
-        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
+        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deploy_incoming": deploy_incoming, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
         _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
         return result
 
@@ -756,10 +760,10 @@ async def tread_monitor():
     baseline = _kv_get(_KV_MONITOR_BASELINE)
     if baseline is None:
         _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
-        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
+        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deploy_incoming": deploy_incoming, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
     else:
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
-        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
+        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deploy_incoming": deploy_incoming, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
 
     # Suppress mismatch alarm if a pre-deploy signal exists for the current/deploying commit
     pre_deploy_active = False
@@ -774,15 +778,30 @@ async def tread_monitor():
     return result
 
 
-@app.post("/api/pre-deploy")
-async def api_pre_deploy(request: Request):
+def _validate_deploy_token(request: Request):
     token = os.getenv("PRE_DEPLOY_TOKEN", "")
     if token and request.headers.get("Authorization", "") != f"Bearer {token}":
         raise HTTPException(status_code=401)
-    body = await request.json()
+
+def _parse_sha(body: dict) -> str:
     sha = (body.get("sha") or "").strip()
     if not sha or len(sha) != 40 or not all(c in "0123456789abcdef" for c in sha):
         raise HTTPException(status_code=400, detail="Invalid sha")
+    return sha
+
+@app.post("/api/deploy-incoming")
+async def api_deploy_incoming(request: Request):
+    _validate_deploy_token(request)
+    body = await request.json()
+    sha = _parse_sha(body)
+    _kv_set({"sha": sha, "ts": time.time()}, _KV_DEPLOY_INCOMING, ttl=_KV_DEPLOY_INCOMING_TTL)
+    return {"ok": True, "sha": sha}
+
+@app.post("/api/pre-deploy")
+async def api_pre_deploy(request: Request):
+    _validate_deploy_token(request)
+    body = await request.json()
+    sha = _parse_sha(body)
     _kv_set({"sha": sha, "ts": time.time()}, f"{_KV_PRE_DEPLOY_PREFIX}{sha}", ttl=_KV_PRE_DEPLOY_TTL)
     return {"ok": True, "sha": sha}
 

@@ -1999,7 +1999,9 @@
         }
 
         // Normaali tilaketju
-        if (monitor && monitor.review_in_progress) {
+        if (monitor && monitor.deploy_incoming) {
+          fadeSet(row('Notice!', '#f0a030', 'deploy incoming — production update in ~2 min'), 'warning');
+        } else if (monitor && monitor.review_in_progress) {
           fadeSet(row('Notice!', '#f0a030', 'code review in progress — deploy imminent'), 'warning');
         } else if (monitor && monitor.deploying) {
           _wasDeploying = true;
