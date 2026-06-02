@@ -152,22 +152,16 @@ def _kv_set(data: dict, key: str = _KV_KEY, ttl: int = _KV_TTL) -> None:
 
 
 
-def _validate_deployment_source(meta: dict) -> tuple[bool, list[str]]:
-    """Tarkistaa tuleeko deployment odotetusta GitHub-reposta/branchista.
+def _validate_deployment_source(source: str, meta: dict) -> tuple[bool, list[str]]:
+    """Tarkistaa tuleeko deployment Vercelin GitHub-integraatiosta (ei CLI/dashboard).
+    source-kenttä on Vercelin asettama eikä ole muutettavissa --meta-parametreilla.
     Palauttaa (ok, lista poikkeamista)."""
-    expected_org, expected_repo = _GITHUB_REPO.split("/")
-    checks = {
-        "githubOrg":       (meta.get("githubOrg") or meta.get("githubCommitOrg", ""),  expected_org),
-        "githubRepo":      (meta.get("githubRepo") or meta.get("githubCommitRepo", ""), expected_repo),
-        "githubCommitRef": (meta.get("githubCommitRef", ""),                            _GITHUB_BRANCH),
-    }
-    mismatches = [f"{k}: got '{v[0]}' expected '{v[1]}'"
-                  for k, v in checks.items() if v[0] and v[0] != v[1]]
-    no_github_meta = not (meta.get("githubOrg") or meta.get("githubCommitOrg")
-                          or meta.get("githubRepo") or meta.get("githubCommitRepo"))
-    if no_github_meta:
-        return False, ["no_github_integration_meta"]
-    return len(mismatches) == 0, mismatches
+    if source != "git":
+        return False, [f"source: got '{source}' expected 'git'"]
+    branch = meta.get("githubCommitRef", "")
+    if branch and branch != _GITHUB_BRANCH:
+        return False, [f"githubCommitRef: got '{branch}' expected '{_GITHUB_BRANCH}'"]
+    return True, []
 
 
 def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None, bool | None, list]:
@@ -191,8 +185,9 @@ def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None, bool | N
         first = deployments[0]
         deploying = first.get("state") in _VERCEL_BUILDING
         deploying_meta = first.get("meta") or {}
+        deploying_source = first.get("source", "") if deploying else ""
         deploying_commit = deploying_meta.get("githubCommitSha") if deploying else None
-        source_ok, source_mismatches = _validate_deployment_source(deploying_meta) if deploying else (None, [])
+        source_ok, source_mismatches = _validate_deployment_source(deploying_source, deploying_meta) if deploying else (None, [])
         live_commit = None
         for d in deployments:
             if d.get("state") == "READY" and d.get("target") == "production":
