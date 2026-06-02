@@ -96,6 +96,8 @@ _KV_KEY              = "tread_v"
 _KV_TTL              = 10  # seconds
 _KV_MONITOR_CACHE    = "tread_monitor_cache"
 _KV_MONITOR_BASELINE = "tread_monitor_baseline_v2"
+_KV_PRE_DEPLOY_PREFIX = "pre_deploy_"
+_KV_PRE_DEPLOY_TTL    = 600  # 10 minutes
 
 _tread_cache: dict | None = None
 _tread_cache_ready = threading.Event()
@@ -182,12 +184,17 @@ def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None, bool | N
         deployments = r.json().get("deployments", [])
         if not deployments:
             return None, None, None, None, []
-        first = deployments[0]
-        deploying = first.get("state") in _VERCEL_BUILDING
-        deploying_meta = first.get("meta") or {}
-        deploying_source = first.get("source", "") if deploying else ""
-        deploying_commit = deploying_meta.get("githubCommitSha") if deploying else None
-        source_ok, source_mismatches = _validate_deployment_source(deploying_source, deploying_meta) if deploying else (None, [])
+        # Only monitor production-target deployments; staging previews are ignored
+        prod = next((d for d in deployments if d.get("target") == "production"), None)
+        deploying = False
+        deploying_commit = None
+        source_ok, source_mismatches = None, []
+        if prod:
+            deploying = prod.get("state") in _VERCEL_BUILDING
+            deploying_meta = prod.get("meta") or {}
+            deploying_source = prod.get("source", "") if deploying else ""
+            deploying_commit = deploying_meta.get("githubCommitSha") if deploying else None
+            source_ok, source_mismatches = _validate_deployment_source(deploying_source, deploying_meta) if deploying else (None, [])
         live_commit = None
         for d in deployments:
             if d.get("state") == "READY" and d.get("target") == "production":
@@ -754,8 +761,30 @@ async def tread_monitor():
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
         result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
 
+    # Suppress mismatch alarm if a pre-deploy signal exists for the current/deploying commit
+    pre_deploy_active = False
+    if not result.get("ok"):
+        for candidate in filter(None, [deploying_commit, vercel_live_commit]):
+            if _kv_get(f"{_KV_PRE_DEPLOY_PREFIX}{candidate}"):
+                pre_deploy_active = True
+                break
+    result["pre_deploy_active"] = pre_deploy_active
+
     _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
     return result
+
+
+@app.post("/api/pre-deploy")
+async def api_pre_deploy(request: Request):
+    token = os.getenv("PRE_DEPLOY_TOKEN", "")
+    if token and request.headers.get("Authorization", "") != f"Bearer {token}":
+        raise HTTPException(status_code=401)
+    body = await request.json()
+    sha = (body.get("sha") or "").strip()
+    if not sha or len(sha) != 40 or not all(c in "0123456789abcdef" for c in sha):
+        raise HTTPException(status_code=400, detail="Invalid sha")
+    _kv_set({"sha": sha, "ts": time.time()}, f"{_KV_PRE_DEPLOY_PREFIX}{sha}", ttl=_KV_PRE_DEPLOY_TTL)
+    return {"ok": True, "sha": sha}
 
 
 def _readme_intro() -> str:

@@ -57,6 +57,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Send pre-deploy signal
+        continue-on-error: true
+        env:
+          PRE_DEPLOY_TOKEN: ${{ secrets.PRE_DEPLOY_TOKEN }}
+          LEIMA_URL: https://leima.io
+        run: |
+          curl -s --max-time 10 -X POST \
+            -H "Authorization: Bearer $PRE_DEPLOY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"sha\":\"$GITHUB_SHA\"}" \
+            "$LEIMA_URL/api/pre-deploy" || true
+
       - name: Merge to main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
