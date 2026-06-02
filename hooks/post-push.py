@@ -1,10 +1,25 @@
 """Post-push hook: seuraa deployta gh run watch:lla.
 Exit code 2 herättää agentin tuloksen kanssa (asyncRewake)."""
-import io, json, subprocess, sys, time
+import io, json, os, subprocess, sys, time
+from pathlib import Path
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 TIMEOUT = 600  # 10 minuuttia
+PUSH_LOG = Path(__file__).parent.parent / ".claude" / "push_log.json"
+
+
+def save_push_sha():
+    r = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True)
+    if r.returncode == 0:
+        sha = r.stdout.strip()
+        PUSH_LOG.write_text(json.dumps({
+            "sha": sha,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "pid": os.getpid()
+        }), encoding="utf-8")
+        return sha
+    return None
 
 
 def find_run_id(max_wait=60):
@@ -25,6 +40,7 @@ def find_run_id(max_wait=60):
 
 
 def main():
+    save_push_sha()
     time.sleep(4)  # anna GitHub:lle hetki rekisteröidä uusi ajo
 
     run_id = find_run_id()
