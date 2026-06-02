@@ -747,9 +747,8 @@ async def tread_monitor():
         review_in_progress = f_review.result()
 
     # Check if deploying commit has an authorized code review
-    # review_in_progress ei riitä suojaksi — tarkistamme commitin SHA:n suoraan
     unauthorized_deploy = False
-    if vercel_deploying:
+    if vercel_deploying and not review_in_progress:
         if not deploying_commit:
             unauthorized_deploy = True  # tuntematon commit -> ei voida tarkistaa
         else:
