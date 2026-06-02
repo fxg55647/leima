@@ -101,13 +101,10 @@ _tread_cache: dict | None = None
 _tread_cache_ready = threading.Event()
 _PAGES_URL = "https://fxg55647.github.io/leima"
 
-_RENDER_API_KEY    = os.getenv("RENDER_API_KEY", "")
-_RENDER_SERVICE_ID = os.getenv("RENDER_SERVICE_ID", "")
 _VERCEL_TOKEN      = os.getenv("VERCEL_TOKEN", "")
 _VERCEL_PROJECT_ID = os.getenv("VERCEL_PROJECT_ID", "")
 _VERCEL_TEAM_ID    = os.getenv("VERCEL_TEAM_ID", "")
 _VERCEL_BUILDING   = {"BUILDING", "QUEUED", "INITIALIZING"}
-_IN_PROGRESS_STATUSES = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
 
 _MONITOR_PATHS = {
     ".github/workflows/tread-a.yml",
@@ -153,30 +150,6 @@ def _kv_set(data: dict, key: str = _KV_KEY, ttl: int = _KV_TTL) -> None:
     except Exception:
         pass
 
-
-def _fetch_render_state() -> tuple[bool | None, str | None]:
-    """Returns (deploying, live_commit). None values = API unavailable."""
-    if not _RENDER_API_KEY or not _RENDER_SERVICE_ID:
-        return None, None
-    try:
-        r = http_requests.get(
-            f"https://api.render.com/v1/services/{_RENDER_SERVICE_ID}/deploys?limit=10",
-            headers={"Authorization": f"Bearer {_RENDER_API_KEY}"},
-            timeout=10,
-        )
-        if r.status_code != 200:
-            return None, None
-        deploys = r.json()
-        deploying = bool(deploys and deploys[0].get("deploy", {}).get("status") in _IN_PROGRESS_STATUSES)
-        live_commit = None
-        for item in deploys:
-            deploy = item.get("deploy", {})
-            if deploy.get("status") == "live":
-                live_commit = deploy.get("commit", {}).get("id")
-                break
-        return deploying, live_commit
-    except Exception:
-        return None, None
 
 
 def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None]:
@@ -272,20 +245,6 @@ def _tread_dispatcher():
                         cache_populated = True
         except Exception:
             pass
-
-        # Suora Render + Vercel + GitHub -vertailu — ei TREAD:sta riippuvainen
-        deploying_direct, live_commit = _fetch_render_state()
-        vercel_deploying, vercel_live_commit, _ = _fetch_vercel_state()
-        any_live = live_commit or vercel_live_commit
-        github_head = _fetch_github_head(token) if any_live else None
-        if _tread_cache is not None and (deploying_direct is not None or vercel_deploying is not None):
-            _tread_cache = dict(_tread_cache)
-            _tread_cache["deploying"] = bool(deploying_direct or vercel_deploying)
-            if github_head:
-                render_ok = bool(live_commit and (live_commit.startswith(github_head[:7]) or github_head.startswith(live_commit[:7])))
-                vercel_ok = bool(vercel_live_commit and (vercel_live_commit.startswith(github_head[:7]) or github_head.startswith(vercel_live_commit[:7])))
-                _tread_cache["deployment_ok"] = render_ok or vercel_ok
-                _tread_cache["vercel_deployment_ok"] = vercel_ok if vercel_live_commit else None
 
         # Riippumaton valvontatiedostojen hash-tarkistus git tree API:lta
         hashes = _fetch_monitor_hashes(token)
@@ -458,7 +417,7 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
     pdf.set_text_color(120, 120, 120)
     pdf.cell(0, 6, f"Timestamp: {timestamp}", ln=True)
     pdf.cell(0, 6, f"Model: {MODEL}", ln=True)
-    pdf.cell(0, 6, _safe(f"Commit: {os.getenv('RENDER_GIT_COMMIT', 'unknown')}"), ln=True)
+    pdf.cell(0, 6, _safe(f"Commit: {os.getenv('VERCEL_GIT_COMMIT_SHA', 'unknown')}"), ln=True)
     pdf.cell(0, 6, _safe(f"Input hash (SHA-256): {input_hash}"), ln=True)
     pdf.cell(0, 6, _safe(f"Source: {_source_assessment_text(source_context)}"), ln=True)
     pdf.ln(4)
@@ -505,7 +464,7 @@ def build_manifest(
         "version": "1",
         "timestamp": timestamp,
         "model": model,
-        "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
+        "commit": os.getenv("VERCEL_GIT_COMMIT_SHA", "unknown"),
         "input": {"sha256": input_hash},
         "verdict_pdf": {"sha256": verdict_hash},
     }

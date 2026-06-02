@@ -30,8 +30,6 @@ def hash_monitor_files() -> dict[str, str | None]:
         for name in MONITOR_FILES
     }
 
-RENDER_API_KEY    = os.environ.get("RENDER_API_KEY", "")
-RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID", "")
 VERCEL_TOKEN      = os.environ.get("VERCEL_TOKEN", "")
 VERCEL_PROJECT_ID = os.environ.get("VERCEL_PROJECT_ID", "")
 VERCEL_TEAM_ID    = os.environ.get("VERCEL_TEAM_ID", "")
@@ -39,41 +37,8 @@ GITHUB_REPO       = os.environ.get("GITHUB_REPO", "fxg55647/leima")
 GITHUB_BRANCH     = os.environ.get("GITHUB_BRANCH", "main")
 GITHUB_TOKEN      = os.environ.get("GITHUB_TOKEN", "")
 
-_IN_PROGRESS      = {"build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
 _COMPLETED        = {"live", "deactivated"}
 _VERCEL_BUILDING  = {"BUILDING", "QUEUED", "INITIALIZING"}
-
-
-def render_state():
-    if not RENDER_API_KEY or not RENDER_SERVICE_ID:
-        return None, "not_configured", False, None, None
-    headers = {"Authorization": f"Bearer {RENDER_API_KEY}"}
-
-    svc_resp = requests.get(
-        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}",
-        headers=headers,
-        timeout=10,
-    )
-    svc_resp.raise_for_status()
-    svc = svc_resp.json()
-    service_url = svc.get("serviceDetails", {}).get("url") or svc.get("url", "")
-
-    resp = requests.get(
-        f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=20",
-        headers=headers,
-        timeout=10,
-    )
-    resp.raise_for_status()
-    deploys = resp.json()
-    deploying = bool(deploys and deploys[0].get("deploy", {}).get("status") in _IN_PROGRESS)
-    deploying_commit = (
-        deploys[0].get("deploy", {}).get("commit", {}).get("id") if deploying else None
-    )
-    for item in deploys:
-        deploy = item.get("deploy", {})
-        if deploy.get("status") == "live":
-            return deploy.get("commit", {}).get("id"), "live", deploying, service_url, deploying_commit
-    return None, "no_live_deploy", deploying, service_url, deploying_commit
 
 
 def vercel_state():
@@ -190,25 +155,6 @@ def check_deploy_history() -> dict:
     # Kerää (commit_id, created_at) -parit kaikista lähteistä
     entries = []
 
-    if RENDER_API_KEY and RENDER_SERVICE_ID:
-        try:
-            resp = requests.get(
-                f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/deploys?limit=100",
-                headers={"Authorization": f"Bearer {RENDER_API_KEY}"},
-                timeout=10,
-            )
-            resp.raise_for_status()
-            for item in resp.json():
-                deploy = item.get("deploy", {})
-                if deploy.get("status") not in _COMPLETED:
-                    continue
-                commit_id = deploy.get("commit", {}).get("id")
-                created_at = deploy.get("createdAt") or deploy.get("created_at")
-                if commit_id:
-                    entries.append((commit_id, created_at))
-        except Exception:
-            pass
-
     if VERCEL_TOKEN and VERCEL_PROJECT_ID:
         try:
             params = f"projectId={VERCEL_PROJECT_ID}&limit=100&state=READY&target=production"
@@ -299,15 +245,10 @@ def github_review_status():
 
 error = None
 try:
-    deployed, deploy_status, deploying, service_url, deploying_commit = render_state()
-except Exception as e:
-    deployed, deploy_status, deploying, service_url, deploying_commit, error = None, "error", False, None, None, str(e)
-
-try:
     vercel_deployed, vercel_deploying, vercel_deploying_commit, vercel_service_url = vercel_state()
 except Exception as e:
     vercel_deployed, vercel_deploying, vercel_deploying_commit, vercel_service_url = None, False, None, None
-    error = (error + "; " if error else "") + f"vercel: {e}"
+    error = str(e)
 
 try:
     expected = github_commit()
@@ -341,14 +282,12 @@ except Exception as e:
     history = {"scanned_deploys": 0, "last_mismatch_at": None, "clean_since": None}
     error = (error + "; " if error else "") + str(e)
 
-render_deployment_ok = bool(deployed and expected and deployed == expected)
-vercel_deployment_ok = bool(vercel_deployed and expected and (
+deployment_ok = bool(vercel_deployed and expected and (
     vercel_deployed.startswith(expected[:7]) or expected.startswith(vercel_deployed[:7])
 ))
-deployment_ok = render_deployment_ok or vercel_deployment_ok
 deploying_commit_ok = bool(
-    (deploying and deploying_commit and expected and deploying_commit.startswith(expected[:7])) or
-    (vercel_deploying and vercel_deploying_commit and expected and vercel_deploying_commit.startswith(expected[:7]))
+    vercel_deploying and vercel_deploying_commit and expected and
+    vercel_deploying_commit.startswith(expected[:7])
 )
 review_ok = review_conclusion == "success"
 # deployment_safe: running code is the expected code, or the mismatch is explained
@@ -364,25 +303,19 @@ result = {
     "ok": ok,
     "rapid_deploy_warning": rapid_deploy_warning,
     "deployment_ok": deployment_ok,
-    "vercel_deployment_ok": vercel_deployment_ok,
     "vercel_deployed_commit": vercel_deployed,
     "vercel_deploying": vercel_deploying,
     "vercel_service_url": vercel_service_url or "",
     "review_ok": review_ok,
     "review_consecutive_failures": review_consecutive_failures,
     "review_stuck": review_stuck,
-    "deploying": deploying,
-    "deploying_commit": deploying_commit,
     "deploying_commit_ok": deploying_commit_ok,
-    "deployed_commit": deployed,
     "expected_commit": expected,
-    "deploy_status": deploy_status,
     "review_conclusion": review_conclusion,
     "cron_fresh": cron_fresh,
     "workflow_states": workflow_states,
     "disabled_workflows": disabled_workflows,
     "history": history,
-    "service_url": service_url or "",
     "repo": GITHUB_REPO,
     "branch": GITHUB_BRANCH,
     "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
