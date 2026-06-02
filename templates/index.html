@@ -1819,13 +1819,18 @@
     function isSuppressed(key) {
       try { const v = localStorage.getItem('tread_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
     }
-    function checkGitTree(hashes) {
+    function checkGitTree(hashes, treadOk) {
       const LS_KEY = 'leima_git_tree';
       let prev = null;
       try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
-      try { localStorage.setItem(LS_KEY, JSON.stringify(hashes)); } catch {}
-      if (!prev || !Object.keys(hashes).length) return null;
+      if (!prev || !Object.keys(hashes).length) {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(hashes)); } catch {}
+        return null;
+      }
       const changed = Object.keys(hashes).filter(k => hashes[k] !== prev[k]);
+      if (changed.length === 0 || treadOk === true) {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(hashes)); } catch {}
+      }
       return changed.length ? changed : null;
     }
     function showWarning(key, message) {
@@ -1878,7 +1883,7 @@
         fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
         fetch('/tread-monitor?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).catch(() => null),
       ]).then(([d, monitor]) => {
-        const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
+        const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes, (d.tread || {}).ok) : null;
         const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
         if (localChanged || kvChanged) {
           const files = localChanged || monitor.changed;
