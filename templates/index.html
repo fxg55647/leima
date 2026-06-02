@@ -1819,13 +1819,13 @@
     function isSuppressed(key) {
       try { const v = localStorage.getItem('tread_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
     }
-    function checkMonitorFiles(current) {
-      const LS_KEY = 'leima_monitor_files';
+    function checkGitTree(hashes) {
+      const LS_KEY = 'leima_git_tree';
       let prev = null;
       try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
-      try { localStorage.setItem(LS_KEY, JSON.stringify(current)); } catch {}
-      if (!prev || !Object.keys(current).length) return null;
-      const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(hashes)); } catch {}
+      if (!prev || !Object.keys(hashes).length) return null;
+      const changed = Object.keys(hashes).filter(k => hashes[k] !== prev[k]);
       return changed.length ? changed : null;
     }
     function showWarning(key, message) {
@@ -1878,8 +1878,11 @@
         fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
         fetch('/tread-monitor?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).catch(() => null),
       ]).then(([d, monitor]) => {
-        if (monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0) {
-          showWarning('github_monitor_changed', 'GitHub surveillance files have changed since baseline:\n' + monitor.changed.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
+        const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
+        const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
+        if (localChanged || kvChanged) {
+          const files = localChanged || monitor.changed;
+          showWarning('github_monitor_changed', 'GitHub surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
           fadeSet(row('Danger', '#ff6b6b', 'github files changed'), 'danger');
           return;
         }
@@ -1890,11 +1893,9 @@
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
         const commitMatch = running && verified && running.startsWith(verified);
         const unknownCommit = running === 'unknown' || !running;
-        const changedFiles = checkMonitorFiles(p.monitor_files || {});
         const dispatcherChanged = p.dispatcher_monitor_changed && p.dispatcher_monitor_changed.length > 0;
-        if (changedFiles || dispatcherChanged) {
-          const files = changedFiles || p.dispatcher_monitor_changed;
-          showWarning('monitor_changed', 'Surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
+        if (dispatcherChanged) {
+          showWarning('monitor_changed', 'Surveillance files have changed:\n' + p.dispatcher_monitor_changed.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
           fadeSet(row('Danger', '#ff6b6b', 'surveillance files changed'), 'danger');
           return;
         }

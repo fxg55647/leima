@@ -770,10 +770,10 @@ async def tread_monitor():
     baseline = _kv_get(_KV_MONITOR_BASELINE)
     if baseline is None:
         _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
-        result = {"ok": True, "changed": [], "baseline_set": True, "cached_at": now}
+        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "cached_at": now}
     else:
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
-        result = {"ok": len(changed) == 0, "changed": changed, "cached_at": now}
+        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "cached_at": now}
 
     _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
     return result
