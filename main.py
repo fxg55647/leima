@@ -834,7 +834,8 @@ async def api_deploy_incoming(request: Request):
     body = await request.json()
     sha = _parse_sha(body)
     _kv_set({"sha": sha, "ts": time.time()}, _KV_DEPLOY_INCOMING, ttl=_KV_DEPLOY_INCOMING_TTL)
-    return {"ok": True, "sha": sha}
+    readback = _kv_get(_KV_DEPLOY_INCOMING)
+    return {"ok": True, "sha": sha, "kv_stored": readback is not None, "kv_sha": (readback or {}).get("sha")}
 
 @app.post("/api/pre-deploy")
 async def api_pre_deploy(request: Request):
