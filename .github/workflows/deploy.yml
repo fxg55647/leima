@@ -86,7 +86,20 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin
+          git merge origin/main --no-edit || true
           git push origin HEAD:main
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: |
+          npm install -g vercel
+          git fetch origin
+          git reset --hard origin/main
+          vercel deploy --prod --yes --token "$VERCEL_TOKEN"
 
       - name: Wake up TREAD
         continue-on-error: true
