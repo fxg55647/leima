@@ -30,7 +30,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 16. [Deployment](#16-deployment)
 17. [Deployment integrity (TREAD)](#17-deployment-integrity-tread)
 18. [Independent verification (verify.py)](#18-independent-verification-verifypy)
-19. [Self-characterisation for due diligence (bundle_source.py)](#19-self-characterisation-for-due-diligence-bundle_sourcepy)
+19. [Codebase bundler (bundle_source.py)](#19-codebase-bundler-bundle_sourcepy)
 20. [Browser userscript (TREAD client-side monitor)](#20-browser-userscript-tread-client-side-monitor)
 21. [Developer pre-push hook](#21-developer-pre-push-hook)
 22. [Contact](#22-contact)
@@ -486,24 +486,14 @@ Arweave records cannot be altered retroactively. A TX you trusted six months ago
 
 ---
 
-## 19. Self-characterisation for due diligence (bundle_source.py)
+## 19. Codebase bundler (bundle_source.py)
 
-`bundle_source.py` bundles the entire codebase — source files, `README.md`, `POLICY.example.md`, and `requirements.txt` — into a single `source_bundle.txt` ready for Leima upload.
+`bundle_source.py` bundles the entire codebase — source files, `README.md`, `POLICY.example.md`, and `requirements.txt` — into a single `source_bundle.txt`. This makes it easy to hand the full codebase to an LLM in one go.
 
 ```bash
 python bundle_source.py          # HEAD
 python bundle_source.py abc1234  # specific commit
 ```
-
-Upload `source_bundle.txt` to Leima with a claim such as:
-
-> *"This application source code does not send user documents to any third-party service other than Google Gemini."*
-
-Leima produces a hash of the bundle, an AI characterisation, and a permanent Arweave stamp. The stamp can be shared with investors, partners, or auditors as independently verifiable evidence of what the code does — without revealing the source itself.
-
-Because `README.md` and `POLICY.example.md` are included first, the AI reviewer has full context about the project's architecture and data policy before reading the code.
-
-The claim and AI analysis are permanently public on Arweave. To anonymise specific details in the result — company names, individuals, amounts — add a privacy directive to your claim: *"keep [company name] private"*. The AI will replace those details with generic placeholders throughout its analysis.
 
 ---
 
