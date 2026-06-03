@@ -905,25 +905,22 @@ def _community_intro() -> str:
         print(f"_community_intro error: {e!r}")
         return ""
 
-def _zkse_intro() -> str:
+def _md_intro(filename: str, label: str, n_paras: int = 2) -> str:
     try:
-        text = open(os.path.join(os.path.dirname(__file__), "ZKSE.md"), encoding="utf-8").read()
+        text = open(os.path.join(os.path.dirname(__file__), filename), encoding="utf-8").read()
         paras = [p.strip() for p in text.split("\n\n") if p.strip() and not p.strip().startswith("#") and p.strip() != "---"]
-        excerpt = "\n\n".join(paras[:2])
-        return _md.markdown(excerpt).replace("<hr />", "").replace("<hr>", "")
+        html = _md.markdown("\n\n".join(paras[:n_paras]))
+        html = re.sub(r"<h[1-6][^>]*>.*?</h[1-6]>", "", html)
+        return html.replace("<hr />", "").replace("<hr>", "")
     except Exception as e:
-        print(f"_zkse_intro error: {e!r}")
+        print(f"_{label}_intro error: {e!r}")
         return ""
 
+def _zkse_intro() -> str:
+    return _md_intro("ZKSE.md", "zkse")
+
 def _usecases_intro() -> str:
-    try:
-        text = open(os.path.join(os.path.dirname(__file__), "USECASES.md"), encoding="utf-8").read()
-        paras = [p.strip() for p in text.split("\n\n") if p.strip() and not p.strip().startswith("#") and p.strip() != "---"]
-        excerpt = "\n\n".join(paras[:2])
-        return _md.markdown(excerpt).replace("<hr />", "").replace("<hr>", "")
-    except Exception as e:
-        print(f"_usecases_intro error: {e!r}")
-        return ""
+    return _md_intro("USECASES.md", "usecases")
 
 _DOCS: dict[str, tuple[str, str]] = {
     "readme":     ("README.md",        "How it works"),
