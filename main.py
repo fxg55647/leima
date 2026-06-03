@@ -105,6 +105,10 @@ _tread_cache: dict | None = None
 _tread_cache_ready = threading.Event()
 _PAGES_URL = "https://fxg55647.github.io/leima"
 
+# Startup env var checks
+if not _KV_URL or not _KV_TOKEN:
+    print("WARNING: KV_REST_API_URL or KV_REST_API_TOKEN not set — deploy signals and monitor cache disabled", flush=True)
+
 _VERCEL_TOKEN      = os.getenv("VERCEL_TOKEN", "")
 _VERCEL_PROJECT_ID = os.getenv("VERCEL_PROJECT_ID", "")
 _VERCEL_TEAM_ID    = os.getenv("VERCEL_TEAM_ID", "")
