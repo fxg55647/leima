@@ -114,7 +114,6 @@ def _check_env() -> None:
         "IRYS_PRIVATE_KEY":   "Arweave-tallennus",
         "GITHUB_DISPATCH_TOKEN": "GitHub Actions -integraatio",
         "PRE_DEPLOY_TOKEN":   "deploy-incoming autentikointi",
-        "ANTHROPIC_API_KEY":  "AI-analyysi",
     }
     missing = [k for k, _ in required.items() if not os.getenv(k)]
     if missing:
