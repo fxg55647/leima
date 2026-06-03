@@ -910,7 +910,7 @@ def _md_intro(filename: str, label: str, n_paras: int = 2) -> str:
         text = open(os.path.join(os.path.dirname(__file__), filename), encoding="utf-8").read()
         paras = [p.strip() for p in text.split("\n\n") if p.strip() and not p.strip().startswith("#") and p.strip() != "---"]
         html = _md.markdown("\n\n".join(paras[:n_paras]))
-        html = re.sub(r"<h[1-6][^>]*>.*?</h[1-6]>", "", html)
+        html = re.sub(r"<h[1-6][^>]*>(.*?)</h[1-6]>", r"<strong>\1</strong>", html)
         return html.replace("<hr />", "").replace("<hr>", "")
     except Exception as e:
         print(f"_{label}_intro error: {e!r}")
