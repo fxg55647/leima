@@ -30,10 +30,9 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 16. [Deployment](#16-deployment)
 17. [Deployment integrity (TREAD)](#17-deployment-integrity-tread)
 18. [Independent verification (verify.py)](#18-independent-verification-verifypy)
-19. [Codebase bundler (bundle_source.py)](#19-codebase-bundler-bundle_sourcepy)
-20. [Browser userscript (TREAD client-side monitor)](#20-browser-userscript-tread-client-side-monitor)
-21. [Developer pre-push hook](#21-developer-pre-push-hook)
-22. [Contact](#22-contact)
+19. [Browser userscript (TREAD client-side monitor)](#19-browser-userscript-tread-client-side-monitor)
+20. [Developer pre-push hook](#20-developer-pre-push-hook)
+21. [Contact](#21-contact)
 
 ---
 
@@ -486,18 +485,7 @@ Arweave records cannot be altered retroactively. A TX you trusted six months ago
 
 ---
 
-## 19. Codebase bundler (bundle_source.py)
-
-`bundle_source.py` bundles the entire codebase — source files, `README.md`, `POLICY.example.md`, and `requirements.txt` — into a single `source_bundle.txt`. This makes it easy to hand the full codebase to an LLM in one go.
-
-```bash
-python bundle_source.py          # HEAD
-python bundle_source.py abc1234  # specific commit
-```
-
----
-
-## 20. Browser userscript (TREAD client-side monitor)
+## 19. Browser userscript (TREAD client-side monitor)
 
 `tread.user.js` is a Tampermonkey userscript that runs silently in your browser when you visit leima.io. It checks the TREAD status on each page load and shows a centred modal warning if a deployment mismatch or unauthorised deploy is detected. Under normal conditions it does nothing visible.
 
@@ -523,7 +511,7 @@ python bundle_source.py abc1234  # specific commit
 
 ---
 
-## 21. Developer pre-push hook
+## 20. Developer pre-push hook
 
 A git hook prevents accidentally pushing during an active commit mismatch or mid-deploy, which would widen the mismatch window.
 
@@ -539,7 +527,7 @@ Before every `git push`, the hook fetches the latest TREAD status. If a deploy i
 
 ---
 
-## 22. Contact
+## 21. Contact
 
 **Teemu Lantta**
 
