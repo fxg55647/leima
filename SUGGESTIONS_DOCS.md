@@ -30,6 +30,10 @@
 
 - **Suunnitteilla: pre-deploy signal** — Ennen tuotantodeployta `code_review.yml` lähettää signaalin Leiman `/api/pre-deploy`-endpointiin. Leima tallentaa tämän KV:hen (TTL 10 min). Jos `p.ok === false` mutta signaali löytyy → ei varoitusta käyttäjälle. Ratkaisee TREAD-false alarm -ongelman deploy-ikkunassa.
 
+## TREAD-turvaketju (client-side verification)
+
+- **Selain itsenäisenä todistajana** — Harkitaan arkkitehtuurimuutosta jossa selain tallentaa localStorageen: (1) SHA kun `deploy_incoming` havaitaan, (2) "review valmis tälle SHA:lle" kun code_review.yml päättyy, (3) tarkistaa deployn alkaessa että deploying_commit == odotettu SHA && review kirjattu. Vaatii uuden `review_completed_sha`-kentän `/tread-monitor`-vastaukseen. Lisäksi `main.py` pitäisi lisätä `MONITOR_FILES`-listaan jotta serverin vastauksia ei voi väärentää huomaamatta.
+
 ## templates/index.html (TREAD-varoituslogiikka)
 
 - **Auto-clear toteutettu 2026-06-02** — Kun `p.ok` palaa `true`:ksi, `leima_tread_mismatch` -LocalStorage-lippu poistetaan automaattisesti. Käyttäjä ei enää näe vanhentunutta varoitusta. Dokumentoi tämä käyttäytyminen TREAD.md:hen tai vastaavaan.
