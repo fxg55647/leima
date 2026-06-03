@@ -1948,6 +1948,18 @@
         lastPollAt = Date.now();
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
 
+        // SHA-ketjun seuranta localStoragessa
+        if (monitor && monitor.deploy_incoming_sha) {
+          try { localStorage.setItem('leima_expected_sha', monitor.deploy_incoming_sha); } catch(e) {}
+        }
+        if (monitor && monitor.review_completed_sha) {
+          const expectedSha = localStorage.getItem('leima_expected_sha') || '';
+          const rsha = monitor.review_completed_sha;
+          if (expectedSha && (rsha.startsWith(expectedSha.slice(0,7)) || expectedSha.startsWith(rsha.slice(0,7)))) {
+            try { localStorage.setItem('leima_reviewed_sha', rsha); } catch(e) {}
+          }
+        }
+
         // Päivitä pysyvät liput
         const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
         _lastLocalChanged = localChanged;
@@ -2004,6 +2016,10 @@
         } else if (monitor && monitor.review_in_progress && monitor.deploy_incoming) {
           fadeSet(row('Notice!', '#f0a030', 'code review in progress — deploy imminent'), 'warning');
         } else if (monitor && monitor.deploying) {
+          const reviewedSha = (() => { try { return localStorage.getItem('leima_reviewed_sha') || ''; } catch(e) { return ''; } })();
+          const dc = monitor.deploying_commit || '';
+          const chainOk = !dc || !reviewedSha || dc.startsWith(reviewedSha.slice(0,7)) || reviewedSha.startsWith(dc.slice(0,7));
+          if (!chainOk) { _unauthorizedDeploy = true; _lsSet('leima_unauthorized_deploy'); }
           _wasDeploying = true;
           startDeployTicker();
           const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;

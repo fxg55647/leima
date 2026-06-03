@@ -694,6 +694,23 @@ async def tread_monitor():
     if cached and now - cached.get("cached_at", 0) < 10:
         return cached
 
+    def _fetch_last_review_sha():
+        if not token:
+            return None
+        try:
+            r = http_requests.get(
+                f"https://api.github.com/repos/{_GITHUB_REPO}/actions/workflows/code_review.yml/runs",
+                params={"status": "completed", "conclusion": "success", "per_page": 1},
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+                timeout=8,
+            )
+            if r.status_code == 200:
+                runs = r.json().get("workflow_runs", [])
+                return runs[0].get("head_sha") if runs else None
+        except Exception:
+            pass
+        return None
+
     def _fetch_review_in_progress():
         if not token:
             return False
@@ -726,15 +743,19 @@ async def tread_monitor():
 
     # Fetch git tree SHAs, Vercel deploy state, review status and deploy signal in parallel
     import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:
         f_hashes = ex.submit(_fetch_monitor_hashes, token)
         f_vercel = ex.submit(_fetch_vercel_state)
         f_review = ex.submit(_fetch_review_in_progress)
+        f_last_review = ex.submit(_fetch_last_review_sha)
         f_incoming = ex.submit(_kv_get, _KV_DEPLOY_INCOMING)
         hashes = f_hashes.result()
         vercel_deploying, vercel_live_commit, deploying_commit, source_ok, source_mismatches = f_vercel.result()
         review_in_progress = f_review.result()
-        deploy_incoming = bool(f_incoming.result())
+        review_completed_sha = f_last_review.result()
+        incoming_data = f_incoming.result()
+        deploy_incoming = bool(incoming_data)
+        deploy_incoming_sha = incoming_data.get("sha") if incoming_data else None
 
     # Tarkista deploymentin lähde ja code review
     unauthorized_deploy = False
@@ -765,7 +786,7 @@ async def tread_monitor():
                           if actual != expected}
 
     if not hashes:
-        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deploy_incoming": deploy_incoming, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
+        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
         _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
         return result
 
@@ -773,10 +794,10 @@ async def tread_monitor():
     baseline = _kv_get(_KV_MONITOR_BASELINE)
     if baseline is None:
         _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
-        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deploy_incoming": deploy_incoming, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
+        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
     else:
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
-        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "deploy_incoming": deploy_incoming, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
+        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
 
     # Suppress mismatch alarm if a pre-deploy signal exists for the current/deploying commit
     pre_deploy_active = False
