@@ -20,17 +20,14 @@ Ainoa sallittu flow: `git push origin staging` → code review → workflow push
 
 Jos staging on joskus jäljessä mainista (bootstrap-tilanne), se on merkki siitä että joku pushasi suoraan mainiin. Synkronoi käsin ja hyväksy kertaluonteinen danger — älä rebasea.
 
-## Git push — code review -seuranta (PAKOLLINEN)
+## Git push — staging (PAKOLLINEN)
 
 Pushausohje (järjestys tärkeä):
 1. **Kerro ensin yhteenveto** mitä tehtiin: mitkä tiedostot muuttuivat ja miksi. Muutama rivi riittää.
 2. **Pushaa** (`git push origin staging` — kaikki muutokset menevät stagingiin, ei suoraan mainiin)
-3. **Odota webhookia** — ilmoitus tulee automaattisesti webhookin kautta kun code review valmistuu. Älä aseta ajastinta tai pollaa manuaalisesti.
-4. **Jos webhookia ei tule ~5 min sisällä** → tutki manuaalisesti: `gh run list --workflow code_review.yml --limit 1 --json databaseId,status,conclusion,headBranch` ja tarvittaessa `gh run view <id> --log-failed`
+3. **Odota käyttäjän pyyntöä** — staging-push ei itsessään käynnistä blokkavaa code reviewia. **Varsinainen code review tapahtuu vasta deploy.yml:n sisällä mergen yhteydessä.**
 
-Webhook-viesti kertoo tuloksen:
-- `code_review_done` → läpäisi, **odota käyttäjän pyyntöä ennen deployta**
-- `code_review_failed` → näytä virhe ja korjaa
+Huom: `code_review.yml` saattaa ajautua staging-pushista erillisenä ajona, mutta se ei ole merge-gate — älä odota sen webhookia ennen kuin käyttäjä pyytää deployta.
 
 ## Deploy tuotantoon (PAKOLLINEN)
 
