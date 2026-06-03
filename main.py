@@ -905,6 +905,16 @@ def _community_intro() -> str:
         print(f"_community_intro error: {e!r}")
         return ""
 
+def _usecases_intro() -> str:
+    try:
+        text = open(os.path.join(os.path.dirname(__file__), "USECASES.md"), encoding="utf-8").read()
+        paras = [p.strip() for p in text.split("\n\n") if p.strip() and not p.strip().startswith("#")]
+        excerpt = "\n\n".join(paras[:2])
+        return _md.markdown(excerpt)
+    except Exception as e:
+        print(f"_usecases_intro error: {e!r}")
+        return ""
+
 _DOCS: dict[str, tuple[str, str]] = {
     "readme":     ("README.md",        "How it works"),
     "usecases":   ("USECASES.md",      "Use cases"),
@@ -951,7 +961,7 @@ async def doc_page(request: Request, name: str):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro(), "proteus_intro": _proteus_intro()})
+    return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro(), "proteus_intro": _proteus_intro(), "usecases_intro": _usecases_intro()})
 
 
 @app.get("/validate", response_class=HTMLResponse)

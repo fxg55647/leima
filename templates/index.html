@@ -642,7 +642,7 @@
       gap: 2rem;
     }
     @media (min-width: 1352px) {
-      .footer-inner { max-width: 1288px; grid-template-columns: repeat(5, 1fr); }
+      .footer-inner { max-width: 1288px; grid-template-columns: repeat(6, 1fr); }
     }
     .footer-logo-mark {
       display: flex;
@@ -1349,6 +1349,11 @@
       <span class="footer-col-title">Open source</span>
       <div class="footer-readme-body">{{ community_intro | safe }}</div>
       <a class="footer-readme-more" href="/docs/community">Read more →</a>
+    </div>
+    <div class="footer-col footer-col-readme">
+      <span class="footer-col-title">Use cases</span>
+      <div class="footer-readme-body">{{ usecases_intro | safe }}</div>
+      <a class="footer-readme-more" href="/docs/usecases">Read more →</a>
     </div>
     <div class="footer-col">
       <span class="footer-col-title">Links</span>
