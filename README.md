@@ -554,6 +554,9 @@ Before every `git push`, the hook fetches the latest TREAD status. If a deploy i
 ## 22. Contact
 
 **Teemu Lantta**
+
 [teemun.geemeili@gmail.com](mailto:teemun.geemeili@gmail.com)
+
 [linkedin.com/in/teemu-lantta-90440366](https://www.linkedin.com/in/teemu-lantta-90440366/)
+
 [github.com/fxg55647/leima](https://github.com/fxg55647/leima)
