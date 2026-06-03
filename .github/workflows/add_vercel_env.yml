@@ -1,0 +1,21 @@
+name: Add KV env vars to Vercel
+on:
+  push:
+    branches: [staging]
+    paths: ['.github/workflows/add_vercel_env.yml']
+jobs:
+  add-env:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add KV_REST_API_URL
+        run: |
+          curl -s -X POST "https://api.vercel.com/v10/projects/${{ secrets.VERCEL_PROJECT_ID }}/env?teamId=${{ secrets.VERCEL_TEAM_ID }}" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"key":"KV_REST_API_URL","value":"https://integral-lion-142277.upstash.io","type":"plain","target":["production","preview","development"]}' | python -m json.tool
+      - name: Add KV_REST_API_TOKEN
+        run: |
+          curl -s -X POST "https://api.vercel.com/v10/projects/${{ secrets.VERCEL_PROJECT_ID }}/env?teamId=${{ secrets.VERCEL_TEAM_ID }}" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"key":"KV_REST_API_TOKEN","value":"gQAAAAAAAivFAAIgcDE0ZTk4ODkzNjI3OTc0YTJlOTE5N2NiYjNlNGFiOTVjMA","type":"plain","target":["production","preview","development"]}' | python -m json.tool
