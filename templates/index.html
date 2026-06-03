@@ -2021,7 +2021,7 @@
         }
 
         // Normaali tilaketju
-        if (monitor && monitor.deploy_incoming) {
+        if (monitor && monitor.deploy_incoming && !p.ok) {
           fadeSet(row('Notice!', '#f0a030', 'deploy incoming — production update in ~2 min'), 'warning');
         } else if (monitor && monitor.review_in_progress && monitor.deploy_incoming) {
           fadeSet(row('Notice!', '#f0a030', 'code review in progress — deploy imminent'), 'warning');
