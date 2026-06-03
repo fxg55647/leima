@@ -34,8 +34,6 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 20. [Browser userscript (TREAD client-side monitor)](#20-browser-userscript-tread-client-side-monitor)
 21. [Developer pre-push hook](#21-developer-pre-push-hook)
 22. [Contact](#22-contact)
-- [Data policy](POLICY.example.md)
-- [SAIA and zero-knowledge systems (ZKSE.md)](ZKSE.md)
 
 ---
 
