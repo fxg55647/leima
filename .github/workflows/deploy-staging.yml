@@ -16,6 +16,4 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }}
         run: |
           npm install -g vercel
-          DEPLOYMENT_URL=$(vercel deploy --token "$VERCEL_TOKEN" --yes)
-          echo "Deployed: $DEPLOYMENT_URL"
-          vercel alias set "$DEPLOYMENT_URL" staging.leima.io --token "$VERCEL_TOKEN"
+          vercel deploy --token "$VERCEL_TOKEN" --yes
