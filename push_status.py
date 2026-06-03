@@ -62,3 +62,4 @@ FILES = [
 
 ok = push_all(FILES)
 sys.exit(0 if ok else 1)
+
