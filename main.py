@@ -105,9 +105,23 @@ _tread_cache: dict | None = None
 _tread_cache_ready = threading.Event()
 _PAGES_URL = "https://fxg55647.github.io/leima"
 
-# Startup env var checks
-if not _KV_URL or not _KV_TOKEN:
-    print("WARNING: KV_REST_API_URL or KV_REST_API_TOKEN not set — deploy signals and monitor cache disabled", flush=True)
+def _check_env() -> None:
+    required = {
+        "KV_REST_API_URL":    "deploy signals ja monitor cache",
+        "KV_REST_API_TOKEN":  "deploy signals ja monitor cache",
+        "VERCEL_TOKEN":       "Vercel deployment state",
+        "VERCEL_PROJECT_ID":  "Vercel deployment state",
+        "IRYS_PRIVATE_KEY":   "Arweave-tallennus",
+        "GITHUB_DISPATCH_TOKEN": "GitHub Actions -integraatio",
+        "PRE_DEPLOY_TOKEN":   "deploy-incoming autentikointi",
+        "ANTHROPIC_API_KEY":  "AI-analyysi",
+    }
+    missing = [k for k, _ in required.items() if not os.getenv(k)]
+    if missing:
+        for k in missing:
+            print(f"WARNING: {k} not set — {required[k]} disabled", flush=True)
+
+_check_env()
 
 _VERCEL_TOKEN      = os.getenv("VERCEL_TOKEN", "")
 _VERCEL_PROJECT_ID = os.getenv("VERCEL_PROJECT_ID", "")
