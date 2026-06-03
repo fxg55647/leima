@@ -908,8 +908,14 @@ def _community_intro() -> str:
 def _md_intro(filename: str, label: str, n_paras: int = 2) -> str:
     try:
         text = open(os.path.join(os.path.dirname(__file__), filename), encoding="utf-8").read()
-        paras = [p.strip() for p in text.split("\n\n") if p.strip() and p.strip() != "---"]
-        html = _md.markdown("\n\n".join(paras[:n_paras]))
+        paras = [p.strip() for p in text.split("\n\n") if p.strip() and p.strip() != "---" and not re.match(r"^#\s", p.strip())]
+        selected, chars = [], 0
+        for p in paras:
+            selected.append(p)
+            chars += len(p)
+            if chars >= 300:
+                break
+        html = _md.markdown("\n\n".join(selected))
         html = re.sub(r"<h[1-6][^>]*>(.*?)</h[1-6]>", r"<strong>\1</strong>", html)
         return html.replace("<hr />", "").replace("<hr>", "")
     except Exception as e:
