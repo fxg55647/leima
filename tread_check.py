@@ -11,7 +11,6 @@ MONITOR_FILES = [
     ".github/workflows/code_review.yml",
     "tread_check.py",
     "tread_arweave.py",
-    "main.py",
     "monthly_audit.py",
     "code_review.py",
     "POLICY.example.md",
