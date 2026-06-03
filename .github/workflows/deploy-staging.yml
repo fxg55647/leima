@@ -18,4 +18,4 @@ jobs:
           npm install -g vercel
           DEPLOYMENT_URL=$(vercel deploy --token "$VERCEL_TOKEN" --yes)
           echo "Deployed: $DEPLOYMENT_URL"
-          vercel alias set "$DEPLOYMENT_URL" staging.leima.io --token "$VERCEL_TOKEN" --yes
+          vercel alias set "$DEPLOYMENT_URL" staging.leima.io --token "$VERCEL_TOKEN"
