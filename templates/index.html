@@ -870,17 +870,17 @@
         <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
         <p style="font-size: 0.8rem; color: var(--text-faint);">Business · Finance · Research</p>
       </div>
-      <a href="/validate" class="validate-btn" data-tip="Verify an existing Leima stamp"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:0.3em"><path d="M20 6L9 17l-5-5"/></svg>Validate</a>
+      <a href="/validate" class="validate-btn"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:0.3em"><path d="M20 6L9 17l-5-5"/></svg>Validate</a>
     </header>
     <div class="tabs-wrap">
       <div class="tabs">
-        <button type="button" class="tab-btn active" onclick="switchCat('text', this)" data-tip="Paste or upload a document">Text</button>
-        <button type="button" class="tab-btn" onclick="switchCat('claim', this)" data-tip="Evaluate a factual claim without a source">Claim only</button>
-        <button type="button" class="tab-btn" onclick="switchCat('web', this)" data-tip="Fetch and analyse a web page">Web</button>
-        <button type="button" class="tab-btn" onclick="switchCat('image', this)" data-tip="Analyse an image or photo">Image</button>
-        <button type="button" class="tab-btn" onclick="switchCat('email', this)" data-tip="Stamp an email as permanent evidence">Email</button>
-        <button type="button" class="tab-btn" onclick="switchCat('github', this)" data-tip="Analyse a GitHub repository">GitHub</button>
-        <button type="button" class="tab-btn" onclick="switchCat('bundle', this)" data-tip="Combine multiple stamps into one verdict">Bundle</button>
+        <button type="button" class="tab-btn active" onclick="switchCat('text', this)">Text</button>
+        <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim only</button>
+        <button type="button" class="tab-btn" onclick="switchCat('web', this)">Web</button>
+        <button type="button" class="tab-btn" onclick="switchCat('image', this)">Image</button>
+        <button type="button" class="tab-btn" onclick="switchCat('email', this)">Email</button>
+        <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
+        <button type="button" class="tab-btn" onclick="switchCat('bundle', this)">Bundle</button>
       </div>
       <div class="tabs-scroll-hint" id="tabs-scroll-hint">›</div>
 
@@ -1033,7 +1033,7 @@
 
 
         <div class="submit-row">
-          <button type="submit" id="submit-btn" data-tip="Analyse and stamp permanently on Arweave">
+          <button type="submit" id="submit-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Analyse
           </button>
@@ -1055,6 +1055,10 @@
             </label>
           </div>
         </div>
+
+        <p style="font-size:0.72rem;color:var(--text-faint);margin-top:0.75rem;line-height:1.5;">
+          We recommend anonymizing sensitive content before sending to AI. <a href="/docs/proteus" style="color:var(--blue-mid);text-decoration:underline;text-underline-offset:2px;">Proteus</a> — semantic chaff for LLM privacy — is planned.
+        </p>
 
         <div class="htmx-indicator">
           <span class="spinner"></span>Analysing...
@@ -1346,6 +1350,11 @@
       <div class="footer-readme-body">{{ community_intro | safe }}</div>
       <a class="footer-readme-more" href="/docs/community">Read more →</a>
     </div>
+    <div class="footer-col footer-col-readme">
+      <span class="footer-col-title">Proteus <span style="font-size:0.6rem;color:#334a5c;font-weight:400;letter-spacing:0;">(planned)</span></span>
+      <div class="footer-readme-body">{{ proteus_intro | safe }}</div>
+      <a class="footer-readme-more" href="/docs/proteus">Read more →</a>
+    </div>
     <div class="footer-col">
       <span class="footer-col-title">Links</span>
       <a href="/validate">Validate</a>
@@ -1354,6 +1363,7 @@
       <a href="/docs/community">Open source</a>
       <a href="https://github.com/fxg55647/leima" target="_blank" rel="noopener">GitHub</a>
       <a href="/docs/security">Data policy</a>
+      <a href="/docs/proteus">Proteus — planned</a>
       <a href="/docs/tread">TREAD — what's this?</a>
       <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener">TREAD status</a>
       <a href="https://arweave.org" target="_blank" rel="noopener">Arweave</a>
