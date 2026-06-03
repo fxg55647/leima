@@ -4,7 +4,7 @@ Proteus is a planned privacy architecture for LLM API usage. The core idea: for 
 
 # Proteus: Epistemic Privacy for LLM APIs
 
-*Planned feature — June 2026*
+*Planned feature — June 2026* 
 
 > **Note:** This is a concept, not a specification. The core idea is technically grounded, but the right implementation form is an open question — proxy, agent, library, or API wrapper. The architecture below illustrates one plausible form, not a committed design.
 
