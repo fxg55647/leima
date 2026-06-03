@@ -1,186 +1,14 @@
-﻿<!DOCTYPE html>
-<html lang="fi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leima</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet">
-  <script defer src="/_vercel/insights/script.js"></script>
-  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+{% extends "base.html" %}
 
-    :root {
-      --bg: #ededeb;
-      --blue-light: #daeefa;
-      --blue-deep: #1a4b7c;
-      --blue-mid: #5a8fb0;
-      --blue-dim: rgba(26,75,124,0.1);
-      --blue-border: #c0d4e8;
-      --surface: #ffffff;
-      --surface-input: #f2f2f0;
-      --border: #d0dce8;
-      --text: #0f1c2e;
-      --text-muted: #4a6880;
-      --text-faint: #8aaabf;
-    }
-
-    html { overflow-x: hidden; }
-
-    body {
-      font-family: 'Spectral', Georgia, serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow-x: hidden;
-    }
-
-    main {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-    }
-
-    .col-frame {
-      width: 100%;
-      max-width: 760px;
-      background: var(--surface);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      box-shadow:
-        4px 0 28px -4px rgba(15,28,46,0.12),
-        -4px 0 28px -4px rgba(15,28,46,0.12);
-      overflow-x: hidden;
-    }
-
-    /* White header zone */
-    .header-zone {
-      width: 100%;
-      background: #ffffff;
-      padding: 1.75rem 1.5rem 0;
-      border-bottom: 2px solid var(--blue-deep);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    header {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+{% block extra_style %}
+    .card {
+      padding: 1.75rem 1.5rem;
       width: 100%;
       max-width: 680px;
-      margin-bottom: 1.25rem;
     }
 
-    .tabs-wrap {
-      width: 100%;
-      max-width: 680px;
-      position: relative;
-    }
-    .tabs-scroll-hint {
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 1px;
-      display: flex;
-      align-items: center;
-      padding: 0 0.4rem 0 2rem;
-      background: linear-gradient(to right, transparent, #fff 60%);
-      color: var(--blue-mid);
-      font-size: 0.85rem;
-      pointer-events: none;
-      transition: opacity 0.2s;
-    }
-
-    .validate-btn {
-      margin-left: auto;
-      background: transparent;
-      color: var(--blue-deep);
-      border: 1px solid var(--blue-deep);
-      border-radius: 4px;
-      padding: 0.4rem 1rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-      font-family: 'Spectral', Georgia, serif;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      text-decoration: none;
-      transition: background 0.15s, color 0.15s;
-      white-space: nowrap;
-    }
-
-    .validate-btn:hover {
-      background: var(--blue-deep);
-      color: #fff;
-    }
-
-    .logo-mark {
-      text-decoration: none;
-      display: flex;
-      flex-direction: column;
-      line-height: 1.15;
-      flex-shrink: 0;
-    }
-
-    .logo-text {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--text);
-      letter-spacing: 0.14em;
-    }
-
-    .logo-domain {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 0.65rem;
-      color: #c0392b;
-      letter-spacing: 0.22em;
-    }
-
-    header p {
-      color: var(--text-muted);
-      font-size: 0.82rem;
-      margin-top: 0.1rem;
-    }
-
-    .tabs {
-      display: flex;
-      gap: 0.25rem;
-      border-bottom: 1px solid rgba(26,75,124,0.2);
-      margin-bottom: 0;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .tabs::-webkit-scrollbar { display: none; }
-
-    .tab-btn {
-      background: none;
-      border: none;
-      border-bottom: 2px solid transparent;
-      color: rgba(26,75,124,0.38);
-      flex-shrink: 0;
-      padding: 0.4rem 0.875rem 0.6rem;
-      cursor: pointer;
-      font-size: 0.92rem;
-      font-family: 'Spectral', Georgia, serif;
-      font-weight: 500;
-      letter-spacing: 0.04em;
-      transition: color 0.15s, border-color 0.15s;
-      margin-bottom: -1px;
-    }
-
-    .tab-btn:hover { color: var(--blue-deep); }
-
-    .tab-btn.active {
-      color: var(--blue-deep);
-      border-bottom-color: var(--blue-deep);
-    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; margin-bottom: 0.625rem; }
 
     .sub-row {
       display: flex;
@@ -201,40 +29,6 @@
     .sub-btn:hover { color: var(--blue-deep); border-color: var(--blue-border); }
     .sub-btn.active { background: var(--blue-dim); color: var(--blue-deep); border-color: var(--blue-border); }
 
-    /* Tooltips */
-    [data-tip] { position: relative; }
-    [data-tip]::after {
-      content: attr(data-tip);
-      position: absolute;
-      bottom: calc(100% + 7px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1a3a5c;
-      color: #fff;
-      padding: 0.3rem 0.6rem;
-      border-radius: 5px;
-      font-size: 0.72rem;
-      font-family: 'Inter', sans-serif;
-      font-weight: 400;
-      white-space: normal;
-      max-width: min(220px, calc(100vw - 2rem));
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.15s;
-      z-index: 100;
-    }
-    [data-tip]:hover::after { opacity: 1; }
-
-    /* White content card */
-    .card {
-      padding: 1.75rem 1.5rem;
-      width: 100%;
-      max-width: 680px;
-    }
-
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; margin-bottom: 0.625rem; }
-
     .drop-zone {
       border: 1px dashed var(--border);
       border-radius: 6px;
@@ -246,19 +40,8 @@
       margin-bottom: 1rem;
       background: var(--surface-input);
     }
-
-    .drop-zone:hover, .drop-zone.dragover {
-      border-color: var(--blue-deep);
-      background: var(--blue-light);
-      color: var(--blue-deep);
-    }
-
-    .drop-zone.has-file {
-      border-color: var(--blue-deep);
-      background: var(--blue-dim);
-      color: var(--blue-deep);
-    }
-
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--blue-deep); background: var(--blue-light); color: var(--blue-deep); }
+    .drop-zone.has-file { border-color: var(--blue-deep); background: var(--blue-dim); color: var(--blue-deep); }
     .drop-zone input[type="file"] { display: none; }
     .drop-zone-icon { font-size: 1.75rem; margin-bottom: 0.4rem; }
 
@@ -277,536 +60,130 @@
       outline: none;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-
-    textarea:focus {
-      border-color: var(--blue-deep);
-      box-shadow: 0 0 0 3px var(--blue-dim);
-      background: #fff;
-    }
+    textarea:focus { border-color: var(--blue-deep); box-shadow: 0 0 0 3px var(--blue-dim); background: #fff; }
 
     .url-toggle-row { text-align: center; margin-top: 0.6rem; margin-bottom: 0.25rem; }
-
     .url-toggle-btn {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 0.8rem;
-      font-family: 'Spectral', Georgia, serif;
-      cursor: pointer;
-      padding: 0;
-      text-decoration: underline;
-      text-underline-offset: 2px;
+      background: none; border: none; color: var(--text-muted);
+      font-size: 0.8rem; font-family: 'Spectral', Georgia, serif;
+      cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 2px;
     }
     .url-toggle-btn:hover { color: var(--blue-deep); }
 
     .url-input {
-      width: 100%;
-      background: var(--surface-input);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      padding: 0.5rem 0.875rem;
-      font-family: 'Spectral', Georgia, serif;
-      font-size: 0.875rem;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-      margin-bottom: 0.25rem;
+      width: 100%; background: var(--surface-input); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); padding: 0.5rem 0.875rem;
+      font-family: 'Spectral', Georgia, serif; font-size: 0.875rem; outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s; margin-bottom: 0.25rem;
     }
-    .url-input:focus {
-      border-color: var(--blue-deep);
-      box-shadow: 0 0 0 3px var(--blue-dim);
-      background: #fff;
-    }
+    .url-input:focus { border-color: var(--blue-deep); box-shadow: 0 0 0 3px var(--blue-dim); background: #fff; }
 
-    .url-hint-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 0.5rem;
-    }
+    .url-hint-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
     .url-hint { font-size: 0.72rem; color: var(--text-faint); }
 
-    .question-label {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-      margin-bottom: 0.6rem;
-    }
-    .question-title {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--text);
-    }
+    .question-label { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.6rem; }
+    .question-title { font-size: 0.95rem; font-weight: 600; color: var(--text); }
     .question-sub { font-size: 0.85rem; color: var(--text-muted); }
 
     .question-row { display: flex; gap: 0.5rem; }
-
     .question-row input[type="text"],
     #question-input {
-      flex: 1;
-      width: 100%;
-      box-sizing: border-box;
-      background: var(--surface-input);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      padding: 0.625rem 0.875rem;
-      font-family: 'Spectral', Georgia, serif;
-      font-size: 0.9rem;
-      outline: none;
+      flex: 1; width: 100%; box-sizing: border-box;
+      background: var(--surface-input); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); padding: 0.625rem 0.875rem;
+      font-family: 'Spectral', Georgia, serif; font-size: 0.9rem; outline: none;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-
     .question-row input[type="text"]:focus,
-    #question-input:focus {
-      border-color: var(--blue-deep);
-      box-shadow: 0 0 0 3px var(--blue-dim);
-      background: #fff;
-    }
-
+    #question-input:focus { border-color: var(--blue-deep); box-shadow: 0 0 0 3px var(--blue-dim); background: #fff; }
     .question-row input[type="text"]::placeholder,
     #question-input::placeholder,
     textarea::placeholder { color: var(--text-faint); }
 
-    .submit-row {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-top: 1.25rem;
-      flex-wrap: wrap;
-    }
+    .submit-row { display: flex; align-items: center; gap: 1rem; margin-top: 1.25rem; flex-wrap: wrap; }
     .credibility-options { display: flex; flex-direction: column; gap: 0.3rem; }
-    .credibility-option {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.4rem;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      cursor: pointer;
-      line-height: 1.4;
-    }
+    .credibility-option { display: flex; align-items: flex-start; gap: 0.4rem; font-size: 0.78rem; color: var(--text-muted); cursor: pointer; line-height: 1.4; }
     .credibility-option input { margin-top: 0.15rem; flex-shrink: 0; accent-color: var(--blue-deep); }
-    .help-btn {
-      background: none; border: none; padding: 0; cursor: pointer;
-      color: var(--blue-mid); font-size: 0.8rem; font-weight: 700;
-      line-height: 1; flex-shrink: 0; margin-top: 0.1rem;
-    }
+    .help-btn { background: none; border: none; padding: 0; cursor: pointer; color: var(--blue-mid); font-size: 0.8rem; font-weight: 700; line-height: 1; flex-shrink: 0; margin-top: 0.1rem; }
     .help-btn::after { display: none; }
     .help-tip-popup {
-      position: fixed;
-      background: #1a3a5c;
-      color: #fff;
-      padding: 0.35rem 0.65rem;
-      border-radius: 5px;
-      font-size: 0.72rem;
-      font-family: 'Inter', sans-serif;
-      font-weight: 400;
-      white-space: normal;
-      width: min(220px, calc(100vw - 2rem));
-      line-height: 1.45;
-      pointer-events: none;
-      z-index: 9999;
+      position: fixed; background: #1a3a5c; color: #fff;
+      padding: 0.35rem 0.65rem; border-radius: 5px; font-size: 0.72rem;
+      font-family: 'Inter', sans-serif; font-weight: 400; white-space: normal;
+      width: min(220px, calc(100vw - 2rem)); line-height: 1.45; pointer-events: none; z-index: 9999;
     }
 
     button[type="submit"] {
-      background: var(--blue-deep);
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.625rem 1.5rem;
-      font-size: 0.8rem;
-      font-weight: 600;
-      font-family: 'Spectral', Georgia, serif;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: background 0.15s;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
+      background: var(--blue-deep); color: #fff; border: none; border-radius: 4px;
+      padding: 0.625rem 1.5rem; font-size: 0.8rem; font-weight: 600;
+      font-family: 'Spectral', Georgia, serif; letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; transition: background 0.15s; white-space: nowrap;
+      display: flex; align-items: center; gap: 0.4rem;
     }
-
     button[type="submit"]:hover { background: #163f6a; }
     button[type="submit"]:disabled { background: var(--border); cursor: not-allowed; color: var(--text-muted); }
 
-    #answer-area {
-      width: 100%;
-      max-width: 680px;
-      padding: 0 1.5rem 2.5rem;
-    }
+    #answer-area { width: 100%; max-width: 680px; padding: 0 1.5rem 2.5rem; }
 
-    .htmx-indicator {
-      display: none;
-      text-align: center;
-      color: var(--text-muted);
-      padding: 1.25rem;
-      font-size: 0.875rem;
-    }
+    .htmx-indicator { display: none; text-align: center; color: var(--text-muted); padding: 1.25rem; font-size: 0.875rem; }
     .htmx-request .htmx-indicator { display: block; }
     .htmx-request #submit-btn, #submit-btn:disabled { background: var(--border); cursor: not-allowed; }
 
-    .spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid var(--border);
-      border-top-color: var(--blue-deep);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 0.4rem;
-    }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--blue-deep); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 0.4rem; }
 
     .field-group { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.875rem; }
-
-    .field-label {
-      font-size: 0.72rem;
-      font-weight: 500;
-      color: var(--blue-deep);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
+    .field-label { font-size: 0.72rem; font-weight: 500; color: var(--blue-deep); letter-spacing: 0.08em; text-transform: uppercase; }
     .field-input {
-      background: var(--surface-input);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      padding: 0.625rem 0.875rem;
-      font-family: 'Spectral', Georgia, serif;
-      font-size: 0.9rem;
-      outline: none;
-      width: 100%;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      background: var(--surface-input); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); padding: 0.625rem 0.875rem; font-family: 'Spectral', Georgia, serif;
+      font-size: 0.9rem; outline: none; width: 100%; transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .field-input:focus {
-      border-color: var(--blue-deep);
-      box-shadow: 0 0 0 3px var(--blue-dim);
-      background: #fff;
-    }
-
+    .field-input:focus { border-color: var(--blue-deep); box-shadow: 0 0 0 3px var(--blue-dim); background: #fff; }
     .field-row { display: flex; gap: 0.75rem; }
     .field-row .field-group { flex: 1; }
 
     .fetch-btn {
-      background: transparent;
-      color: var(--blue-deep);
-      border: 1px solid var(--blue-deep);
-      border-radius: 4px;
-      padding: 0.45rem 1rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-      font-family: 'Spectral', Georgia, serif;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-      margin-bottom: 1rem;
+      background: transparent; color: var(--blue-deep); border: 1px solid var(--blue-deep);
+      border-radius: 4px; padding: 0.45rem 1rem; font-size: 0.75rem; font-weight: 500;
+      font-family: 'Spectral', Georgia, serif; letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; transition: background 0.15s, color 0.15s; margin-bottom: 1rem;
     }
     .fetch-btn:hover { background: var(--blue-deep); color: #fff; }
 
-    .email-guide {
-      margin-top: 1.6rem;
-      border: 1px solid var(--blue-border);
-      border-radius: 7px;
-      background: #f4f8fc;
-      overflow: hidden;
-    }
-    .email-guide-header {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.4rem 1rem;
-      border-bottom: 1px solid var(--blue-border);
-      background: #eaf3fb;
-    }
+    .email-guide { margin-top: 1.6rem; border: 1px solid var(--blue-border); border-radius: 7px; background: #f4f8fc; overflow: hidden; }
+    .email-guide-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 1rem; border-bottom: 1px solid var(--blue-border); background: #eaf3fb; }
     .email-guide-header svg { flex-shrink: 0; color: var(--blue-mid); }
-    .email-guide-header-title {
-      font-family: 'Spectral', Georgia, serif;
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: var(--blue-deep);
-      letter-spacing: 0.01em;
-    }
-    .email-guide-body {
-      position: relative;
-      overflow: hidden;
-      max-height: 8em;
-      transition: max-height 0.45s ease;
-      padding: 0.9rem 1rem 0;
-      font-size: 0.9rem;
-      color: var(--text);
-      line-height: 1.7;
-    }
+    .email-guide-header-title { font-family: 'Spectral', Georgia, serif; font-weight: 600; font-size: 0.9rem; color: var(--blue-deep); letter-spacing: 0.01em; }
+    .email-guide-body { position: relative; overflow: hidden; max-height: 8em; transition: max-height 0.45s ease; padding: 0.9rem 1rem 0; font-size: 0.9rem; color: var(--text); line-height: 1.7; }
     .email-guide-body.expanded { max-height: 60em; }
-    .email-guide-fade {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 2.5em;
-      background: linear-gradient(to bottom, transparent, #f4f8fc);
-      pointer-events: none;
-      transition: opacity 0.3s;
-    }
+    .email-guide-fade { position: absolute; bottom: 0; left: 0; right: 0; height: 2.5em; background: linear-gradient(to bottom, transparent, #f4f8fc); pointer-events: none; transition: opacity 0.3s; }
     .email-guide-body.expanded .email-guide-fade { opacity: 0; }
-    .email-guide-footer {
-      padding: 0.4rem 1rem 0.55rem;
-      border-top: 1px solid var(--blue-border);
-    }
-    .email-guide-toggle {
-      font-size: 0.82rem;
-      color: var(--blue-deep);
-      cursor: pointer;
-      user-select: none;
-    }
+    .email-guide-footer { padding: 0.4rem 1rem 0.55rem; border-top: 1px solid var(--blue-border); }
+    .email-guide-toggle { font-size: 0.82rem; color: var(--blue-deep); cursor: pointer; user-select: none; }
     .email-guide-toggle:hover { color: var(--blue-mid); }
-    .email-guide h4 {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-family: 'Spectral', Georgia, serif;
-      font-weight: 600;
-      font-size: 0.85rem;
-      color: var(--text);
-      margin: 1rem 0 0.3rem;
-      letter-spacing: 0.015em;
-      text-transform: uppercase;
-    }
+    .email-guide h4 { display: flex; align-items: center; gap: 0.35rem; font-family: 'Spectral', Georgia, serif; font-weight: 600; font-size: 0.85rem; color: var(--text); margin: 1rem 0 0.3rem; letter-spacing: 0.015em; text-transform: uppercase; }
     .email-guide h4:first-of-type { margin-top: 0.5rem; }
     .email-guide h4 svg { color: var(--blue-mid); flex-shrink: 0; }
-    .email-guide ol, .email-guide ul {
-      padding-left: 1.3em;
-      margin: 0.25rem 0 0.6rem;
-    }
+    .email-guide ol, .email-guide ul { padding-left: 1.3em; margin: 0.25rem 0 0.6rem; }
     .email-guide li { margin-bottom: 0.25rem; }
     .email-guide p { margin-bottom: 0.55rem; }
     .email-guide a { color: var(--blue-mid); }
 
-    .email-split {
-      display: flex;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      overflow: hidden;
-      height: 300px;
-      margin-top: 0.5rem;
-    }
-    .email-list {
-      width: 40%;
-      border-right: 1px solid var(--border);
-      overflow-y: auto;
-      flex-shrink: 0;
-      background: var(--surface-input);
-    }
-    .email-item {
-      padding: 0.6rem 0.875rem;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      transition: background 0.1s;
-    }
+    .email-split { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; height: 300px; margin-top: 0.5rem; }
+    .email-list { width: 40%; border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; background: var(--surface-input); }
+    .email-item { padding: 0.6rem 0.875rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
     .email-item:hover { background: var(--blue-dim); }
     .email-item.active { background: var(--blue-light); border-left: 2px solid var(--blue-deep); }
-    .email-item-subject {
-      font-size: 0.82rem;
-      font-weight: 500;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .email-item-subject { font-size: 0.82rem; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .email-item-date { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
-    .email-preview-pane {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0.875rem;
-      font-size: 0.85rem;
-      color: var(--text);
-      background: var(--surface);
-    }
+    .email-preview-pane { flex: 1; overflow-y: auto; padding: 0.875rem; font-size: 0.85rem; color: var(--text); background: var(--surface); }
 
     .fetch-error { color: #c0392b; font-size: 0.85rem; margin-top: 0.5rem; }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    footer {
-      background: #07111e;
-      color: #6a8899;
-      width: 100%;
-      padding: 2rem 0 3rem;
-      border-top: 3px solid #c0392b;
-    }
-    .footer-inner {
-      max-width: 760px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      align-items: start;
-      gap: 2rem;
-    }
-    @media (min-width: 1352px) {
-      .footer-inner { max-width: 1288px; grid-template-columns: repeat(5, 1fr); }
-    }
-    .footer-logo-mark {
-      display: flex;
-      flex-direction: column;
-      line-height: 1.15;
-      margin-bottom: 0.75rem;
-    }
-    .footer-logo {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #c8dff0;
-      letter-spacing: 0.14em;
-    }
-    .footer-domain {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 0.65rem;
-      color: #c0392b;
-      letter-spacing: 0.22em;
-    }
-    .footer-brand p { font-size: 0.82rem; color: #6a8899; line-height: 1.6; }
-    .footer-col { display: flex; flex-direction: column; gap: 0.5rem; }
-    .footer-col-title {
-      font-size: 0.65rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--blue-mid);
-      margin-bottom: 0.25rem;
-    }
-    .footer-col a { color: #6a8899; text-decoration: none; font-size: 0.85rem; transition: color 0.15s; }
-    .footer-col a:hover { color: #c8dff0; }
-    .footer-col-readme {}
-    .footer-readme-body {
-      font-size: 0.82rem;
-      color: #6a8899;
-      line-height: 1.65;
-      display: -webkit-box;
-      -webkit-line-clamp: 8;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .footer-readme-body h1 { font-size: 0.95rem; color: #c8dff0; margin-bottom: 0.4rem; }
-    .footer-readme-body strong { color: #a8c4d8; }
-    .footer-readme-body p { margin-bottom: 0.5rem; }
-    .footer-readme-more { color: #5a8fb0; font-size: 0.8rem; margin-top: 0.25rem; }
-    .footer-readme-more:hover { color: #c8dff0; }
-    .footer-bottom {
-      margin: 2rem 0 0;
-      padding-top: 1.25rem;
-      border-top: 1px solid #1a2d40;
-      font-size: 0.75rem;
-      color: #334a5c;
-      letter-spacing: 0.04em;
-      text-align: center;
-    }
-
-    /* TREAD warning modal */
-    #tread-modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(7,17,30,0.75);
-      z-index: 9000;
-      align-items: center;
-      justify-content: center;
-    }
-    #tread-modal-overlay.visible { display: flex; }
-    #tread-modal {
-      background: #07111e;
-      border: 1px solid #c0392b;
-      border-radius: 8px;
-      padding: 1.75rem 2rem;
-      max-width: 480px;
-      width: 90%;
-      color: #c8dff0;
-      font-family: 'Spectral', Georgia, serif;
-      max-height: 85vh;
-      overflow-y: auto;
-    }
-    #tread-modal h2 {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #e05555;
-      margin-bottom: 0.875rem;
-      letter-spacing: 0.04em;
-      font-family: 'Playfair Display', Georgia, serif;
-    }
-    #tread-modal p {
-      font-size: 0.875rem;
-      line-height: 1.6;
-      color: #6a8899;
-      margin-bottom: 1.25rem;
-      white-space: pre-line;
-    }
-    #tread-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-    #tread-modal-suppress { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #6a8899; cursor: pointer; }
-    #tread-modal-suppress input { cursor: pointer; accent-color: var(--blue-mid); }
-    #tread-modal-close {
-      background: #c85555;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.45rem 1.1rem;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: 'Spectral', Georgia, serif;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    #tread-modal-close:hover { background: #a84444; }
-
-    /* TREAD status bar */
-    #tread-bar {
-      width: 100%;
-      background: #122840;
-      height: 26px;
-      display: flex;
-      align-items: center;
-      border-bottom: 3px solid #c0392b;
-      font-family: "SF Mono", Consolas, monospace;
-      font-size: 0.7rem;
-      letter-spacing: 0.02em;
-      flex-shrink: 0;
-      overflow-x: auto;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
-    }
-    #tread-bar::-webkit-scrollbar { display: none; }
-    #tread-bar-inner { white-space: nowrap; }
-    #tread-scroll-hint {
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      display: flex;
-      align-items: center;
-      padding: 0 0.5rem 0 4rem;
-      background: linear-gradient(to right, transparent, #122840 65%);
-      color: rgba(255,255,255,0.7);
-      font-size: 0.8rem;
-      pointer-events: none;
-      transition: opacity 0.2s;
-    }
-    #tread-dot { transition: background 0.5s ease; animation: treadPulse 2.4s ease-in-out infinite; transform-origin: center; flex-shrink: 0; }
-    #tread-text { transition: opacity 0.28s ease; white-space: nowrap; }
-
-    @keyframes treadPulse {
-      0%, 100% { transform: scale(1); }
-      50%       { transform: scale(1.75); }
-    }
-
     @media (max-width: 520px) {
-      .col-frame { box-shadow: none; overflow-x: hidden; }
-      .header-zone { padding: 1.25rem 0.75rem 0; }
       .card { padding: 1.5rem 0.75rem 1.75rem; margin: 0.75rem 0; }
       .email-guide { margin-top: 2.5rem; }
       #answer-area { padding: 0 0.75rem 1.5rem; }
-      header { flex-wrap: wrap; row-gap: 0.4rem; }
-      header > div { order: 3; width: 100%; }
-      .logo-text { font-size: 1.5rem; }
-      .validate-btn { order: 2; margin-left: auto; }
       .question-row { flex-direction: column; }
       .question-row input[type="text"] { width: 100%; }
       button[type="submit"] { width: 100%; justify-content: center; }
@@ -814,65 +191,10 @@
       .email-split { flex-direction: column; height: auto; }
       .email-list { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 160px; }
       .email-preview-pane { max-height: 200px; }
-      .footer-inner { grid-template-columns: 1fr; }
-      footer { padding: 2rem 1.25rem 1.25rem; }
     }
-  </style>
-</head>
-<body>
+{% endblock %}
 
-<div id="tread-modal-overlay">
-  <div id="tread-modal">
-    <h2 id="tread-modal-title">⚠ TREAD WARNING</h2>
-    <p id="tread-modal-body"></p>
-    <textarea id="tread-modal-debug" readonly style="display:none;width:100%;margin-top:0.8rem;background:#0a1520;color:#7a9bb0;border:1px solid #1e3a4a;border-radius:4px;font-size:0.72rem;font-family:monospace;padding:0.5rem;resize:vertical;height:8rem;box-sizing:border-box;"></textarea>
-    <div id="tread-modal-verify" style="display:none;margin-top:1rem;padding:0.9rem;background:#0d1f2d;border-radius:6px;font-size:0.82rem;color:#8ab;">
-      <p style="margin:0 0 0.6rem 0;color:#cde;">To dismiss this warning, verify the changed files on GitHub and confirm the changes are legitimate:</p>
-      <ol style="margin:0 0 0.8rem 1.2rem;padding:0;color:#8ab;line-height:1.7;">
-        <li>Open the repository on GitHub</li>
-        <li>Check the git log for the files listed above</li>
-        <li>Confirm no unauthorized changes were made</li>
-      </ol>
-      <button id="tread-modal-accept" style="background:#1a4a2a;color:#6dbb8a;border:1px solid #2a6a3a;padding:0.4rem 1rem;border-radius:4px;cursor:pointer;font-size:0.82rem;">I have verified — accept and update my baseline</button>
-    </div>
-    <div id="tread-modal-footer">
-      <label id="tread-modal-suppress">
-        <input type="checkbox" id="tread-modal-suppress-cb">
-        Don't show again for 2 minutes
-      </label>
-      <div style="display:flex;gap:0.6rem;align-items:center;">
-        <a id="tread-modal-how" href="#" style="font-size:0.78rem;color:#6a8899;text-decoration:underline;display:none;">How to dismiss this?</a>
-        <button id="tread-modal-close">Acknowledge</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div style="position:relative;overflow:hidden;">
-  <div id="tread-bar">
-    <div id="tread-bar-inner" style="max-width:760px;margin:0 auto;width:100%;display:flex;align-items:center;gap:0.55rem;padding:0 1rem;">
-      <span id="tread-dot" style="width:6px;height:6px;border-radius:50%;background:#3d6a8a;display:inline-block"></span>
-      <span id="tread-text"></span>
-    </div>
-  </div>
-  <div id="tread-scroll-hint">›</div>
-</div>
-
-<main>
-<div class="col-frame">
-
-  <div class="header-zone">
-    <header>
-      <a href="/" class="logo-mark">
-        <span class="logo-text">LEIMA</span>
-        <span class="logo-domain">leima.io</span>
-      </a>
-      <div>
-        <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
-        <p style="font-size: 0.8rem; color: var(--text-faint);">Business · Finance · Research</p>
-      </div>
-      <a href="/validate" class="validate-btn"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:0.3em"><path d="M20 6L9 17l-5-5"/></svg>Validate</a>
-    </header>
+{% block tabs_nav %}
     <div class="tabs-wrap">
       <div class="tabs">
         <button type="button" class="tab-btn active" onclick="switchCat('text', this)">Text</button>
@@ -895,8 +217,9 @@
         <button type="button" class="sub-btn" onclick="switchTab('image-url', this)">From URL</button>
       </div>
     </div>
-  </div>
+{% endblock %}
 
+{% block main_content %}
   <div class="card">
     <form
       hx-post="/ask"
@@ -953,8 +276,7 @@
         </div>
 
         <div id="tab-web" class="tab-panel">
-          <input type="url" name="web_url" id="web-url" class="url-input"
-            placeholder="https://example.com/article">
+          <input type="url" name="web_url" id="web-url" class="url-input" placeholder="https://example.com/article">
         </div>
 
         <div id="tab-text" class="tab-panel">
@@ -1032,7 +354,6 @@
           <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
         </div>
 
-
         <div class="submit-row">
           <button type="submit" id="submit-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -1073,17 +394,9 @@
           <div class="email-guide-body" id="email-guide-body">
             <p>Use this tab to create a permanent, verifiable proof that a specific person sent you an email on a given date — before a deadline, before a decision, before a dispute. The stamp is stored on Arweave and cannot be altered or deleted. Anyone can verify it independently.</p>
             <p>Enter your email address and an app password, then specify the sender and a date range. Click <strong>Fetch emails</strong> to retrieve matching messages, select one, and stamp it.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              What you can prove
-            </h4>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>What you can prove</h4>
             <p>The stamp records the sender's address, the date, and a cryptographic hash of the message. It proves that a specific sender sent this exact message before the moment of stamping. It does not prove the content is true — only that it exists and was sent.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-              Gmail: create an app password
-            </h4>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>Gmail: create an app password</h4>
             <p>Gmail requires an app-specific password for IMAP — your regular Gmail password will not work here.</p>
             <ol>
               <li>Make sure 2-Step Verification is enabled on your Google account.</li>
@@ -1092,11 +405,7 @@
               <li>Copy the 16-character password shown and paste it into the Password field above.</li>
             </ol>
             <p>The app password gives read-only access to your email via IMAP. You can revoke it any time from the same page.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Finding the sender and date in Gmail
-            </h4>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Finding the sender and date in Gmail</h4>
             <ol>
               <li>Open the message in Gmail.</li>
               <li>The sender's address is shown next to the name in the <em>From</em> line — hover over the name to reveal the full address.</li>
@@ -1118,28 +427,12 @@
           <div class="email-guide-body" id="bundle-guide-body">
             <p>Use this tab to draw a new conclusion from two or more existing Leima stamps. For each stamp, upload the <code style="font-family:monospace;font-size:0.85em;">manifest.json</code> and <code style="font-family:monospace;font-size:0.85em;">verdict.pdf</code> — both appear in the download row below any verdict. The system validates each manifest, reads the full verdict content, and lets the AI reason across all of them to evaluate your new combined claim.</p>
             <p>For example: three reference letters stamped separately each prove one thing. A bundle can then prove <em>"this person has three verified references."</em></p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              What you can prove
-            </h4>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>What you can prove</h4>
             <p>The bundle verdict is itself a new permanent stamp. It proves that on this date, a set of independently sealed verdicts was examined and found to support your combined claim. The original stamps remain unchanged on Arweave — the bundle is an additional layer of reasoning on top of them.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Where to find the manifest file
-            </h4>
-            <p>After any stamp is created, a download row appears below the verdict with buttons for <strong>⬇ manifest.json</strong> and <strong>⬇ verdict.pdf</strong>. Save both files and upload them here — one pair per stamp, 2–10 pairs total. The manifest contains the sealed claim and metadata; the verdict PDF contains the full AI analysis.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              Writing a good claim
-            </h4>
-            <p>Describe what the documents <em>together</em> prove — a timeline, an agreement, or a sequence of events across multiple sources. For example:</p>
-            <ul>
-              <li><em>"These documents show that the contractor delivered the work before the payment deadline."</em></li>
-              <li><em>"Taken together, these stamps prove that both parties agreed to the terms before the contract was signed."</em></li>
-            </ul>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Where to find the manifest file</h4>
+            <p>After any stamp is created, a download row appears below the verdict with buttons for <strong>⬇ manifest.json</strong> and <strong>⬇ verdict.pdf</strong>. Save both files and upload them here — one pair per stamp, 2–10 pairs total.</p>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Writing a good claim</h4>
+            <p>Describe what the documents <em>together</em> prove — a timeline, an agreement, or a sequence of events across multiple sources.</p>
             <div class="email-guide-fade"></div>
           </div>
           <div class="email-guide-footer">
@@ -1154,31 +447,10 @@
           </div>
           <div class="email-guide-body" id="image-guide-body">
             <p>Upload a photo or paste an image URL, then write a claim about what it shows. The AI analyses the visual content and stamps the result permanently on Arweave. If the image contains C2PA provenance data, the stamp also records whether the image is authentic and unmodified.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              What you can prove
-            </h4>
-            <p>The stamp records a hash of the image and the AI's verdict on your claim. It proves that this specific image existed and that the claim was evaluated at this point in time. If the image has valid C2PA data, the stamp additionally confirms that it has not been altered since it was captured.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              What is C2PA?
-            </h4>
-            <p>C2PA (Coalition for Content Provenance and Authenticity) is a standard that embeds a cryptographically signed certificate inside an image at the moment of capture. It records the device, the time, and any edits made afterwards. If the image is modified after capture, the signature becomes invalid.</p>
-            <p>When a C2PA certificate is present and valid, the verdict states that the image's origin is cryptographically established. When it is invalid, the verdict notes that the image was modified after capture. When there is no C2PA data, the AI analyses the content only — no origin claim is made.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-              Which images have C2PA?
-            </h4>
-            <p>C2PA is supported by a growing number of cameras and apps:</p>
-            <ul>
-              <li><strong>Cameras:</strong> Sony α9 III and newer, Leica M11-P, Nikon Z9 (firmware update), selected Canon EOS R models</li>
-              <li><strong>Smartphones:</strong> Some Qualcomm Snapdragon 8 Gen 3 devices, and apps like Truepic that embed C2PA at capture</li>
-              <li><strong>AI generators:</strong> Adobe Firefly, Microsoft Designer, and others that sign generated images to disclose AI origin</li>
-            </ul>
-            <p>Most ordinary smartphone photos and screenshots do not contain C2PA data — they can still be stamped, but without origin verification.</p>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>What you can prove</h4>
+            <p>The stamp records a hash of the image and the AI's verdict on your claim. If the image has valid C2PA data, the stamp additionally confirms that it has not been altered since it was captured.</p>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>What is C2PA?</h4>
+            <p>C2PA is a standard that embeds a cryptographically signed certificate inside an image at the moment of capture. If modified after capture, the signature becomes invalid.</p>
             <div class="email-guide-fade"></div>
           </div>
           <div class="email-guide-footer">
@@ -1192,30 +464,9 @@
             <span class="email-guide-header-title">How to use Claim only</span>
           </div>
           <div class="email-guide-body" id="claim-guide-body">
-            <p>Use this tab when you want to stamp a factual claim without attaching any source document. The AI evaluates the claim using its own knowledge and records the verdict permanently on Arweave. No URL, file, or email is needed.</p>
-            <p>Type your claim in the field above and click Analyse. The stamp proves that this specific claim was evaluated at this exact moment in time.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              What you can prove
-            </h4>
-            <p>The stamp records the claim text and the AI's verdict. It proves that on this date, the claim was evaluated and found to be supported or not supported by AI knowledge available at that moment. This is useful for establishing that a fact was considered established — or disputed — at a given point in time.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              When to use it
-            </h4>
-            <ul>
-              <li>Stamping a factual assertion you want to record at a specific date</li>
-              <li>Establishing that a scientific consensus or historical fact was recognised before a dispute arose</li>
-              <li>Creating a timestamped record of your own statement without needing to share any document</li>
-            </ul>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              Limitations
-            </h4>
-            <p>The AI's knowledge has a training cutoff — very recent events may not be reflected. For claims about recent news, documents, or communications, use the Web, Email, or other source tabs instead. The stamp records the AI's verdict, not an independent fact-check.</p>
+            <p>Use this tab when you want to stamp a factual claim without attaching any source document. The AI evaluates the claim using its own knowledge and records the verdict permanently on Arweave.</p>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>What you can prove</h4>
+            <p>The stamp records the claim text and the AI's verdict. It proves that on this date, the claim was evaluated and found to be supported or not supported by AI knowledge available at that moment.</p>
             <div class="email-guide-fade"></div>
           </div>
           <div class="email-guide-footer">
@@ -1229,26 +480,9 @@
             <span class="email-guide-header-title">How to use the Text tab</span>
           </div>
           <div class="email-guide-body" id="text-guide-body">
-            <p>Use this tab to stamp any document you have in hand. Use the sub-menu to choose how to bring it in: upload a <strong>PDF</strong>, paste text directly, upload a <code style="font-family:monospace;font-size:0.85em;">.txt</code> file, or fetch a <strong>PDF from a URL</strong>. The AI evaluates your claim against the content and stamps the result permanently on Arweave.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              Due diligence example
-            </h4>
+            <p>Use this tab to stamp any document you have in hand. Use the sub-menu to choose how to bring it in: upload a <strong>PDF</strong>, paste text directly, or fetch a <strong>PDF from a URL</strong>.</p>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Due diligence example</h4>
             <p>A company shares confidential financial projections during due diligence. The buyer stamps the document with a claim such as <em>"this document shows projected revenue above €10M for 2026"</em> — the verdict characterises the content without reproducing the sensitive figures in full.</p>
-            <p>The stamp records a cryptographic hash of the exact document. If either party later disputes what the document said, anyone can verify by fingerprint whether a given file matches the stamped source. A substituted or altered document will not match — revealing any attempt to misrepresent what was shared.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-              What to bring in
-            </h4>
-            <ul>
-              <li>Contracts, term sheets, or NDA clauses</li>
-              <li>Financial statements or projections shared in confidence</li>
-              <li>A statement or promise made in writing</li>
-              <li>An excerpt from a report, article, or chat thread</li>
-            </ul>
-            <p>Shorter, focused excerpts give more precise verdicts than entire documents. Use redaction in your claim to keep sensitive details out of the public verdict.</p>
             <div class="email-guide-fade"></div>
           </div>
           <div class="email-guide-footer">
@@ -1262,24 +496,9 @@
             <span class="email-guide-header-title">How to use the Web tab</span>
           </div>
           <div class="email-guide-body" id="web-guide-body">
-            <p>Paste a public URL and write a claim about what the page says. The AI fetches the page content at the moment you click Analyse and evaluates your claim against it. The result — including a hash of the fetched content — is stamped permanently on Arweave.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              What you can prove
-            </h4>
-            <p>The stamp proves that at this specific moment, the page at this URL contained the content that supports or contradicts your claim. It captures a snapshot — not a live link. If the page is later edited or taken down, the stamp still stands as evidence of what it said at the time of stamping.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              Tips for good results
-            </h4>
-            <ul>
-              <li>Use a direct link to the specific article or page, not a homepage or search result</li>
-              <li>Pages behind a login, paywall, or CAPTCHA cannot be fetched</li>
-              <li>For news articles, government documents, or court filings, the URL itself adds credibility</li>
-              <li>If the page is very long, focus your claim on a specific statement so the AI can evaluate it precisely</li>
-            </ul>
+            <p>Paste a public URL and write a claim about what the page says. The AI fetches the page content at the moment you click Analyse and evaluates your claim against it.</p>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>What you can prove</h4>
+            <p>The stamp proves that at this specific moment, the page at this URL contained the content that supports or contradicts your claim.</p>
             <div class="email-guide-fade"></div>
           </div>
           <div class="email-guide-footer">
@@ -1293,25 +512,9 @@
             <span class="email-guide-header-title">How to use the GitHub tab</span>
           </div>
           <div class="email-guide-body" id="github-guide-body">
-            <p>Enter a GitHub repository and optionally a commit hash, branch, or tag. The AI fetches the specified files and evaluates your claim about the code. The result is stamped permanently — proving that this exact code existed in this repository at this point in time.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              What you can prove
-            </h4>
-            <p>The stamp records the repository, the commit reference, and the AI's verdict. It proves that specific code — a function, a file, an algorithm — existed in a public repository at a given commit. This is useful for establishing an invention timeline, verifying a security claim at release time, or proving authorship.</p>
-            <p>You can also use this tab to stamp a code quality assessment: ask the AI to evaluate whether the code follows security best practices, is free of a specific class of vulnerability, or implements what its documentation claims. The stamp records both the code and the verdict at that exact version — useful for audits, vendor evaluations, or release sign-offs.</p>
-
-            <h4>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-              How to fill in the fields
-            </h4>
-            <ul>
-              <li><strong>Repository:</strong> enter as <code style="font-family:monospace;font-size:0.85em;">owner/repo</code> or paste the full GitHub URL</li>
-              <li><strong>Commit / branch / tag:</strong> leave as <code style="font-family:monospace;font-size:0.85em;">main</code> to use the current HEAD, or enter a specific commit SHA or tag name to pin an exact version</li>
-              <li><strong>File paths:</strong> one path per line, up to 20 files — e.g. <code style="font-family:monospace;font-size:0.85em;">src/auth.py</code>. Leave empty to use the repository README.</li>
-            </ul>
-            <p>Only public repositories are supported without a token. For private repos, generate a GitHub personal access token with <code style="font-family:monospace;font-size:0.85em;">repo</code> read scope and enter it in the token field.</p>
+            <p>Enter a GitHub repository and optionally a commit hash, branch, or tag. The AI fetches the specified files and evaluates your claim about the code.</p>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>What you can prove</h4>
+            <p>The stamp records the repository, the commit reference, and the AI's verdict. It proves that specific code existed in a public repository at a given commit.</p>
             <div class="email-guide-fade"></div>
           </div>
           <div class="email-guide-footer">
@@ -1323,19 +526,9 @@
   </div>
 
   <div id="answer-area"></div>
+{% endblock %}
 
-</div>
-</main>
-
-<footer>
-  <div class="footer-inner">
-    <div class="footer-col footer-brand">
-      <div class="footer-logo-mark">
-        <span class="footer-logo">LEIMA</span>
-        <span class="footer-domain">leima.io</span>
-      </div>
-      <p>Permanent digital notary.<br>Documents verified by AI and sealed on Arweave.</p>
-    </div>
+{% block footer_cols %}
     <div class="footer-col footer-col-readme">
       <span class="footer-col-title">About</span>
       <div class="footer-readme-body">{{ readme_intro | safe }}</div>
@@ -1379,10 +572,9 @@
       <div class="footer-readme-body">{{ proteus_intro | safe }}</div>
       <a class="footer-readme-more" href="/docs/proteus">Read more →</a>
     </div>
-  </div>
-  <div class="footer-bottom">© 2026 Leima — Open source</div>
-</footer>
+{% endblock %}
 
+{% block extra_scripts %}
 <script>
   function handleTxtUpload(input) {
     if (!input.files.length) return;
@@ -1402,7 +594,6 @@
     if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
     if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
-
     if (tab === 'bundle') return Array.from(document.querySelectorAll('#bundle-entries input[name="bundle_manifests"]')).some(i => i.files && i.files.length > 0);
     return false;
   }
@@ -1464,130 +655,72 @@
     document.getElementById('email-raw').value = el.dataset.raw || '';
   }
 
-  const TAB_TITLES = {
-    claim: 'What is your claim?',
-  };
+  const TAB_TITLES = { claim: 'What is your claim?' };
   const DEFAULT_QUESTION_TITLE = 'What do you want to prove about this source?';
 
   const TAB_HINTS = {
-    pdf:       'e.g. <em>"this invoice shows the payment was completed"</em>',
-    'image':   'e.g. <em>"this C2PA image shows a cut-down tree at 60.1699, 24.9384"</em>',
+    pdf:         'e.g. <em>"this invoice shows the payment was completed"</em>',
+    'image':     'e.g. <em>"this C2PA image shows a cut-down tree at 60.1699, 24.9384"</em>',
     'image-url': 'e.g. <em>"this photo shows a flooded street"</em>',
-    text:      'e.g. <em>"the source claims that X"</em>',
-    web:       'e.g. <em>"Apple announced Vision Pro on this page"</em>',
-    email:     'e.g. <em>"Tesla offered me a job in this email"</em>',
-    github:    'e.g. <em>"this code follows best security practices"</em>',
-    bundle:    'e.g. <em>"these email records confirm that ferrarigarage.com sent invoices totalling €87,000 in 2025 for the restoration of vehicle VIN ZFF68NFA4E0205525"</em>',
-    claim:     'e.g. <em>"the first commercial jet passenger flight took place in 1952"</em>',
+    text:        'e.g. <em>"the source claims that X"</em>',
+    web:         'e.g. <em>"Apple announced Vision Pro on this page"</em>',
+    email:       'e.g. <em>"Tesla offered me a job in this email"</em>',
+    github:      'e.g. <em>"this code follows best security practices"</em>',
+    bundle:      'e.g. <em>"these email records confirm that ferrarigarage.com sent invoices totalling €87,000 in 2025"</em>',
+    claim:       'e.g. <em>"the first commercial jet passenger flight took place in 1952"</em>',
   };
   const TAB_PLACEHOLDERS = {
-    pdf:       'this contract was signed by both parties',
-    image:     'this book page states that Napoleon was born in 1769',
+    pdf:         'this contract was signed by both parties',
+    image:       'this book page states that Napoleon was born in 1769',
     'image-url': 'this photo shows damage to the property',
-    text:      'this text contains a refund promise',
-    web:       'this website advertises free worldwide shipping',
-    email:     'the sender promised delivery before Friday',
-    github:    'this repository contains hardcoded secrets',
-    bundle:    'taken together, these verdicts confirm the agreement was in place before the dispute arose',
-    claim:     'the first commercial jet passenger flight took place in 1952',
+    text:        'this text contains a refund promise',
+    web:         'this website advertises free worldwide shipping',
+    email:       'the sender promised delivery before Friday',
+    github:      'this repository contains hardcoded secrets',
+    bundle:      'taken together, these verdicts confirm the agreement was in place before the dispute arose',
+    claim:       'the first commercial jet passenger flight took place in 1952',
   };
 
   const CAT_DEFAULT = {web: 'web', text: 'pdf', image: 'image', email: 'email', github: 'github', bundle: 'bundle', claim: 'claim'};
   const CAT_HAS_SUB = new Set(['text', 'image']);
 
-  function toggleEmailGuide() {
-    const body = document.getElementById('email-guide-body');
-    const toggle = document.getElementById('email-guide-toggle');
-    const expanded = body.classList.toggle('expanded');
-    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
-  }
-
-  function toggleBundleGuide() {
-    const body = document.getElementById('bundle-guide-body');
-    const toggle = document.getElementById('bundle-guide-toggle');
-    const expanded = body.classList.toggle('expanded');
-    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
-  }
-
-  function toggleImageGuide() {
-    const body = document.getElementById('image-guide-body');
-    const toggle = document.getElementById('image-guide-toggle');
-    const expanded = body.classList.toggle('expanded');
-    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
-  }
-
-  function toggleClaimGuide() {
-    const body = document.getElementById('claim-guide-body');
-    const toggle = document.getElementById('claim-guide-toggle');
-    const expanded = body.classList.toggle('expanded');
-    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
-  }
-
-  function toggleTextGuide() {
-    const body = document.getElementById('text-guide-body');
-    const toggle = document.getElementById('text-guide-toggle');
-    const expanded = body.classList.toggle('expanded');
-    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
-  }
-
-  function toggleWebGuide() {
-    const body = document.getElementById('web-guide-body');
-    const toggle = document.getElementById('web-guide-toggle');
-    const expanded = body.classList.toggle('expanded');
-    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
-  }
-
-  function toggleGithubGuide() {
-    const body = document.getElementById('github-guide-body');
-    const toggle = document.getElementById('github-guide-toggle');
-    const expanded = body.classList.toggle('expanded');
-    toggle.textContent = expanded ? 'Show less ↑' : 'Show more ↓';
-  }
-
+  function toggleEmailGuide()  { const b = document.getElementById('email-guide-body');  const t = document.getElementById('email-guide-toggle');  const e = b.classList.toggle('expanded'); t.textContent = e ? 'Show less ↑' : 'Show more ↓'; }
+  function toggleBundleGuide() { const b = document.getElementById('bundle-guide-body'); const t = document.getElementById('bundle-guide-toggle'); const e = b.classList.toggle('expanded'); t.textContent = e ? 'Show less ↑' : 'Show more ↓'; }
+  function toggleImageGuide()  { const b = document.getElementById('image-guide-body');  const t = document.getElementById('image-guide-toggle');  const e = b.classList.toggle('expanded'); t.textContent = e ? 'Show less ↑' : 'Show more ↓'; }
+  function toggleClaimGuide()  { const b = document.getElementById('claim-guide-body');  const t = document.getElementById('claim-guide-toggle');  const e = b.classList.toggle('expanded'); t.textContent = e ? 'Show less ↑' : 'Show more ↓'; }
+  function toggleTextGuide()   { const b = document.getElementById('text-guide-body');   const t = document.getElementById('text-guide-toggle');   const e = b.classList.toggle('expanded'); t.textContent = e ? 'Show less ↑' : 'Show more ↓'; }
+  function toggleWebGuide()    { const b = document.getElementById('web-guide-body');    const t = document.getElementById('web-guide-toggle');    const e = b.classList.toggle('expanded'); t.textContent = e ? 'Show less ↑' : 'Show more ↓'; }
+  function toggleGithubGuide() { const b = document.getElementById('github-guide-body'); const t = document.getElementById('github-guide-toggle'); const e = b.classList.toggle('expanded'); t.textContent = e ? 'Show less ↑' : 'Show more ↓'; }
 
   let _helpPopup = null;
   let _activeHelpBtn = null;
 
-  function _removeHelpPopup() {
-    if (_helpPopup) { _helpPopup.remove(); _helpPopup = null; }
-    _activeHelpBtn = null;
-  }
+  function _removeHelpPopup() { if (_helpPopup) { _helpPopup.remove(); _helpPopup = null; } _activeHelpBtn = null; }
 
   function toggleHelpBtn(btn) {
     if (_activeHelpBtn === btn) { _removeHelpPopup(); return; }
     _removeHelpPopup();
     const tip = btn.getAttribute('data-tip');
     if (!tip) return;
-
     const popup = document.createElement('div');
     popup.className = 'help-tip-popup';
     popup.textContent = tip;
     document.body.appendChild(popup);
-    _helpPopup = popup;
-    _activeHelpBtn = btn;
-
-    // Position the popup above the button, clamped within viewport
+    _helpPopup = popup; _activeHelpBtn = btn;
     const rect = btn.getBoundingClientRect();
     const popupW = Math.min(220, window.innerWidth - 16);
     popup.style.width = popupW + 'px';
-    // Force layout to get popup height
     const popupH = popup.offsetHeight;
     const MARGIN = 8;
     let left = rect.left + rect.width / 2 - popupW / 2;
     left = Math.max(MARGIN, Math.min(left, window.innerWidth - popupW - MARGIN));
     let top = rect.top - popupH - 7;
-    if (top < MARGIN) top = rect.bottom + 7; // flip below if no space above
+    if (top < MARGIN) top = rect.bottom + 7;
     popup.style.left = left + 'px';
     popup.style.top = top + 'px';
   }
 
-  document.addEventListener('click', function(e) {
-    if (!e.target.closest('.help-btn')) {
-      _removeHelpPopup();
-    }
-  });
-
-  // Reposition popup on scroll/resize
+  document.addEventListener('click', function(e) { if (!e.target.closest('.help-btn')) { _removeHelpPopup(); } });
   window.addEventListener('scroll', _removeHelpPopup, true);
   window.addEventListener('resize', _removeHelpPopup);
 
@@ -1624,22 +757,17 @@
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     const panelId = tab === 'image-url' ? 'image' : tab;
     document.getElementById('tab-' + panelId).classList.add('active');
-    if (tab === 'image') {
-      document.getElementById('image-upload-section').style.display = 'block';
-      document.getElementById('image-url-section').style.display = 'none';
-    } else if (tab === 'image-url') {
-      document.getElementById('image-upload-section').style.display = 'none';
-      document.getElementById('image-url-section').style.display = 'block';
-    }
+    if (tab === 'image') { document.getElementById('image-upload-section').style.display = 'block'; document.getElementById('image-url-section').style.display = 'none'; }
+    else if (tab === 'image-url') { document.getElementById('image-upload-section').style.display = 'none'; document.getElementById('image-url-section').style.display = 'block'; }
     if (tab === 'pdf') { pdfMode === 'url' ? showUrlInput() : showDropZone(); }
     document.getElementById('active-tab').value = tab === 'image-url' ? 'image' : tab;
     _currentTab = tab;
-    document.getElementById('email-guide').style.display = (tab === 'email') ? '' : 'none';
+    document.getElementById('email-guide').style.display  = (tab === 'email') ? '' : 'none';
     document.getElementById('bundle-guide').style.display = (tab === 'bundle') ? '' : 'none';
-    document.getElementById('image-guide').style.display = (tab === 'image' || tab === 'image-url') ? '' : 'none';
-    document.getElementById('claim-guide').style.display = (tab === 'claim') ? '' : 'none';
-    document.getElementById('text-guide').style.display = (tab === 'text' || tab === 'pdf') ? '' : 'none';
-    document.getElementById('web-guide').style.display = (tab === 'web') ? '' : 'none';
+    document.getElementById('image-guide').style.display  = (tab === 'image' || tab === 'image-url') ? '' : 'none';
+    document.getElementById('claim-guide').style.display  = (tab === 'claim') ? '' : 'none';
+    document.getElementById('text-guide').style.display   = (tab === 'text' || tab === 'pdf') ? '' : 'none';
+    document.getElementById('web-guide').style.display    = (tab === 'web') ? '' : 'none';
     document.getElementById('github-guide').style.display = (tab === 'github') ? '' : 'none';
     const isGithub = tab === 'github', isBundle = tab === 'bundle', isClaim = tab === 'claim';
     document.getElementById('submit-btn').style.display = '';
@@ -1699,17 +827,14 @@
     if (entries.length >= 10) return;
     c.appendChild(_makeBundleEntry(entries.length + 1, true));
     _updateBundleRemoveButtons();
-    if (c.querySelectorAll('.bundle-entry').length >= 10)
-      document.getElementById('bundle-add-btn').disabled = true;
+    if (c.querySelectorAll('.bundle-entry').length >= 10) document.getElementById('bundle-add-btn').disabled = true;
   }
 
   function removeBundleEntry(btn) {
     const c = document.getElementById('bundle-entries');
     if (c.querySelectorAll('.bundle-entry').length <= 2) return;
     btn.closest('.bundle-entry').remove();
-    c.querySelectorAll('.bundle-entry').forEach((el, i) => {
-      const span = el.querySelector('span'); if (span) span.textContent = i + 1;
-    });
+    c.querySelectorAll('.bundle-entry').forEach((el, i) => { const span = el.querySelector('span'); if (span) span.textContent = i + 1; });
     _updateBundleRemoveButtons();
     document.getElementById('bundle-add-btn').disabled = false;
   }
@@ -1720,7 +845,6 @@
     entries.forEach(el => { const b = el.querySelector('.bundle-remove'); if (b) b.style.display = show ? '' : 'none'; });
   }
 
-  // initialise bundle entries and activate default tab on page load
   (function() {
     _resetBundleEntries();
     _activateTab(_currentTab);
@@ -1731,50 +855,12 @@
   })();
 
   (function() {
-    const tabs = document.querySelector('.tabs');
-    const hint = document.getElementById('tabs-scroll-hint');
-    function updateHint() {
-      if (!tabs || !hint) return;
-      const scrollable = tabs.scrollWidth > tabs.clientWidth + 4;
-      const atEnd = tabs.scrollLeft + tabs.clientWidth >= tabs.scrollWidth - 4;
-      hint.style.opacity = (scrollable && !atEnd) ? '1' : '0';
-    }
-    tabs.addEventListener('scroll', updateHint);
-    window.addEventListener('resize', updateHint);
-    updateHint();
-  })();
-
-  (function() {
-    const bar = document.getElementById('tread-bar');
-    const hint = document.getElementById('tread-scroll-hint');
-    function updateTreadHint() {
-      if (!bar || !hint) return;
-      const scrollable = bar.scrollWidth > bar.clientWidth + 4;
-      const atEnd = bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 4;
-      hint.style.opacity = (scrollable && !atEnd) ? '1' : '0';
-    }
-    bar.addEventListener('scroll', updateTreadHint);
-    window.addEventListener('resize', updateTreadHint);
-    updateTreadHint();
-  })();
-
-  (function() {
-    const dot = document.getElementById('tread-dot');
-    const text = document.getElementById('tread-text');
-    let _savedText = '', _savedDot = '';
-    function goOffline() {
-      _savedText = text.textContent;
-      _savedDot = dot.style.background;
-      text.textContent = 'No connection';
-      dot.style.background = '#e57373';
-    }
-    function goOnline() {
-      text.textContent = _savedText;
-      dot.style.background = _savedDot || '#2a4a62';
-    }
-    window.addEventListener('offline', goOffline);
-    window.addEventListener('online', goOnline);
-    if (!navigator.onLine) goOffline();
+    const form = document.getElementById('main-form');
+    const btn = document.getElementById('submit-btn');
+    form.addEventListener('htmx:beforeRequest', function() { btn.disabled = true; });
+    form.addEventListener('htmx:afterRequest', function() {
+      btn.disabled = (_currentTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
+    });
   })();
 
   function onFileSelect(input) {
@@ -1801,269 +887,6 @@
     const file = e.dataTransfer.files[0];
     if (file && file.type === 'application/pdf') { const input = document.getElementById('pdf-input'); const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; onFileSelect(input); }
   });
-
-  (function() {
-    const form = document.getElementById('main-form');
-    const btn = document.getElementById('submit-btn');
-    form.addEventListener('htmx:beforeRequest', function() {
-      btn.disabled = true;
-    });
-    form.addEventListener('htmx:afterRequest', function() {
-      btn.disabled = (_currentTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
-    });
-  })();
-</script>
-
-<script>
-  (function() {
-    const dot = document.getElementById('tread-dot');
-    const text = document.getElementById('tread-text');
-    const overlay = document.getElementById('tread-modal-overlay');
-    const modalBody = document.getElementById('tread-modal-body');
-    const suppressCb = document.getElementById('tread-modal-suppress-cb');
-    const closeBtn = document.getElementById('tread-modal-close');
-    const howLink = document.getElementById('tread-modal-how');
-    const verifyDiv = document.getElementById('tread-modal-verify');
-    const acceptBtn = document.getElementById('tread-modal-accept');
-    let lastCheckedAt = null;
-    let lastPollAt = null;
-    const SUPPRESS_DURATION_MS = 2 * 60 * 1000;
-    const REPEAT_INTERVAL_MS = 60 * 1000;
-    let lastModalShownAt = 0;
-    let lastModalKey = '';
-    let _deployStart = null;
-    let _deployTicker = null;
-    const _DEPLOY_LS_KEY = 'leima_deploy_start';
-    let _pendingHashes = null;
-    let _gitTreeDanger = false;
-    const _LS_TTL = 24 * 60 * 60 * 1000;
-    function _lsGet(key) { try { const v = localStorage.getItem(key); if (!v) return false; const t = parseInt(v, 10); if (Date.now() - t > _LS_TTL) { localStorage.removeItem(key); return false; } return true; } catch(e) { return false; } }
-    function _lsSet(key) { try { localStorage.setItem(key, Date.now().toString()); } catch(e) {} }
-    function _lsDel(key) { try { localStorage.removeItem(key); } catch(e) {} }
-    let _unauthorizedDeploy = _lsGet('leima_unauthorized_deploy');
-    let _treadMismatch = _lsGet('leima_tread_mismatch');
-    let _treadMismatchAcceptedAt = (() => { try { return localStorage.getItem('leima_tread_mismatch_accepted') || null; } catch(e) { return null; } })();
-    let _wasDeploying = false;
-    let _lastMonitor = null;
-    let _lastLocalChanged = null;
-
-    howLink.addEventListener('click', e => { e.preventDefault(); verifyDiv.style.display = verifyDiv.style.display === 'none' ? 'block' : 'none'; });
-
-    function startDeployTicker() {
-      if (_deployTicker) return;
-      if (!_deployStart) {
-        try {
-          const stored = localStorage.getItem(_DEPLOY_LS_KEY);
-          _deployStart = stored ? parseInt(stored, 10) : Date.now();
-          localStorage.setItem(_DEPLOY_LS_KEY, _deployStart);
-        } catch { _deployStart = Date.now(); }
-      }
-      _deployTicker = setInterval(() => {
-        const el = document.getElementById('tread-deploy-elapsed');
-        if (el) el.textContent = '(' + Math.round((Date.now() - _deployStart) / 1000) + 's)';
-      }, 1000);
-    }
-    function stopDeployTicker() {
-      if (_deployTicker) { clearInterval(_deployTicker); _deployTicker = null; }
-      _deployStart = null;
-      try { localStorage.removeItem(_DEPLOY_LS_KEY); } catch {}
-    }
-
-    function isSuppressed(key) {
-      try { const v = localStorage.getItem('tread_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
-    }
-    function checkGitTree(hashes) {
-      const LS_KEY = 'leima_git_tree_v3';
-      let prev = null;
-      try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
-      if (!prev || !Object.keys(hashes).length) {
-        try { localStorage.setItem(LS_KEY, JSON.stringify(hashes)); } catch {}
-        return null;
-      }
-      const changed = Object.keys(hashes).filter(k => hashes[k] !== prev[k]);
-      if (changed.length === 0) {
-        try { localStorage.setItem(LS_KEY, JSON.stringify(hashes)); } catch {}
-      }
-      return changed.length ? changed : null;
-    }
-    function acceptGitTreeBaseline(hashes) {
-      try { localStorage.setItem('leima_git_tree_v3', JSON.stringify(hashes)); } catch {}
-    }
-    function showWarning(key, message, opts) {
-      if (isSuppressed(key)) return;
-      const now = Date.now();
-      if (lastModalKey === key && now - lastModalShownAt < REPEAT_INTERVAL_MS) return;
-      lastModalShownAt = now; lastModalKey = key; suppressCb.checked = false;
-      modalBody.textContent = message; overlay.classList.add('visible');
-      const debugEl = document.getElementById('tread-modal-debug');
-      if (debugEl) {
-        debugEl.value = 'Trigger: ' + key + '\nlocalChanged: ' + JSON.stringify(_lastLocalChanged) + '\nChecked: ' + new Date().toISOString() + '\nMonitor: ' + JSON.stringify(_lastMonitor, null, 2);
-        debugEl.style.display = 'block';
-      }
-      verifyDiv.style.display = 'none';
-      const instructions = opts && opts.instructions;
-      const hashes = opts && opts.hashes;
-      const onAccept = opts && opts.onAccept;
-      if (instructions) {
-        document.querySelector('#tread-modal-verify p').textContent = instructions;
-        _pendingHashes = hashes || null;
-        howLink.style.display = 'inline';
-        acceptBtn.onclick = () => {
-          if (hashes) acceptGitTreeBaseline(hashes);
-          if (onAccept) onAccept();
-          overlay.classList.remove('visible');
-          verifyDiv.style.display = 'none';
-          howLink.style.display = 'none';
-        };
-      } else {
-        _pendingHashes = null;
-        howLink.style.display = 'none';
-      }
-      closeBtn.onclick = function() {
-        if (suppressCb.checked) { try { localStorage.setItem('tread_suppress_' + key, Date.now().toString()); } catch(e) {} }
-        overlay.classList.remove('visible');
-        verifyDiv.style.display = 'none';
-      };
-    }
-    document.addEventListener('visibilitychange', function() { if (!document.hidden) { lastModalShownAt = 0; update(); } });
-
-    function ago(ts) {
-      if (!ts) return '—';
-      const s = Math.floor((Date.now() - ts) / 1000);
-      return s < 60 ? s + 's' : Math.floor(s / 60) + 'm';
-    }
-    function setDot(mode) {
-      if (mode === 'danger') { dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;'; dot.textContent = '⛔'; }
-      else { dot.textContent = ''; const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#3d6a8a'; dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:treadPulse 2.4s ease-in-out infinite;transform-origin:center;'; }
-    }
-    function row(statusText, statusColor, reason) {
-      return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
-           + (reason ? ' <span style="color:#fff;font-weight:400">' + reason + '</span>' : '')
-           + ' <span style="color:#fff;font-size:0.78rem;margin-left:0.3rem">· TREAD check:'
-           + ' <span id="tread-ago-inner">' + ago(lastPollAt) + '/' + ago(lastCheckedAt) + '</span>'
-           + ' · <a href="https://fxg55647.github.io/leima/audit.html" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">log</a>'
-           + ' · <a href="/docs/tread" style="color:#fff;text-decoration:underline;text-underline-offset:2px;">info</a></span>';
-    }
-    function fadeSet(html, dotMode) {
-      text.style.opacity = '0';
-      setTimeout(() => {
-        if (dotMode) setDot(dotMode);
-        text.innerHTML = html;
-        text.style.opacity = '1';
-        const th = document.getElementById('tread-scroll-hint');
-        const bar = document.getElementById('tread-bar');
-        if (th && bar) {
-          const scrollable = bar.scrollWidth > bar.clientWidth + 4;
-          const atEnd = bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 4;
-          th.style.opacity = (scrollable && !atEnd) ? '1' : '0';
-        }
-      }, 280);
-    }
-    function update() {
-      Promise.all([
-        fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
-        fetch('/tread-monitor?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).catch(() => null),
-      ]).then(([d, monitor]) => {
-        _lastMonitor = monitor;
-        const p = d.tread || {};
-        lastPollAt = Date.now();
-        lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
-
-        // SHA-ketjun seuranta localStoragessa
-        if (monitor && monitor.deploy_incoming_sha) {
-          try { localStorage.setItem('leima_expected_sha', monitor.deploy_incoming_sha); } catch(e) {}
-        }
-        if (monitor && monitor.review_completed_sha) {
-          const expectedSha = localStorage.getItem('leima_expected_sha') || '';
-          const rsha = monitor.review_completed_sha;
-          if (expectedSha && (rsha.startsWith(expectedSha.slice(0,7)) || expectedSha.startsWith(rsha.slice(0,7)))) {
-            try { localStorage.setItem('leima_reviewed_sha', rsha); } catch(e) {}
-          }
-        }
-
-        // Päivitä pysyvät liput
-        const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
-        _lastLocalChanged = localChanged;
-        const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
-        if (localChanged || kvChanged) _gitTreeDanger = true;
-        if (monitor && monitor.unauthorized_deploy) { _unauthorizedDeploy = true; _lsSet('leima_unauthorized_deploy'); }
-        if (monitor && monitor.sys_env_mismatches && Object.keys(monitor.sys_env_mismatches).length > 0) _gitTreeDanger = true;
-        if (p.ok === false && !(monitor && monitor.ok === true) && !_wasDeploying && !(monitor && monitor.pre_deploy_active)) {
-          const checkedAt = p.checked_at || '';
-          if (!_treadMismatchAcceptedAt || checkedAt !== _treadMismatchAcceptedAt) {
-            _treadMismatch = true;
-            _lsSet('leima_tread_mismatch');
-          }
-        } else if (p.ok === true && _treadMismatch) {
-          // TREAD kertoo nyt että kaikki ok — varoitus oli hetkellinen (deploy-ikkuna)
-          _treadMismatch = false;
-          _treadMismatchAcceptedAt = p.checked_at || '';
-          _lsDel('leima_tread_mismatch');
-          try { localStorage.setItem('leima_tread_mismatch_accepted', p.checked_at || ''); } catch(e) {}
-        }
-
-        // Pysyvät liput ensin — mikään ei syrjäytä niitä
-        if (_gitTreeDanger) {
-          const files = localChanged || (monitor && monitor.changed) || [];
-          showWarning('github_monitor_changed', 'GitHub surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.', {
-            instructions: 'Open the repository on GitHub and check the git log for the files listed above. Confirm no unauthorized changes were made. If you have verified the changes are legitimate, accept below.',
-            hashes: monitor && monitor.hashes,
-            onAccept: () => { _gitTreeDanger = false; }
-          });
-          fadeSet(row('Danger', '#ff6b6b', 'github files changed'), 'danger');
-          return;
-        }
-        if (_unauthorizedDeploy) {
-          showWarning('unauthorized_deploy', 'A Vercel deployment is in progress with no code review on record for this commit.\n\nDo not submit sensitive documents until this is resolved. Check GitHub Actions and the Vercel dashboard.', {
-            instructions: 'Open GitHub Actions and confirm that code_review.yml ran successfully for this commit. Open the Vercel dashboard and confirm who triggered the deployment and why. If you have verified the deployment is legitimate, accept below.',
-            onAccept: () => { _unauthorizedDeploy = false; _lsDel('leima_unauthorized_deploy'); }
-          });
-          fadeSet(row('Danger', '#ff6b6b', 'unauthorized deploy detected'), 'danger');
-          return;
-        }
-        if (_treadMismatch) {
-          stopDeployTicker();
-          showWarning('tread_mismatch', 'TREAD reports a mismatch: the deployed code does not match the last verified commit.\n\nDo not submit sensitive documents until this is resolved. Check the TREAD audit log for details.', {
-            instructions: 'Open the TREAD audit log on GitHub Pages and verify the deployed commit matches GitHub HEAD. Check that no workflow files have been disabled or modified. If you have verified the code is legitimate, accept below.',
-            onAccept: () => { _treadMismatch = false; _treadMismatchAcceptedAt = p.checked_at || ''; _lsDel('leima_tread_mismatch'); try { localStorage.setItem('leima_tread_mismatch_accepted', p.checked_at || ''); } catch(e) {} }
-          });
-          fadeSet(row('Danger', '#ff6b6b', 'mismatch'), 'danger');
-          return;
-        }
-
-        // Normaali tilaketju
-        if (monitor && monitor.deploy_incoming && !p.ok) {
-          fadeSet(row('Notice!', '#f0a030', 'deploy incoming — production update in ~2 min'), 'warning');
-        } else if (monitor && monitor.review_in_progress && monitor.deploy_incoming) {
-          fadeSet(row('Notice!', '#f0a030', 'code review in progress — deploy imminent'), 'warning');
-        } else if (monitor && monitor.deploying) {
-          const reviewedSha = (() => { try { return localStorage.getItem('leima_reviewed_sha') || ''; } catch(e) { return ''; } })();
-          const dc = monitor.deploying_commit || '';
-          const chainOk = !dc || !reviewedSha || dc.startsWith(reviewedSha.slice(0,7)) || reviewedSha.startsWith(dc.slice(0,7));
-          if (!chainOk) { _unauthorizedDeploy = true; _lsSet('leima_unauthorized_deploy'); }
-          _wasDeploying = true;
-          startDeployTicker();
-          const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
-          fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');
-        } else if (p.review_stuck) {
-          stopDeployTicker();
-          fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
-        } else if (p.ok) {
-          stopDeployTicker();
-          _wasDeploying = false;
-          fadeSet(row('deploy matches git', '#fff', ''), 'ok');
-        } else if (p.ok === null && lastCheckedAt) {
-          fadeSet(row('Notice!', '#f0a030', 'GitHub API unavailable — verification incomplete'), 'warning');
-        } else {
-          fadeSet(row('Checking…', '#aaa', ''), 'loading');
-        }
-      }).catch(() => { lastCheckedAt = null; fadeSet(row('Server or network error', '#f0a030', ''), 'warning'); });
-
-    }
-    update();
-    setInterval(update, 10000);
-    setInterval(() => { const el = document.getElementById('tread-ago-inner'); if (el) el.textContent = ago(lastPollAt) + '/' + ago(lastCheckedAt); }, 15000);
-  })();
 </script>
 
 <script>
@@ -2081,6 +904,4 @@
     alignFooter();
   })();
 </script>
-
-</body>
-</html>
+{% endblock %}
