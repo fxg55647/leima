@@ -97,8 +97,9 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }}
         run: |
           npm install -g vercel
-          git fetch origin
-          git reset --hard origin/main
+          DEPLOY_SHA=$(git rev-parse HEAD)
+          VERCEL_GIT_COMMIT_SHA=$DEPLOY_SHA \
+          VERCEL_GIT_COMMIT_REF=main \
           vercel deploy --prod --yes --token "$VERCEL_TOKEN"
 
       - name: Wake up TREAD
