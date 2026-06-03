@@ -863,6 +863,15 @@ def _tread_intro() -> str:
         print(f"_tread_intro error: {e!r}")
         return ""
 
+def _proteus_intro() -> str:
+    try:
+        text = open(os.path.join(os.path.dirname(__file__), "PROTEUS.md"), encoding="utf-8").read()
+        intro = text.split("---")[0].strip()
+        return _md.markdown(intro)
+    except Exception as e:
+        print(f"_proteus_intro error: {e!r}")
+        return ""
+
 def _community_intro() -> str:
     try:
         text = open(os.path.join(os.path.dirname(__file__), "COMMUNITY.md"), encoding="utf-8").read()
@@ -882,6 +891,7 @@ _DOCS: dict[str, tuple[str, str]] = {
     "zkse":       ("ZKSE.md",          "Zero-Knowledge Semantic Evaluation"),
     "policy":     ("POLICY.example.md","Data policy"),
     "inspection": ("INSPECTION.md",    "Inspection protocol"),
+    "proteus":    ("PROTEUS.md",       "Proteus — Epistemic Privacy for LLM APIs"),
 }
 
 # Reverse map: filename.md → /docs/slug (for rewriting internal links)
@@ -913,12 +923,12 @@ async def doc_page(request: Request, name: str):
         content = _fix_doc_links(content)
     except FileNotFoundError:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse("doc.html", {"request": request, "title": title, "content": content, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro()})
+    return templates.TemplateResponse("doc.html", {"request": request, "title": title, "content": content, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro(), "proteus_intro": _proteus_intro()})
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro()})
+    return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro(), "proteus_intro": _proteus_intro()})
 
 
 @app.get("/validate", response_class=HTMLResponse)
