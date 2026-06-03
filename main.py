@@ -689,9 +689,14 @@ async def tread_monitor():
     token = os.getenv("GITHUB_DISPATCH_TOKEN") or os.getenv("GITHUB_TOKEN", "")
     now = time.time()
 
-    # Return cached result if fresh
+    # Return cached result if fresh, but always inject live deploy_incoming
     cached = _kv_get(_KV_MONITOR_CACHE)
     if cached and now - cached.get("cached_at", 0) < 10:
+        incoming = _kv_get(_KV_DEPLOY_INCOMING)
+        if incoming:
+            cached = dict(cached)
+            cached["deploy_incoming"] = True
+            cached["deploy_incoming_sha"] = incoming.get("sha")
         return cached
 
     def _fetch_last_review_sha():
