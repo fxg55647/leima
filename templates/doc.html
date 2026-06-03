@@ -6,6 +6,7 @@
   <title>Leima — {{ title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet">
+  <script defer src="/_vercel/insights/script.js"></script>
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -188,9 +189,10 @@
     }
     #tread-modal-overlay.visible { display: flex; }
     #tread-modal {
-      background: #0f1e30; border: 1px solid #c0392b; border-radius: 8px;
+      background: #07111e; border: 1px solid #c0392b; border-radius: 8px;
       padding: 1.75rem 2rem; max-width: 480px; width: 90%;
       color: #c8dff0; font-family: 'Spectral', Georgia, serif;
+      max-height: 85vh; overflow-y: auto;
     }
     #tread-modal h2 { font-size: 1rem; font-weight: 700; color: #e05555; margin-bottom: 0.875rem; letter-spacing: 0.04em; font-family: 'Playfair Display', Georgia, serif; }
     #tread-modal p { font-size: 0.875rem; line-height: 1.6; color: #6a8899; margin-bottom: 1.25rem; white-space: pre-line; }
@@ -201,7 +203,7 @@
     #tread-modal-close:hover { background: #a84444; }
 
     #tread-bar {
-      width: 100%; background: #07111e; height: 26px;
+      width: 100%; background: #122840; height: 26px;
       display: flex; align-items: center; border-bottom: 3px solid #c0392b;
       font-family: "SF Mono", Consolas, monospace; font-size: 0.7rem;
       letter-spacing: 0.02em; flex-shrink: 0;
@@ -269,12 +271,25 @@
   <div id="tread-modal">
     <h2 id="tread-modal-title">⚠ TREAD WARNING</h2>
     <p id="tread-modal-body"></p>
+    <textarea id="tread-modal-debug" readonly style="display:none;width:100%;margin-top:0.8rem;background:#0a1520;color:#7a9bb0;border:1px solid #1e3a4a;border-radius:4px;font-size:0.72rem;font-family:monospace;padding:0.5rem;resize:vertical;height:8rem;box-sizing:border-box;"></textarea>
+    <div id="tread-modal-verify" style="display:none;margin-top:1rem;padding:0.9rem;background:#0d1f2d;border-radius:6px;font-size:0.82rem;color:#8ab;">
+      <p style="margin:0 0 0.6rem 0;color:#cde;">To dismiss this warning, verify the changed files on GitHub and confirm the changes are legitimate:</p>
+      <ol style="margin:0 0 0.8rem 1.2rem;padding:0;color:#8ab;line-height:1.7;">
+        <li>Open the repository on GitHub</li>
+        <li>Check the git log for the files listed above</li>
+        <li>Confirm no unauthorized changes were made</li>
+      </ol>
+      <button id="tread-modal-accept" style="background:#1a4a2a;color:#6dbb8a;border:1px solid #2a6a3a;padding:0.4rem 1rem;border-radius:4px;cursor:pointer;font-size:0.82rem;">I have verified — accept and update my baseline</button>
+    </div>
     <div id="tread-modal-footer">
       <label id="tread-modal-suppress">
         <input type="checkbox" id="tread-modal-suppress-cb">
-        Don't show again for 1 hour
+        Don't show again for 2 minutes
       </label>
-      <button id="tread-modal-close">Acknowledge</button>
+      <div style="display:flex;gap:0.6rem;align-items:center;">
+        <a id="tread-modal-how" href="#" style="font-size:0.78rem;color:#6a8899;text-decoration:underline;display:none;">How to dismiss this?</a>
+        <button id="tread-modal-close">Acknowledge</button>
+      </div>
     </div>
   </div>
 </div>
@@ -411,35 +426,119 @@
     const modalBody = document.getElementById('tread-modal-body');
     const suppressCb = document.getElementById('tread-modal-suppress-cb');
     const closeBtn = document.getElementById('tread-modal-close');
-    let lastCheckedAt = null, lastPollAt = null;
-    const SUPPRESS_DURATION_MS = 60 * 60 * 1000;
+    const howLink = document.getElementById('tread-modal-how');
+    const verifyDiv = document.getElementById('tread-modal-verify');
+    const acceptBtn = document.getElementById('tread-modal-accept');
+    let lastCheckedAt = null;
+    let lastPollAt = null;
+    const SUPPRESS_DURATION_MS = 2 * 60 * 1000;
     const REPEAT_INTERVAL_MS = 60 * 1000;
-    let lastModalShownAt = 0, lastModalKey = '';
+    let lastModalShownAt = 0;
+    let lastModalKey = '';
+    let _deployStart = null;
+    let _deployTicker = null;
+    const _DEPLOY_LS_KEY = 'leima_deploy_start';
+    let _pendingHashes = null;
+    let _gitTreeDanger = false;
+    const _LS_TTL = 24 * 60 * 60 * 1000;
+    function _lsGet(key) { try { const v = localStorage.getItem(key); if (!v) return false; const t = parseInt(v, 10); if (Date.now() - t > _LS_TTL) { localStorage.removeItem(key); return false; } return true; } catch(e) { return false; } }
+    function _lsSet(key) { try { localStorage.setItem(key, Date.now().toString()); } catch(e) {} }
+    function _lsDel(key) { try { localStorage.removeItem(key); } catch(e) {} }
+    let _unauthorizedDeploy = _lsGet('leima_unauthorized_deploy');
+    let _treadMismatch = _lsGet('leima_tread_mismatch');
+    let _treadMismatchAcceptedAt = (() => { try { return localStorage.getItem('leima_tread_mismatch_accepted') || null; } catch(e) { return null; } })();
+    let _wasDeploying = false;
+    let _lastMonitor = null;
+    let _lastLocalChanged = null;
 
-    function isSuppressed(key) { try { const v = localStorage.getItem('tread_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch { return false; } }
-    function checkMonitorFiles(current) {
-      const LS_KEY = 'leima_monitor_files'; let prev = null;
+    howLink.addEventListener('click', e => { e.preventDefault(); verifyDiv.style.display = verifyDiv.style.display === 'none' ? 'block' : 'none'; });
+
+    function startDeployTicker() {
+      if (_deployTicker) return;
+      if (!_deployStart) {
+        try {
+          const stored = localStorage.getItem(_DEPLOY_LS_KEY);
+          _deployStart = stored ? parseInt(stored, 10) : Date.now();
+          localStorage.setItem(_DEPLOY_LS_KEY, _deployStart);
+        } catch { _deployStart = Date.now(); }
+      }
+      _deployTicker = setInterval(() => {
+        const el = document.getElementById('tread-deploy-elapsed');
+        if (el) el.textContent = '(' + Math.round((Date.now() - _deployStart) / 1000) + 's)';
+      }, 1000);
+    }
+    function stopDeployTicker() {
+      if (_deployTicker) { clearInterval(_deployTicker); _deployTicker = null; }
+      _deployStart = null;
+      try { localStorage.removeItem(_DEPLOY_LS_KEY); } catch {}
+    }
+
+    function isSuppressed(key) {
+      try { const v = localStorage.getItem('tread_suppress_' + key); if (!v) return false; return Date.now() - parseInt(v, 10) < SUPPRESS_DURATION_MS; } catch(e) { return false; }
+    }
+    function checkGitTree(hashes) {
+      const LS_KEY = 'leima_git_tree_v3';
+      let prev = null;
       try { const s = localStorage.getItem(LS_KEY); if (s) prev = JSON.parse(s); } catch {}
-      try { localStorage.setItem(LS_KEY, JSON.stringify(current)); } catch {}
-      if (!prev || !Object.keys(current).length) return null;
-      const changed = Object.keys(current).filter(k => current[k] !== prev[k]);
+      if (!prev || !Object.keys(hashes).length) {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(hashes)); } catch {}
+        return null;
+      }
+      const changed = Object.keys(hashes).filter(k => hashes[k] !== prev[k]);
+      if (changed.length === 0) {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(hashes)); } catch {}
+      }
       return changed.length ? changed : null;
     }
-    function showWarning(key, message) {
+    function acceptGitTreeBaseline(hashes) {
+      try { localStorage.setItem('leima_git_tree_v3', JSON.stringify(hashes)); } catch {}
+    }
+    function showWarning(key, message, opts) {
       if (isSuppressed(key)) return;
       const now = Date.now();
       if (lastModalKey === key && now - lastModalShownAt < REPEAT_INTERVAL_MS) return;
       lastModalShownAt = now; lastModalKey = key; suppressCb.checked = false;
       modalBody.textContent = message; overlay.classList.add('visible');
+      const debugEl = document.getElementById('tread-modal-debug');
+      if (debugEl) {
+        debugEl.value = 'Trigger: ' + key + '\nlocalChanged: ' + JSON.stringify(_lastLocalChanged) + '\nChecked: ' + new Date().toISOString() + '\nMonitor: ' + JSON.stringify(_lastMonitor, null, 2);
+        debugEl.style.display = 'block';
+      }
+      verifyDiv.style.display = 'none';
+      const instructions = opts && opts.instructions;
+      const hashes = opts && opts.hashes;
+      const onAccept = opts && opts.onAccept;
+      if (instructions) {
+        document.querySelector('#tread-modal-verify p').textContent = instructions;
+        _pendingHashes = hashes || null;
+        howLink.style.display = 'inline';
+        acceptBtn.onclick = () => {
+          if (hashes) acceptGitTreeBaseline(hashes);
+          if (onAccept) onAccept();
+          overlay.classList.remove('visible');
+          verifyDiv.style.display = 'none';
+          howLink.style.display = 'none';
+        };
+      } else {
+        _pendingHashes = null;
+        howLink.style.display = 'none';
+      }
       closeBtn.onclick = function() {
-        if (suppressCb.checked) { try { localStorage.setItem('tread_suppress_' + key, Date.now().toString()); } catch {} }
+        if (suppressCb.checked) { try { localStorage.setItem('tread_suppress_' + key, Date.now().toString()); } catch(e) {} }
         overlay.classList.remove('visible');
+        verifyDiv.style.display = 'none';
       };
     }
-    function ago(ts) { if (!ts) return '—'; const s = Math.floor((Date.now() - ts) / 1000); return s < 60 ? s + 's' : Math.floor(s / 60) + 'm'; }
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) { lastModalShownAt = 0; update(); } });
+
+    function ago(ts) {
+      if (!ts) return '—';
+      const s = Math.floor((Date.now() - ts) / 1000);
+      return s < 60 ? s + 's' : Math.floor(s / 60) + 'm';
+    }
     function setDot(mode) {
       if (mode === 'danger') { dot.style.cssText = 'flex-shrink:0;font-size:0.8rem;line-height:1;animation:none;'; dot.textContent = '⛔'; }
-      else { dot.textContent = ''; const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#2a4a62'; dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:treadPulse 2.4s ease-in-out infinite;transform-origin:center;'; }
+      else { dot.textContent = ''; const bg = mode === 'ok' ? '#2ecc71' : mode === 'warning' ? '#f0a030' : '#3d6a8a'; dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + bg + ';display:inline-block;flex-shrink:0;transition:background 0.5s ease;animation:treadPulse 2.4s ease-in-out infinite;transform-origin:center;'; }
     }
     function row(statusText, statusColor, reason) {
       return '<span style="font-weight:600;color:' + statusColor + '">' + statusText + '</span>'
@@ -451,42 +550,116 @@
     }
     function fadeSet(html, dotMode) {
       text.style.opacity = '0';
-      setTimeout(() => { if (dotMode) setDot(dotMode); text.innerHTML = html; text.style.opacity = '1'; }, 280);
+      setTimeout(() => {
+        if (dotMode) setDot(dotMode);
+        text.innerHTML = html;
+        text.style.opacity = '1';
+        const th = document.getElementById('tread-scroll-hint');
+        const bar = document.getElementById('tread-bar');
+        if (th && bar) {
+          const scrollable = bar.scrollWidth > bar.clientWidth + 4;
+          const atEnd = bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 4;
+          th.style.opacity = (scrollable && !atEnd) ? '1' : '0';
+        }
+      }, 280);
     }
     function update() {
-      fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(d => {
+      Promise.all([
+        fetch('/version?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()),
+        fetch('/tread-monitor?_=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).catch(() => null),
+      ]).then(([d, monitor]) => {
+        _lastMonitor = monitor;
         const p = d.tread || {};
-        const running = d.commit || '', verified = p.verified_commit || '';
         lastPollAt = Date.now();
         lastCheckedAt = p.checked_at ? new Date(p.checked_at.replace(' ', 'T').replace(' UTC', 'Z')).getTime() : null;
-        const commitMatch = running && verified && running.startsWith(verified);
-        const unknownCommit = running === 'unknown' || !running;
-        const changedFiles = checkMonitorFiles(p.monitor_files || {});
-        const dispatcherChanged = p.dispatcher_monitor_changed && p.dispatcher_monitor_changed.length > 0;
-        if (changedFiles || dispatcherChanged) {
-          const files = changedFiles || p.dispatcher_monitor_changed;
-          showWarning('monitor_changed', 'Surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.');
-          fadeSet(row('Danger', '#ff6b6b', 'surveillance files changed'), 'danger'); return;
+
+        if (monitor && monitor.deploy_incoming_sha) {
+          try { localStorage.setItem('leima_expected_sha', monitor.deploy_incoming_sha); } catch(e) {}
         }
-        if (p.review_stuck) {
+        if (monitor && monitor.review_completed_sha) {
+          const expectedSha = localStorage.getItem('leima_expected_sha') || '';
+          const rsha = monitor.review_completed_sha;
+          if (expectedSha && (rsha.startsWith(expectedSha.slice(0,7)) || expectedSha.startsWith(rsha.slice(0,7)))) {
+            try { localStorage.setItem('leima_reviewed_sha', rsha); } catch(e) {}
+          }
+        }
+
+        const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
+        _lastLocalChanged = localChanged;
+        const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
+        if (localChanged || kvChanged) _gitTreeDanger = true;
+        if (monitor && monitor.unauthorized_deploy) { _unauthorizedDeploy = true; _lsSet('leima_unauthorized_deploy'); }
+        if (monitor && monitor.sys_env_mismatches && Object.keys(monitor.sys_env_mismatches).length > 0) _gitTreeDanger = true;
+        if (p.ok === false && !(monitor && monitor.ok === true) && !_wasDeploying && !(monitor && monitor.pre_deploy_active)) {
+          const checkedAt = p.checked_at || '';
+          if (!_treadMismatchAcceptedAt || checkedAt !== _treadMismatchAcceptedAt) {
+            _treadMismatch = true;
+            _lsSet('leima_tread_mismatch');
+          }
+        } else if (p.ok === true && _treadMismatch) {
+          _treadMismatch = false;
+          _treadMismatchAcceptedAt = p.checked_at || '';
+          _lsDel('leima_tread_mismatch');
+          try { localStorage.setItem('leima_tread_mismatch_accepted', p.checked_at || ''); } catch(e) {}
+        }
+
+        if (_gitTreeDanger) {
+          const files = localChanged || (monitor && monitor.changed) || [];
+          showWarning('github_monitor_changed', 'GitHub surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.', {
+            instructions: 'Open the repository on GitHub and check the git log for the files listed above. Confirm no unauthorized changes were made. If you have verified the changes are legitimate, accept below.',
+            hashes: monitor && monitor.hashes,
+            onAccept: () => { _gitTreeDanger = false; }
+          });
+          fadeSet(row('Danger', '#ff6b6b', 'github files changed'), 'danger');
+          return;
+        }
+        if (_unauthorizedDeploy) {
+          showWarning('unauthorized_deploy', 'A Vercel deployment is in progress with no code review on record for this commit.\n\nDo not submit sensitive documents until this is resolved. Check GitHub Actions and the Vercel dashboard.', {
+            instructions: 'Open GitHub Actions and confirm that code_review.yml ran successfully for this commit. Open the Vercel dashboard and confirm who triggered the deployment and why. If you have verified the deployment is legitimate, accept below.',
+            onAccept: () => { _unauthorizedDeploy = false; _lsDel('leima_unauthorized_deploy'); }
+          });
+          fadeSet(row('Danger', '#ff6b6b', 'unauthorized deploy detected'), 'danger');
+          return;
+        }
+        if (_treadMismatch) {
+          stopDeployTicker();
+          showWarning('tread_mismatch', 'TREAD reports a mismatch: the deployed code does not match the last verified commit.\n\nDo not submit sensitive documents until this is resolved. Check the TREAD audit log for details.', {
+            instructions: 'Open the TREAD audit log on GitHub Pages and verify the deployed commit matches GitHub HEAD. Check that no workflow files have been disabled or modified. If you have verified the code is legitimate, accept below.',
+            onAccept: () => { _treadMismatch = false; _treadMismatchAcceptedAt = p.checked_at || ''; _lsDel('leima_tread_mismatch'); try { localStorage.setItem('leima_tread_mismatch_accepted', p.checked_at || ''); } catch(e) {} }
+          });
+          fadeSet(row('Danger', '#ff6b6b', 'mismatch'), 'danger');
+          return;
+        }
+
+        if (monitor && monitor.deploy_incoming && !p.ok) {
+          fadeSet(row('Notice!', '#f0a030', 'deploy incoming — production update in ~2 min'), 'warning');
+        } else if (monitor && monitor.review_in_progress && monitor.deploy_incoming) {
+          fadeSet(row('Notice!', '#f0a030', 'code review in progress — deploy imminent'), 'warning');
+        } else if (monitor && monitor.deploying) {
+          const reviewedSha = (() => { try { return localStorage.getItem('leima_reviewed_sha') || ''; } catch(e) { return ''; } })();
+          const dc = monitor.deploying_commit || '';
+          const chainOk = !dc || !reviewedSha || dc.startsWith(reviewedSha.slice(0,7)) || reviewedSha.startsWith(dc.slice(0,7));
+          if (!chainOk) { _unauthorizedDeploy = true; _lsSet('leima_unauthorized_deploy'); }
+          _wasDeploying = true;
+          startDeployTicker();
+          const s = _deployStart ? Math.round((Date.now() - _deployStart) / 1000) : 0;
+          fadeSet(row('Notice!', '#f0a030', 'Deploying <span id="tread-deploy-elapsed">(' + s + 's)</span>'), 'warning');
+        } else if (p.review_stuck) {
+          stopDeployTicker();
           fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
-        } else if (p.deploying && p.deploying_commit_ok === false && p.deploying_commit) {
-          showWarning('dangerous_deploy_' + (p.deploying_commit || '').slice(0,7),
-            'An unauthorized commit is being deployed to production:\n' + (p.deploying_commit||'?').slice(0,7) + ' ≠ ' + (p.verified_commit||'?').slice(0,7) + '\n\nDo not submit sensitive documents until this is resolved.');
-          fadeSet(row('Danger', '#ff6b6b', 'unauthorized commit deploying'), 'danger');
-        } else if (p.deploying || (!unknownCommit && verified && !commitMatch)) {
-          fadeSet(row('Notice!', '#f0a030', 'Deploying'), 'warning');
-        } else if (p.ok || commitMatch) {
+        } else if (p.ok) {
+          stopDeployTicker();
+          _wasDeploying = false;
           fadeSet(row('deploy matches git', '#fff', ''), 'ok');
-        } else if (p.ok === false) {
-          fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'key missing' : 'mismatch'), 'danger');
+        } else if (p.ok === null && lastCheckedAt) {
+          fadeSet(row('Notice!', '#f0a030', 'GitHub API unavailable — verification incomplete'), 'warning');
         } else {
           fadeSet(row('Checking…', '#aaa', ''), 'loading');
         }
-      }).catch(() => { fadeSet(row('Server or network error', '#f0a030', ''), 'warning'); });
+      }).catch(() => { lastCheckedAt = null; fadeSet(row('Server or network error', '#f0a030', ''), 'warning'); });
     }
     update();
-    setInterval(update, 20000);
+    setInterval(update, 10000);
     setInterval(() => { const el = document.getElementById('tread-ago-inner'); if (el) el.textContent = ago(lastPollAt) + '/' + ago(lastCheckedAt); }, 15000);
   })();
 </script>
