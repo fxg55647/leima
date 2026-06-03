@@ -908,9 +908,9 @@ def _community_intro() -> str:
 def _usecases_intro() -> str:
     try:
         text = open(os.path.join(os.path.dirname(__file__), "USECASES.md"), encoding="utf-8").read()
-        paras = [p.strip() for p in text.split("\n\n") if p.strip() and not p.strip().startswith("#")]
+        paras = [p.strip() for p in text.split("\n\n") if p.strip() and not p.strip().startswith("#") and p.strip() != "---"]
         excerpt = "\n\n".join(paras[:2])
-        return _md.markdown(excerpt)
+        return _md.markdown(excerpt).replace("<hr />", "").replace("<hr>", "")
     except Exception as e:
         print(f"_usecases_intro error: {e!r}")
         return ""
