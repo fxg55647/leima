@@ -13,10 +13,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }}
         run: |
           npm install -g vercel
-          vercel deploy \
-            --token "$VERCEL_TOKEN" \
-            --yes \
-            ${VERCEL_TEAM_ID:+--scope "$VERCEL_TEAM_ID"}
+          vercel deploy --token "$VERCEL_TOKEN" --yes
