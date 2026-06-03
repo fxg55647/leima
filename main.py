@@ -133,7 +133,8 @@ def _kv_get(key: str = _KV_KEY) -> dict | None:
                                headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
         val = r.json().get("result") if r.status_code == 200 else None
         if val:
-            return json.loads(base64.urlsafe_b64decode(val.encode()).decode())
+            padded = val + "=" * (-len(val) % 4)
+            return json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
     except Exception:
         pass
     return None
@@ -143,7 +144,7 @@ def _kv_set(data: dict, key: str = _KV_KEY, ttl: int = _KV_TTL) -> None:
     if not _KV_URL or not _KV_TOKEN:
         return
     try:
-        val = base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
+        val = base64.urlsafe_b64encode(json.dumps(data).encode()).decode().rstrip("=")
         http_requests.post(f"{_KV_URL}/set/{key}/{val}?EX={ttl}",
                            headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
     except Exception:
