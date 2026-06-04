@@ -259,6 +259,7 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 templates.env.filters["b64encode"] = lambda s: base64.b64encode(s.encode("utf-8")).decode("ascii") if isinstance(s, str) else base64.b64encode(s).decode("ascii")
+templates.env.globals["deploy_sha"] = os.getenv("VERCEL_GIT_COMMIT_SHA", "")[:7]
 _MD_ALLOWED_TAGS = ["p", "strong", "em", "ul", "ol", "li", "blockquote", "code", "pre", "br", "h1", "h2", "h3"]
 templates.env.filters["md"] = lambda text: bleach.clean(
     _md.markdown(text or "", extensions=["nl2br"]),

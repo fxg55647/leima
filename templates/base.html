@@ -296,7 +296,7 @@
     </div>
     {% block footer_cols %}{% endblock %}
   </div>
-  <div class="footer-bottom">© 2026 Leima — Open source</div>
+  <div class="footer-bottom">© 2026 Leima — Open source{% if deploy_sha %} · {{ deploy_sha }}{% endif %}</div>
 </footer>
 
 <script>
