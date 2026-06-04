@@ -360,14 +360,10 @@
     const _DEPLOY_LS_KEY = 'leima_deploy_start';
     let _pendingHashes = null;
     let _gitTreeDanger = false;
-    const _LS_TTL = 24 * 60 * 60 * 1000;
-    function _lsGet(key) { try { const v = localStorage.getItem(key); if (!v) return false; const t = parseInt(v, 10); if (Date.now() - t > _LS_TTL) { localStorage.removeItem(key); return false; } return true; } catch(e) { return false; } }
-    function _lsSet(key) { try { localStorage.setItem(key, Date.now().toString()); } catch(e) {} }
-    function _lsDel(key) { try { localStorage.removeItem(key); } catch(e) {} }
-    let _unauthorizedDeploy = _lsGet('leima_unauthorized_deploy');
-    let _treadMismatch = _lsGet('leima_tread_mismatch');
-    let _treadMismatchAcceptedAt = (() => { try { return localStorage.getItem('leima_tread_mismatch_accepted') || null; } catch(e) { return null; } })();
-    let _sysEnvAcceptedSig = (() => { try { return localStorage.getItem('leima_sysenv_accepted') || ''; } catch(e) { return ''; } })();
+    let _unauthorizedDeploy = false;
+    let _treadMismatch = false;
+    let _treadMismatchAcceptedAt = null;
+    let _sysEnvAcceptedSig = '';
     let _wasDeploying = false;
     let _lastMonitor = null;
     let _lastLocalChanged = null;
@@ -471,17 +467,16 @@
         _lastLocalChanged = localChanged;
         const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
         if (localChanged || kvChanged) _gitTreeDanger = true;
-        if (monitor && monitor.unauthorized_deploy) { _unauthorizedDeploy = true; _lsSet('leima_unauthorized_deploy'); }
+        if (monitor && monitor.unauthorized_deploy) { _unauthorizedDeploy = true; }
         if (monitor && monitor.sys_env_mismatches && Object.keys(monitor.sys_env_mismatches).length > 0) {
           const sig = JSON.stringify(Object.keys(monitor.sys_env_mismatches).sort());
           if (sig !== _sysEnvAcceptedSig) _gitTreeDanger = true;
         }
         if (p.ok === false && !(monitor && monitor.ok === true) && !_wasDeploying && !(monitor && monitor.pre_deploy_active)) {
           const checkedAt = p.checked_at || '';
-          if (!_treadMismatchAcceptedAt || checkedAt !== _treadMismatchAcceptedAt) { _treadMismatch = true; _lsSet('leima_tread_mismatch'); }
+          if (!_treadMismatchAcceptedAt || checkedAt !== _treadMismatchAcceptedAt) { _treadMismatch = true; }
         } else if (p.ok === true && _treadMismatch) {
           _treadMismatch = false; _treadMismatchAcceptedAt = p.checked_at || '';
-          _lsDel('leima_tread_mismatch'); try { localStorage.setItem('leima_tread_mismatch_accepted', p.checked_at || ''); } catch(e) {}
         }
 
         if (_gitTreeDanger) {
@@ -490,18 +485,17 @@
             if (!kvChanged) _gitTreeDanger = false;
             if (monitor && monitor.sys_env_mismatches && !localChanged && !kvChanged) {
               _sysEnvAcceptedSig = JSON.stringify(Object.keys(monitor.sys_env_mismatches).sort());
-              try { localStorage.setItem('leima_sysenv_accepted', _sysEnvAcceptedSig); } catch(e) {}
             }
           } });
           fadeSet(row('Danger', '#ff6b6b', 'github files changed'), 'danger'); return;
         }
         if (_unauthorizedDeploy) {
-          showWarning('unauthorized_deploy', 'A Vercel deployment is in progress with no code review on record for this commit.\n\nDo not submit sensitive documents until this is resolved. Check GitHub Actions and the Vercel dashboard.', { instructions: 'Open GitHub Actions and confirm that code_review.yml ran successfully for this commit. Open the Vercel dashboard and confirm who triggered the deployment and why. If you have verified the deployment is legitimate, accept below.', onAccept: () => { _unauthorizedDeploy = false; _lsDel('leima_unauthorized_deploy'); } });
+          showWarning('unauthorized_deploy', 'A Vercel deployment is in progress with no code review on record for this commit.\n\nDo not submit sensitive documents until this is resolved. Check GitHub Actions and the Vercel dashboard.', { instructions: 'Open GitHub Actions and confirm that code_review.yml ran successfully for this commit. Open the Vercel dashboard and confirm who triggered the deployment and why. If you have verified the deployment is legitimate, accept below.', onAccept: () => { _unauthorizedDeploy = false; } });
           fadeSet(row('Danger', '#ff6b6b', 'unauthorized deploy detected'), 'danger'); return;
         }
         if (_treadMismatch) {
           stopDeployTicker();
-          showWarning('tread_mismatch', 'TREAD reports a mismatch: the deployed code does not match the last verified commit.\n\nDo not submit sensitive documents until this is resolved. Check the TREAD audit log for details.', { instructions: 'Open the TREAD audit log on GitHub Pages and verify the deployed commit matches GitHub HEAD. Check that no workflow files have been disabled or modified. If you have verified the code is legitimate, accept below.', onAccept: () => { _treadMismatch = false; _treadMismatchAcceptedAt = p.checked_at || ''; _lsDel('leima_tread_mismatch'); try { localStorage.setItem('leima_tread_mismatch_accepted', p.checked_at || ''); } catch(e) {} } });
+          showWarning('tread_mismatch', 'TREAD reports a mismatch: the deployed code does not match the last verified commit.\n\nDo not submit sensitive documents until this is resolved. Check the TREAD audit log for details.', { instructions: 'Open the TREAD audit log on GitHub Pages and verify the deployed commit matches GitHub HEAD. Check that no workflow files have been disabled or modified. If you have verified the code is legitimate, accept below.', onAccept: () => { _treadMismatch = false; _treadMismatchAcceptedAt = p.checked_at || ''; } });
           fadeSet(row('Danger', '#ff6b6b', 'mismatch'), 'danger'); return;
         }
 
