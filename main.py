@@ -828,7 +828,7 @@ async def _tread_monitor_inner():
     # Get or set baseline
     baseline = _kv_get(_KV_MONITOR_BASELINE)
     if baseline is None:
-        _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
+        _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=3600)  # 1 hour
         result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "vercel_api_error": vercel_api_error, "github_actions_error": github_actions_error, "cached_at": now}
     else:
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
