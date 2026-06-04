@@ -98,7 +98,7 @@ _KV_TTL              = 10  # seconds
 _KV_MONITOR_CACHE    = "tread_monitor_cache"
 _KV_MONITOR_BASELINE = "tread_monitor_baseline_v2"
 _KV_PRE_DEPLOY_PREFIX  = "pre_deploy_"
-_KV_PRE_DEPLOY_TTL     = 600  # 10 minutes
+_KV_PRE_DEPLOY_TTL     = 900  # 15 minutes — covers code review (≤10 min) + deploy
 _KV_DEPLOY_INCOMING    = "deploy_incoming"
 _KV_DEPLOY_INCOMING_TTL = 300  # 5 minutes — covers code review + deploy cycle
 
