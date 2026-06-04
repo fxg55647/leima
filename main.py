@@ -814,7 +814,7 @@ async def _tread_monitor_inner():
         "VERCEL_GIT_COMMIT_REF":  (os.getenv("VERCEL_GIT_COMMIT_REF", ""),  _GITHUB_BRANCH),
         "VERCEL_ENV":             (os.getenv("VERCEL_ENV", ""),              "production"),
     }
-    sys_env_mismatches = {k: {"actual": v[0], "expected": v[1]}
+    sys_env_mismatches = {k: {"actual": actual, "expected": expected}
                           for k, (actual, expected) in sys_env_checks.items()
                           if actual != expected}
 
