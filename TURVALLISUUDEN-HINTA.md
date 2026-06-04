@@ -30,7 +30,7 @@ Vastauksen hahmottamiseksi tarvitsemme kaksi erillistä akselia. Ensimmäinen on
 
 Vastaus alkaa yksinkertaisella havainolla: riski ei ole yksi luku vaan kahden muuttujan tulo. Todennäköisyys kertaa vakavuus. Tämä on tuttu insinööriajattelusta — mutta tekoälyagenttien kohdalla se pakottaa tekemään erottelun jota harvoin tehdään ääneen.
 
-Optimaalinen turvattomuus ei tarkoita huolimattomuutta. Se tarkoittaa että turvallisuusinvestointi pitää suhteuttaa siihen mitä oikeasti voi tapahtua — ei pahimpaan kuviteltavissa olevaan skenaarioon vaan pahimpaan realistiseen skenaarioon.
+Turvallisuuden optimointi ei tarkoita huolimattomuutta. Se tarkoittaa että turvallisuusinvestointi pitää suhteuttaa siihen mitä oikeasti voi tapahtua — ei pahimpaan kuviteltavissa olevaan skenaarioon vaan pahimpaan realistiseen skenaarioon.
 
 Ero on merkittävä. Kalenterimarämuistutuksia lähettävä agentti voi kyllä toimia väärin. Pahin realistinen vahinko on väärä aika tai peruutettu tapaaminen — kiusallista mutta palautuvaa. Tilintarkastusta tekevä agentti taas voi virheen sattuessa jättää merkittävän taloudellisen poikkeaman huomaamatta. Pahin realistinen vahinko on eri kertaluokkaa.
 
@@ -121,10 +121,10 @@ Kolmas: peruuttamattomat toiminnot vaativat oman vahvistuslogiikkansa. Agentti j
 
 Nämä periaatteet eivät ratkaise kaikkia kysymyksiä. Ne eivät kerro missä täsmälleen kulkee hyväksyttävän riskin raja. Mutta ne estävät pahimman — sen että taloudellinen kiire tai tekninen mukavuus tekee moraalisen päätöksen kehittäjän puolesta huomaamatta.
 
-Optimaalisen turvattomuuden käytännön sovelluksista — mukaan lukien hajautetut vakuutusprotokollat agenttiriskien hallintaan — lisää artikkelissa [Insuring the Agent](INSURANCE-FOR-AGENTS.md).
+Turvallisuuden optimoinnin käytännön sovelluksista — mukaan lukien hajautetut vakuutusprotokollat agenttiriskien hallintaan — lisää artikkelissa [Insuring the Agent](INSURANCE-FOR-AGENTS.md).
 
 
-## 7. Johtopäätös — mitä optimaalinen turvattomuus oikeasti tarkoittaa
+## 7. Johtopäätös — mitä turvallisuuden optimointi oikeasti tarkoittaa
 
 Optimaalinen turvattomuus on huono nimi. Se kuulostaa vastuuttomuuden puolustamiselta — ja juuri siksi se on otsikossa kysymysmerkin kanssa. Parempi nimi voisi olla proportionaalinen turvallisuus, tai ehkä yksinkertaisesti vastuullinen riski. Mutta nimitystä tärkeämpää on ajatus sen takana.
 
@@ -134,7 +134,7 @@ Nelikenttä ei ole moraalinen algoritmi. Se ei anna vastausta — se pakottaa es
 
 Kiintopisteet ovat silti olemassa. Harmaalla alueella voidaan neuvotella. Mutta on myös selkeää yötä — toimintaa jota ei voi oikeuttaa millään laskelmalla. Kehittäjä joka tietää missä yö alkaa ja silti astuu sinne ei ole optimoinut turvattomuutta. Hän on vain valinnut väärin.
 
-Insinöörikoulutus opetti että sillat eivät saa sortua. Se oli oikein sillalle. Tekoälyagenttien aikana tarvitaan tarkempaa ajattelua — ei löysempää moraalia, vaan täsmällisempää. Optimaalinen turvattomuus on täsmällisyyttä, ei välinpitämättömyyttä.
+Insinöörikoulutus opetti että sillat eivät saa sortua. Se oli oikein sillalle. Tekoälyagenttien aikana tarvitaan tarkempaa ajattelua — ei löysempää moraalia, vaan täsmällisempää. Turvallisuuden optimointi on täsmällisyyttä, ei välinpitämättömyyttä.
 
 On yksi viimeinen ironia joka ansaitsee nimetä. Täydellisen turvallisuuden tavoittelu ei ole tehnyt meistä turvallisempia — se on tehnyt meistä epärehellisiä. Epärehellisiä siitä mitä turvallisuus maksaa, epärehellisiä siitä kuka maksaa kun lykkäämme, ja epärehellisiä siitä mitä ihmiset oikeasti tekevät kun rima asetetaan mahdottoman korkealle. He eivät odota. He kiertävät.
 

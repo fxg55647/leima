@@ -30,7 +30,7 @@ To sketch an answer, we need two separate axes. The first is economic: what is t
 
 The answer begins with a simple observation: risk is not a single number but the product of two variables. Probability multiplied by severity. This is familiar from engineering — but with AI agents it forces a distinction that is rarely made aloud.
 
-Optimal insecurity does not mean carelessness. It means that the safety investment must be proportioned to what can realistically happen — not to the worst imaginable scenario, but to the worst realistic one.
+Safety optimisation does not mean carelessness. It means that the safety investment must be proportioned to what can realistically happen — not to the worst imaginable scenario, but to the worst realistic one.
 
 The difference matters. An agent sending calendar reminders can certainly go wrong. The worst realistic harm is a wrong time or a cancelled meeting — annoying but recoverable. An agent doing financial auditing might, if it fails, miss a significant discrepancy. The worst realistic harm is of a different order entirely.
 
@@ -96,11 +96,11 @@ This leads to a practical principle that is easier to state than to implement: s
 
 The four-field framework does not resolve these questions. It is a structuring tool for the conversation — one that prevents economic logic from being smuggled in as a moral decision, or vice versa. The right decisions emerge from the deliberation that happens inside the framework. But without the framework, deliberation easily starts from the wrong question.
 
-## 6. Practice — AI Agents and Optimal Insecurity
+## 6. Practice — AI Agents and Safety Optimisation
 
 Theory is only useful if it changes how things are done. How does the four-field framework show up in practice when building AI agents?
 
-Today's autonomous agents — such as the open-source OpenClaw, which reached over 100,000 GitHub stars in its first week in 2026 — can send email, manage calendars, execute commands, and browse the web on a user's behalf. They represent in practice the first generation of technology in which the question of optimal insecurity arises in everyday software development.
+Today's autonomous agents — such as the open-source OpenClaw, which reached over 100,000 GitHub stars in its first week in 2026 — can send email, manage calendars, execute commands, and browse the web on a user's behalf. They represent in practice the first generation of technology in which the question of safety optimisation arises in everyday software development.
 
 What OpenClaw's adoption curve also demonstrated is something the security community did not want to admit: when the reward looks compelling enough, people will discard security entirely. Developers installed OpenClaw with full system permissions, unaudited code, and no sandboxing — not because they were reckless, but because waiting for a perfectly secure version felt like waiting for something that would never come. This is the predictable outcome of a culture that treats security as a binary condition rather than a spectrum. When the bar is set at perfect, and perfect is unavailable, the revealed preference is often zero. Proportional security — real but bounded — is the only standard that has any practical purchase on human behaviour.
 
@@ -118,9 +118,9 @@ Third: irreversible actions require their own confirmation logic. An agent that 
 
 These principles do not resolve every question. They do not say exactly where the line of acceptable risk runs. But they prevent the worst — the situation where economic urgency or technical convenience makes the moral decision on the developer's behalf, without anyone noticing.
 
-The practical applications of optimal insecurity — including decentralised insurance protocols for managing agent risk — are addressed in [Insuring the Agent](INSURANCE-FOR-AGENTS.md).
+The practical applications of safety optimisation — including decentralised insurance protocols for managing agent risk — are addressed in [Insuring the Agent](INSURANCE-FOR-AGENTS.md).
 
-## 7. Conclusion — What Optimal Insecurity Actually Means
+## 7. Conclusion — What Safety Optimisation Actually Means
 
 Optimal insecurity is a bad name. It sounds like a defence of irresponsibility — which is precisely why it appears in the title with a question mark. A better name might be proportional safety, or perhaps simply responsible risk. But the name matters less than the idea behind it.
 
@@ -130,7 +130,7 @@ The four-field framework is not a moral algorithm. It does not give answers — 
 
 Anchor points still exist. The grey area can be negotiated. But there is also clear night — actions that cannot be justified by any calculation. A developer who knows where night begins and steps there anyway has not optimised insecurity. They have simply chosen wrong.
 
-Engineering education taught us that bridges must not fall. That was right for bridges. The age of AI agents demands more precise thinking — not looser morality, but sharper. Optimal insecurity is precision, not indifference.
+Engineering education taught us that bridges must not fall. That was right for bridges. The age of AI agents demands more precise thinking — not looser morality, but sharper. Safety optimisation is precision, not indifference.
 
 There is a final irony worth naming. The pursuit of perfect security has not made us safer — it has made us dishonest. Dishonest about what safety costs, dishonest about who pays when we delay, and dishonest about what people actually do when the bar is set impossibly high. They do not wait. They go around.
 
