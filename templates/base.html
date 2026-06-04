@@ -462,8 +462,9 @@
 
         if (monitor && monitor.deploy_incoming_sha) { try { localStorage.setItem('leima_expected_sha', monitor.deploy_incoming_sha); } catch(e) {} }
         if (monitor && monitor.review_completed_sha) {
-          const expectedSha = localStorage.getItem('leima_expected_sha') || '';
           const rsha = monitor.review_completed_sha;
+          if (!localStorage.getItem('leima_reviewed_sha')) { try { localStorage.setItem('leima_reviewed_sha', rsha); } catch(e) {} }
+          const expectedSha = localStorage.getItem('leima_expected_sha') || '';
           if (expectedSha && (rsha.startsWith(expectedSha.slice(0,7)) || expectedSha.startsWith(rsha.slice(0,7)))) { try { localStorage.setItem('leima_reviewed_sha', rsha); } catch(e) {} }
         }
 
