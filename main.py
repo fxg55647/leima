@@ -704,6 +704,14 @@ async def tread_cron(request: Request):
 
 @app.get("/tread-monitor")
 async def tread_monitor():
+    try:
+        return await _tread_monitor_inner()
+    except Exception as e:
+        import traceback
+        return JSONResponse({"ok": None, "error": "monitor_exception", "detail": str(e), "traceback": traceback.format_exc()[-500:], "cached_at": time.time()})
+
+
+async def _tread_monitor_inner():
     token = os.getenv("GITHUB_DISPATCH_TOKEN") or os.getenv("GITHUB_TOKEN", "")
     now = time.time()
 

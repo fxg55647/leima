@@ -514,6 +514,7 @@
           stopDeployTicker(); _wasDeploying = false;
           const apiWarnings = [];
           if (!monitor) apiWarnings.push('tread-monitor unreachable');
+          else if (monitor.error === 'monitor_exception') apiWarnings.push('tread-monitor error: ' + (monitor.detail || '?'));
           else {
             if (monitor.vercel_api_error) apiWarnings.push('Vercel API unavailable');
             if (monitor.github_actions_error) apiWarnings.push('GitHub Actions API unavailable');
@@ -525,6 +526,8 @@
           }
         } else if (!monitor) {
           fadeSet(row('Notice!', '#f0a030', 'tread-monitor unreachable'), 'warning');
+        } else if (monitor.error === 'monitor_exception') {
+          fadeSet(row('Notice!', '#f0a030', 'tread-monitor error: ' + (monitor.detail || '?')), 'warning');
         } else if (monitor.vercel_api_error || monitor.github_actions_error) {
           const parts = [];
           if (monitor.vercel_api_error) parts.push('Vercel API');
