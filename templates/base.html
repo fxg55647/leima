@@ -471,7 +471,7 @@
         if (localChanged || kvChanged) _gitTreeDanger = true;
         if (monitor && monitor.unauthorized_deploy) { _unauthorizedDeploy = true; _lsSet('leima_unauthorized_deploy'); }
         if (monitor && monitor.sys_env_mismatches && Object.keys(monitor.sys_env_mismatches).length > 0) _gitTreeDanger = true;
-        if (p.ok === false && !(monitor && monitor.ok === true) && !_wasDeploying && !(monitor && monitor.pre_deploy_active)) {
+        if (p.ok === false && !_wasDeploying && !(monitor && monitor.pre_deploy_active)) {
           const checkedAt = p.checked_at || '';
           if (!_treadMismatchAcceptedAt || checkedAt !== _treadMismatchAcceptedAt) { _treadMismatch = true; _lsSet('leima_tread_mismatch'); }
         } else if (p.ok === true && _treadMismatch) {
