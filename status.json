@@ -1,18 +1,18 @@
 {
   "ok": true,
   "rapid_deploy_warning": false,
-  "deployment_ok": false,
+  "deployment_ok": true,
   "github_commit_unknown": false,
   "github_commit_http_status": 200,
-  "vercel_deployed_commit": "ff3c53863da9eac106937fed792523184abb7463",
-  "vercel_deploying": true,
-  "vercel_service_url": "https://leima-ckz19nkfb-teemu-lantta-s-projects.vercel.app",
-  "vercel_source_ok": true,
+  "vercel_deployed_commit": "de399387d35364b453a5a26e9c4c8581976511ab",
+  "vercel_deploying": false,
+  "vercel_service_url": "https://leima-50pn0okyo-teemu-lantta-s-projects.vercel.app",
+  "vercel_source_ok": null,
   "vercel_source_mismatches": [],
   "review_ok": true,
   "review_consecutive_failures": 0,
   "review_stuck": false,
-  "deploying_commit_ok": true,
+  "deploying_commit_ok": false,
   "expected_commit": "de399387d35364b453a5a26e9c4c8581976511ab",
   "review_conclusion": "success",
   "cron_fresh": true,
@@ -24,22 +24,22 @@
     "scanned_deploys": 20,
     "last_mismatch_at": null,
     "last_mismatch_commit": null,
-    "clean_since": "2026-06-03T01:21:57.019000+00:00",
-    "deploys_last_hour": 1
+    "clean_since": "2026-06-03T01:31:14.653000+00:00",
+    "deploys_last_hour": 2
   },
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-06-04 01:04:48 UTC",
+  "checked_at": "2026-06-04 01:06:01 UTC",
   "monitor_files": {
     ".github/workflows/tread.yml": "84fcea4afdff876494d9577bd76d69fa75e2dce2deb966050139c73eb70e95c0",
     ".github/workflows/monthly-audit.yml": "05b3b6d6a2c1ff304e3815b6bafce8496a842283da855f14b46ac821e88d79b3",
     ".github/workflows/code_review.yml": "c336e610210783495f3f552d5cf90e108d1fd35bbe1044a6817fba1a86cd8776",
-    "tread_check.py": "b967a31ab681b4696f7d5bfccdb6a3b9ca89bd5377b5bdd81a920761c04fac87",
+    "tread_check.py": "70a2a1f295f5def3cef97e4af1e0be04c0ced1b95f82b43a9bdf8da93c60a801",
     "tread_arweave.py": "f4d12bf3f1aa33c9389033b240dd681d820301dae6bc4013a95b5e6012f9648e",
     "monthly_audit.py": "90e3a6be75d09a8156c0e6a7c33cede05cb7f3e9fd128acbcf96b2bbfb360646",
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "26923338875",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26923338875"
+  "actions_run_id": "26923383627",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/26923383627"
 }
