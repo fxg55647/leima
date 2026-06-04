@@ -368,6 +368,7 @@
     let _treadMismatch = _lsGet('leima_tread_mismatch');
     let _treadMismatchAcceptedAt = (() => { try { return localStorage.getItem('leima_tread_mismatch_accepted') || null; } catch(e) { return null; } })();
     let _sysEnvAcceptedSig = (() => { try { return localStorage.getItem('leima_sysenv_accepted') || ''; } catch(e) { return ''; } })();
+    let _kvChangedAcceptedSig = (() => { try { return localStorage.getItem('leima_kvchanged_accepted') || ''; } catch(e) { return ''; } })();
     let _wasDeploying = false;
     let _lastMonitor = null;
     let _lastLocalChanged = null;
@@ -470,7 +471,11 @@
         const localChanged = monitor && monitor.hashes ? checkGitTree(monitor.hashes) : null;
         _lastLocalChanged = localChanged;
         const kvChanged = monitor && monitor.ok === false && monitor.changed && monitor.changed.length > 0;
-        if (localChanged || kvChanged) _gitTreeDanger = true;
+        if (localChanged) _gitTreeDanger = true;
+        if (kvChanged) {
+          const sig = JSON.stringify([...monitor.changed].sort());
+          if (sig !== _kvChangedAcceptedSig) _gitTreeDanger = true;
+        }
         if (monitor && monitor.unauthorized_deploy) { _unauthorizedDeploy = true; _lsSet('leima_unauthorized_deploy'); }
         if (monitor && monitor.sys_env_mismatches && Object.keys(monitor.sys_env_mismatches).length > 0) {
           const sig = JSON.stringify(Object.keys(monitor.sys_env_mismatches).sort());
@@ -488,6 +493,10 @@
           const files = localChanged || (monitor && monitor.changed) || [];
           showWarning('github_monitor_changed', 'GitHub surveillance files have changed:\n' + files.join('\n') + '\n\nDo not submit sensitive documents until you have verified these changes on GitHub.', { instructions: 'Open the repository on GitHub and check the git log for the files listed above. Confirm no unauthorized changes were made. If you have verified the changes are legitimate, accept below.', hashes: monitor && monitor.hashes, onAccept: () => {
             _gitTreeDanger = false;
+            if (kvChanged && monitor && monitor.changed) {
+              _kvChangedAcceptedSig = JSON.stringify([...monitor.changed].sort());
+              try { localStorage.setItem('leima_kvchanged_accepted', _kvChangedAcceptedSig); } catch(e) {}
+            }
             if (monitor && monitor.sys_env_mismatches && !localChanged && !kvChanged) {
               _sysEnvAcceptedSig = JSON.stringify(Object.keys(monitor.sys_env_mismatches).sort());
               try { localStorage.setItem('leima_sysenv_accepted', _sysEnvAcceptedSig); } catch(e) {}

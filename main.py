@@ -169,6 +169,16 @@ def _kv_set(data: dict, key: str = _KV_KEY, ttl: int = _KV_TTL) -> None:
         pass
 
 
+def _kv_del(key: str) -> None:
+    if not _KV_URL or not _KV_TOKEN:
+        return
+    try:
+        http_requests.post(f"{_KV_URL}/del/{key}",
+                           headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
+    except Exception:
+        pass
+
+
 
 def _validate_deployment_source(source: str, meta: dict) -> tuple[bool, list[str]]:
     """Tarkistaa tuleeko deployment Vercelin GitHub-integraatiosta (ei CLI/dashboard).
@@ -873,6 +883,14 @@ async def api_pre_deploy(request: Request):
     sha = _parse_sha(body)
     _kv_set({"sha": sha, "ts": time.time()}, f"{_KV_PRE_DEPLOY_PREFIX}{sha}", ttl=_KV_PRE_DEPLOY_TTL)
     return {"ok": True, "sha": sha}
+
+
+@app.post("/api/reset-monitor-baseline")
+async def api_reset_monitor_baseline(request: Request):
+    _validate_deploy_token(request)
+    _kv_del(_KV_MONITOR_BASELINE)
+    _kv_del(_KV_MONITOR_CACHE)
+    return {"ok": True, "message": "baseline deleted — will be reset on next tread-monitor call"}
 
 
 def _readme_intro() -> str:
