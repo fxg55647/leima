@@ -181,10 +181,10 @@ def _validate_deployment_source(source: str, meta: dict) -> tuple[bool, list[str
     return True, []
 
 
-def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None, bool | None, list]:
-    """Returns (deploying, live_commit, deploying_commit, source_ok, source_mismatches)."""
+def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None, bool | None, list, bool]:
+    """Returns (deploying, live_commit, deploying_commit, source_ok, source_mismatches, api_error)."""
     if not _VERCEL_TOKEN or not _VERCEL_PROJECT_ID:
-        return None, None, None, None, []
+        return None, None, None, None, [], False
     try:
         params = f"projectId={_VERCEL_PROJECT_ID}&limit=10"
         if _VERCEL_TEAM_ID:
@@ -195,10 +195,10 @@ def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None, bool | N
             timeout=10,
         )
         if r.status_code != 200:
-            return None, None, None, None, []
+            return None, None, None, None, [], True
         deployments = r.json().get("deployments", [])
         if not deployments:
-            return None, None, None, None, []
+            return None, None, None, None, [], False
         # Only monitor production-target deployments; staging previews are ignored
         prod = next((d for d in deployments if d.get("target") == "production"), None)
         deploying = False
@@ -215,9 +215,9 @@ def _fetch_vercel_state() -> tuple[bool | None, str | None, str | None, bool | N
             if d.get("state") == "READY" and d.get("target") == "production":
                 live_commit = (d.get("meta") or {}).get("githubCommitSha")
                 break
-        return deploying, live_commit, deploying_commit, source_ok, source_mismatches
+        return deploying, live_commit, deploying_commit, source_ok, source_mismatches, False
     except Exception:
-        return None, None, None, None, []
+        return None, None, None, None, [], True
 
 
 def _fetch_github_head(token: str) -> str | None:
@@ -746,7 +746,7 @@ async def tread_monitor():
             )
             return bool(r.status_code == 200 and r.json().get("workflow_runs"))
         except Exception:
-            return False
+            return None  # API error — distinguishable from False (no runs)
 
     def _check_deploy_authorized(sha):
         if not sha or not token:
@@ -773,8 +773,10 @@ async def tread_monitor():
         f_last_review = ex.submit(_fetch_last_review_sha)
         f_incoming = ex.submit(_kv_get, _KV_DEPLOY_INCOMING)
         hashes = f_hashes.result()
-        vercel_deploying, vercel_live_commit, deploying_commit, source_ok, source_mismatches = f_vercel.result()
-        review_in_progress = f_review.result()
+        vercel_deploying, vercel_live_commit, deploying_commit, source_ok, source_mismatches, vercel_api_error = f_vercel.result()
+        review_in_progress_raw = f_review.result()
+        github_actions_error = review_in_progress_raw is None
+        review_in_progress = bool(review_in_progress_raw)
         review_completed_sha = f_last_review.result()
         incoming_data = f_incoming.result()
         deploy_incoming = bool(incoming_data)
@@ -809,7 +811,7 @@ async def tread_monitor():
                           if actual != expected}
 
     if not hashes:
-        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
+        result = {"ok": None, "error": "github_unreachable", "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "vercel_api_error": vercel_api_error, "github_actions_error": github_actions_error, "cached_at": now}
         _kv_set(result, _KV_MONITOR_CACHE, ttl=10)
         return result
 
@@ -817,10 +819,10 @@ async def tread_monitor():
     baseline = _kv_get(_KV_MONITOR_BASELINE)
     if baseline is None:
         _kv_set(hashes, _KV_MONITOR_BASELINE, ttl=604800)  # 7 days
-        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
+        result = {"ok": True, "changed": [], "baseline_set": True, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "vercel_api_error": vercel_api_error, "github_actions_error": github_actions_error, "cached_at": now}
     else:
         changed = [p for p, sha in hashes.items() if baseline.get(p) != sha]
-        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "cached_at": now}
+        result = {"ok": len(changed) == 0, "changed": changed, "hashes": hashes, "deploying": vercel_deploying, "unauthorized_deploy": unauthorized_deploy, "review_in_progress": review_in_progress, "review_completed_sha": review_completed_sha, "deploy_incoming": deploy_incoming, "deploy_incoming_sha": deploy_incoming_sha, "deployment_source_warning": deployment_source_warning, "sys_env_mismatches": sys_env_mismatches, "vercel_api_error": vercel_api_error, "github_actions_error": github_actions_error, "cached_at": now}
 
     # Suppress mismatch alarm if a pre-deploy signal exists for the current/deploying commit
     pre_deploy_active = False

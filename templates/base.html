@@ -512,13 +512,30 @@
           fadeSet(row('Notice!', '#f0a030', 'code review failing — ' + (p.review_consecutive_failures || '') + ' commits blocked'), 'warning');
         } else if (p.ok) {
           stopDeployTicker(); _wasDeploying = false;
-          fadeSet(row('deploy matches git', '#fff', ''), 'ok');
-        } else if (p.ok === null && lastCheckedAt) {
+          const apiWarnings = [];
+          if (!monitor) apiWarnings.push('tread-monitor unreachable');
+          else {
+            if (monitor.vercel_api_error) apiWarnings.push('Vercel API unavailable');
+            if (monitor.github_actions_error) apiWarnings.push('GitHub Actions API unavailable');
+          }
+          if (apiWarnings.length) {
+            fadeSet(row('Notice!', '#f0a030', apiWarnings.join(' — ') + ' — deploy status unknown'), 'warning');
+          } else {
+            fadeSet(row('deploy matches git', '#fff', ''), 'ok');
+          }
+        } else if (!monitor) {
+          fadeSet(row('Notice!', '#f0a030', 'tread-monitor unreachable'), 'warning');
+        } else if (monitor.vercel_api_error || monitor.github_actions_error) {
+          const parts = [];
+          if (monitor.vercel_api_error) parts.push('Vercel API');
+          if (monitor.github_actions_error) parts.push('GitHub Actions API');
+          fadeSet(row('Notice!', '#f0a030', parts.join(' & ') + ' unavailable'), 'warning');
+        } else if (p.ok === null) {
           fadeSet(row('Notice!', '#f0a030', 'GitHub API unavailable — verification incomplete'), 'warning');
         } else {
           fadeSet(row('Checking…', '#aaa', ''), 'loading');
         }
-      }).catch(() => { lastCheckedAt = null; fadeSet(row('Server or network error', '#f0a030', ''), 'warning'); });
+      }).catch(() => { lastCheckedAt = null; fadeSet(row('Notice!', '#f0a030', 'Server or network error — /version unreachable'), 'warning'); });
     }
     update();
     setInterval(update, 10000);
