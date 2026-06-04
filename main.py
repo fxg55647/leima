@@ -951,8 +951,9 @@ _DOCS: dict[str, tuple[str, str]] = {
     "policy":     ("POLICY.example.md","Data policy"),
     "inspection": ("INSPECTION.md",    "Inspection protocol"),
     "proteus":    ("PROTEUS.md",       "Proteus — Epistemic Privacy for LLM APIs"),
-    "cost-of-safety":       ("COST-OF-SAFETY.md",       "The Cost of Safety? — A Four-Field Framework for AI Agent Ethics"),
-    "insurance-for-agents": ("INSURANCE-FOR-AGENTS.md", "Insuring the Agent — A Decentralised Protocol for AI Agent Risk"),
+    "cost-of-safety":        ("COST-OF-SAFETY.md",        "The Cost of Safety? — A Four-Field Framework for AI Agent Ethics"),
+    "turvallisuuden-hinta":  ("TURVALLISUUDEN-HINTA.md", "Optimaalinen turvattomuus? — nelikenttä tekoälyagenttien etiikalle"),
+    "insurance-for-agents":  ("INSURANCE-FOR-AGENTS.md", "Insuring the Agent — A Decentralised Protocol for AI Agent Risk"),
 }
 
 # Reverse map: filename.md → /docs/slug (for rewriting internal links)
