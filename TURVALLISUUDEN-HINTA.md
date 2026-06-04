@@ -99,11 +99,28 @@ Tämä johtaa käytännön periaatteeseen joka on helpompi sanoa kuin toteuttaa:
 Nelikenttä ei ratkaise näitä kysymyksiä. Se on keskustelun jäsentäjä — työkalu joka estää taloudellisen logiikan salakuljettamisen moraalisen päätöksen varjolla, tai päinvastoin. Oikeat päätökset syntyvät kentän sisällä käytävästä harkinnasta. Mutta ilman kenttää harkinta alkaa helposti väärästä kysymyksestä.
 
 
-## 6. Käytäntö — tekoälyagentit ja optimaalinen turvattomuus
+## 6. Pelin muutos jota kukaan silmäätekevä ei kyseenalaistanut
+
+Kaikki ne jotka ovat yrittäneet ottaa tekoälyturvallisuuden vakavasti — OpenAI, NIST, kansainvälinen tiedeyhteisö — ovat lähestyneet sitä samalla perusoletuksella: on olemassa joukko riskejä, ne voidaan tunnistaa, mitata ja hallita prosessilla. Parempi data, paremmat menetelmät, enemmän sidosryhmiä pöytään. Tämä on rationaalinen lähestymistapa — ja se toimii deterministisessä maailmassa.
+
+OpenAI näki jo vuonna 2019 että ihmispuoli on epädeterministinen — julkaisemassaan paperissa he argumentoivat että tekoälyturvallisuus tarvitsee yhteiskuntatieteilijöitä, koska ihmisten arvot ovat epäjohdonmukaisia ja kontekstiriippuvaisia. Kysymys joka jäi kysymättä oli toinen: kenen pitäisi ylipäätään päättää mikä turvallisuusratkaisu on moraalisesti hyväksyttävä — ja onko insinööri oikea ihminen tekemään sen päätöksen yksin? Historian tutkija, lääketieteen etiikko tai yhteisön edustaja jonka data on pelissä näkee petollisen ruudun eri tavalla kuin se joka rakentaa järjestelmää. NIST vei ajatusta pidemmälle vuoden 2023 AI Risk Management Frameworkissaan — tunnustaen eksplisiittisesti että tekoälyriskit ovat sosiotekniisiä, eivät pelkästään teknisiä. Yoshua Bengio kokosi sen helmikuussa 2026 yli sadan asiantuntijan ja kolmenkymmenen maan kansainväliseksi raportiksi. Jokainen askel oli oikea suunta.
+
+Mutta kukaan heistä ei kyseenalaistanut sitä perusoletusta — että malli itse on deterministinen järjestelmä jonka riskit ovat prosessilla hallittavissa.
+
+LLM ei ole deterministinen järjestelmä jossa on tunnistettavia vikoja. Se on tilastollinen järjestelmä jossa sama syöte voi tuottaa eri tuloksen eri kerroilla, jossa "virhe" ei ole poikkeama normaalista toiminnasta vaan normaali toiminta tietyissä tilanteissa, ja jossa kukaan — ei edes rakentaja — ei täysin ymmärrä miksi se tekee mitä tekee. Et voi kartoittaa riskejä järjestelmässä jonka käyttäytyminen on luonteeltaan tilastollinen ja kontekstiriippuvainen. Et voi mitata luotettavuutta samalla tavalla kuin mittaat sillan lujuuden. Et voi korjata ongelmaa päivityksellä kun ongelma ei ole virhe koodissa vaan ominaisuus siitä miten malli toimii.
+
+Ennen LLM:ää tietoturva toimi tai ei toiminut. Regex tunnisti hyökkäyksen tai ei tunnistanut. Palomuuri päästi läpi tai esti. Nämä ovat binäärisiä tiloja — ja binäärisessä maailmassa täydellisyys on ainakin teoriassa saavutettavissa. Seuraava päivitys voi korjata kaiken. Tämä intuitio on jäänyt elämään vaikka maailma muuttui.
+
+LLM:n myötä tietoturva muuttui tilastolliseksi. Ei ole olemassa tilaa jossa järjestelmä "toimii oikein" kaikissa tapauksissa — on vain todennäköisyyksiä, konteksteja ja reunaehtoja. Tämä ei ole väliaikainen ongelma joka ratkeaa seuraavassa versiossa. Se on fundamentaalinen ominaisuus siitä mitä nämä järjestelmät ovat. Odotettava päivitys joka ratkaisee kaiken ei ole myöhässä. Sitä ei ole tulossa.
+
+Tässä piilee myös se miksi tietoturvayhteisö on ollut niin hiljainen. Ratkaisu jonka lähestymistapa ei voi edes periaatteessa koskaan päästä sataan prosenttiin on erilainen suunnittelufilosofia kuin mihin olemme tottuneet — vaikka se korjaisi 95%. Se voi tuntua petokselta, jopa luovuttamiselta. Kuin julkinen tunnustus että tähän se jää. Mutta kenelläkään ei ole hajuakaan miltä täydellinen ratkaisu edes näyttäisi. Ehkä se on olemassa. Mutta jos kukaan ei osaa osoittaa tietä sinne, odottaminen ei ole varovaisuutta — se on piileskelyä hypoteettisen varjossa. Paras saatavilla oleva on parempi kuin täydellisyys jota kukaan ei osaa rakentaa.
+
+
+## 7. Käytäntö — nelikenttä tekoälyagenttien rakentamisessa
 
 Teoria on hyödyllistä vain jos se muuttaa sitä miten asioita tehdään. Miten nelikenttä näkyy käytännössä kun rakennetaan tekoälyagentteja?
 
-Nykyiset autonomiset agentit — kuten avoimen lähdekoodin OpenClaw, joka saavutti yli 100 000 GitHub-tähteä ensimmäisellä viikollaan vuonna 2026 — voivat lähettää sähköpostia, hallita kalenteria, suorittaa komentoja ja selata verkkoa käyttäjän puolesta. Ne ovat käytännössä ensimmäinen sukupolvi teknologiaa jossa optimaalisen turvattomuuden kysymys tulee vastaan jokapäiväisessä ohjelmistokehityksessä.
+Nykyiset autonomiset agentit — kuten avoimen lähdekoodin OpenClaw, joka saavutti yli 100 000 GitHub-tähteä ensimmäisellä viikollaan vuonna 2026 — voivat lähettää sähköpostia, hallita kalenteria, suorittaa komentoja ja selata verkkoa käyttäjän puolesta. Ne ovat käytännössä ensimmäinen sukupolvi teknologiaa jossa nämä kysymykset tulevat vastaan jokapäiväisessä ohjelmistokehityksessä.
 
 OpenClawın käyttöönottovauhti osoitti myös jotain mitä tietoturvayhteisö ei halunnut myöntää: kun palkinto kuulostaa riittävän houkuttelevalta, ihmiset ovat valmiita heittämään tietoturvan kokonaan roskiin. Kehittäjät asensivat OpenClawn täysillä järjestelmäoikeuksilla, auditoimattomalla koodilla ja ilman hiekkalaatikkoa — eivät siksi että he olisivat huolimattomia, vaan siksi että täydellisen version odottaminen tuntui saman kuin jonkin sellaisen odottaminen jota ei koskaan tulisi. Tämä on ennakoitava seuraus kulttuurista joka kohtelee tietoturvaa binäärisenä tilana eikä jatkumona. Kun rimaksi asetetaan täydellinen, ja täydellinen on saavuttamattomissa, todellinen valinta on usein nolla. Suhteellinen turvallisuus — aito mutta rajattu — on ainoa standardi jolla on käytännön merkitystä ihmisten käyttäytymiseen.
 
@@ -124,7 +141,7 @@ Nämä periaatteet eivät ratkaise kaikkia kysymyksiä. Ne eivät kerro missä t
 Turvallisuuden optimoinnin käytännön sovelluksista — mukaan lukien hajautetut vakuutusprotokollat agenttiriskien hallintaan — lisää artikkelissa [Insuring the Agent](INSURANCE-FOR-AGENTS.md).
 
 
-## 7. Johtopäätös — mitä turvallisuuden optimointi oikeasti tarkoittaa
+## 8. Johtopäätös — mitä turvallisuuden optimointi oikeasti tarkoittaa
 
 Optimaalinen turvattomuus on huono nimi. Se kuulostaa vastuuttomuuden puolustamiselta — ja juuri siksi se on otsikossa kysymysmerkin kanssa. Parempi nimi voisi olla proportionaalinen turvallisuus, tai ehkä yksinkertaisesti vastuullinen riski. Mutta nimitystä tärkeämpää on ajatus sen takana.
 
@@ -132,9 +149,9 @@ Se on rehellisyyttä siitä mitä turvallisuus maksaa — ja kenelle. Täydellin
 
 Nelikenttä ei ole moraalinen algoritmi. Se ei anna vastausta — se pakottaa esittämään oikeat kysymykset erikseen. Mikä on todellinen taloudellinen riski, ei kuviteltu pahin tapaus? Onko toiminta moraalisesti oikeutettua riippumatta siitä mitä se tuottaa? Nämä kysymykset johtavat eri paikkoihin kuin yksi epämääräinen turvallisuuskysymys johon vastataan intuitiolla tai pelolla.
 
-Kiintopisteet ovat silti olemassa. Harmaalla alueella voidaan neuvotella. Mutta on myös selkeää yötä — toimintaa jota ei voi oikeuttaa millään laskelmalla. Kehittäjä joka tietää missä yö alkaa ja silti astuu sinne ei ole optimoinut turvattomuutta. Hän on vain valinnut väärin.
+Kiintopisteet ovat silti olemassa. Harmaalla alueella voidaan neuvotella. Mutta on myös selkeää yötä — toimintaa jota ei voi oikeuttaa millään laskelmalla. Kehittäjä joka tietää missä yö alkaa ja silti astuu sinne ei voi puolustella toimintaansa millään nelikentällä. Hän on vain valinnut väärin.
 
-Insinöörikoulutus opetti että sillat eivät saa sortua. Se oli oikein sillalle. Tekoälyagenttien aikana tarvitaan tarkempaa ajattelua — ei löysempää moraalia, vaan täsmällisempää. Turvallisuuden optimointi on täsmällisyyttä, ei välinpitämättömyyttä.
+Insinöörikoulutus opetti että sillat eivät saa sortua. Sillan kohdalla se oli oikein. Tekoälyagenttien aikana tarvitaan tarkempaa ajattelua — ei löysempää moraalia, vaan täsmällisempää. Turvallisuuden optimointi on täsmällisyyttä, ei välinpitämättömyyttä.
 
 On yksi viimeinen ironia joka ansaitsee nimetä. Täydellisen turvallisuuden tavoittelu ei ole tehnyt meistä turvallisempia — se on tehnyt meistä epärehellisiä. Epärehellisiä siitä mitä turvallisuus maksaa, epärehellisiä siitä kuka maksaa kun lykkäämme, ja epärehellisiä siitä mitä ihmiset oikeasti tekevät kun rima asetetaan mahdottoman korkealle. He eivät odota. He kiertävät.
 
