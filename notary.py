@@ -63,7 +63,6 @@ def build_manifest(meta: dict, timestamp: str) -> dict:
         "version": "1",
         "type": "email-notary",
         "timestamp": timestamp,
-        "message_id": meta["message_id"],
         "dkim": meta["dkim"],
         "email_sha256": meta["email_sha256"],
     }

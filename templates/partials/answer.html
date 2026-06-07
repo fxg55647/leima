@@ -18,6 +18,12 @@
     <span class="meta-label">📄 {{ filename }}</span>
     <span class="meta-label">🕐 {{ timestamp }}</span>
   </div>
+  {% if web_search_queries %}
+  <div class="web-search-row">
+    <span class="web-search-label">Web search</span>
+    {% for q in web_search_queries %}<span class="web-search-query">{{ q }}</span>{% endfor %}
+  </div>
+  {% endif %}
 
   <div class="pass-block">
     <div class="pass-label">{{ passes[-1][0] }}</div>
@@ -159,6 +165,29 @@
     flex-wrap: wrap;
   }
   .meta-label { font-size: 0.8rem; color: #6c757d; }
+
+  .web-search-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .web-search-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #adb5bd;
+  }
+  .web-search-query {
+    font-size: 0.75rem;
+    color: #495057;
+    background: #f0f5ff;
+    border: 1px solid #c7d9ff;
+    border-radius: 4px;
+    padding: 0.1rem 0.45rem;
+  }
 
   .pass-block { margin-bottom: 1.25rem; }
   .pass-block-support {

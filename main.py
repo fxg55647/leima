@@ -443,28 +443,16 @@ def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: s
 
 def build_manifest(
     timestamp: str,
-    model: str,
     input_hash: str,
     verdict_hash: str,
-    question: str = "",
-    verdict_summary: str = "",
-    verdict_category: str = "",
 ) -> dict:
-    m: dict = {
-        "version": "1",
+    return {
+        "stamp_format_version": 1,
         "timestamp": timestamp,
-        "model": model,
         "commit": os.getenv("VERCEL_GIT_COMMIT_SHA", "unknown"),
-        "input": {"sha256": input_hash},
-        "verdict_pdf": {"sha256": verdict_hash},
+        "input": f"sha256:{input_hash}",
+        "verdict": f"sha256:{verdict_hash}",
     }
-    if question:
-        m["question"] = question
-    if verdict_summary:
-        m["verdict_summary"] = verdict_summary
-    if verdict_category:
-        m["verdict_category"] = verdict_category
-    return m
 
 
 _CR_SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
@@ -1205,6 +1193,7 @@ async def verdict_fragment(request: Request, session_id: str):
             "tread_snap": _tread_cache,
             "irys_gateway": IRYS_GATEWAY,
             "c2pa": None,
+            "web_search_queries": entry.get("web_search_queries", []),
         },
     )
 
@@ -1291,7 +1280,7 @@ async def validate(
 
     # 1. Source hash
     source_actual = sha256(source_bytes)
-    source_expected = manifest.get("input", {}).get("sha256", "")
+    source_expected = manifest.get("input", "").removeprefix("sha256:")
     results.append({
         "label": "Source PDF hash",
         "ok": source_actual == source_expected,
@@ -1301,7 +1290,7 @@ async def validate(
 
     # 2. Verdict hash
     verdict_actual = sha256(verdict_bytes)
-    verdict_expected = manifest.get("verdict_pdf", {}).get("sha256", "")
+    verdict_expected = manifest.get("verdict", "").removeprefix("sha256:")
     results.append({
         "label": "Verdict PDF hash",
         "ok": verdict_actual == verdict_expected,
@@ -1651,12 +1640,8 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
     verdict_hash = sha256(verdict_pdf)
     manifest = build_manifest(
         timestamp=result["timestamp"],
-        model=MODEL,
         input_hash=input_hash,
         verdict_hash=verdict_hash,
-        question=question,
-        verdict_summary=result.get("summary_verdict", ""),
-        verdict_category=result.get("verdict_category", ""),
     )
     if tread_snap and tread_snap.get("tx"):
         manifest["tread"] = {
@@ -1666,8 +1651,6 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
             "commit": tread_snap.get("commit", ""),
             "ok": tread_snap.get("ok", False),
         }
-    if source_context and source_context.get("web_search_queries"):
-        manifest["web_search_queries"] = source_context["web_search_queries"]
     session_id = uuid.uuid4().hex
     _evict_old_sessions()
     store[session_id] = {
@@ -1679,6 +1662,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         "summary_verdict": result["summary_verdict"],
         "verdict_category": result.get("verdict_category", ""),
         "input_label": input_label,
+        "web_search_queries": (source_context or {}).get("web_search_queries", []),
         "_stored_at": time.time(),
     }
     return {
@@ -1973,7 +1957,7 @@ async def ask(
                 mdata = json.loads(raw)
             except Exception:
                 return HTMLResponse(f'<div class="error">Could not read {_html_escape(mf.filename or "file")}: not valid JSON.</div>')
-            if not isinstance(mdata, dict) or mdata.get("version") not in ("1",):
+            if not isinstance(mdata, dict) or mdata.get("stamp_format_version") != 1:
                 return HTMLResponse(f'<div class="error">{_html_escape(mf.filename or "file")} is not a valid Leima manifest.</div>')
             pdf_text = ""
             if i < len(verdict_uploads):
