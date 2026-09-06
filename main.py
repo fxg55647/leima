@@ -28,6 +28,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fpdf.enums import MethodReturnValue
 from google.genai import types
 from neutral_witness import analyse, analyse_code_review, PASS_LABELS, MODEL
 from notary import poll_and_process as _notary_poll
@@ -397,38 +398,161 @@ def _source_assessment_text(source_context: dict | None) -> str:
         return "Document (uploaded) — No verifiable origin. Content assessed against claim only."
 
 
-def build_verdict_pdf(question: str, passes: list[tuple[str, str]], timestamp: str, input_hash: str, prompts: list[tuple[str, str]] | None = None, source_context: dict | None = None) -> bytes:
+_VERDICT_CATEGORY_COLORS = {
+    "Strongly matches": ((209, 250, 229), (6, 95, 70)),
+    "Mostly matches": ((220, 252, 231), (22, 101, 52)),
+    "Mostly does not match": ((255, 237, 213), (154, 52, 18)),
+    "Does not match": ((254, 226, 226), (153, 27, 27)),
+}
+_VERDICT_CATEGORY_DEFAULT_COLORS = ((254, 243, 199), (146, 64, 14))
+
+
+def _category_colors(category: str) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    return _VERDICT_CATEGORY_COLORS.get(category, _VERDICT_CATEGORY_DEFAULT_COLORS)
+
+
+def _pdf_text_height(pdf: "FPDF", w: float, line_h: float, text: str) -> float:
+    return pdf.multi_cell(w, line_h, text, dry_run=True, output=MethodReturnValue.HEIGHT)
+
+
+def build_verdict_pdf(
+    question: str,
+    passes: list[tuple[str, str]],
+    timestamp: str,
+    input_hash: str,
+    prompts: list[tuple[str, str]] | None = None,
+    source_context: dict | None = None,
+    summary_verdict: str = "",
+    verdict_category: str = "",
+    verdict_prefix: str = "Document (with evaluation)",
+    filename: str = "",
+) -> bytes:
     pdf = FPDF()
     pdf.add_page()
+    page_w = pdf.w - pdf.l_margin - pdf.r_margin
+    x0 = pdf.l_margin
 
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, _safe("Leima - verdict"), ln=True)
-    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(13, 110, 253)
+    pdf.cell(0, 10, _safe("Leima"), ln=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(1)
 
     pdf.set_font("Helvetica", size=9)
     pdf.set_text_color(120, 120, 120)
+    if filename:
+        pdf.cell(0, 6, _safe(f"File: {filename}"), ln=True)
     pdf.cell(0, 6, f"Timestamp: {timestamp}", ln=True)
     pdf.cell(0, 6, f"Model: {MODEL}", ln=True)
     pdf.cell(0, 6, _safe(f"Commit: {os.getenv('VERCEL_GIT_COMMIT_SHA', 'unknown')}"), ln=True)
-    pdf.cell(0, 6, _safe(f"Input hash (SHA-256): {input_hash}"), ln=True)
     pdf.cell(0, 6, _safe(f"Source: {_source_assessment_text(source_context)}"), ln=True)
+    pdf.ln(3)
+    pdf.set_text_color(0, 0, 0)
+
+    # --- Claim / verdict header box — mirrors the ".verdict-header" card in the web UI ---
+    pad = 4
+    inner_w = page_w - 2 * pad
+    y0 = pdf.get_y()
+
+    label_h = 4
+    pdf.set_font("Helvetica", "I", 10)
+    claim_text = _safe(question)
+    claim_h = _pdf_text_height(pdf, inner_w, 5, claim_text) or 5
+    badge_h = 7 if verdict_category else 0
+    summary_text = _safe(summary_verdict)
+    pdf.set_font("Helvetica", "B", 12)
+    summary_h = _pdf_text_height(pdf, inner_w, 6, summary_text) if summary_text else 0
+
+    box_h = pad * 2 + label_h + 1 + claim_h + 2
+    if badge_h:
+        box_h += badge_h + 2
+    box_h += summary_h
+
+    pdf.set_fill_color(240, 245, 255)
+    pdf.rect(x0, y0, page_w, box_h, style="F", round_corners=True, corner_radius=2)
+    pdf.set_fill_color(13, 110, 253)
+    pdf.rect(x0, y0, 1.2, box_h, style="F")
+
+    cy = y0 + pad
+    pdf.set_xy(x0 + pad, cy)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(160, 160, 160)
+    pdf.cell(inner_w, label_h, _safe("CLAIM VERIFIED"))
+    cy += label_h + 1
+
+    pdf.set_xy(x0 + pad, cy)
+    pdf.set_font("Helvetica", "I", 10)
+    pdf.set_text_color(73, 80, 87)
+    pdf.multi_cell(inner_w, 5, claim_text)
+    cy += claim_h + 2
+
+    if verdict_category:
+        badge_text = f"{verdict_prefix}: {verdict_category}"
+        if verdict_category != "Equally supports and contradicts":
+            badge_text += " the claim"
+        badge_text = _safe(badge_text)
+        pdf.set_font("Helvetica", "B", 9)
+        bg, fg = _category_colors(verdict_category)
+        badge_w = pdf.get_string_width(badge_text) + 6
+        pdf.set_fill_color(*bg)
+        pdf.rect(x0 + pad, cy, badge_w, badge_h, style="F", round_corners=True, corner_radius=1)
+        pdf.set_xy(x0 + pad, cy)
+        pdf.set_text_color(*fg)
+        pdf.cell(badge_w, badge_h, badge_text, align="C")
+        cy += badge_h + 2
+
+    if summary_text:
+        pdf.set_xy(x0 + pad, cy)
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.set_text_color(33, 37, 41)
+        pdf.multi_cell(inner_w, 6, summary_text)
+        cy += summary_h
+
+    pdf.set_xy(x0, y0 + box_h)
+    pdf.set_text_color(0, 0, 0)
     pdf.ln(4)
 
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "Claim:", ln=True)
-    pdf.set_font("Helvetica", size=11)
-    pdf.multi_cell(0, 6, _safe(question))
-
-    for label, text in passes:
-        pdf.ln(6)
+    # --- Analysis passes — last pass first (main answer), matching the web UI order ---
+    ordered_passes = ([passes[-1]] + list(passes[:-1])) if passes else []
+    for label, text in ordered_passes:
+        y = pdf.get_y()
+        pdf.set_draw_color(222, 226, 230)
+        pdf.line(x0, y, x0 + page_w, y)
+        pdf.ln(3)
         pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(33, 37, 41)
         pdf.cell(0, 7, _safe(label), ln=True)
         pdf.set_font("Helvetica", size=11)
+        pdf.set_text_color(0, 0, 0)
         html = _md.markdown(_safe(text or ""), extensions=["nl2br"])
         pdf.write_html(html)
+        pdf.ln(4)
 
-    pdf.ln(10)
+    # --- Hash block — mirrors the ".hash-block" panel in the web UI ---
+    hash_pad = 3
+    hash_inner_w = page_w - 2 * hash_pad
+    hash_row_h = 4
+    hash_box_h = hash_pad * 2 + hash_row_h * 2
+    if pdf.get_y() + hash_box_h > pdf.page_break_trigger:
+        pdf.add_page()
+    hy0 = pdf.get_y()
+    pdf.set_fill_color(248, 249, 250)
+    pdf.set_draw_color(222, 226, 230)
+    pdf.rect(x0, hy0, page_w, hash_box_h, style="DF", round_corners=True, corner_radius=2)
+    hy = hy0 + hash_pad
+    pdf.set_xy(x0 + hash_pad, hy)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(160, 160, 160)
+    pdf.cell(hash_inner_w, hash_row_h, _safe("INPUT SHA-256"))
+    hy += hash_row_h
+    pdf.set_xy(x0 + hash_pad, hy)
+    pdf.set_font("Courier", size=8)
+    pdf.set_text_color(13, 110, 253)
+    pdf.cell(hash_inner_w, hash_row_h, _safe(input_hash))
+    pdf.set_xy(x0, hy0 + hash_box_h)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(8)
+
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(120, 120, 120)
     pdf.cell(0, 6, "Note", ln=True)
@@ -1671,12 +1795,20 @@ def _text_to_input_pdf(text: str) -> bytes:
 
 def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str,
                   source_ext: str = "pdf", source_mime: str = "application/pdf",
-                  source_context: dict | None = None) -> dict:
+                  source_context: dict | None = None,
+                  verdict_prefix: str = "Document (with evaluation)") -> dict:
     tread_snap = _tread_cache.copy() if _tread_cache else None
 
     result = analyse(question, contents, source_context=source_context)
     input_hash = sha256(input_bytes)
-    verdict_pdf = build_verdict_pdf(question, result["passes"], result["timestamp"], input_hash, prompts=result["prompt_log"], source_context=source_context)
+    verdict_pdf = build_verdict_pdf(
+        question, result["passes"], result["timestamp"], input_hash,
+        prompts=result["prompt_log"], source_context=source_context,
+        summary_verdict=result["summary_verdict"],
+        verdict_category=result.get("verdict_category", ""),
+        verdict_prefix=verdict_prefix,
+        filename=input_label,
+    )
     verdict_hash = sha256(verdict_pdf)
     verdict_txt = build_verdict_txt(question, result["passes"], result["timestamp"], input_hash)
     verdict_html_bytes = build_verdict_html_export(question, result["passes"], result["timestamp"], input_hash)
@@ -2089,7 +2221,7 @@ async def ask(
     try:
         result = _run_analysis(question, contents, input_bytes, input_label,
                                source_ext, source_mime,
-                               source_context)
+                               source_context, verdict_prefix)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
     except Exception:
