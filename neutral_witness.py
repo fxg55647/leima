@@ -76,6 +76,54 @@ def _source_block(source_context: dict | None) -> str:
             "If the claim names a specific individual as the recipient, verify that this person's name "
             "or email address appears in the To field or email body — if not, flag this as a significant gap."
         )
+    elif t in ("email_eml", "email_eml_forwarded"):
+        status = source_context.get("dkim_status", "none")
+        domain = source_context.get("signing_domain") or "none"
+        aligned = source_context.get("aligned")
+        limit = source_context.get("body_length_limit")
+        status_desc = {
+            "valid": f"DKIM signature cryptographically verified, signing domain '{domain}'.",
+            "invalid": f"A DKIM signature is present but FAILED verification (signing domain claimed: '{domain}'). "
+                       "Treat sender identity as unverified; the signature may have been broken by relaying, "
+                       "or the message may have been altered or forged.",
+            "none": "No DKIM signature present. Sender identity is not cryptographically verified.",
+            "check_error": "DKIM verification could not be completed (e.g. a DNS lookup failure). "
+                            "Treat sender identity as unverified — this is not the same as an invalid signature.",
+        }.get(status, "DKIM status unknown.")
+        align_note = ""
+        if status == "valid" and aligned is False:
+            align_note = (" WARNING: the signing domain does not match the From address domain — "
+                          "the message may be signed by a relay or a different, possibly unrelated domain.")
+        elif status == "valid" and aligned is None:
+            align_note = " Domain alignment with the From address could not be determined."
+        limit_note = ""
+        if limit is not None:
+            limit_note = (f" WARNING: the signature only covers the first {limit} bytes of the body (l= tag) — "
+                          "content beyond that point is unsigned and could have been appended undetected.")
+        base = (
+            "Source type: Email uploaded as an original .eml file. The original bytes were preserved and hashed; "
+            "DKIM was verified directly against those bytes (not against the message's own claimed "
+            "Authentication-Results headers, which are never trusted). "
+            f"{status_desc}{align_note}{limit_note} "
+            "A valid DKIM signature proves the message passed through infrastructure holding the signing domain's "
+            "private key at send time — it does NOT by itself prove the identity of the human sender, nor does it "
+            "verify facts stated in the message body. Weigh it as one input among several, not as a full "
+            "verification of the claim. "
+            "The user is analysing an email delivered to or sent by them to prove something about themselves; "
+            "normal topic restrictions apply — surveillance, stalking, or building a case against an uninvolved "
+            "third party are out of scope."
+        )
+        if t == "email_eml_forwarded":
+            outer_status = source_context.get("outer_dkim_status", "none")
+            base += (
+                f" IMPORTANT: this message was extracted from inside a forwarded/attached email. "
+                f"The outer (forwarding) message's own DKIM status was '{outer_status}' — this is a SEPARATE, "
+                "independent result from the inner message's DKIM status reported above. A valid signature on the "
+                "outer wrapper does NOT verify the inner message's claimed sender, date, or content in any way. "
+                "Do not describe the inner sender as verified, confirmed, or authenticated unless the inner "
+                "message's own DKIM status above is 'valid' and aligned with its own From domain."
+            )
+        return base
     elif t == "image_c2pa_valid":
         loc = source_context.get("c2pa_location")
         loc_str = ""

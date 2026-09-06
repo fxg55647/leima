@@ -35,6 +35,8 @@ from fpdf.enums import MethodReturnValue
 from google.genai import types
 from neutral_witness import analyse, analyse_code_review, PASS_LABELS, MODEL
 from notary import poll_and_process as _notary_poll
+from browser_session import parse_and_verify as _parse_browser_session
+import email_eml
 from fpdf import FPDF
 from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
@@ -277,12 +279,16 @@ templates.env.filters["md"] = lambda text: bleach.clean(
 store: dict[str, dict] = {}
 # Email sessions: session_id → list of email dicts
 email_sessions: dict[str, list[dict]] = {}
+# Uploaded .eml sessions: session_id → {raw, tree, warnings, outer_meta, ...}
+eml_sessions: dict[str, dict] = {}
+# Browser-session evidence receipts: receipt_id → receipt entry (no image bytes)
+browser_session_receipts: dict[str, dict] = {}
 
 SESSION_TTL = 3600  # seconds
 
 def _evict_old_sessions() -> None:
     cutoff = time.time() - SESSION_TTL
-    for d in (store, email_sessions):
+    for d in (store, email_sessions, eml_sessions, browser_session_receipts):
         stale = [k for k, v in d.items() if v.get("_stored_at", 0) < cutoff]
         for k in stale:
             d.pop(k, None)
@@ -975,6 +981,84 @@ async def notary_poll(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+# ── Browser-session evidence reception ────────────────────────────────────────
+#
+# State machine:  received → integrity_ok | integrity_failed → stamped
+#
+# "received"         Package accepted and stored; integrity not yet checked.
+# "integrity_ok"     All file hashes verified, cross-references consistent.
+# "integrity_failed" Package arrived but one or more integrity checks failed.
+# "stamped"          Arweave stamp committed (not implemented yet — reserved).
+#
+# Images are never stored in memory; only their SHA-256 hashes are kept.
+# URLs from the event log are not fetched by the server.
+# The receipt is evicted after SESSION_TTL seconds alongside other session types.
+
+@app.post("/api/evidence/browser-sessions")
+async def receive_browser_session(request: Request, package: UploadFile = File(...)):
+    received_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    receipt_id = uuid.uuid4().hex
+
+    raw = await package.read()
+
+    try:
+        parsed = _parse_browser_session(raw)
+    except ValueError as exc:
+        return JSONResponse(
+            {
+                "receipt_id": receipt_id,
+                "received_at": received_at,
+                "status": "rejected",
+                "error": str(exc),
+            },
+            status_code=422,
+        )
+
+    status = "integrity_ok" if parsed.integrity.ok else "integrity_failed"
+    integrity_summary = {
+        "file_manifest_ok":    parsed.integrity.file_manifest_ok,
+        "events_count":        parsed.integrity.events_count,
+        "screenshots_count":   parsed.integrity.screenshots_count,
+        "cross_references_ok": parsed.integrity.cross_references_ok,
+        "chain_ok":            parsed.integrity.chain_ok,
+        "errors":              parsed.integrity.errors,
+    }
+
+    _evict_old_sessions()
+    browser_session_receipts[receipt_id] = {
+        "receipt_id":    receipt_id,
+        "received_at":   received_at,
+        "status":        status,
+        "session_id":    parsed.session.get("session_id"),
+        "schema_version": parsed.session.get("schema_version"),
+        "app_version":   parsed.session.get("app_version"),
+        "integrity":     integrity_summary,
+        # Kept for future stamping — hashes only, no image bytes
+        "screenshot_hashes": parsed.screenshot_hashes,
+        "_stored_at":    time.time(),
+        "_stamp":        None,  # filled when Arweave stamp is committed
+    }
+
+    return JSONResponse(
+        {
+            "receipt_id":  receipt_id,
+            "received_at": received_at,
+            "status":      status,
+            "session_id":  parsed.session.get("session_id"),
+            "integrity":   integrity_summary,
+        },
+        status_code=200,
+    )
+
+
+@app.get("/api/evidence/browser-sessions/{receipt_id}")
+async def get_browser_session_receipt(receipt_id: str):
+    entry = browser_session_receipts.get(receipt_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Receipt not found or expired")
+    return {k: v for k, v in entry.items() if not k.startswith("_")}
+
+
 @app.get("/version")
 async def version():
     if _tread_cache is not None:
@@ -1419,6 +1503,94 @@ async def preview_email(request: Request, session_id: str, idx: int):
     return templates.TemplateResponse(
         "partials/email_preview.html",
         {"request": request, "msg": messages[idx]},
+    )
+
+
+def _eml_meta(node) -> dict:
+    return {
+        "from": node.header_decoded("From"),
+        "to": node.header_decoded("To"),
+        "subject": node.header_decoded("Subject") or "(no subject)",
+        "date": node.header("Date"),
+        "message_id": node.header("Message-ID").strip(),
+    }
+
+
+def _eml_preview_context(request: Request, session_id: str, root, warnings: list[str], selected_path: str) -> dict:
+    outer_dkim = email_eml.verify_dkim_raw(root.raw)
+    outer_meta = _eml_meta(root)
+    attachments = email_eml.list_attachments(root)
+
+    selected = None
+    if selected_path and selected_path != root.path:
+        sel_node = email_eml.find_node(root, selected_path)
+        if sel_node is not None:
+            sel_meta = _eml_meta(sel_node)
+            sel_dkim = email_eml.verify_dkim_raw(sel_node.raw)
+            selected = {
+                "path": selected_path,
+                "meta": sel_meta,
+                "dkim": sel_dkim,
+                "aligned": email_eml.check_alignment(sel_dkim["signing_domain"], sel_meta["from"]),
+            }
+
+    body_source_node = email_eml.find_node(root, selected_path) if selected else root
+    body_text, body_warnings = email_eml.get_body_text(body_source_node)
+    quote_hint = email_eml.detect_quoted_forward(body_text)
+
+    return {
+        "request": request,
+        "session_id": session_id,
+        "outer_meta": outer_meta,
+        "outer_dkim": outer_dkim,
+        "outer_aligned": email_eml.check_alignment(outer_dkim["signing_domain"], outer_meta["from"]),
+        "attachments": attachments,
+        "body_text": body_text,
+        "warnings": warnings + body_warnings,
+        "quote_hint": quote_hint,
+        "selected": selected,
+        "selected_path": selected_path,
+    }
+
+
+@app.post("/upload-eml", response_class=HTMLResponse)
+async def upload_eml(request: Request, eml_file: UploadFile = File(None)):
+    if not eml_file or not eml_file.filename:
+        return HTMLResponse('<p class="fetch-error">Please choose a .eml file.</p>')
+    raw = await eml_file.read()
+    if not raw:
+        return HTMLResponse('<p class="fetch-error">The file is empty.</p>')
+    if len(raw) > email_eml.MAX_EML_BYTES:
+        return HTMLResponse('<p class="fetch-error">File too large (max 20 MB).</p>')
+    try:
+        root, warnings = email_eml.parse_mime(raw)
+    except Exception:
+        return HTMLResponse('<p class="fetch-error">Could not parse this file as an email (.eml).</p>')
+    if not root.header_bytes.strip() or not (root.header("From") or root.header("Subject") or root.header("Date")):
+        return HTMLResponse('<p class="fetch-error">No recognizable email headers found — is this really a .eml file?</p>')
+
+    session_id = uuid.uuid4().hex
+    _evict_old_sessions()
+    eml_sessions[session_id] = {"raw": raw, "tree": root, "warnings": warnings, "_stored_at": time.time()}
+
+    return templates.TemplateResponse(
+        "partials/eml_preview.html",
+        _eml_preview_context(request, session_id, root, warnings, selected_path=""),
+    )
+
+
+@app.get("/preview-eml-part/{session_id}/{path:path}", response_class=HTMLResponse)
+async def preview_eml_part(request: Request, session_id: str, path: str):
+    entry = eml_sessions.get(session_id)
+    if not entry:
+        return Response(status_code=404)
+    root = entry["tree"]
+    node = root if not path else email_eml.find_node(root, path)
+    if node is None:
+        return Response(status_code=404)
+    return templates.TemplateResponse(
+        "partials/eml_preview.html",
+        _eml_preview_context(request, session_id, root, entry["warnings"], selected_path=path),
     )
 
 
@@ -2120,6 +2292,8 @@ async def ask(
     email_session_id: str = Form(""),
     email_idx: str = Form(""),
     email_raw: str = Form(""),
+    eml_session_id: str = Form(""),
+    eml_part_path: str = Form(""),
     pdf_file: UploadFile = File(None),
     pdf_url: str = Form(""),
     web_url: str = Form(""),
@@ -2141,6 +2315,7 @@ async def ask(
 
     contents = []
     c2pa_info = None
+    email_manifest_extra = None
     source_context = None
     source_ext = "pdf"
     source_mime = "application/pdf"
@@ -2348,6 +2523,84 @@ async def ask(
 {arweave_html}
 """)
 
+    elif active_tab == "email" and eml_session_id:
+        _eml_entry = eml_sessions.get(eml_session_id)
+        if not _eml_entry:
+            return HTMLResponse('<div class="error">Uploaded email not found or expired. Please upload it again.</div>')
+        root = _eml_entry["tree"]
+        outer_raw = _eml_entry["raw"]
+        node = root if not eml_part_path else email_eml.find_node(root, eml_part_path)
+        if node is None:
+            return HTMLResponse('<div class="error">Selected message part not found.</div>')
+
+        outer_dkim = email_eml.verify_dkim_raw(outer_raw)
+        forwarded_of = None
+        excluded = []
+
+        if eml_part_path and eml_part_path != root.path:
+            # Selected an inner message/rfc822 part — verify it independently of the outer wrapper.
+            sel_dkim = email_eml.verify_dkim_raw(node.raw)
+            meta = _eml_meta(node)
+            body_text, body_warnings = email_eml.get_body_text(node)
+            dkim_for_analysis = sel_dkim
+            forwarded_of = {"outer_dkim_status": outer_dkim["status"]}
+            outer_attachments = email_eml.list_attachments(root)
+            excluded.extend(
+                f"{a['filename']} ({a['content_type']}, {a['size']} bytes)"
+                for a in outer_attachments if a["path"] != node.path
+            )
+        else:
+            meta = _eml_meta(root)
+            body_text, body_warnings = email_eml.get_body_text(root)
+            dkim_for_analysis = outer_dkim
+            excluded.extend(
+                f"{a['filename']} ({a['content_type']}, {a['size']} bytes)"
+                for a in email_eml.list_attachments(root)
+            )
+
+        analysis_text = email_eml.build_analysis_text(
+            meta, body_text, dkim_for_analysis, excluded,
+            _eml_entry.get("warnings", []) + body_warnings, forwarded_of,
+        )
+        aligned = email_eml.check_alignment(dkim_for_analysis["signing_domain"], meta["from"])
+
+        source_context = {
+            "type": "email_eml_forwarded" if forwarded_of else "email_eml",
+            "dkim_status": dkim_for_analysis["status"],
+            "signing_domain": dkim_for_analysis["signing_domain"],
+            "aligned": aligned,
+            "body_length_limit": dkim_for_analysis["body_length_limit"],
+            "outer_dkim_status": outer_dkim["status"] if forwarded_of else None,
+            "sender_domain": meta["from"].split("@")[-1].rstrip(">").strip() if "@" in meta["from"] else "",
+        }
+        input_bytes = outer_raw
+        input_label = "email-eml" + (f":{eml_part_path}" if forwarded_of else "")
+        source_ext = "eml"
+        source_mime = "message/rfc822"
+        contents.append(analysis_text)
+
+        email_manifest_extra = {
+            "dkim": {
+                "status": outer_dkim["status"],
+                "signing_domain": outer_dkim["signing_domain"],
+                "aligned": email_eml.check_alignment(outer_dkim["signing_domain"], _eml_meta(root)["from"]),
+                "body_length_limit": outer_dkim["body_length_limit"],
+            },
+            "parser_version": email_eml.PARSER_VERSION,
+            "scope": "headers + body analyzed; attachments not analyzed; content bound only via the original .eml hash",
+            "checked_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        }
+        if forwarded_of:
+            email_manifest_extra["selected_part_path"] = eml_part_path
+            email_manifest_extra["selected_part_sha256"] = sha256(node.raw)
+            email_manifest_extra["selected_dkim"] = {
+                "status": dkim_for_analysis["status"],
+                "signing_domain": dkim_for_analysis["signing_domain"],
+                "aligned": aligned,
+                "body_length_limit": dkim_for_analysis["body_length_limit"],
+            }
+        email_manifest_extra["analyzed_text_sha256"] = sha256(analysis_text.encode())
+
     elif active_tab == "email":
         if email_raw.strip():
             try:
@@ -2479,6 +2732,9 @@ async def ask(
 
     if active_tab == "image" and c2pa_info:
         store[result["session_id"]]["manifest"]["c2pa"] = c2pa_info
+
+    if active_tab == "email" and email_manifest_extra:
+        store[result["session_id"]]["manifest"]["email"] = email_manifest_extra
 
     return templates.TemplateResponse(
         "partials/answer.html",

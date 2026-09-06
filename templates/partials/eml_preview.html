@@ -1,0 +1,97 @@
+{% macro dkim_badge(dkim) %}
+<span class="eml-dkim-badge eml-dkim-{{ dkim.status }}">{{ {"valid": "DKIM verified", "invalid": "DKIM failed", "none": "No DKIM", "check_error": "Check failed"}[dkim.status] }}</span>
+{% endmacro %}
+
+{% macro dkim_details(dkim, aligned) %}
+  {% if dkim.signing_domain %}
+    <div class="eml-note">Signing domain: <strong>{{ dkim.signing_domain }}</strong>
+    {% if aligned is sameas true %} (matches From domain){% elif aligned is sameas false %} (⚠ does not match From domain){% endif %}
+    </div>
+  {% endif %}
+  {% if dkim.body_length_limit is not none %}
+    <div class="eml-warning-box">⚠ Signature only covers the first {{ dkim.body_length_limit }} bytes of the body (l= tag) — content after that point is unsigned.</div>
+  {% endif %}
+  {% if dkim.error %}
+    <div class="eml-note">{{ dkim.error }}</div>
+  {% endif %}
+{% endmacro %}
+
+<div class="eml-status-box">
+  <div class="eml-field-label">Outer message — DKIM (checked against the original uploaded bytes)</div>
+  {{ dkim_badge(outer_dkim) }}
+  {{ dkim_details(outer_dkim, outer_aligned) }}
+</div>
+
+{% if selected %}
+<div class="eml-status-box" style="border-color:var(--blue-border);background:#f4f8fc;">
+  <div class="eml-field-label">Selected inner message (forwarded/attached) — independent DKIM check</div>
+  {{ dkim_badge(selected.dkim) }}
+  {{ dkim_details(selected.dkim, selected.aligned) }}
+  <div class="eml-note">The outer message's DKIM result above does NOT apply to this inner message — each is verified independently.</div>
+</div>
+{% endif %}
+
+{% set shown = selected.meta if selected else outer_meta %}
+<div style="margin-bottom: 0.75rem;">
+  <div class="eml-field-label">From <span style="text-transform:none;">(as stated by the message)</span></div>
+  <div style="font-size: 0.85rem;">{{ shown.from or "(none)" }}</div>
+</div>
+<div style="margin-bottom: 0.75rem;">
+  <div class="eml-field-label">To</div>
+  <div style="font-size: 0.85rem;">{{ shown.to or "(none)" }}</div>
+</div>
+<div style="margin-bottom: 0.75rem;">
+  <div class="eml-field-label">Subject</div>
+  <div style="font-size: 0.85rem; font-weight: 500;">{{ shown.subject }}</div>
+</div>
+<div style="margin-bottom: 0.75rem;">
+  <div class="eml-field-label">Date <span style="text-transform:none;">(message-stated, not Leima's processing time)</span></div>
+  <div style="font-size: 0.85rem;">{{ shown.date or "(none)" }}</div>
+</div>
+
+{% if quote_hint and not selected %}
+<div class="eml-warning-box">⚠ The body appears to contain a quoted/forwarded message ("{{ quote_hint.marker }}"). This is a heuristic guess only — the quoted sender and date shown inside the text are NOT independently verified.</div>
+{% endif %}
+
+{% if warnings %}
+<div class="eml-warning-box">
+  {% for w in warnings %}<div>⚠ {{ w }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<div class="eml-field-label" style="margin-top:0.5rem;">Extracted body text</div>
+<div style="font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; padding: 0.6rem; background: var(--surface-input);">{{ body_text }}</div>
+
+{% set nested = attachments | selectattr("is_nested_message") | list %}
+{% set plain_attachments = attachments | rejectattr("is_nested_message") | list %}
+
+{% if nested %}
+<div class="eml-part-picker">
+  <div class="eml-field-label" style="margin-bottom:0.3rem;">Forwarded message(s) found — choose what to analyze</div>
+  <button type="button" onclick="selectEmlPart('')" {% if not selected_path %}style="font-weight:700;"{% endif %}>
+    ▸ Outer message (as shown above by default)
+  </button>
+  {% for n in nested %}
+  <button type="button" onclick="selectEmlPart('{{ n.path }}')" {% if selected_path == n.path %}style="font-weight:700;"{% endif %}>
+    ▸ Inner message: "{{ n.inner_subject or '(no subject)' }}" from {{ n.inner_from or '(unknown)' }}
+  </button>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if plain_attachments %}
+<div class="eml-field-label" style="margin-top:0.5rem;">Attachments</div>
+<ul class="eml-attachment-list">
+  {% for a in plain_attachments %}
+  <li><span>{{ a.filename }} <span style="color:var(--text-faint);">({{ a.content_type }})</span></span><span>{{ a.size }} bytes</span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if attachments %}
+<div class="eml-note">Attachments are included in the original .eml file's hash but their content has not been analyzed.</div>
+{% endif %}
+
+<script>
+  document.getElementById('eml-session-id').value = '{{ session_id }}';
+  document.getElementById('eml-part-path').value = '{{ selected_path }}';
+</script>

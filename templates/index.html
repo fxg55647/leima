@@ -180,6 +180,29 @@
 
     .fetch-error { color: #c0392b; font-size: 0.85rem; margin-top: 0.5rem; }
 
+    .eml-mode-toggle { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; }
+    .eml-mode-btn {
+      flex: 1; background: var(--surface-input); color: var(--text-muted); border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.4rem 0.6rem; font-size: 0.78rem; font-weight: 500;
+      cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .eml-mode-btn.active { background: var(--blue-light); color: var(--blue-deep); border-color: var(--blue-deep); }
+    .eml-dropzone { border: 1px dashed var(--border); border-radius: 6px; padding: 1rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+    .eml-dkim-badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 3px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
+    .eml-dkim-valid { background: #e6f4ea; color: #198754; }
+    .eml-dkim-invalid { background: #fdecea; color: #c0392b; }
+    .eml-dkim-none { background: #f1f2f4; color: #6c757d; }
+    .eml-dkim-check_error { background: #fff3cd; color: #8a6d3b; }
+    .eml-warning-box { border-left: 3px solid #e0a800; background: #fff8e6; padding: 0.5rem 0.75rem; font-size: 0.78rem; color: #6b5a1f; margin: 0.5rem 0; border-radius: 3px; }
+    .eml-note { font-size: 0.75rem; color: var(--text-faint); margin-top: 0.3rem; }
+    .eml-attachment-list { list-style: none; padding: 0; margin: 0.3rem 0; font-size: 0.8rem; }
+    .eml-attachment-list li { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 0.5rem; }
+    .eml-part-picker { border: 1px solid var(--blue-border); border-radius: 5px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; background: #f4f8fc; }
+    .eml-part-picker button { display: block; width: 100%; text-align: left; background: none; border: none; padding: 0.3rem 0; font-size: 0.8rem; color: var(--blue-deep); cursor: pointer; }
+    .eml-part-picker button:hover { text-decoration: underline; }
+    .eml-field-label { font-size: 0.72rem; color: #adb5bd; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.1rem; }
+    .eml-status-box { border: 1px solid var(--border); border-radius: 6px; padding: 0.65rem 0.8rem; margin-bottom: 0.6rem; }
+
     @media (max-width: 520px) {
       .card { padding: 1.5rem 0.75rem 1.75rem; margin: 0.75rem 0; }
       .email-guide { margin-top: 2.5rem; }
@@ -290,6 +313,8 @@
         <input type="hidden" name="email_session_id" id="email-session-id" value="">
         <input type="hidden" name="email_idx" id="email-idx" value="">
         <input type="hidden" name="email_raw" id="email-raw" value="">
+        <input type="hidden" name="eml_session_id" id="eml-session-id" value="">
+        <input type="hidden" name="eml_part_path" id="eml-part-path" value="">
 
         <div id="tab-github" class="tab-panel">
           <input type="hidden" name="review_mode" value="claim">
@@ -324,34 +349,51 @@
         </div>
 
         <div id="tab-email" class="tab-panel">
-          <div class="field-group">
-            <label class="field-label">Your email</label>
-            <input type="email" name="email_user" id="email-user" class="field-input" placeholder="you@example.com">
+          <div class="eml-mode-toggle">
+            <button type="button" class="eml-mode-btn active" id="eml-mode-btn-imap" onclick="switchEmailUploadMode('imap')">Fetch from mailbox</button>
+            <button type="button" class="eml-mode-btn" id="eml-mode-btn-upload" onclick="switchEmailUploadMode('upload')">Upload .eml file</button>
           </div>
-          <div class="field-group">
-            <label class="field-label">Password</label>
-            <input type="password" name="email_password" id="email-password" class="field-input" placeholder="••••••••">
-          </div>
-          <div class="field-group">
-            <label class="field-label">Sender email</label>
-            <input type="email" name="email_sender" id="email-sender" class="field-input" placeholder="sender@example.com">
-          </div>
-          <div class="field-row">
+
+          <div id="email-mode-imap">
             <div class="field-group">
-              <label class="field-label">Start date</label>
-              <input type="date" name="email_start" id="email-start" class="field-input">
+              <label class="field-label">Your email</label>
+              <input type="email" name="email_user" id="email-user" class="field-input" placeholder="you@example.com">
             </div>
             <div class="field-group">
-              <label class="field-label">End date</label>
-              <input type="date" name="email_end" id="email-end" class="field-input">
+              <label class="field-label">Password</label>
+              <input type="password" name="email_password" id="email-password" class="field-input" placeholder="••••••••">
             </div>
+            <div class="field-group">
+              <label class="field-label">Sender email</label>
+              <input type="email" name="email_sender" id="email-sender" class="field-input" placeholder="sender@example.com">
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">Start date</label>
+                <input type="date" name="email_start" id="email-start" class="field-input">
+              </div>
+              <div class="field-group">
+                <label class="field-label">End date</label>
+                <input type="date" name="email_end" id="email-end" class="field-input">
+              </div>
+            </div>
+            <button type="button" class="fetch-btn"
+              hx-post="/fetch-emails" hx-target="#email-fetch-results"
+              hx-swap="innerHTML" hx-include="#tab-email">
+              Fetch emails
+            </button>
+            <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
           </div>
-          <button type="button" class="fetch-btn"
-            hx-post="/fetch-emails" hx-target="#email-fetch-results"
-            hx-swap="innerHTML" hx-include="#tab-email">
-            Fetch emails
-          </button>
-          <div id="email-fetch-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !this.textContent.trim()"></div>
+
+          <div id="email-mode-upload" style="display:none;">
+            <div class="eml-dropzone">
+              <input type="file" name="eml_file" id="eml-file-input" accept=".eml,message/rfc822"
+                hx-post="/upload-eml" hx-target="#eml-upload-results" hx-trigger="change"
+                hx-encoding="multipart/form-data">
+              <div class="eml-note">Choose a .eml file. It is parsed and DKIM-checked on the server; nothing is sent anywhere else.</div>
+            </div>
+            <div id="eml-upload-results" hx-on:htmx:after-swap="document.getElementById('submit-btn').disabled = !document.getElementById('eml-session-id').value"></div>
+          </div>
         </div>
 
         <div class="submit-row">
@@ -393,7 +435,7 @@
           </div>
           <div class="email-guide-body" id="email-guide-body">
             <p>Use this tab to create a permanent, verifiable proof that a specific person sent you an email on a given date — before a deadline, before a decision, before a dispute. The stamp is stored on Arweave and cannot be altered or deleted. Anyone can verify it independently.</p>
-            <p>Enter your email address and an app password, then specify the sender and a date range. Click <strong>Fetch emails</strong> to retrieve matching messages, select one, and stamp it.</p>
+            <p>Enter your email address and an app password, then specify the sender and a date range. Click <strong>Fetch emails</strong> to retrieve matching messages, select one, and stamp it. Or switch to <strong>Upload .eml file</strong> to stamp a message you've already exported or received as an attachment — DKIM is checked directly against the original file's bytes, and if it contains a forwarded message you can pick the inner message to analyze separately. You get the strongest origin check by uploading the original message as a .eml file, or by having it forwarded to you as an attachment.</p>
             <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>What you can prove</h4>
             <p>The stamp records the sender's address, the date, and a cryptographic hash of the message. It proves that a specific sender sent this exact message before the moment of stamping. It does not prove the content is true — only that it exists and was sent.</p>
             <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>Gmail: create an app password</h4>
@@ -593,7 +635,7 @@
     if (tab === 'web') return document.getElementById('web-url').value.trim() !== '';
     if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
-    if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '');
+    if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '') || document.getElementById('eml-file-input').files.length > 0;
     if (tab === 'bundle') return Array.from(document.querySelectorAll('#bundle-entries input[name="bundle_manifests"]')).some(i => i.files && i.files.length > 0);
     return false;
   }
@@ -642,6 +684,10 @@
       document.getElementById('email-session-id').value = '';
       document.getElementById('email-idx').value = '';
       document.getElementById('email-raw').value = '';
+      document.getElementById('eml-file-input').value = '';
+      document.getElementById('eml-upload-results').innerHTML = '';
+      document.getElementById('eml-session-id').value = '';
+      document.getElementById('eml-part-path').value = '';
     } else if (tab === 'bundle') {
       _resetBundleEntries();
     }
@@ -655,6 +701,26 @@
     document.getElementById('email-raw').value = el.dataset.raw || '';
   }
 
+  function _emailTabHasResult() {
+    return !!document.getElementById('email-fetch-results').textContent.trim() ||
+           !!document.getElementById('eml-session-id').value;
+  }
+
+  function switchEmailUploadMode(mode) {
+    document.getElementById('eml-mode-btn-imap').classList.toggle('active', mode === 'imap');
+    document.getElementById('eml-mode-btn-upload').classList.toggle('active', mode === 'upload');
+    document.getElementById('email-mode-imap').style.display = (mode === 'imap') ? '' : 'none';
+    document.getElementById('email-mode-upload').style.display = (mode === 'upload') ? '' : 'none';
+    clearTab('email');
+    document.getElementById('submit-btn').disabled = true;
+  }
+
+  function selectEmlPart(path) {
+    document.getElementById('eml-part-path').value = path;
+    const sessionId = document.getElementById('eml-session-id').value;
+    htmx.ajax('GET', `/preview-eml-part/${sessionId}/${encodeURIComponent(path)}`, {target: '#eml-upload-results', swap: 'innerHTML'});
+  }
+
   const TAB_TITLES = { claim: 'What is your claim?' };
   const DEFAULT_QUESTION_TITLE = 'What do you want to prove about this source?';
 
@@ -666,7 +732,7 @@
     web:         'e.g. <em>"Apple announced Vision Pro on this page"</em>',
     email:       'e.g. <em>"Tesla offered me a job in this email"</em>',
     github:      'e.g. <em>"this code follows best security practices"</em>',
-    bundle:      'e.g. <em>"these email records confirm that ferrarigarage.com sent invoices totalling €87,000 in 2025"</em>',
+    bundle:      'e.g. <em>"these email records confirm that ferrarigarage.com invoiced €87,000 for engine overhaul of VIN WP0ZZZ99ZTS392124 in 2025"</em>',
     claim:       'e.g. <em>"the first commercial jet passenger flight took place in 1952"</em>',
   };
   const TAB_PLACEHOLDERS = {
@@ -786,7 +852,7 @@
       if (coLabel) coLabel.style.display = '';
       if (coInput) coInput.disabled = false;
     }
-    document.getElementById('submit-btn').disabled = (tab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
+    document.getElementById('submit-btn').disabled = (tab === 'email' && !_emailTabHasResult());
     const hint = TAB_HINTS[tab];
     if (hint) { document.getElementById('question-sub').innerHTML = hint; document.getElementById('question-input').placeholder = TAB_PLACEHOLDERS[tab] || ''; }
     document.getElementById('question-title').textContent = TAB_TITLES[tab] || DEFAULT_QUESTION_TITLE;
@@ -859,7 +925,7 @@
     const btn = document.getElementById('submit-btn');
     form.addEventListener('htmx:beforeRequest', function() { btn.disabled = true; });
     form.addEventListener('htmx:afterRequest', function() {
-      btn.disabled = (_currentTab === 'email' && !document.getElementById('email-fetch-results').textContent.trim());
+      btn.disabled = (_currentTab === 'email' && !_emailTabHasResult());
     });
   })();
 
