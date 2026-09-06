@@ -15,7 +15,6 @@ from email.header import decode_header as _decode_header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
-from email.mime.message import MIMEMessage
 from email import encoders
 from email.utils import getaddresses, parseaddr
 from datetime import datetime
@@ -104,8 +103,9 @@ def _build_notarized_email(to: str, from_addr: str, original_raw: bytes, manifes
     )
     outer.attach(MIMEText(body, "plain", "utf-8"))
 
-    original_msg = email_lib.message_from_bytes(original_raw)
-    eml_part = MIMEMessage(original_msg)
+    eml_part = MIMEBase("application", "octet-stream")
+    eml_part.set_payload(original_raw)
+    encoders.encode_base64(eml_part)
     eml_part.add_header("Content-Disposition", "attachment", filename="original.eml")
     outer.attach(eml_part)
 
@@ -151,7 +151,7 @@ def poll_and_process(
         for num in nums[0].split():
             result: dict = {"num": num.decode()}
             try:
-                _, data = imap.fetch(num, "(RFC822)")
+                _, data = imap.fetch(num, "(BODY.PEEK[])")
                 raw = data[0][1]
 
                 meta = extract_meta(raw)

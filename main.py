@@ -1090,7 +1090,7 @@ async def download_verdict_txt(session_id: str):
     if not entry:
         return Response(status_code=404)
     return Response(
-        content=build_verdict_txt(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
+        content=entry["verdict_txt"],
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=verdict.txt"},
     )
@@ -1102,7 +1102,7 @@ async def download_verdict_html(session_id: str):
     if not entry:
         return Response(status_code=404)
     return Response(
-        content=build_verdict_html_export(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
+        content=entry["verdict_html"],
         media_type="text/html; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=verdict.html"},
     )
@@ -1114,7 +1114,7 @@ async def download_verdict_json_file(session_id: str):
     if not entry:
         return Response(status_code=404)
     return Response(
-        content=build_verdict_json_export(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
+        content=entry["verdict_json"],
         media_type="application/json",
         headers={"Content-Disposition": "attachment; filename=verdict.json"},
     )
@@ -1525,6 +1525,7 @@ def _check_pdf_signatures(pdf_bytes: bytes) -> dict | None:
     first = results[0]
     return {
         "signed": True,
+        "cryptographically_verified": False,
         "rfc3161": first.get("timestamp_rfc3161", False),
         "count": len(results),
         "signer": first.get("signer_cn") or first.get("signer_org") or "",
@@ -1677,10 +1678,19 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
     input_hash = sha256(input_bytes)
     verdict_pdf = build_verdict_pdf(question, result["passes"], result["timestamp"], input_hash, prompts=result["prompt_log"], source_context=source_context)
     verdict_hash = sha256(verdict_pdf)
+    verdict_txt = build_verdict_txt(question, result["passes"], result["timestamp"], input_hash)
+    verdict_html_bytes = build_verdict_html_export(question, result["passes"], result["timestamp"], input_hash)
+    verdict_json_bytes = build_verdict_json_export(question, result["passes"], result["timestamp"], input_hash)
     manifest = build_manifest(
         timestamp=result["timestamp"],
         input_hash=input_hash,
         verdict_hash=verdict_hash,
+        verdict_formats={
+            "pdf": verdict_hash,
+            "txt": sha256(verdict_txt),
+            "html": sha256(verdict_html_bytes),
+            "json": sha256(verdict_json_bytes),
+        },
     )
     if tread_snap and tread_snap.get("tx"):
         manifest["tread"] = {
@@ -1698,6 +1708,9 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         "passes": result["passes"], "question": question,
         "timestamp": result["timestamp"], "input_hash": input_hash,
         "verdict_hash": verdict_hash,
+        "verdict_txt": verdict_txt,
+        "verdict_html": verdict_html_bytes,
+        "verdict_json": verdict_json_bytes,
         "summary_verdict": result["summary_verdict"],
         "verdict_category": result.get("verdict_category", ""),
         "input_label": input_label,
