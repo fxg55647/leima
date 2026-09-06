@@ -1,4 +1,6 @@
 import os
+import io
+import zipfile
 
 import asyncio
 import base64
@@ -445,14 +447,18 @@ def build_manifest(
     timestamp: str,
     input_hash: str,
     verdict_hash: str,
+    verdict_formats: dict | None = None,
 ) -> dict:
-    return {
+    m = {
         "stamp_format_version": 1,
         "timestamp": timestamp,
         "commit": os.getenv("VERCEL_GIT_COMMIT_SHA", "unknown"),
         "input": f"sha256:{input_hash}",
         "verdict": f"sha256:{verdict_hash}",
     }
+    if verdict_formats:
+        m["verdict_formats"] = {fmt: f"sha256:{h}" for fmt, h in verdict_formats.items()}
+    return m
 
 
 _CR_SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
@@ -1168,6 +1174,39 @@ async def download_manifest(session_id: str):
         content=json.dumps(entry["manifest"], indent=2, ensure_ascii=False),
         media_type="application/json",
         headers={"Content-Disposition": "attachment; filename=manifest.json"},
+    )
+
+
+@app.get("/download/{session_id}/all.zip")
+async def download_all_zip(session_id: str):
+    entry = store.get(session_id)
+    if not entry:
+        return Response(status_code=404)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        if entry.get("source"):
+            zf.writestr(f"source.{entry.get('source_ext', 'pdf')}", entry["source"])
+        if entry.get("pdf"):
+            zf.writestr("verdict.pdf", entry["pdf"])
+        zf.writestr(
+            "verdict.txt",
+            build_verdict_txt(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
+        )
+        zf.writestr(
+            "verdict.html",
+            build_verdict_html_export(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
+        )
+        zf.writestr(
+            "verdict.json",
+            build_verdict_json_export(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
+        )
+        zf.writestr("manifest.json", json.dumps(entry["manifest"], indent=2, ensure_ascii=False))
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=leima-stamp.zip"},
     )
 
 

@@ -26,6 +26,9 @@
     <a class="file-btn secondary" href="/download/{{ session_id }}/manifest.json" download>
       ⬇ manifest.json
     </a>
+    <a class="file-btn zip" href="/download/{{ session_id }}/all.zip" download>
+      ⬇ all.zip
+    </a>
   </div>
 
   <div class="irys-row">
@@ -63,6 +66,12 @@
     border: 1px solid #198754;
   }
   .file-btn.secondary:hover { background: #f0fff4; }
+  .file-btn.zip {
+    background: #fff;
+    color: #6f42c1;
+    border: 1px solid #6f42c1;
+  }
+  .file-btn.zip:hover { background: #f8f4fd; }
 
   .irys-row {
     display: flex;
