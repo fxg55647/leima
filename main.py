@@ -13,8 +13,11 @@ import imaplib
 import socket
 import dkim
 import ipaddress
+import unicodedata
 import email as email_lib
+from collections import Counter
 from email.header import decode_header as _decode_header
+from html.parser import HTMLParser as _HTMLParser
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from dotenv import load_dotenv
@@ -572,6 +575,7 @@ def build_manifest(
     input_hash: str,
     verdict_hash: str,
     verdict_formats: dict | None = None,
+    source_index_sha256: str | None = None,
 ) -> dict:
     m = {
         "stamp_format_version": 1,
@@ -582,6 +586,8 @@ def build_manifest(
     }
     if verdict_formats:
         m["verdict_formats"] = {fmt: f"sha256:{h}" for fmt, h in verdict_formats.items()}
+    if source_index_sha256:
+        m["source_index"] = f"sha256:{source_index_sha256}"
     return m
 
 
@@ -691,35 +697,257 @@ def _check_ssrf(url: str) -> None:
             raise ValueError(f"URL resolves to private/internal address: {ip_str}")
 
 
-def _safe_get(url: str, **kwargs) -> http_requests.Response:
+def _safe_get(url: str, **kwargs) -> tuple[http_requests.Response, str]:
     max_redirects = 10
     for _ in range(max_redirects):
         resp = http_requests.get(url, allow_redirects=False, **kwargs)
         if resp.is_redirect or resp.status_code in (301, 302, 303, 307, 308):
             location = resp.headers.get("Location", "")
             if not location:
-                break
+                return resp, url
             url = http_requests.compat.urljoin(url, location)
             _check_ssrf(url)
         else:
-            return resp
+            return resp, url
     raise ValueError("Too many redirects or redirect loop")
 
 
-def _fetch_webpage(url: str) -> tuple[bytes, str, str, str]:
+_SOURCE_INDEX_FORMAT_VERSION = 1
+_SOURCE_INDEX_PROCESSOR = "leima-html-v1"
+_SOURCE_INDEX_NORMALIZER = "nfc-whitespace-v1"
+_SOURCE_INDEX_CHUNKER = "sentence-500-v1"
+_SOURCE_INDEX_MAX_CHARS = 30000
+
+
+class _TextExtractor(_HTMLParser):
+    _SKIP = frozenset(["script", "style", "noscript", "head", "svg", "math", "canvas", "template"])
+    _BLOCK = frozenset(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th",
+                        "blockquote", "pre", "section", "article", "main", "aside", "tr", "br"])
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.blocks: list[str] = []
+        self._cur: list[str] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self._SKIP:
+            self._skip_depth += 1
+        if self._skip_depth == 0 and tag in self._BLOCK:
+            self._flush()
+
+    def handle_endtag(self, tag):
+        if tag in self._SKIP and self._skip_depth > 0:
+            self._skip_depth -= 1
+        if self._skip_depth == 0 and tag in self._BLOCK:
+            self._flush()
+
+    def handle_data(self, data):
+        if self._skip_depth == 0:
+            self._cur.append(data)
+
+    def _flush(self):
+        t = re.sub(r"[ \t]+", " ", " ".join(self._cur)).strip()
+        if t:
+            self.blocks.append(t)
+        self._cur = []
+
+    def get_text(self) -> str:
+        self._flush()
+        return "\n\n".join(b for b in self.blocks if b.strip())
+
+
+def _normalize_text_for_index(text: str) -> str:
+    text = unicodedata.normalize("NFC", text)
+    lines = [re.sub(r"[ \t]+", " ", ln).strip() for ln in text.splitlines()]
+    text = "\n".join(lines)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+_SENT_BOUNDARY = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"“‘\(])")
+_CHUNK_MAX = 500
+
+
+def _chunk_text(text: str) -> list[str]:
+    paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+    raw: list[str] = []
+    for para in paragraphs:
+        if len(para) <= _CHUNK_MAX:
+            raw.append(para)
+            continue
+        sentences = _SENT_BOUNDARY.split(para)
+        cur = ""
+        for sent in sentences:
+            sent = sent.strip()
+            if not sent:
+                continue
+            if not cur:
+                cur = sent
+            elif len(cur) + 1 + len(sent) <= _CHUNK_MAX:
+                cur += " " + sent
+            else:
+                raw.append(cur)
+                cur = sent
+        if cur:
+            raw.append(cur)
+    final: list[str] = []
+    for chunk in raw:
+        while len(chunk) > _CHUNK_MAX:
+            cut = chunk.rfind(" ", 0, _CHUNK_MAX)
+            if cut < 1:
+                cut = _CHUNK_MAX
+            final.append(chunk[:cut].strip())
+            chunk = chunk[cut:].strip()
+        if chunk:
+            final.append(chunk)
+    return [c for c in final if c.strip()]
+
+
+def _build_source_index(requested_url: str, final_url: str, raw_html: str, fetched_at: str) -> tuple[dict, bytes]:
+    extractor = _TextExtractor()
+    try:
+        extractor.feed(raw_html)
+    except Exception:
+        pass
+    normalized = _normalize_text_for_index(extractor.get_text())
+    truncated = len(normalized) > _SOURCE_INDEX_MAX_CHARS
+    if truncated:
+        cut = normalized.rfind(" ", 0, _SOURCE_INDEX_MAX_CHARS)
+        normalized = normalized[:cut if cut > 0 else _SOURCE_INDEX_MAX_CHARS]
+    full_sha = sha256(normalized.encode("utf-8"))
+    chunks_text = _chunk_text(normalized)
+    chunks = [{"seq": i, "sha256": sha256(c.encode("utf-8")), "chars": len(c)}
+               for i, c in enumerate(chunks_text)]
+    index = {
+        "format_version": _SOURCE_INDEX_FORMAT_VERSION,
+        "processor": _SOURCE_INDEX_PROCESSOR,
+        "normalizer": _SOURCE_INDEX_NORMALIZER,
+        "chunker": _SOURCE_INDEX_CHUNKER,
+        "requested_url": requested_url,
+        "final_url": final_url,
+        "fetched_at": fetched_at,
+        "content_mode": "server_html",
+        "truncated": truncated,
+        "full_text_sha256": full_sha,
+        "total_chars": len(normalized),
+        "chunk_count": len(chunks),
+        "chunks": chunks,
+    }
+    index_bytes = json.dumps(index, ensure_ascii=False, indent=2).encode("utf-8")
+    return index, index_bytes
+
+
+def _compute_correspondence(original_index: dict, current_html: str) -> dict:
+    for field, expected in [
+        ("processor", _SOURCE_INDEX_PROCESSOR),
+        ("normalizer", _SOURCE_INDEX_NORMALIZER),
+        ("chunker", _SOURCE_INDEX_CHUNKER),
+    ]:
+        if original_index.get(field) != expected:
+            return {"error": f"incompatible_{field}"}
+
+    extractor = _TextExtractor()
+    try:
+        extractor.feed(current_html)
+    except Exception:
+        pass
+    normalized = _normalize_text_for_index(extractor.get_text())
+    truncated = len(normalized) > _SOURCE_INDEX_MAX_CHARS
+    if truncated:
+        cut = normalized.rfind(" ", 0, _SOURCE_INDEX_MAX_CHARS)
+        normalized = normalized[:cut if cut > 0 else _SOURCE_INDEX_MAX_CHARS]
+    current_full_sha = sha256(normalized.encode("utf-8"))
+    original_full_sha = original_index.get("full_text_sha256", "")
+
+    if current_full_sha == original_full_sha:
+        return {
+            "exact_match": True,
+            "retained_pct": 100.0,
+            "new_pct": 0.0,
+            "order_changed": False,
+            "current_chars": len(normalized),
+            "original_chars": original_index.get("total_chars", 0),
+            "current_truncated": truncated,
+        }
+
+    current_chunks_text = _chunk_text(normalized)
+    current_chunk_shas = [sha256(c.encode("utf-8")) for c in current_chunks_text]
+    current_chunk_chars = [len(c) for c in current_chunks_text]
+    current_total_chars = sum(current_chunk_chars) or 1
+
+    original_chunks = original_index.get("chunks", [])
+    original_total_chars = sum(c["chars"] for c in original_chunks) or 1
+
+    current_sha_pool: dict[str, int] = {}
+    for h in current_chunk_shas:
+        current_sha_pool[h] = current_sha_pool.get(h, 0) + 1
+
+    matched_orig_chars = 0
+    curr_positions_of_matched: list[int] = []
+    curr_sha_idx: dict[str, list[int]] = {}
+    for j, h in enumerate(current_chunk_shas):
+        curr_sha_idx.setdefault(h, []).append(j)
+    curr_used: dict[int, bool] = {}
+
+    for orig_chunk in original_chunks:
+        h = orig_chunk["sha256"]
+        available = [p for p in curr_sha_idx.get(h, []) if not curr_used.get(p)]
+        if available:
+            p = available[0]
+            curr_used[p] = True
+            matched_orig_chars += orig_chunk["chars"]
+            curr_positions_of_matched.append(p)
+
+    orig_sha_pool: dict[str, int] = {}
+    for c in original_chunks:
+        orig_sha_pool[c["sha256"]] = orig_sha_pool.get(c["sha256"], 0) + 1
+
+    matched_curr_chars = 0
+    orig_pool2 = dict(orig_sha_pool)
+    for h, chars in zip(current_chunk_shas, current_chunk_chars):
+        if orig_pool2.get(h, 0) > 0:
+            matched_curr_chars += chars
+            orig_pool2[h] -= 1
+
+    retained_pct = round(100 * matched_orig_chars / original_total_chars, 1)
+    new_pct = round(100 * (current_total_chars - matched_curr_chars) / current_total_chars, 1)
+
+    order_changed = False
+    if len(curr_positions_of_matched) > 1:
+        for k in range(1, len(curr_positions_of_matched)):
+            if curr_positions_of_matched[k] < curr_positions_of_matched[k - 1]:
+                order_changed = True
+                break
+
+    return {
+        "exact_match": False,
+        "retained_pct": retained_pct,
+        "new_pct": new_pct,
+        "order_changed": order_changed,
+        "original_chunk_count": len(original_chunks),
+        "current_chunk_count": len(current_chunks_text),
+        "original_chars": original_total_chars,
+        "current_chars": current_total_chars,
+        "matched_chunks": len(curr_positions_of_matched),
+        "current_truncated": truncated,
+    }
+
+
+def _fetch_webpage(url: str) -> tuple[bytes, str, str, str, str]:
+    """Returns (input_bytes, page_text, final_url, fetched_at, raw_html)."""
     _check_ssrf(url)
-    parsed = urlparse(url)
-    resp = _safe_get(url, timeout=20, headers={"User-Agent": "Leima/1.0"})
+    resp, final_url = _safe_get(url, timeout=20, headers={"User-Agent": "Leima/1.0"})
     resp.raise_for_status()
-    html = resp.text
-    text = re.sub(r"<style[^>]*>.*?</style>", " ", html, flags=re.S)
+    raw_html = resp.text
+    text = re.sub(r"<style[^>]*>.*?</style>", " ", raw_html, flags=re.S)
     text = re.sub(r"<script[^>]*>.*?</script>", " ", text, flags=re.S)
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"[ \t]+", " ", text)
     text = "\n".join(line.strip() for line in text.splitlines() if line.strip())[:30000]
     fetched_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     input_bytes = _text_to_input_pdf(f"URL: {url}\nFetched: {fetched_at}\n\n{text}")
-    return input_bytes, text, url, fetched_at
+    return input_bytes, text, final_url, fetched_at, raw_html
 
 
 @app.post("/notary/poll")
@@ -1273,6 +1501,7 @@ async def files(request: Request, session_id: str, formats: list[str] = Form(def
             "irys_url": irys_url,
             "formats": formats,
             "source_ext": entry.get("source_ext", "pdf"),
+            "has_source_index": bool(entry.get("source_index")),
         },
     )
 
@@ -1301,6 +1530,18 @@ async def download_manifest(session_id: str):
     )
 
 
+@app.get("/download/{session_id}/source-index.json")
+async def download_source_index(session_id: str):
+    entry = store.get(session_id)
+    if not entry or not entry.get("source_index"):
+        return Response(status_code=404)
+    return Response(
+        content=entry["source_index"],
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=source-index.json"},
+    )
+
+
 @app.get("/download/{session_id}/all.zip")
 async def download_all_zip(session_id: str):
     entry = store.get(session_id)
@@ -1326,6 +1567,8 @@ async def download_all_zip(session_id: str):
             build_verdict_json_export(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
         )
         zf.writestr("manifest.json", json.dumps(entry["manifest"], indent=2, ensure_ascii=False))
+        if entry.get("source_index"):
+            zf.writestr("source-index.json", entry["source_index"])
 
     return Response(
         content=buf.getvalue(),
@@ -1761,7 +2004,7 @@ def _fetch_pdf_from_url(url: str) -> tuple[bytes, str]:
     _check_ssrf(url)
     parsed = urlparse(url)
 
-    resp = _safe_get(url, timeout=30, stream=True)
+    resp, _ = _safe_get(url, timeout=30, stream=True)
     resp.raise_for_status()
     content_length = resp.headers.get("Content-Length")
     if content_length and int(content_length) > PDF_URL_MAX_BYTES:
@@ -1796,7 +2039,8 @@ def _text_to_input_pdf(text: str) -> bytes:
 def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label: str,
                   source_ext: str = "pdf", source_mime: str = "application/pdf",
                   source_context: dict | None = None,
-                  verdict_prefix: str = "Document (with evaluation)") -> dict:
+                  verdict_prefix: str = "Document (with evaluation)",
+                  source_index_bytes: bytes | None = None) -> dict:
     tread_snap = _tread_cache.copy() if _tread_cache else None
 
     result = analyse(question, contents, source_context=source_context)
@@ -1813,6 +2057,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
     verdict_txt = build_verdict_txt(question, result["passes"], result["timestamp"], input_hash)
     verdict_html_bytes = build_verdict_html_export(question, result["passes"], result["timestamp"], input_hash)
     verdict_json_bytes = build_verdict_json_export(question, result["passes"], result["timestamp"], input_hash)
+    source_index_hash = sha256(source_index_bytes) if source_index_bytes else None
     manifest = build_manifest(
         timestamp=result["timestamp"],
         input_hash=input_hash,
@@ -1823,6 +2068,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
             "html": sha256(verdict_html_bytes),
             "json": sha256(verdict_json_bytes),
         },
+        source_index_sha256=source_index_hash,
     )
     if tread_snap and tread_snap.get("tx"):
         manifest["tread"] = {
@@ -1846,6 +2092,7 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
         "summary_verdict": result["summary_verdict"],
         "verdict_category": result.get("verdict_category", ""),
         "input_label": input_label,
+        "source_index": source_index_bytes,
         "web_search_queries": (source_context or {}).get("web_search_queries", []),
         "_stored_at": time.time(),
     }
@@ -1897,6 +2144,7 @@ async def ask(
     source_context = None
     source_ext = "pdf"
     source_mime = "application/pdf"
+    source_index_bytes: bytes | None = None
 
     MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
@@ -1904,7 +2152,7 @@ async def ask(
         if image_url.strip():
             try:
                 _check_ssrf(image_url.strip())
-                resp = _safe_get(image_url.strip(), timeout=20, stream=True)
+                resp, _ = _safe_get(image_url.strip(), timeout=20, stream=True)
                 resp.raise_for_status()
                 ct = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
                 url_ext = image_url.strip().rsplit(".", 1)[-1].lower() if "." in image_url else ""
@@ -1995,9 +2243,10 @@ async def ask(
         if not web_url.strip():
             return HTMLResponse('<div class="error">Please enter a URL.</div>')
         try:
-            input_bytes, page_text, fetched_url, fetched_at = _fetch_webpage(web_url.strip())
+            input_bytes, page_text, fetched_url, fetched_at, raw_html = _fetch_webpage(web_url.strip())
         except Exception as e:
             return HTMLResponse(f'<div class="error">URL error: {e}</div>')
+        _, source_index_bytes = _build_source_index(web_url.strip(), fetched_url, raw_html, fetched_at)
         input_label = fetched_url
         parsed = urlparse(fetched_url)
         source_context = {"type": "web", "domain": parsed.netloc, "fetched_at": fetched_at, "url": fetched_url}
@@ -2048,7 +2297,7 @@ async def ask(
                 return HTMLResponse('<div class="error">Enter a rules URL for code review.</div>')
             try:
                 _check_ssrf(rules_url.strip())
-                rules_resp = _safe_get(rules_url.strip(), timeout=15)
+                rules_resp, _ = _safe_get(rules_url.strip(), timeout=15)
                 rules_text = rules_resp.text
             except Exception as e:
                 return HTMLResponse(f'<div class="error">Could not fetch rules: {e}</div>')
@@ -2221,7 +2470,8 @@ async def ask(
     try:
         result = _run_analysis(question, contents, input_bytes, input_label,
                                source_ext, source_mime,
-                               source_context, verdict_prefix)
+                               source_context, verdict_prefix,
+                               source_index_bytes=source_index_bytes)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
     except Exception:
@@ -2247,6 +2497,98 @@ async def ask(
             "tread_snap": result.get("tread_snap"),
             "irys_gateway": IRYS_GATEWAY,
             "c2pa": c2pa_info if active_tab == "image" else None,
+        },
+    )
+
+
+_CORRESPONDENCE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+@app.post("/check-correspondence", response_class=HTMLResponse)
+async def check_correspondence(
+    request: Request,
+    manifest_file: UploadFile = File(...),
+    source_index_file: UploadFile = File(...),
+):
+    if manifest_file.size and manifest_file.size > _CORRESPONDENCE_MAX_BYTES:
+        return HTMLResponse('<p class="corr-error">manifest.json too large.</p>')
+    if source_index_file.size and source_index_file.size > _CORRESPONDENCE_MAX_BYTES:
+        return HTMLResponse('<p class="corr-error">source-index.json too large.</p>')
+
+    manifest_bytes = await manifest_file.read()
+    index_bytes = await source_index_file.read()
+
+    try:
+        manifest = json.loads(manifest_bytes)
+    except Exception:
+        return HTMLResponse('<p class="corr-error">manifest.json is not valid JSON.</p>')
+    try:
+        original_index = json.loads(index_bytes)
+    except Exception:
+        return HTMLResponse('<p class="corr-error">source-index.json is not valid JSON.</p>')
+
+    # Verify format
+    if original_index.get("format_version") != _SOURCE_INDEX_FORMAT_VERSION:
+        return HTMLResponse('<p class="corr-error">source-index.json format version not supported.</p>')
+
+    # Integrity: manifest must contain the source_index hash
+    manifest_index_field = manifest.get("source_index", "")
+    if not manifest_index_field:
+        return templates.TemplateResponse(
+            "partials/correspondence_result.html",
+            {"request": request, "error": "no_index_in_manifest",
+             "analysis_url": original_index.get("final_url", original_index.get("requested_url", ""))},
+        )
+
+    expected_hash = manifest_index_field.removeprefix("sha256:")
+    actual_hash = sha256(index_bytes)
+    if actual_hash != expected_hash:
+        return templates.TemplateResponse(
+            "partials/correspondence_result.html",
+            {"request": request, "error": "index_hash_mismatch",
+             "expected_hash": expected_hash, "actual_hash": actual_hash},
+        )
+
+    # Re-fetch current page
+    target_url = original_index.get("final_url") or original_index.get("requested_url", "")
+    if not target_url:
+        return HTMLResponse('<p class="corr-error">No URL in source-index.json.</p>')
+
+    try:
+        resp, final_url = _safe_get(target_url, timeout=20, headers={"User-Agent": "Leima/1.0"})
+        resp.raise_for_status()
+        current_html = resp.text
+        current_chars_preview = len(current_html)
+    except Exception as e:
+        return templates.TemplateResponse(
+            "partials/correspondence_result.html",
+            {"request": request, "error": "fetch_failed", "fetch_error": str(e),
+             "target_url": target_url, "analysis_url": original_index.get("final_url", ""),
+             "analysis_timestamp": manifest.get("timestamp", ""),
+             "current_timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")},
+        )
+
+    checked_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    corr = _compute_correspondence(original_index, current_html)
+
+    return templates.TemplateResponse(
+        "partials/correspondence_result.html",
+        {
+            "request": request,
+            "error": corr.get("error"),
+            "analysis_url": original_index.get("final_url", original_index.get("requested_url", "")),
+            "current_url": final_url,
+            "analysis_timestamp": manifest.get("timestamp", ""),
+            "checked_at": checked_at,
+            "hash_ok": True,
+            "exact_match": corr.get("exact_match", False),
+            "retained_pct": corr.get("retained_pct"),
+            "new_pct": corr.get("new_pct"),
+            "order_changed": corr.get("order_changed", False),
+            "original_chars": corr.get("original_chars", 0),
+            "current_chars": corr.get("current_chars", 0),
+            "current_truncated": corr.get("current_truncated", False),
+            "original_truncated": original_index.get("truncated", False),
         },
     )
 
@@ -2338,7 +2680,7 @@ async def api_code_review(body: CodeReviewRequest):
 
     try:
         _check_ssrf(body.rules_url.strip())
-        rules_resp = _safe_get(body.rules_url.strip(), timeout=15)
+        rules_resp, _ = _safe_get(body.rules_url.strip(), timeout=15)
         rules_text = rules_resp.text
     except Exception as e:
         return JSONResponse({"error": f"Could not fetch rules: {e}"}, status_code=400)

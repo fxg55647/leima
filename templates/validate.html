@@ -383,6 +383,46 @@
     <div id="result"></div>
   </div>
 
+  <div class="card" style="border-top: 1px solid var(--border);">
+    <p class="card-title">Check if a web page has changed</p>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.6;">
+      Upload the manifest.json and source-index.json from a web-page stamp to see how much the current text matches the analysed version. Both files are included in the stamp's all.zip download.
+    </p>
+
+    <form
+      hx-post="/check-correspondence"
+      hx-target="#corr-result"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      hx-indicator="#corr-wrap"
+    >
+      <div id="corr-wrap">
+        <div class="upload-grid">
+          <div class="upload-row">
+            <span class="upload-label">manifest.json</span>
+            <label class="file-input-btn" id="label-corr-manifest" for="input-corr-manifest">Choose file…</label>
+            <input type="file" id="input-corr-manifest" name="manifest_file" accept="application/json"
+              onchange="setLabel(this, 'label-corr-manifest')">
+          </div>
+          <div class="upload-row">
+            <span class="upload-label">source-index</span>
+            <label class="file-input-btn" id="label-corr-index" for="input-corr-index">Choose file…</label>
+            <input type="file" id="input-corr-index" name="source_index_file" accept="application/json"
+              onchange="setLabel(this, 'label-corr-index')">
+          </div>
+        </div>
+
+        <button type="submit">Check correspondence</button>
+
+        <div class="htmx-indicator">
+          <span class="spinner"></span>Fetching and comparing…
+        </div>
+      </div>
+    </form>
+
+    <div id="corr-result"></div>
+  </div>
+
 </div><!-- /.col-frame -->
 </main>
 

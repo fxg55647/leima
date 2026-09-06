@@ -1,0 +1,201 @@
+{% if error == "no_index_in_manifest" %}
+<div class="corr-block corr-unavailable">
+  <div class="corr-title">Correspondence check not available</div>
+  <p class="corr-note">This stamp was created before source indexing was introduced. Correspondence checking requires a stamp generated with the current version of Leima.</p>
+  {% if analysis_url %}<p class="corr-meta">Original URL: <code>{{ analysis_url }}</code></p>{% endif %}
+</div>
+
+{% elif error == "index_hash_mismatch" %}
+<div class="corr-block corr-fail">
+  <div class="corr-title">Integrity check failed</div>
+  <p class="corr-note">The source-index.json does not match the hash recorded in manifest.json. The index may have been modified or does not belong to this stamp.</p>
+  <div class="corr-hash-row"><span class="corr-hash-label">Expected</span><code class="corr-hash">{{ expected_hash }}</code></div>
+  <div class="corr-hash-row"><span class="corr-hash-label">Got</span><code class="corr-hash">{{ actual_hash }}</code></div>
+</div>
+
+{% elif error == "fetch_failed" %}
+<div class="corr-block corr-fail">
+  <div class="corr-title">Page comparison failed</div>
+  <p class="corr-note">The current page could not be retrieved. The page may have been taken down, require login, or be blocking automated access.</p>
+  {% if target_url %}<p class="corr-meta">URL: <code>{{ target_url }}</code></p>{% endif %}
+  {% if fetch_error %}<p class="corr-meta">Error: {{ fetch_error }}</p>{% endif %}
+  {% if analysis_timestamp %}<p class="corr-meta">Analysed at: {{ analysis_timestamp }}</p>{% endif %}
+  <p class="corr-caveat">Note: Correspondence measures text. Even a small change may affect an earlier conclusion.</p>
+</div>
+
+{% elif error %}
+<div class="corr-block corr-fail">
+  <div class="corr-title">Check could not be completed</div>
+  <p class="corr-note">{{ error }}</p>
+</div>
+
+{% else %}
+
+<div class="corr-block {% if exact_match %}corr-exact{% elif retained_pct >= 90 %}corr-good{% elif retained_pct >= 60 %}corr-warn{% else %}corr-changed{% endif %}">
+  <div class="corr-title">
+    {% if exact_match %}Text matches exactly{% else %}Text correspondence{% endif %}
+  </div>
+
+  {% if exact_match %}
+  <p class="corr-note">The normalized text of the current page is identical to the analysed version. No changes detected.</p>
+  {% else %}
+  <div class="corr-meters">
+    <div class="corr-meter-row">
+      <span class="corr-meter-label">Retained from analysis</span>
+      <div class="corr-bar-wrap">
+        <div class="corr-bar corr-bar-retained" style="width:{{ retained_pct }}%"></div>
+      </div>
+      <span class="corr-meter-val">{{ retained_pct }}%</span>
+    </div>
+    <div class="corr-meter-row">
+      <span class="corr-meter-label">New or modified</span>
+      <div class="corr-bar-wrap">
+        <div class="corr-bar corr-bar-new" style="width:{{ new_pct }}%"></div>
+      </div>
+      <span class="corr-meter-val">{{ new_pct }}%</span>
+    </div>
+  </div>
+
+  <p class="corr-result-text">
+    <strong>{{ retained_pct }}%</strong> of the analysed text is present unchanged.
+    <strong>{{ new_pct }}%</strong> of the current text is new or modified.
+  </p>
+
+  {% if order_changed %}
+  <p class="corr-note corr-order">The order of matching sections has changed.</p>
+  {% endif %}
+  {% endif %}
+
+  <div class="corr-meta-grid">
+    <span class="corr-meta-label">Analysed at</span>
+    <span class="corr-meta-val">{{ analysis_timestamp }}</span>
+    <span class="corr-meta-label">Checked at</span>
+    <span class="corr-meta-val">{{ checked_at }}</span>
+    <span class="corr-meta-label">URL</span>
+    <span class="corr-meta-val"><a href="{{ analysis_url }}" target="_blank" rel="noopener">{{ analysis_url }}</a></span>
+    {% if current_url and current_url != analysis_url %}
+    <span class="corr-meta-label">Current URL</span>
+    <span class="corr-meta-val"><a href="{{ current_url }}" target="_blank" rel="noopener">{{ current_url }}</a></span>
+    {% endif %}
+    {% if original_truncated or current_truncated %}
+    <span class="corr-meta-label">Content limit</span>
+    <span class="corr-meta-val">{% if original_truncated %}Analysis truncated at 30 000 chars.{% endif %}{% if current_truncated %} Current page truncated at 30 000 chars.{% endif %}</span>
+    {% endif %}
+  </div>
+
+  <div class="corr-integrity-row">
+    <span class="corr-integrity-ok">✓ source-index.json integrity verified</span>
+  </div>
+
+  <p class="corr-caveat">Correspondence measures text. A small change may still affect an earlier AI conclusion.</p>
+</div>
+{% endif %}
+
+<style>
+  .corr-block {
+    border-radius: 6px;
+    padding: 1.25rem 1.25rem 1rem;
+    margin-top: 1rem;
+  }
+  .corr-unavailable { background: #f8f9fa; border: 1px solid #dee2e6; }
+  .corr-fail        { background: #fff5f5; border: 1px solid #fca5a5; }
+  .corr-exact       { background: #f0fdf4; border: 1px solid #86efac; }
+  .corr-good        { background: #f0fdf4; border: 1px solid #86efac; }
+  .corr-warn        { background: #fffbeb; border: 1px solid #fcd34d; }
+  .corr-changed     { background: #fff7ed; border: 1px solid #fdba74; }
+
+  .corr-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 0.75rem;
+  }
+
+  .corr-meters { margin-bottom: 0.75rem; }
+  .corr-meter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.35rem;
+  }
+  .corr-meter-label {
+    font-size: 0.72rem;
+    color: #6c757d;
+    width: 160px;
+    flex-shrink: 0;
+  }
+  .corr-bar-wrap {
+    flex: 1;
+    background: #e9ecef;
+    border-radius: 3px;
+    height: 10px;
+    overflow: hidden;
+  }
+  .corr-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .corr-bar-retained { background: #22c55e; }
+  .corr-bar-new      { background: #f97316; }
+  .corr-meter-val {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #212529;
+    width: 38px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .corr-result-text { font-size: 0.88rem; color: #212529; margin-bottom: 0.6rem; }
+
+  .corr-note {
+    font-size: 0.82rem;
+    color: #495057;
+    margin-bottom: 0.6rem;
+    line-height: 1.55;
+  }
+  .corr-order { color: #92400e; }
+
+  .corr-meta-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.2rem 0.75rem;
+    margin-top: 0.75rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.78rem;
+  }
+  .corr-meta-label { color: #adb5bd; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+  .corr-meta-val   { color: #495057; word-break: break-all; }
+  .corr-meta-val a { color: #0d6efd; text-decoration: none; }
+  .corr-meta-val a:hover { text-decoration: underline; }
+
+  .corr-meta { font-size: 0.82rem; color: #6c757d; margin-bottom: 0.35rem; }
+  .corr-meta code { font-size: 0.78rem; background: #f1f3f5; padding: 0.1em 0.35em; border-radius: 3px; word-break: break-all; }
+
+  .corr-hash-row { display: flex; gap: 0.5rem; align-items: flex-start; margin-bottom: 0.25rem; }
+  .corr-hash-label { font-size: 0.7rem; color: #adb5bd; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; margin-top: 0.15rem; }
+  .corr-hash { font-size: 0.72rem; background: #f1f3f5; padding: 0.15em 0.35em; border-radius: 3px; word-break: break-all; color: #212529; }
+
+  .corr-integrity-row {
+    margin-bottom: 0.5rem;
+  }
+  .corr-integrity-ok {
+    font-size: 0.72rem;
+    color: #15803d;
+    font-weight: 600;
+  }
+
+  .corr-caveat {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+    line-height: 1.5;
+  }
+
+  .corr-error {
+    color: #dc2626;
+    font-size: 0.85rem;
+    padding: 0.5rem 0;
+  }
+</style>

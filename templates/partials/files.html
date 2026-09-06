@@ -26,6 +26,11 @@
     <a class="file-btn secondary" href="/download/{{ session_id }}/manifest.json" download>
       ⬇ manifest.json
     </a>
+    {% if has_source_index %}
+    <a class="file-btn secondary" href="/download/{{ session_id }}/source-index.json" download>
+      ⬇ source-index.json
+    </a>
+    {% endif %}
     <a class="file-btn zip" href="/download/{{ session_id }}/all.zip" download>
       ⬇ all.zip
     </a>
