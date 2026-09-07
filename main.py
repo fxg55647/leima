@@ -431,7 +431,8 @@ def _source_assessment_text(source_context: dict | None) -> str:
         ts = source_context.get("sig_timestamp", "")
         rfc = " — RFC 3161 timestamp" if source_context.get("sig_rfc3161") else " — claimed time"
         tsa = f" via {source_context['sig_tsa']}" if source_context.get("sig_tsa") else ""
-        return f"PDF — Digital signature detected — Signer: {signer} — Signed: {ts}{rfc}{tsa}"
+        verified = " — cryptographically verified" if source_context.get("sig_verified") else " — NOT cryptographically verified, claimed identity only"
+        return f"PDF — Digital signature detected — Signer: {signer} — Signed: {ts}{rfc}{tsa}{verified}"
     elif t == "pdf_unsigned":
         return "PDF — No digital signature detected"
     else:
@@ -2460,6 +2461,7 @@ async def ask(
                     "sig_rfc3161": sig_info.get("rfc3161", False),
                     "sig_tsa": sig_info.get("tsa", ""),
                     "sig_count": sig_info.get("count", 1),
+                    "sig_verified": sig_info.get("cryptographically_verified", False),
                 }
             else:
                 source_context = {"type": "pdf_unsigned"}
@@ -2874,6 +2876,7 @@ async def check_correspondence(
         return HTMLResponse('<p class="corr-error">No URL in source-index.json.</p>')
 
     try:
+        _check_ssrf(target_url)
         resp, final_url = _safe_get(target_url, timeout=20, headers={"User-Agent": "Leima/1.0"})
         resp.raise_for_status()
         current_html = resp.text

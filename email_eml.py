@@ -160,9 +160,21 @@ def _parse_node(raw: bytes, depth: int, path: str, counter: _PartCounter, warnin
     return node
 
 
+def _find_boundary(body: bytes, delim: bytes, start: int = 0) -> int:
+    # RFC 2046: a boundary delimiter must begin at the start of a line.
+    pos = start
+    while True:
+        idx = body.find(delim, pos)
+        if idx == -1:
+            return -1
+        if idx == 0 or body[idx - 1:idx] == b"\n":
+            return idx
+        pos = idx + 1
+
+
 def _split_on_boundary(body: bytes, boundary: bytes) -> list[bytes] | None:
     delim = b"--" + boundary
-    idx = body.find(delim)
+    idx = _find_boundary(body, delim)
     if idx == -1:
         return None
     segments: list[bytes] = []
@@ -176,7 +188,7 @@ def _split_on_boundary(body: bytes, boundary: bytes) -> list[bytes] | None:
         if line_end == -1:
             break
         seg_start = line_end + 1
-        next_idx = body.find(delim, seg_start)
+        next_idx = _find_boundary(body, delim, seg_start)
         if next_idx == -1:
             break
         seg = body[seg_start:next_idx]
