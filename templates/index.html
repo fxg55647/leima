@@ -790,8 +790,20 @@
   window.addEventListener('scroll', _removeHelpPopup, true);
   window.addEventListener('resize', _removeHelpPopup);
 
+  function _trackTab(name) {
+    try {
+      const payload = JSON.stringify({ name });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon('/track-tab', new Blob([payload], { type: 'application/json' }));
+      } else {
+        fetch('/track-tab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+      }
+    } catch (e) { /* tracking must never break the UI */ }
+  }
+
   function switchCat(cat, btn) {
     if (cat === _currentCat) return;
+    _trackTab('cat_' + cat);
     clearTab(_currentTab);
     document.querySelector('[name="question"]').value = '';
     document.getElementById('answer-area').innerHTML = '';
@@ -809,6 +821,7 @@
   }
 
   function switchTab(tab, btn, pdfMode) {
+    _trackTab('sub_' + tab);
     clearTab(_currentTab);
     document.querySelector('[name="question"]').value = '';
     document.getElementById('answer-area').innerHTML = '';

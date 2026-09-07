@@ -177,6 +177,37 @@ def _kv_set(data: dict, key: str = _KV_KEY, ttl: int = _KV_TTL) -> None:
         pass
 
 
+def _kv_hincrby(key: str, field: str, amount: int = 1) -> None:
+    if not _KV_URL or not _KV_TOKEN:
+        return
+    try:
+        http_requests.get(f"{_KV_URL}/hincrby/{key}/{field}/{amount}",
+                          headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
+    except Exception:
+        pass
+
+
+def _kv_hgetall(key: str) -> dict[str, int]:
+    if not _KV_URL or not _KV_TOKEN:
+        return {}
+    try:
+        r = http_requests.get(f"{_KV_URL}/hgetall/{key}",
+                              headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
+        flat = r.json().get("result") if r.status_code == 200 else None
+        if flat:
+            return {flat[i]: int(flat[i + 1]) for i in range(0, len(flat), 2)}
+    except Exception:
+        pass
+    return {}
+
+
+# Sallitut nimet /track-tab -kutsuille — estää mielivaltaisten kenttien ruiskutuksen Redis-hashiin
+_TAB_TRACK_NAMES = {
+    "cat_text", "cat_claim", "cat_web", "cat_image", "cat_email", "cat_github", "cat_bundle",
+    "sub_pdf", "sub_text", "sub_image", "sub_image-url", "sub_web", "sub_github", "sub_bundle", "sub_claim", "sub_email",
+}
+_KV_TAB_CLICKS = "tab_clicks"
+
 
 def _validate_deployment_source(source: str, meta: dict) -> tuple[bool, list[str]]:
     """Tarkistaa tuleeko deployment Vercelin GitHub-integraatiosta (ei CLI/dashboard).
@@ -981,18 +1012,19 @@ async def notary_poll(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-# ── Browser-session evidence reception ────────────────────────────────────────
+# ── Android evidence reception ────────────────────────────────────────────────
 #
-# State machine:  received → integrity_ok | integrity_failed → stamped
+# State machine:  integrity_ok | integrity_failed → stamped (reserved)
 #
-# "received"         Package accepted and stored; integrity not yet checked.
-# "integrity_ok"     All file hashes verified, cross-references consistent.
+# "integrity_ok"     All file hashes verified, edits coordinates valid.
 # "integrity_failed" Package arrived but one or more integrity checks failed.
-# "stamped"          Arweave stamp committed (not implemented yet — reserved).
+# "rejected"         Structural problem or privacy violation; package not stored.
+# "stamped"          Arweave stamp committed (not yet implemented).
 #
-# Images are never stored in memory; only their SHA-256 hashes are kept.
-# URLs from the event log are not fetched by the server.
-# The receipt is evicted after SESSION_TTL seconds alongside other session types.
+# Images are never stored in memory — only the SHA-256 hash from manifest.files.
+# URLs in the package are never fetched by the server.
+# No AI analysis is triggered on receipt; that is a separate, user-initiated step.
+# Receipts are evicted after SESSION_TTL alongside other session types.
 
 @app.post("/api/evidence/browser-sessions")
 async def receive_browser_session(request: Request, package: UploadFile = File(...)):
@@ -1006,46 +1038,44 @@ async def receive_browser_session(request: Request, package: UploadFile = File(.
     except ValueError as exc:
         return JSONResponse(
             {
-                "receipt_id": receipt_id,
+                "receipt_id":  receipt_id,
                 "received_at": received_at,
-                "status": "rejected",
-                "error": str(exc),
+                "status":      "rejected",
+                "error":       str(exc),
             },
             status_code=422,
         )
 
     status = "integrity_ok" if parsed.integrity.ok else "integrity_failed"
     integrity_summary = {
-        "file_manifest_ok":    parsed.integrity.file_manifest_ok,
-        "events_count":        parsed.integrity.events_count,
-        "screenshots_count":   parsed.integrity.screenshots_count,
-        "cross_references_ok": parsed.integrity.cross_references_ok,
-        "chain_ok":            parsed.integrity.chain_ok,
-        "errors":              parsed.integrity.errors,
+        "manifest_ok":  parsed.integrity.manifest_ok,
+        "edits_ok":     parsed.integrity.edits_ok,
+        "privacy_ok":   parsed.integrity.privacy_ok,
+        "errors":       parsed.integrity.errors,
     }
 
     _evict_old_sessions()
     browser_session_receipts[receipt_id] = {
-        "receipt_id":    receipt_id,
-        "received_at":   received_at,
-        "status":        status,
-        "session_id":    parsed.session.get("session_id"),
-        "schema_version": parsed.session.get("schema_version"),
-        "app_version":   parsed.session.get("app_version"),
-        "integrity":     integrity_summary,
-        # Kept for future stamping — hashes only, no image bytes
-        "screenshot_hashes": parsed.screenshot_hashes,
-        "_stored_at":    time.time(),
-        "_stamp":        None,  # filled when Arweave stamp is committed
+        "receipt_id":      receipt_id,
+        "received_at":     received_at,
+        "status":          status,
+        "media_filename":  parsed.media_filename,
+        "media_sha256":    parsed.media_sha256,
+        "schema_version":  parsed.metadata.get("schemaVersion"),
+        "app_version":     parsed.metadata.get("appVersion"),
+        "integrity":       integrity_summary,
+        "_stored_at":      time.time(),
+        "_stamp":          None,  # filled when Arweave stamp is committed
     }
 
     return JSONResponse(
         {
-            "receipt_id":  receipt_id,
-            "received_at": received_at,
-            "status":      status,
-            "session_id":  parsed.session.get("session_id"),
-            "integrity":   integrity_summary,
+            "receipt_id":     receipt_id,
+            "received_at":    received_at,
+            "status":         status,
+            "media_filename": parsed.media_filename,
+            "media_sha256":   parsed.media_sha256,
+            "integrity":      integrity_summary,
         },
         status_code=200,
     )
@@ -1057,6 +1087,39 @@ async def get_browser_session_receipt(receipt_id: str):
     if not entry:
         raise HTTPException(status_code=404, detail="Receipt not found or expired")
     return {k: v for k, v in entry.items() if not k.startswith("_")}
+
+
+class TabTrackRequest(BaseModel):
+    name: str
+
+
+@app.post("/track-tab")
+async def track_tab(body: TabTrackRequest):
+    if body.name in _TAB_TRACK_NAMES:
+        _kv_hincrby(_KV_TAB_CLICKS, body.name)
+    return Response(status_code=204)
+
+
+@app.get("/admin/tab-stats", response_class=HTMLResponse)
+async def tab_stats(key: str = ""):
+    admin_secret = os.getenv("ADMIN_SECRET", "")
+    if not admin_secret or key != admin_secret:
+        raise HTTPException(status_code=401)
+    counts = _kv_hgetall(_KV_TAB_CLICKS)
+    rows = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+    total = sum(counts.values())
+    body = "".join(
+        f"<tr><td>{_html_escape(name)}</td><td style='text-align:right'>{n}</td></tr>"
+        for name, n in rows
+    ) or "<tr><td colspan='2'>No clicks recorded yet</td></tr>"
+    html = f"""<!doctype html><html><head><meta charset="utf-8"><title>Tab click stats</title>
+<style>body{{font-family:system-ui,sans-serif;max-width:600px;margin:2rem auto;padding:0 1rem}}
+table{{width:100%;border-collapse:collapse}} td,th{{padding:.4rem .6rem;border-bottom:1px solid #ddd}}
+th{{text-align:left}}</style></head><body>
+<h2>Tab click stats</h2><p>Total tracked clicks: {total}</p>
+<table><tr><th>Tab</th><th style="text-align:right">Clicks</th></tr>{body}</table>
+</body></html>"""
+    return HTMLResponse(html)
 
 
 @app.get("/version")
