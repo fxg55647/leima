@@ -1483,6 +1483,11 @@ async def doc_page(request: Request, name: str):
 
 
 @app.get("/", response_class=HTMLResponse)
+async def landing(request: Request):
+    return templates.TemplateResponse("landing.html", {"request": request, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro(), "proteus_intro": _proteus_intro(), "usecases_intro": _usecases_intro(), "zkse_intro": _zkse_intro()})
+
+
+@app.get("/app", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro(), "proteus_intro": _proteus_intro(), "usecases_intro": _usecases_intro(), "zkse_intro": _zkse_intro()})
 
