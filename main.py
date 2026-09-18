@@ -36,6 +36,7 @@ from google.genai import types
 from neutral_witness import analyse, analyse_code_review, PASS_LABELS, MODEL
 from notary import poll_and_process as _notary_poll
 from browser_session import parse_and_verify as _parse_browser_session
+from browser_session import EvidenceBodyLimitMiddleware, MAX_ZIP_BYTES
 import email_eml
 from fpdf import FPDF
 from irys_sdk import Builder
@@ -296,6 +297,7 @@ def _fetch_monitor_hashes(token: str) -> dict | None:
 
 
 app = FastAPI()
+app.add_middleware(EvidenceBodyLimitMiddleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 templates.env.filters["b64encode"] = lambda s: base64.b64encode(s.encode("utf-8")).decode("ascii") if isinstance(s, str) else base64.b64encode(s).decode("ascii")
@@ -1022,7 +1024,7 @@ async def notary_poll(request: Request):
 # "rejected"         Structural problem or privacy violation; package not stored.
 # "stamped"          Arweave stamp committed (not yet implemented).
 #
-# Images are never stored in memory — only the SHA-256 hash from manifest.files.
+# Images are processed temporarily; receipts retain hashes, not image bytes.
 # URLs in the package are never fetched by the server.
 # No AI analysis is triggered on receipt; that is a separate, user-initiated step.
 # Receipts are evicted after SESSION_TTL alongside other session types.
@@ -1032,7 +1034,10 @@ async def receive_browser_session(request: Request, package: UploadFile = File(.
     received_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     receipt_id = uuid.uuid4().hex
 
-    raw = await package.read()
+    raw = await package.read(MAX_ZIP_BYTES + 1)
+    await package.close()
+    if len(raw) > MAX_ZIP_BYTES:
+        return JSONResponse({'status': 'rejected', 'error': 'Package too large'}, status_code=413)
 
     try:
         parsed = _parse_browser_session(raw)
