@@ -527,6 +527,7 @@
           const apiWarnings = [];
           if (!monitor) apiWarnings.push('tread-monitor unreachable');
           else if (monitor.error === 'monitor_exception') apiWarnings.push('tread-monitor error: ' + (monitor.detail || '?'));
+          else if (monitor.error === 'github_unreachable') apiWarnings.push('GitHub API unreachable — monitor status unknown');
           else {
             if (monitor.vercel_api_error) apiWarnings.push('Vercel API unavailable');
             if (monitor.github_actions_error) apiWarnings.push('GitHub Actions API unavailable');
