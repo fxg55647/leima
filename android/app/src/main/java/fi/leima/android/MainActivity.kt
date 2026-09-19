@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.exifinterface.media.ExifInterface
+import fi.leima.android.meeting.MeetingScreen
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant
@@ -42,6 +43,8 @@ class MainActivity : ComponentActivity() {
     private var provider: ProcessCameraProvider? = null
     private var cameraCapture: ImageCapture? = null
     private var cameraMode by mutableStateOf(false)
+    private var meetingMode by mutableStateOf(false)
+    private var pendingMeetingExport by mutableStateOf<File?>(null)
     private var cameraAllowed by mutableStateOf(false)
     private var cameraReady by mutableStateOf(false)
     private var busy by mutableStateOf(false)
@@ -67,6 +70,20 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    private val meetingExport = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        val source = pendingMeetingExport
+        pendingMeetingExport = null
+        if (uri != null && source != null) {
+            io.execute {
+                runCatching {
+                    checkNotNull(contentResolver.openOutputStream(uri)).use { output -> source.inputStream().use { it.copyTo(output) } }
+                }.fold(
+                    { runOnUiThread { status = "Kuvausistunnon paketti viety." } },
+                    { runOnUiThread { status = "Kuvausistunnon vienti epäonnistui: ${it.localizedMessage}" } },
+                )
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,16 +97,18 @@ class MainActivity : ComponentActivity() {
                 Column(Modifier.fillMaxSize().systemBarsPadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Leima", style = MaterialTheme.typography.headlineMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(enabled = !busy, onClick = { cameraMode = false }) { Text("Selain") }
+                        Button(enabled = !busy, onClick = { cameraMode = false; meetingMode = false }) { Text("Selain") }
                         Button(enabled = !busy, onClick = {
                             cameraMode = true
+                            meetingMode = false
                             if (!cameraAllowed) permissions.launch(arrayOf(Manifest.permission.CAMERA))
                         }) { Text("Kamera") }
+                        Button(enabled = !busy, onClick = { cameraMode = false; meetingMode = true }) { Text("Kuvausistunto") }
                         TextButton(enabled = !busy, onClick = {
                             permissions.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
                         }) { Text("Sijaintilupa") }
                     }
-                    if (!cameraMode) {
+                    if (!cameraMode && !meetingMode) {
                         OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Verkko-osoite (HTTPS)") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
                         Row {
                             TextButton(enabled = !busy, onClick = { if (web?.canGoBack() == true) web?.goBack() }) { Text("Takaisin") }
@@ -99,16 +118,25 @@ class MainActivity : ComponentActivity() {
                             }) { Text("Avaa") }
                         }
                     }
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
-                        if (cameraMode) {
-                            if (cameraAllowed) CameraSurface() else Text("Kamera tarvitsee kameran käyttöluvan.")
-                        } else BrowserSurface()
+                    if (meetingMode) {
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            MeetingScreen(onExport = { file ->
+                                pendingMeetingExport = file
+                                meetingExport.launch("leima-meeting_${file.parentFile?.name ?: "session"}.zip")
+                            })
+                        }
+                    } else {
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            if (cameraMode) {
+                                if (cameraAllowed) CameraSurface() else Text("Kamera tarvitsee kameran käyttöluvan.")
+                            } else BrowserSurface()
+                        }
+                        Text(status, style = MaterialTheme.typography.bodySmall)
+                        Button(modifier = Modifier.fillMaxWidth(), enabled = !busy && if (cameraMode) cameraReady else pageReady, onClick = {
+                            if (cameraMode) takePhoto() else takeScreenshot()
+                        }) { Text(if (busy) "Tallennetaan…" else if (cameraMode) "Ota kuva ja tallenna mittaukset" else "Tallenna näkyvä sivu ja mittaukset") }
+                        TextButton(enabled = !busy && lastPackage != null, onClick = { export.launch("leima-${lastPackage!!.parentFile!!.name}.zip") }) { Text("Vie viimeisin kuvapaketti") }
                     }
-                    Text(status, style = MaterialTheme.typography.bodySmall)
-                    Button(modifier = Modifier.fillMaxWidth(), enabled = !busy && if (cameraMode) cameraReady else pageReady, onClick = {
-                        if (cameraMode) takePhoto() else takeScreenshot()
-                    }) { Text(if (busy) "Tallennetaan…" else if (cameraMode) "Ota kuva ja tallenna mittaukset" else "Tallenna näkyvä sivu ja mittaukset") }
-                    TextButton(enabled = !busy && lastPackage != null, onClick = { export.launch("leima-${lastPackage!!.parentFile!!.name}.zip") }) { Text("Vie viimeisin kuvapaketti") }
                 }
                 pendingScreenshot?.let { pending ->
                     ScreenshotEditor(pending, onCancel = {
