@@ -3,8 +3,9 @@ package fi.leima.android.meeting
 /**
  * Every session-level transition (plan section 4: `IDLE → PAIRING → READY → RECORDING →
  * CONFIRMING → FINALIZING → COMPLETE`, plus the `INTERRUPTED`/`CANCELLED`/`FAILED` error states).
- * `PAIRING`/`CONFIRMING` are reserved for the Vaihe 2 QR exchange; Vaihe 1 only drives the solo
- * path (no [FinishPaired]/[PairingConfirmed]).
+ * `PAIRING` is the Vaihe 2 *join* exchange (join_invite/join_response, before recording);
+ * `CONFIRMING` is the separate end-of-session *finish* QR exchange (finish_challenge/response/ack,
+ * after recording). Vaihe 1's solo path ([ReadyToRecord], [FinishSolo]) still skips both.
  *
  * Commands are validated here, not by disabling buttons in the UI, so a stale UI state or a
  * delayed callback can never apply an illegal transition (plan section 4: "Kaikki komennot
@@ -12,6 +13,8 @@ package fi.leima.android.meeting
  */
 sealed class SessionCommand {
     object ReadyToRecord : SessionCommand()
+    object BeginPairing : SessionCommand()
+    object PairingEstablished : SessionCommand()
     object StartRecording : SessionCommand()
     object FinishSolo : SessionCommand()
     object FinishPaired : SessionCommand()
@@ -23,8 +26,9 @@ sealed class SessionCommand {
 }
 
 object MeetingStateMachine {
-    private val interruptible = setOf(SessionState.READY, SessionState.RECORDING, SessionState.CONFIRMING, SessionState.FINALIZING)
-    private val cancellable = setOf(SessionState.IDLE, SessionState.READY)
+    private val interruptible =
+        setOf(SessionState.PAIRING, SessionState.READY, SessionState.RECORDING, SessionState.CONFIRMING, SessionState.FINALIZING)
+    private val cancellable = setOf(SessionState.IDLE, SessionState.PAIRING, SessionState.READY)
     private val terminal = setOf(SessionState.COMPLETE, SessionState.INTERRUPTED, SessionState.CANCELLED, SessionState.FAILED)
 
     fun isActive(state: SessionState): Boolean = state !in terminal
@@ -32,6 +36,8 @@ object MeetingStateMachine {
     /** Returns the resulting state, or null if `command` is not legal from `current`. */
     fun transition(current: SessionState, command: SessionCommand): SessionState? = when (command) {
         SessionCommand.ReadyToRecord -> onlyFrom(current, SessionState.IDLE, SessionState.READY)
+        SessionCommand.BeginPairing -> onlyFrom(current, SessionState.IDLE, SessionState.PAIRING)
+        SessionCommand.PairingEstablished -> onlyFrom(current, SessionState.PAIRING, SessionState.READY)
         SessionCommand.StartRecording -> onlyFrom(current, SessionState.READY, SessionState.RECORDING)
         SessionCommand.FinishSolo -> onlyFrom(current, SessionState.RECORDING, SessionState.FINALIZING)
         SessionCommand.FinishPaired -> onlyFrom(current, SessionState.RECORDING, SessionState.CONFIRMING)

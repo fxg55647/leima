@@ -20,11 +20,27 @@ class MeetingStateMachineTest {
 
     @Test
     fun pairedHappyPath() {
-        var state = SessionState.RECORDING
+        var state = SessionState.IDLE
+        state = MeetingStateMachine.transition(state, SessionCommand.BeginPairing)!!
+        assertEquals(SessionState.PAIRING, state)
+        state = MeetingStateMachine.transition(state, SessionCommand.PairingEstablished)!!
+        assertEquals(SessionState.READY, state)
+        state = MeetingStateMachine.transition(state, SessionCommand.StartRecording)!!
+        assertEquals(SessionState.RECORDING, state)
         state = MeetingStateMachine.transition(state, SessionCommand.FinishPaired)!!
         assertEquals(SessionState.CONFIRMING, state)
         state = MeetingStateMachine.transition(state, SessionCommand.PairingConfirmed)!!
         assertEquals(SessionState.FINALIZING, state)
+        state = MeetingStateMachine.transition(state, SessionCommand.FinalizeComplete)!!
+        assertEquals(SessionState.COMPLETE, state)
+    }
+
+    @Test
+    fun pairingCannotBeSkippedIntoReady() {
+        // ReadyToRecord (the solo path) must not let a half-paired session jump straight to READY.
+        assertNull(MeetingStateMachine.transition(SessionState.PAIRING, SessionCommand.ReadyToRecord))
+        // Nor can PairingEstablished fire without having gone through PAIRING first.
+        assertNull(MeetingStateMachine.transition(SessionState.IDLE, SessionCommand.PairingEstablished))
     }
 
     @Test
@@ -50,7 +66,7 @@ class MeetingStateMachineTest {
 
     @Test
     fun interruptionAllowedWhileActiveNotFromIdleOrTerminal() {
-        for (state in listOf(SessionState.READY, SessionState.RECORDING, SessionState.CONFIRMING, SessionState.FINALIZING)) {
+        for (state in listOf(SessionState.PAIRING, SessionState.READY, SessionState.RECORDING, SessionState.CONFIRMING, SessionState.FINALIZING)) {
             assertEquals(SessionState.INTERRUPTED, MeetingStateMachine.transition(state, SessionCommand.Interrupt))
         }
         assertNull(MeetingStateMachine.transition(SessionState.IDLE, SessionCommand.Interrupt))
@@ -60,6 +76,7 @@ class MeetingStateMachineTest {
     @Test
     fun cancelOnlyBeforeRecordingStarts() {
         assertEquals(SessionState.CANCELLED, MeetingStateMachine.transition(SessionState.IDLE, SessionCommand.Cancel))
+        assertEquals(SessionState.CANCELLED, MeetingStateMachine.transition(SessionState.PAIRING, SessionCommand.Cancel))
         assertEquals(SessionState.CANCELLED, MeetingStateMachine.transition(SessionState.READY, SessionCommand.Cancel))
         assertNull(MeetingStateMachine.transition(SessionState.RECORDING, SessionCommand.Cancel))
     }

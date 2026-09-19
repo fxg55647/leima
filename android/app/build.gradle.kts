@@ -31,6 +31,7 @@ dependencies {
     implementation("androidx.camera:camera-view:1.5.3")
     implementation("androidx.exifinterface:exifinterface:1.4.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
+    implementation("com.google.zxing:core:3.5.3")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
     testImplementation("junit:junit:4.13.2")

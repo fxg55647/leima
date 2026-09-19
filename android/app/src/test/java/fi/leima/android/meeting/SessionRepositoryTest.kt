@@ -1,6 +1,8 @@
 package fi.leima.android.meeting
 
 import java.io.File
+import java.security.KeyPairGenerator
+import java.security.spec.ECGenParameterSpec
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -18,8 +20,9 @@ class SessionRepositoryTest {
     fun listsFinalizedAndUnfinishedSessionsAndSupportsExportAndDelete() {
         val repo = SessionRepository(tmp.newFolder())
 
+        val keyPair = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
         val finished = repo.newSessionDirectory("finished-1")
-        MeetingEvidenceStore.finalizeSession(finished, JSONObject().put("sessionId", "finished-1"))
+        MeetingEvidenceStore.finalizeSession(finished, JSONObject().put("sessionId", "finished-1"), keyPair.private, keyPair.public)
 
         val unfinished = repo.newSessionDirectory("unfinished-1")
         File(unfinished, "events.jsonl").writeText("{}\n")

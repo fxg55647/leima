@@ -4,9 +4,13 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
@@ -41,11 +47,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.io.File
+import org.json.JSONObject
 
 /**
- * Meeting-proof capture screen (plan sections 3.1–3.4): role selection, guided multi-photo
- * capture, and export/session-list, wired to [MeetingViewModel] and [MeetingCoordinator]. QR
- * pairing is not part of Vaihe 1; "Vahvista kohtaaminen" always takes the solo path.
+ * Meeting-proof capture screen (plan sections 3.1–3.4): role and pairing-mode selection, QR
+ * join/finish exchange, guided multi-photo capture, and export/session-list, wired to
+ * [MeetingViewModel] and [MeetingCoordinator].
  */
 @Composable
 fun MeetingScreen(onExport: (File) -> Unit, modifier: Modifier = Modifier) {
@@ -56,6 +63,14 @@ fun MeetingScreen(onExport: (File) -> Unit, modifier: Modifier = Modifier) {
     }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         cameraAllowed = result[Manifest.permission.CAMERA] == true
+    }
+    fun requestPermissionsThen(action: () -> Unit) {
+        if (!cameraAllowed) {
+            permissionLauncher.launch(
+                arrayOf(Manifest.permission.CAMERA, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION),
+            )
+        }
+        action()
     }
 
     // Plan section 4: backgrounding interrupts recording immediately, it does not continue
@@ -70,17 +85,17 @@ fun MeetingScreen(onExport: (File) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(viewModel.status, style = MaterialTheme.typography.bodyMedium)
         val coordinator = viewModel.coordinator
+        val pendingQr = viewModel.pendingOutgoingQr
         when {
-            coordinator == null -> RoleSelector { role ->
-                if (!cameraAllowed) {
-                    permissionLauncher.launch(
-                        arrayOf(Manifest.permission.CAMERA, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION),
-                    )
-                }
-                viewModel.beginSession(role)
-            }
+            coordinator == null -> RoleSelector(
+                onBeginSolo = { role -> requestPermissionsThen { viewModel.beginSolo(role) } },
+                onBeginAsInitiator = { role -> requestPermissionsThen { viewModel.beginPairingAsInitiator(role) } },
+                onBeginAsJoiner = { role -> requestPermissionsThen { viewModel.beginPairingAsJoiner(role) } },
+            )
+            pendingQr != null -> QrDisplay(pendingQr, onContinue = viewModel::continuePastPendingQr)
+            viewModel.awaitingScan -> QrScanner(onDecoded = viewModel::onQrScanned, errorMessage = viewModel.pairingError)
             coordinator.state == SessionState.READY -> ReadyPanel(onStart = viewModel::startRecording)
-            coordinator.state == SessionState.RECORDING -> RecordingPanel(viewModel, coordinator, cameraAllowed, onExport)
+            coordinator.state == SessionState.RECORDING -> RecordingPanel(viewModel, coordinator, cameraAllowed)
             coordinator.state == SessionState.FINALIZING || coordinator.state == SessionState.COMPLETE ->
                 SummaryPanel(viewModel, coordinator, onExport)
             else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -94,11 +109,23 @@ fun MeetingScreen(onExport: (File) -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun RoleSelector(onSelectRole: (Role) -> Unit) {
-    Text("Valitse rooli", style = MaterialTheme.typography.titleMedium)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { onSelectRole(Role.PHOTOGRAPHER) }) { Text("Aloita kuvaus") }
-        OutlinedButton(onClick = { onSelectRole(Role.WITNESS) }) { Text("Liity todistajaksi") }
+private fun RoleSelector(onBeginSolo: (Role) -> Unit, onBeginAsInitiator: (Role) -> Unit, onBeginAsJoiner: (Role) -> Unit) {
+    var role by remember { mutableStateOf<Role?>(null) }
+    val chosenRole = role
+    if (chosenRole == null) {
+        Text("Valitse rooli", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { role = Role.PHOTOGRAPHER }) { Text("Kuvaaja") }
+            OutlinedButton(onClick = { role = Role.WITNESS }) { Text("Sensoritodistaja") }
+        }
+    } else {
+        Text("Kohtaaminen toisen puhelimen kanssa?", style = MaterialTheme.typography.titleMedium)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(modifier = Modifier.fillMaxWidth(), onClick = { onBeginSolo(chosenRole) }) { Text("Kuvaan yksin") }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = { onBeginAsInitiator(chosenRole) }) { Text("Luo kutsu toiselle puhelimelle") }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = { onBeginAsJoiner(chosenRole) }) { Text("Liity toisen kutsuun") }
+            TextButton(onClick = { role = null }) { Text("Takaisin") }
+        }
     }
 }
 
@@ -109,7 +136,47 @@ private fun ReadyPanel(onStart: () -> Unit) {
 }
 
 @Composable
-private fun RecordingPanel(viewModel: MeetingViewModel, coordinator: MeetingCoordinator, cameraAllowed: Boolean, onExport: (File) -> Unit) {
+private fun QrDisplay(envelope: JSONObject, onContinue: () -> Unit) {
+    val bitmap = remember(envelope) { QrCodec.encode(envelope) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Image(bitmap = bitmap.asImageBitmap(), contentDescription = "QR-koodi", modifier = Modifier.fillMaxWidth().height(280.dp))
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onContinue) { Text("Valmis, jatka") }
+    }
+}
+
+@Composable
+private fun QrScanner(onDecoded: (String) -> Unit, errorMessage: String?) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var provider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    DisposableEffect(Unit) { onDispose { provider?.unbindAll() } }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AndroidView(
+            modifier = Modifier.fillMaxWidth().height(280.dp),
+            factory = { viewContext ->
+                PreviewView(viewContext).apply {
+                    val surface = this
+                    val future = ProcessCameraProvider.getInstance(viewContext)
+                    future.addListener({
+                        runCatching {
+                            val cameraProvider = future.get()
+                            val preview = Preview.Builder().build().also { it.setSurfaceProvider(surface.surfaceProvider) }
+                            val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
+                            analysis.setAnalyzer(context.mainExecutor, QrAnalyzer(onDecoded))
+                            cameraProvider.unbindAll()
+                            cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+                            provider = cameraProvider
+                        }
+                    }, context.mainExecutor)
+                }
+            },
+        )
+        if (errorMessage != null) Text(errorMessage, color = Color.Red, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun RecordingPanel(viewModel: MeetingViewModel, coordinator: MeetingCoordinator, cameraAllowed: Boolean) {
     val point = viewModel.currentObservationPoint()
 
     if (coordinator.role == Role.PHOTOGRAPHER) {
@@ -131,7 +198,7 @@ private fun RecordingPanel(viewModel: MeetingViewModel, coordinator: MeetingCoor
     Button(
         modifier = Modifier.fillMaxWidth(),
         enabled = coordinator.role == Role.WITNESS || hasSavedCapture,
-        onClick = { viewModel.finishAndExport()?.let(onExport) },
+        onClick = viewModel::confirmMeeting,
     ) { Text("Vahvista kohtaaminen") }
 }
 
@@ -230,6 +297,7 @@ private fun StepPanel(viewModel: MeetingViewModel, point: ObservationPointInfo, 
 private fun SummaryPanel(viewModel: MeetingViewModel, coordinator: MeetingCoordinator, onExport: (File) -> Unit) {
     Text("Istunto: ${coordinator.sessionId.take(8)}", style = MaterialTheme.typography.titleMedium)
     Text("Kuvia tallennettu: ${coordinator.captureList().count { it.status == CaptureStatus.SAVED }}")
+    coordinator.partner?.let { partner -> Text("Kohtaaminen todistettu: ${partner.role.jsonValue} (${partner.keyId})", style = MaterialTheme.typography.bodySmall) }
     coordinator.observationPointList().forEach { point ->
         val done = point.stepStatuses.values.count { it == StepStatus.CAPTURED }
         val total = point.stepStatuses.size

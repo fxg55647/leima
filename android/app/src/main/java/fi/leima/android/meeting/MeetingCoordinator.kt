@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.exifinterface.media.ExifInterface
 import fi.leima.android.BuildConfig
 import java.io.File
+import java.security.PublicKey
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Executor
@@ -36,14 +37,20 @@ data class ObservationPointInfo(
     val stepStatuses: Map<Int, StepStatus>,
 )
 
+/** The other device's identity, known once join pairing (or the finish exchange) has validated it. */
+data class PartnerInfo(val role: Role, val keyId: String, val publicKey: PublicKey)
+
 /**
- * Orchestrates one meeting-proof capture session on this device: recording lifecycle, guided
- * capture requests, observation points, and finalize/export. QR pairing (Vaihe 2) is not wired in
- * yet; [finish] always takes the solo path straight to [SessionState.FINALIZING] (plan section
- * 3.1: "Kuvaus toimii myös yksin").
+ * Orchestrates one meeting-proof capture session on this device: pairing, recording lifecycle,
+ * guided capture requests, observation points, the end-of-session QR exchange, and
+ * finalize/export. [finish] takes the solo path straight to [SessionState.FINALIZING] when there
+ * is no [partner] (plan section 3.1: "Kuvaus toimii myös yksin"), or the paired
+ * challenge/response/ack path through [SessionState.CONFIRMING] otherwise.
  *
  * All session commands go through [MeetingStateMachine] rather than trusting the caller, so a
- * stale UI or a late camera callback can never apply an illegal transition.
+ * stale UI or a late camera/QR callback can never apply an illegal transition. Every QR envelope
+ * is built and validated by [QrPairingProtocol]; this class only sequences *when* those calls
+ * happen and what the result unlocks next.
  */
 class MeetingCoordinator(
     private val context: Context,
@@ -55,15 +62,35 @@ class MeetingCoordinator(
         // Plan section 9 (trial limits, to be confirmed by two-phone measurements).
         const val MAX_CAPTURES = 20
         const val MAX_RECORDING_DURATION_MS = 10 * 60 * 1000L
+
+        // Plan section 6: "Prototyypin paikallinen vastausaikaraja on 120 sekuntia per odotettu vastaus."
+        const val FINISH_EXCHANGE_TIMEOUT_MS = 120 * 1000L
     }
 
-    val sessionId: String = sessionDirectory.name
+    // The Keystore alias is tied to the *local* directory name, which never changes, unlike the
+    // logical `sessionId` below (the joiner adopts the initiator's id once pairing starts).
+    val keyStore = MeetingKeyStore(sessionDirectory.name)
+
+    private var sessionIdField: String = sessionDirectory.name
+    val sessionId: String get() = sessionIdField
     val camera = CameraCaptureController(context)
 
     // Compose-observable: MeetingScreen reads `state`/`observationPointList()`/`captureList()`
     // directly, so every mutation here must go through Compose state, not a plain field/List/Map.
     var state: SessionState by mutableStateOf(SessionState.IDLE)
         private set
+
+    private var partnerField: PartnerInfo? = null
+    val partner: PartnerInfo? get() = partnerField
+    var isPairingInitiator: Boolean = false
+        private set
+    private val pairingLog = mutableListOf<JSONObject>()
+
+    private var pendingChallenge: JSONObject? = null
+    private var pendingChallengeNonce: ByteArray? = null
+    private var pendingResponse: JSONObject? = null
+    private var pendingResponseNonceB: ByteArray? = null
+    private var finishExchangeStartedElapsedRealtimeNs: Long? = null
 
     private val startedAtUtc: String = Instant.now().toString()
     private val journal = SessionJournal(sessionDirectory, elapsedRealtimeNanos = SystemClock::elapsedRealtimeNanos)
@@ -93,12 +120,83 @@ class MeetingCoordinator(
         return true
     }
 
-    /** IDLE -> READY. Call once, before [startRecording]. */
+    // ---- Solo path (plan section 3.1) ---------------------------------------------------------
+
+    /** IDLE -> READY directly, no partner. Call once, before [startRecording]. */
     fun prepare(): Boolean {
         if (!apply(SessionCommand.ReadyToRecord)) return false
         journal.record("session_created", JSONObject().put("sessionId", sessionId).put("role", role.jsonValue).put("participantId", participantId))
         return true
     }
+
+    // ---- Join pairing (plan section 3.2) ------------------------------------------------------
+
+    /** IDLE -> PAIRING. `asInitiator` decides who shows join_invite first and who drives the later finish exchange. */
+    fun beginPairing(asInitiator: Boolean): Boolean {
+        if (!apply(SessionCommand.BeginPairing)) return false
+        isPairingInitiator = asInitiator
+        journal.record("pairing_started", JSONObject().put("asInitiator", asInitiator).put("role", role.jsonValue))
+        return true
+    }
+
+    /** Initiator only: builds this device's join_invite QR envelope to show the partner. */
+    fun buildJoinInvite(): JSONObject? {
+        if (state != SessionState.PAIRING || !isPairingInitiator) return null
+        val envelope = QrPairingProtocol.buildJoinInvite(sessionId, role, keyStore.privateKey, keyStore.publicKey)
+        recordPairingMessage("sent", envelope)
+        return envelope
+    }
+
+    /** Joiner only: call after scanning the initiator's join_invite QR text. Adopts the shared session id. */
+    fun acceptJoinInvite(raw: String): PartnerInfo? {
+        if (state != SessionState.PAIRING || isPairingInitiator) return null
+        val invite = QrPairingProtocol.parseJoinEnvelope(raw, "join_invite") ?: return null
+        sessionIdField = invite.sessionId
+        val info = PartnerInfo(invite.role, invite.senderKeyId, invite.senderPublicKey)
+        partnerField = info
+        recordPairingMessage("received", runCatching { JSONObject(raw) }.getOrDefault(JSONObject()))
+        journal.record(
+            "join_invite_accepted",
+            JSONObject().put("sessionId", invite.sessionId).put("partnerRole", invite.role.jsonValue).put("partnerKeyId", invite.senderKeyId),
+        )
+        return info
+    }
+
+    /** Joiner only: builds this device's join_response QR envelope, once [acceptJoinInvite] succeeded. */
+    fun buildJoinResponse(): JSONObject? {
+        if (state != SessionState.PAIRING || isPairingInitiator) return null
+        val partnerKeyId = partnerField?.keyId ?: return null
+        val envelope = QrPairingProtocol.buildJoinResponse(sessionId, role, keyStore.privateKey, keyStore.publicKey, partnerKeyId)
+        recordPairingMessage("sent", envelope)
+        return envelope
+    }
+
+    /** Joiner only: call once the join_response QR has been shown. B does not need to wait for A's confirmation. */
+    fun confirmJoinResponseShown(): Boolean {
+        if (isPairingInitiator || partnerField == null) return false
+        return completePairing()
+    }
+
+    /** Initiator only: call after scanning the partner's join_response QR text. Completes pairing on this side. */
+    fun acceptJoinResponse(raw: String): Boolean {
+        if (state != SessionState.PAIRING || !isPairingInitiator) return false
+        val response = QrPairingProtocol.parseJoinEnvelope(raw, "join_response", expectedSessionId = sessionId) ?: return false
+        partnerField = PartnerInfo(response.role, response.senderKeyId, response.senderPublicKey)
+        recordPairingMessage("received", runCatching { JSONObject(raw) }.getOrDefault(JSONObject()))
+        journal.record(
+            "join_response_accepted",
+            JSONObject().put("partnerRole", response.role.jsonValue).put("partnerKeyId", response.senderKeyId),
+        )
+        return completePairing()
+    }
+
+    private fun completePairing(): Boolean {
+        val moved = apply(SessionCommand.PairingEstablished)
+        if (moved) journal.record("pairing_established", JSONObject().put("sessionId", sessionId).put("partnerKeyId", partnerField?.keyId))
+        return moved
+    }
+
+    // ---- Recording (plan section 3.2, unchanged since Vaihe 1) ---------------------------------
 
     /** READY -> RECORDING and starts continuous sensor logging. Camera preview binds separately in the UI. */
     fun startRecording(): Boolean {
@@ -226,13 +324,93 @@ class MeetingCoordinator(
         return fields
     }
 
-    /** User tapped "Vahvista kohtaaminen". Solo path only until Vaihe 2 adds QR pairing. */
-    fun finish(): Boolean = apply(SessionCommand.FinishSolo)
+    // ---- Finish (plan section 3.3) --------------------------------------------------------------
 
-    /** Stops sensor recording and builds session.json/manifest/ZIP. Call after [finish] succeeds. */
+    /** User tapped "Vahvista kohtaaminen". Solo (no partner) goes straight to FINALIZING; a paired session enters the finish QR exchange. */
+    fun finish(): Boolean = if (partnerField != null) apply(SessionCommand.FinishPaired) else apply(SessionCommand.FinishSolo)
+
+    /** Initiator (A) only, once CONFIRMING: builds a finish_challenge QR to show the partner. Safe to call again to retry with a fresh nonce. */
+    fun buildFinishChallenge(): JSONObject? {
+        val partnerKeyId = partnerField?.keyId ?: return null
+        if (state != SessionState.CONFIRMING || !isPairingInitiator) return null
+        if (pendingChallenge != null) {
+            journal.record("finish_challenge_retry", JSONObject().put("previousMessageId", pendingChallenge?.optString("messageId")))
+        }
+        val nonce = QrPairingProtocol.freshNonce()
+        val challenge = QrPairingProtocol.buildFinishChallenge(sessionId, keyStore.privateKey, keyStore.publicKey, partnerKeyId, nonce)
+        pendingChallenge = challenge
+        pendingChallengeNonce = nonce
+        finishExchangeStartedElapsedRealtimeNs = SystemClock.elapsedRealtimeNanos()
+        recordPairingMessage("sent", challenge)
+        return challenge
+    }
+
+    /** Joiner (B) only: call after scanning A's finish_challenge QR text. Returns the finish_response QR to show back. */
+    fun acceptFinishChallengeAndBuildResponse(raw: String): JSONObject? {
+        val partner = partnerField ?: return null
+        if (state != SessionState.CONFIRMING || isPairingInitiator) return null
+        val info = QrPairingProtocol.validateFinishChallenge(raw, sessionId, partner.publicKey, keyStore.keyId) ?: return null
+        val challengeEnvelope = runCatching { JSONObject(raw) }.getOrNull() ?: return null
+        recordPairingMessage("received", challengeEnvelope)
+        val nonceB = QrPairingProtocol.freshNonce()
+        val response = QrPairingProtocol.buildFinishResponse(
+            sessionId, keyStore.privateKey, keyStore.publicKey, partner.keyId, challengeEnvelope, info.nonce, nonceB,
+        )
+        pendingResponse = response
+        pendingResponseNonceB = nonceB
+        journal.record("finish_challenge_accepted", JSONObject().put("messageId", info.messageId))
+        recordPairingMessage("sent", response)
+        return response
+    }
+
+    /** Initiator (A) only: call after scanning B's finish_response QR text. Returns the finish_ack QR and advances to FINALIZING. */
+    fun acceptFinishResponseAndBuildAck(raw: String): JSONObject? {
+        val partner = partnerField ?: return null
+        val challenge = pendingChallenge ?: return null
+        val nonceA = pendingChallengeNonce ?: return null
+        if (state != SessionState.CONFIRMING || !isPairingInitiator) return null
+        if (isFinishExchangeTimedOut()) return null
+        val info = QrPairingProtocol.validateFinishResponse(raw, sessionId, partner.publicKey, keyStore.keyId, challenge, nonceA) ?: return null
+        val responseEnvelope = runCatching { JSONObject(raw) }.getOrNull() ?: return null
+        recordPairingMessage("received", responseEnvelope)
+        val ack = QrPairingProtocol.buildFinishAck(sessionId, keyStore.privateKey, keyStore.publicKey, partner.keyId, responseEnvelope, info.nonceB)
+        journal.record("finish_response_accepted", JSONObject().put("messageId", info.messageId))
+        recordPairingMessage("sent", ack)
+        apply(SessionCommand.PairingConfirmed)
+        return ack
+    }
+
+    /** Joiner (B) only: call after scanning A's finish_ack QR text. Advances to FINALIZING. */
+    fun acceptFinishAck(raw: String): Boolean {
+        val partner = partnerField ?: return false
+        val response = pendingResponse ?: return false
+        val nonceB = pendingResponseNonceB ?: return false
+        if (state != SessionState.CONFIRMING || isPairingInitiator) return false
+        val ok = QrPairingProtocol.validateFinishAck(raw, sessionId, partner.publicKey, keyStore.keyId, response, nonceB)
+        if (!ok) return false
+        recordPairingMessage("received", runCatching { JSONObject(raw) }.getOrDefault(JSONObject()))
+        journal.record("finish_ack_accepted")
+        return apply(SessionCommand.PairingConfirmed)
+    }
+
+    // A holds the "started" timestamp because A owns the retry decision; B is purely reactive and
+    // simply will not complete if A never returns, which needs no separate timeout of its own.
+    private fun isFinishExchangeTimedOut(): Boolean {
+        val startedNs = finishExchangeStartedElapsedRealtimeNs ?: return false
+        return (SystemClock.elapsedRealtimeNanos() - startedNs) / 1_000_000 > FINISH_EXCHANGE_TIMEOUT_MS
+    }
+
+    private fun recordPairingMessage(direction: String, envelope: JSONObject) {
+        pairingLog.add(JSONObject(envelope.toString()).put("direction", direction))
+    }
+
+    // ---- Finalize --------------------------------------------------------------------------------
+
+    /** Stops sensor recording and builds session.json/pairing.json/manifest/signature/ZIP. Call after [finish] succeeds. */
     fun finalizeSession(): File? {
         if (state != SessionState.FINALIZING) return null
         sensorRecorder.stop()
+        writePairingFile()
         val session = JSONObject()
             .put("sessionId", sessionId).put("participantId", participantId).put("role", role.jsonValue)
             .put("protocolVersion", 2).put("startedAtUtc", startedAtUtc).put("endedAtUtc", Instant.now().toString())
@@ -243,15 +421,32 @@ class MeetingCoordinator(
                 JSONObject().put("manufacturer", Build.MANUFACTURER).put("model", Build.MODEL)
                     .put("androidApi", Build.VERSION.SDK_INT).put("androidRelease", Build.VERSION.RELEASE),
             )
+            .put("keySecurity", keyStore.securityReport())
+            .put(
+                "pairing",
+                JSONObject().put("isPaired", partnerField != null).put("partnerRole", partnerField?.role?.jsonValue ?: JSONObject.NULL)
+                    .put("partnerKeyId", partnerField?.keyId ?: JSONObject.NULL),
+            )
             .put("sensorInventory", sensorRecorder.sensorInventory())
             .put("observationPoints", observationPointsJson())
             .put("droppedEventCount", journal.droppedEventCount)
         journal.record("finalize_started")
         journal.close()
-        return runCatching { MeetingEvidenceStore.finalizeSession(sessionDirectory, session) }
+        return runCatching { MeetingEvidenceStore.finalizeSession(sessionDirectory, session, keyStore.privateKey, keyStore.publicKey) }
             .onSuccess { apply(SessionCommand.FinalizeComplete) }
             .onFailure { apply(SessionCommand.Fail) }
             .getOrNull()
+    }
+
+    private fun writePairingFile() {
+        val partnerInfo = partnerField ?: return
+        val messages = JSONArray()
+        pairingLog.forEach { messages.put(it) }
+        val pairing = JSONObject()
+            .put("schemaVersion", 2).put("sessionId", sessionId).put("isInitiator", isPairingInitiator)
+            .put("partnerRole", partnerInfo.role.jsonValue).put("partnerKeyId", partnerInfo.keyId)
+            .put("messages", messages)
+        File(sessionDirectory, "pairing.json").writeText(pairing.toString(2), Charsets.UTF_8)
     }
 
     private fun observationPointsJson(): JSONArray {

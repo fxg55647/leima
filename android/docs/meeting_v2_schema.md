@@ -121,7 +121,7 @@ keskeytyneenä (`events.jsonl`).
 
 ```text
 session.json
-pairing.json
+pairing.json                   # vain jos pariutunut; ei solo-istunnoissa
 events.jsonl
 sensors/imu.jsonl
 sensors/location.jsonl
@@ -171,3 +171,40 @@ tuotantopolussa — vain `test_meeting_crypto.py`:ssä ja `MeetingCryptoTest.kt`
 Jos allekirjoitusskeema (domain-erotin, tavujärjestys tai algoritmi) muuttuu,
 vektorit on generoitava uudelleen molempien kielten testien kanssa
 yhdenmukaisiksi — muutoin Vaihe 0:n "valmis, kun" -kriteeri ei enää päde.
+
+## 6. Vaihe 2 -toteutus: join-pariutuminen ja pairing.json
+
+`QrPairingProtocol.kt` toteuttaa myös `join_invite`/`join_response`-viestit
+(A luo istunnon → B liittyy). Näissä `senderPublicKeySpkiDerBase64` on aina
+mukana, ja viesti on itseallekirjoitettu: `senderKeyId` ja allekirjoitus
+tarkistetaan samasta mukana tulevasta avaimesta (luottamus ensimmäisellä
+käytöllä — ei ulkoista varmennusta, ks. suunnitelman luku 11).
+
+```json
+{
+  "type": "join_invite",
+  "protocolVersion": 2,
+  "sessionId": "b2b0b8fa-1a4b-4a3e-9d3a-6f2f0a2f0a11",
+  "senderKeyId": "8f3e1c2a9b7d4e56",
+  "receiverKeyId": null,
+  "messageId": "m-...",
+  "senderPublicKeySpkiDerBase64": "<base64 DER SPKI>",
+  "payloadBase64": "<base64: {type, protocolVersion, sessionId, role, messageId}>",
+  "signatureBase64Der": "<base64>"
+}
+```
+
+`join_response` on muuten sama, mutta `receiverKeyId` on kutsujan `senderKeyId`
+ja `sessionId` on kutsusta opittu (liittyjä omaksuu sen omakseen).
+
+`MeetingCoordinator` pitää istuntokohtaisen `MeetingKeyStore`-avaimen
+(Android Keystore, alias sidottu paikalliseen hakemistonimeen, ei jaettuun
+`sessionId`:hen — se voi vielä muuttua pariutumisen aikana). `manifest.json`
+allekirjoitetaan aina `finalizeSession()`-kutsussa riippumatta siitä onko
+istunto solo vai pariutunut; `signature.json` ei siis enää ole "kehitysaineiston"
+merkki niin kuin Vaihe 1:ssä.
+
+Kaikki QR-protokollan rakennus/validointi (`QrPairingProtocol.kt`) on puhdasta
+`java.security`/`org.json`-koodia ja JVM-yksikkötestattu ilman laitetta.
+`QrAnalyzer`/`QrCodec` (ZXing/CameraX) ja `MeetingKeyStore` (Android Keystore)
+vaativat oikean laitteen — niitä ei ole voitu ajaa tässä ympäristössä.

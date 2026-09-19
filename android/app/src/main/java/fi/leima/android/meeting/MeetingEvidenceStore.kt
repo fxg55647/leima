@@ -2,19 +2,23 @@ package fi.leima.android.meeting
 
 import java.io.File
 import java.security.MessageDigest
+import java.security.PrivateKey
+import java.security.PublicKey
+import java.util.Base64
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.json.JSONObject
 
 /**
- * Builds the meeting-proof v2 package: writes `session.json`, computes a SHA-256 manifest over
- * every content file, and zips the session directory atomically (write to a `.partial` file,
- * then rename — plan section 8's write order, minus the pairing/signing steps that do not exist
- * yet).
+ * Builds the meeting-proof v2 package: writes `session.json` (and `pairing.json`, already on
+ * disk if the caller wrote one), computes a SHA-256 manifest over every content file, signs the
+ * manifest, and zips the session directory atomically (write to a `.partial` file, then rename —
+ * plan section 8's write order).
  *
- * Vaihe 1 produces an *unsigned development package* — no `signature.json` — matching plan
- * section 12: "Paketti on vielä kehitysaineisto, jos allekirjoitusvaihe puuttuu". Vaihe 2 adds
- * signing by extending this finalize step, not by changing the manifest format.
+ * `signature.json` signs `manifest.json`'s exact bytes with `messageType = "manifest"` via
+ * [MeetingCrypto] (android/docs/meeting_v2_schema.md section 4) using the session's
+ * [MeetingKeyStore] key — solo and paired sessions are signed the same way; only the presence of
+ * `pairing.json` and its `messages` distinguishes a witnessed meeting from a solo capture.
  */
 object MeetingEvidenceStore {
     const val SCHEMA_VERSION = 2
@@ -24,10 +28,10 @@ object MeetingEvidenceStore {
     /**
      * `session` is the caller-built session.json content; this function adds `schemaVersion` and
      * `kind` and writes it into `sessionDirectory`. Every other file already present in
-     * `sessionDirectory` (events.jsonl, sensors JSONL logs, captures) is treated as package
-     * content and included in the manifest. Returns the finished, immutable ZIP file.
+     * `sessionDirectory` (events.jsonl, sensors JSONL logs, captures, pairing.json) is treated as
+     * package content and included in the manifest. Returns the finished, immutable ZIP file.
      */
-    fun finalizeSession(sessionDirectory: File, session: JSONObject): File {
+    fun finalizeSession(sessionDirectory: File, session: JSONObject, privateKey: PrivateKey, publicKey: PublicKey): File {
         session.put("schemaVersion", SCHEMA_VERSION).put("kind", "meeting_session")
         File(sessionDirectory, "session.json").writeText(session.toString(2), Charsets.UTF_8)
 
@@ -38,7 +42,13 @@ object MeetingEvidenceStore {
         val manifestFile = File(sessionDirectory, "manifest.json").apply { writeText(manifest.toString(2), Charsets.UTF_8) }
         File(sessionDirectory, "manifest.sha256").writeText("${sha256Hex(manifestFile)}  manifest.json\n", Charsets.UTF_8)
 
-        val allFiles = (contentFiles + manifestFile + File(sessionDirectory, "manifest.sha256"))
+        val signature = MeetingCrypto.sign(privateKey, "manifest", manifestFile.readBytes())
+        val signatureJson = JSONObject().put("algorithm", "SHA256withECDSA").put("curve", "P-256")
+            .put("publicKeySpkiDerBase64", Base64.getEncoder().encodeToString(publicKey.encoded))
+            .put("signatureBase64Der", Base64.getEncoder().encodeToString(signature))
+        val signatureFile = File(sessionDirectory, "signature.json").apply { writeText(signatureJson.toString(2), Charsets.UTF_8) }
+
+        val allFiles = (contentFiles + manifestFile + File(sessionDirectory, "manifest.sha256") + signatureFile)
             .sortedBy { relativePath(sessionDirectory, it) }
         val partial = File(sessionDirectory, "$ZIP_NAME.partial")
         ZipOutputStream(partial.outputStream()).use { zip ->
