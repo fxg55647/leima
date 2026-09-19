@@ -525,7 +525,12 @@
         } else if (!unknownCommit && verified && !commitMatch) {
           fadeSet(row('Please note', '#f0a030', 'Deploying'), 'warning');
         } else if (p.ok || commitMatch) {
-          fadeSet(row('OK', '#fff'), 'ok');
+          if (!Number.isFinite(lastCheckedAt) || lastCheckedAt === null ||
+              Date.now() - lastCheckedAt > 10 * 60 * 1000 || lastCheckedAt > Date.now() + 60000) {
+            fadeSet(row('Please note', '#f0a030', 'verification stale or timestamp unavailable'), 'warning');
+          } else {
+            fadeSet(row('OK', '#fff'), 'ok');
+          }
         } else if (p.ok === false) {
           fadeSet(row('Danger', '#ff6b6b', p.deploy_status === 'not_configured' ? 'API key missing' : 'check failed'), 'danger');
         } else {

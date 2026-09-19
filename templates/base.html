@@ -525,6 +525,11 @@
         } else if (p.ok) {
           stopDeployTicker(); _wasDeploying = false;
           const apiWarnings = [];
+          // Match the scheduled monitor's ten-minute freshness window.
+          if (!Number.isFinite(lastCheckedAt) || lastCheckedAt === null ||
+              Date.now() - lastCheckedAt > 10 * 60 * 1000 || lastCheckedAt > Date.now() + 60000) {
+            apiWarnings.push('verification stale or timestamp unavailable');
+          }
           if (!monitor) apiWarnings.push('tread-monitor unreachable');
           else if (monitor.error === 'monitor_exception') apiWarnings.push('tread-monitor error: ' + (monitor.detail || '?'));
           else if (monitor.error === 'github_unreachable') apiWarnings.push('GitHub API unreachable — monitor status unknown');

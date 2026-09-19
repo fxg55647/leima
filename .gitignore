@@ -10,3 +10,7 @@ __pycache__/
 !.claude/commands
 .playwright-mcp/
 webhook-channel/node_modules/
+test-results/
+.pytest_cache/
+.test-tmp/
+.test-run-*/

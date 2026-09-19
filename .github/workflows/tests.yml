@@ -1,0 +1,32 @@
+name: Offline regression tests
+on:
+  pull_request:
+  push:
+    branches: [staging, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Backend regression tests
+        run: python -m pytest -m 'not browser' --junitxml=test-results/backend.xml
+      - name: Browser regression tests
+        run: python -m pytest tests/browser --junitxml=test-results/browser.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
