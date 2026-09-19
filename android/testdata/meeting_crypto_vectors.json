@@ -1,0 +1,35 @@
+{
+  "_comment": "TEST-ONLY key material and signatures for the Leima meeting-proof v2 protocol. Never use testPrivateKeyPkcs8DerBase64 outside this cross-language test suite.",
+  "curve": "P-256",
+  "signatureAlgorithm": "SHA256withECDSA",
+  "signatureFormat": "ASN.1 DER (SEQUENCE of two INTEGERs r, s)",
+  "domainSeparatorScheme": "utf8(\"leima-meeting-v2:\" + messageType) + 0x00 + payloadBytes",
+  "testPrivateKeyPkcs8DerBase64": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgmuXM0YWLNADx4MSUvD9Hq7IqYCFvqAvq3+oSGqen+0ChRANCAAQUeY2a2iZcBvoiyY+QLPgTDoSRoNr2jQlfEn761oM5NCnEPbfUHDnSTE+T61HvPbUy+RApOPLXq1v5y76Dtyka",
+  "testPublicKeySpkiDerBase64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFHmNmtomXAb6IsmPkCz4Ew6EkaDa9o0JXxJ++taDOTQpxD231Bw50kxPk+tR7z21MvkQKTjy16tb+cu+g7cpGg==",
+  "vectors": [
+    {
+      "messageType": "finish_challenge",
+      "domainSeparator": "leima-meeting-v2:finish_challenge",
+      "payloadBase64": "eyJtZXNzYWdlSWQiOiJtLTAwMDAwMSIsIm5vbmNlIjoiTjJnazNGMG0zc1FlWVZoMGIzQjNhUmhaazNGMG0zc1FlWVZoMGIzQjNhUSIsInByb3RvY29sVmVyc2lvbiI6MiwicmVjZWl2ZXJLZXlJZCI6IjFhMmIzYzRkNWU2ZjcwODEiLCJzZW5kZXJLZXlJZCI6IjhmM2UxYzJhOWI3ZDRlNTYiLCJzZXNzaW9uSWQiOiJiMmIwYjhmYS0xYTRiLTRhM2UtOWQzYS02ZjJmMGEyZjBhMTEiLCJ0eXBlIjoiZmluaXNoX2NoYWxsZW5nZSJ9",
+      "signatureBase64Der": "MEQCIF9Di0+bHy3RBjcojtwXfOCQvIQ8om9WY7kU1BQjcFR+AiBntuJ388fYtiO45C5UZwfTycacqp6ln5aso08shhsKIA=="
+    },
+    {
+      "messageType": "finish_response",
+      "domainSeparator": "leima-meeting-v2:finish_response",
+      "payloadBase64": "eyJpblJlc3BvbnNlVG9IYXNoIjoiYjNkM2M5ZTZmMWEyYjNjNGQ1ZTZmN2E4YjljMGQxZTJmM2E0YjVjNmQ3ZThmOWEwYjFjMmQzZTRmNWE2YjdjOCIsIm1lc3NhZ2VJZCI6Im0tMDAwMDAyIiwibm9uY2VBIjoiTjJnazNGMG0zc1FlWVZoMGIzQjNhUmhaazNGMG0zc1FlWVZoMGIzQjNhUSIsIm5vbmNlQiI6ImFWaDBiM0IzYVJoWmszRjBtM3NRZVlWaDBiM0IzYVJoWmszRjBtM3NRZVkiLCJwcm90b2NvbFZlcnNpb24iOjIsInJlY2VpdmVyS2V5SWQiOiI4ZjNlMWMyYTliN2Q0ZTU2Iiwic2VuZGVyS2V5SWQiOiIxYTJiM2M0ZDVlNmY3MDgxIiwic2Vzc2lvbklkIjoiYjJiMGI4ZmEtMWE0Yi00YTNlLTlkM2EtNmYyZjBhMmYwYTExIiwidHlwZSI6ImZpbmlzaF9yZXNwb25zZSJ9",
+      "signatureBase64Der": "MEUCIA/0iTeTIlfwhIHlJNdTGfb2KMcErvglVLQMR28H5i70AiEAsUe4jLchhdv4pn3i9N1JMr5mIhZbCMe3HOiC6vt68ig="
+    },
+    {
+      "messageType": "finish_ack",
+      "domainSeparator": "leima-meeting-v2:finish_ack",
+      "payloadBase64": "eyJpblJlc3BvbnNlVG9IYXNoIjoiYzRkNWU2ZjdhOGI5YzBkMWUyZjNhNGI1YzZkN2U4ZjlhMGIxYzJkM2U0ZjVhNmI3YzhkOWUwZjFhMmIzYzRkNSIsIm1lc3NhZ2VJZCI6Im0tMDAwMDAzIiwibm9uY2VCIjoiYVZoMGIzQjNhUmhaazNGMG0zc1FlWVZoMGIzQjNhUmhaazNGMG0zc1FlWSIsInByb3RvY29sVmVyc2lvbiI6MiwicmVjZWl2ZXJLZXlJZCI6IjFhMmIzYzRkNWU2ZjcwODEiLCJzZW5kZXJLZXlJZCI6IjhmM2UxYzJhOWI3ZDRlNTYiLCJzZXNzaW9uSWQiOiJiMmIwYjhmYS0xYTRiLTRhM2UtOWQzYS02ZjJmMGEyZjBhMTEiLCJ0eXBlIjoiZmluaXNoX2FjayJ9",
+      "signatureBase64Der": "MEUCIQDfCHh3IzNbZ5ymIy/Z98j0sSwLkCXRzI+RQQAYLa6xyAIgAnj0QJECU0ezcLSUGUgHr4+Pe927YqUYJ4WBSFuUFrk="
+    },
+    {
+      "messageType": "manifest",
+      "domainSeparator": "leima-meeting-v2:manifest",
+      "payloadBase64": "eyJhbGdvcml0aG0iOiJTSEEtMjU2IiwiZmlsZXMiOnsiY2FwdHVyZXMvMDAwMDAxLmpwZyI6IjliNzRjOTg5N2JhYzc3MGZmYzAyOTEwMmEyMDBjNWRlNmUwZjRiYmY1YjkxZDFjOWU1YTdmM2Q4YjJhMWM0ZSIsInNlc3Npb24uanNvbiI6IjNmNzg2ODUwZTM4NzU1MGZkYWI4MzZlZDdlNmRjODgxZGUyMzAwMWI2YjFiMGE4YjBlM2M4YjFkOWYwYTFiMiJ9LCJzY2hlbWFWZXJzaW9uIjoyfQ==",
+      "signatureBase64Der": "MEUCIQCT38IuY90LS6EG4q3FPOY6lNdQLyjwNxv43q5kTNlnGwIgFPPJ6723o/VCmpYMrds8rss13cYie8ECKdfjDnBBxO0="
+    }
+  ]
+}
