@@ -8,6 +8,8 @@ Leima is built on this insight. You provide a document and a claim. Leima analys
 
 Leima produces two things at once: a cryptographic proof that a specific document existed and was analysed at a specific time, and an expert opinion on what that document actually says about your claim — both sealed together permanently.
 
+**Leima Mobile** extends this idea to field observations. The open-source Android prototype records guided photo sessions, optional location and device sensors into tamper-evident evidence packages — designed for use cases such as documenting how a donor-funded well or construction project progresses before the next payment is released. [Read about Leima Mobile →](MOBILE_APP.md)
+
 ---
 
 ## Contents
