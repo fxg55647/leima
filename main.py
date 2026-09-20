@@ -26,7 +26,7 @@ from html import escape as _html_escape
 import markdown as _md
 import bleach
 import requests as http_requests
-from fastapi import FastAPI, File, Form, UploadFile, Request, HTTPException
+from fastapi import FastAPI, File, Form, UploadFile, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
@@ -202,12 +202,59 @@ def _kv_hgetall(key: str) -> dict[str, int]:
     return {}
 
 
+def _kv_pipeline_hgetall(keys: list[str]) -> dict[str, int]:
+    """Sums HGETALL over several hash keys in one round trip (for date-range stats)."""
+    if not _KV_URL or not _KV_TOKEN or not keys:
+        return {}
+    try:
+        r = http_requests.post(f"{_KV_URL}/pipeline",
+                               headers={"Authorization": f"Bearer {_KV_TOKEN}"},
+                               json=[["HGETALL", k] for k in keys], timeout=5)
+        if r.status_code != 200:
+            return {}
+        totals: dict[str, int] = {}
+        for entry in r.json():
+            flat = entry.get("result")
+            if not flat:
+                continue
+            for i in range(0, len(flat), 2):
+                totals[flat[i]] = totals.get(flat[i], 0) + int(flat[i + 1])
+        return totals
+    except Exception:
+        return {}
+
+
+def _kv_setnx_str(key: str, value: str) -> None:
+    if not _KV_URL or not _KV_TOKEN:
+        return
+    try:
+        http_requests.get(f"{_KV_URL}/setnx/{key}/{value}",
+                          headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
+    except Exception:
+        pass
+
+
+def _kv_get_str(key: str) -> str | None:
+    if not _KV_URL or not _KV_TOKEN:
+        return None
+    try:
+        r = http_requests.get(f"{_KV_URL}/get/{key}",
+                              headers={"Authorization": f"Bearer {_KV_TOKEN}"}, timeout=3)
+        return r.json().get("result") if r.status_code == 200 else None
+    except Exception:
+        return None
+
+
 # Sallitut nimet /track-tab -kutsuille — estää mielivaltaisten kenttien ruiskutuksen Redis-hashiin
 _TAB_TRACK_NAMES = {
     "cat_text", "cat_claim", "cat_web", "cat_image", "cat_email", "cat_github", "cat_bundle",
     "sub_pdf", "sub_text", "sub_image", "sub_image-url", "sub_web", "sub_github", "sub_bundle", "sub_claim", "sub_email",
 }
 _KV_TAB_CLICKS = "tab_clicks"
+_KV_TAB_CLICKS_DAILY_PREFIX = "tab_clicks_d:"
+_KV_DOC_VIEWS = "doc_views"
+_KV_DOC_VIEWS_DAILY_PREFIX = "doc_views_d:"
+_KV_STATS_FIRST_DATE = "stats_first_date"
 
 
 def _validate_deployment_source(source: str, meta: dict) -> tuple[bool, list[str]]:
@@ -1103,27 +1150,72 @@ class TabTrackRequest(BaseModel):
 async def track_tab(body: TabTrackRequest):
     if body.name in _TAB_TRACK_NAMES:
         _kv_hincrby(_KV_TAB_CLICKS, body.name)
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        _kv_hincrby(f"{_KV_TAB_CLICKS_DAILY_PREFIX}{today}", body.name)
+        _kv_setnx_str(_KV_STATS_FIRST_DATE, today)
     return Response(status_code=204)
 
 
+_TAB_STATS_RANGE_DAYS = {"today": 1, "7d": 7, "30d": 30}
+_TAB_STATS_RANGE_LABELS = {
+    "all": "Kaikki ajat", "today": "Tänään", "7d": "Viimeiset 7 päivää", "30d": "Viimeiset 30 päivää",
+}
+
+
+def _tab_stats_counts(cumulative_key: str, daily_prefix: str, period: str) -> dict[str, int]:
+    days = _TAB_STATS_RANGE_DAYS.get(period)
+    if days is None:
+        return _kv_hgetall(cumulative_key)
+    today = datetime.utcnow().date()
+    keys = [f"{daily_prefix}{(today - timedelta(days=i)).isoformat()}" for i in range(days)]
+    return _kv_pipeline_hgetall(keys)
+
+
+def _tab_stats_table(counts: dict[str, int], label_map: dict[str, str] | None = None) -> str:
+    rows = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+    label_map = label_map or {}
+    body = "".join(
+        f"<tr><td>{_html_escape(label_map.get(name, name))}</td><td style='text-align:right'>{n}</td></tr>"
+        for name, n in rows
+    ) or "<tr><td colspan='2'>No data recorded yet</td></tr>"
+    return f"<table><tr><th>Nimi</th><th style=\"text-align:right\">Määrä</th></tr>{body}</table>"
+
+
 @app.get("/admin/tab-stats", response_class=HTMLResponse)
-async def tab_stats(key: str = ""):
+async def tab_stats(key: str = "", period: str = Query("all", alias="range")):
     admin_secret = os.getenv("ADMIN_SECRET", "")
     if not admin_secret or key != admin_secret:
         raise HTTPException(status_code=401)
-    counts = _kv_hgetall(_KV_TAB_CLICKS)
-    rows = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
-    total = sum(counts.values())
-    body = "".join(
-        f"<tr><td>{_html_escape(name)}</td><td style='text-align:right'>{n}</td></tr>"
-        for name, n in rows
-    ) or "<tr><td colspan='2'>No clicks recorded yet</td></tr>"
+    if period not in _TAB_STATS_RANGE_LABELS:
+        period = "all"
+
+    tab_counts = _tab_stats_counts(_KV_TAB_CLICKS, _KV_TAB_CLICKS_DAILY_PREFIX, period)
+    doc_counts = _tab_stats_counts(_KV_DOC_VIEWS, _KV_DOC_VIEWS_DAILY_PREFIX, period)
+    doc_labels = {slug: title for slug, (_, title) in _DOCS.items()}
+
+    tab_total = sum(tab_counts.values())
+    doc_total = sum(doc_counts.values())
+    first_date = _kv_get_str(_KV_STATS_FIRST_DATE)
+    since_note = f" (tilastointi alkoi {_html_escape(first_date)})" if first_date else ""
+
+    options = "".join(
+        f'<option value="{k}"{" selected" if k == period else ""}>{v}</option>'
+        for k, v in _TAB_STATS_RANGE_LABELS.items()
+    )
     html = f"""<!doctype html><html><head><meta charset="utf-8"><title>Tab click stats</title>
 <style>body{{font-family:system-ui,sans-serif;max-width:600px;margin:2rem auto;padding:0 1rem}}
-table{{width:100%;border-collapse:collapse}} td,th{{padding:.4rem .6rem;border-bottom:1px solid #ddd}}
-th{{text-align:left}}</style></head><body>
-<h2>Tab click stats</h2><p>Total tracked clicks: {total}</p>
-<table><tr><th>Tab</th><th style="text-align:right">Clicks</th></tr>{body}</table>
+table{{width:100%;border-collapse:collapse;margin-bottom:1.5rem}} td,th{{padding:.4rem .6rem;border-bottom:1px solid #ddd}}
+th{{text-align:left}} h3{{margin-bottom:.3rem}} form{{margin:.5rem 0 1.2rem}}</style></head><body>
+<h2>Tab click stats</h2>
+<form method="get">
+<input type="hidden" name="key" value="{_html_escape(key)}">
+<label>Aikaväli: <select name="range" onchange="this.form.submit()">{options}</select></label>
+</form>
+<p>Näytetään: {_TAB_STATS_RANGE_LABELS[period]}{since_note}</p>
+<h3>Tabien painallukset (yhteensä: {tab_total})</h3>
+{_tab_stats_table(tab_counts)}
+<h3>Avatut artikkelit (yhteensä: {doc_total})</h3>
+{_tab_stats_table(doc_counts, doc_labels)}
 </body></html>"""
     return HTMLResponse(html)
 
@@ -1484,6 +1576,10 @@ async def doc_page(request: Request, name: str):
         content = _fix_doc_links(content)
     except FileNotFoundError:
         raise HTTPException(status_code=404)
+    _kv_hincrby(_KV_DOC_VIEWS, name)
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    _kv_hincrby(f"{_KV_DOC_VIEWS_DAILY_PREFIX}{today}", name)
+    _kv_setnx_str(_KV_STATS_FIRST_DATE, today)
     return templates.TemplateResponse("doc.html", {"request": request, "title": title, "content": content, "readme_intro": _readme_intro(), "tread_intro": _tread_intro(), "community_intro": _community_intro(), "proteus_intro": _proteus_intro()})
 
 
