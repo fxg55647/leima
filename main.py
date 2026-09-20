@@ -1197,6 +1197,12 @@ async def tab_stats(key: str = "", period: str = Query("all", alias="range")):
     doc_total = sum(doc_counts.values())
     first_date = _kv_get_str(_KV_STATS_FIRST_DATE)
     since_note = f" (tilastointi alkoi {_html_escape(first_date)})" if first_date else ""
+    range_caveat = (
+        f"<p style=\"color:#888;font-size:.9em\">Huom: päiväkohtainen erittely sisältää vain "
+        f"{_html_escape(first_date)} lähtien kertyneet painallukset — vanhemmat näkyvät ainoastaan "
+        f"\"Kaikki ajat\" -kokonaismäärässä.</p>"
+        if period != "all" and first_date else ""
+    )
 
     options = "".join(
         f'<option value="{k}"{" selected" if k == period else ""}>{v}</option>'
@@ -1212,6 +1218,7 @@ th{{text-align:left}} h3{{margin-bottom:.3rem}} form{{margin:.5rem 0 1.2rem}}</s
 <label>Aikaväli: <select name="range" onchange="this.form.submit()">{options}</select></label>
 </form>
 <p>Näytetään: {_TAB_STATS_RANGE_LABELS[period]}{since_note}</p>
+{range_caveat}
 <h3>Tabien painallukset (yhteensä: {tab_total})</h3>
 {_tab_stats_table(tab_counts)}
 <h3>Avatut artikkelit (yhteensä: {doc_total})</h3>
