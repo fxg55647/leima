@@ -196,3 +196,38 @@ def test_too_many_members_rejected():
         contents[f'extra{i}.txt'] = b'x'
     with pytest.raises(ep.PackageFormatError):
         ep.read(_rezip(contents))
+
+
+def test_non_object_stamp_field_rejected():
+    _, zip_bytes = _valid_manifest_and_files()
+    contents = _unzip(zip_bytes)
+    manifest = json.loads(contents['manifest.json'])
+    manifest['stamp'] = 'not-an-object'
+    contents['manifest.json'] = json.dumps(manifest).encode()
+    with pytest.raises(ep.PackageFormatError, match='stamp'):
+        ep.read(_rezip(contents))
+
+
+def test_manifest_invalid_utf8_rejected_cleanly():
+    _, zip_bytes = _valid_manifest_and_files()
+    contents = _unzip(zip_bytes)
+    contents['manifest.json'] = b'{"stamp_format_version": 2, "x": "\xff\xfe"}'
+    with pytest.raises(ep.PackageFormatError, match='UTF-8'):
+        ep.read(_rezip(contents))
+
+
+def test_corrupt_deflate_stream_rejected_cleanly():
+    import struct
+    _, zip_bytes = _valid_manifest_and_files()
+    data = bytearray(zip_bytes)
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        for info in zf.infolist():
+            if info.filename == 'verdict.txt' and info.compress_type == zipfile.ZIP_DEFLATED:
+                off = info.header_offset
+                name_len = struct.unpack('<H', data[off + 26:off + 28])[0]
+                extra_len = struct.unpack('<H', data[off + 28:off + 30])[0]
+                start = off + 30 + name_len + extra_len
+                data[start] ^= 0xFF
+                data[start + 1] ^= 0xFF
+    with pytest.raises(ep.PackageFormatError, match='Corrupt package member'):
+        ep.read(bytes(data))

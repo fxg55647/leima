@@ -315,3 +315,14 @@ def test_correspondence_rejects_package_with_bad_anchor(client, stamped):
     response = client.post('/check-correspondence', files={'package_file': ('package.zip', zip_bytes, 'application/zip')})
     assert response.status_code == 200
     assert 'anchor could not be verified' in response.text.lower()
+
+
+def test_anchor_check_does_not_crash_on_non_dict_stamp(app_module):
+    # Defense in depth: evidence_package.read() already rejects a non-object `stamp`
+    # field, but _check_arweave_anchor must never assume its input already went through
+    # that validation (a `manifest.get("stamp") or {}` pattern crashes on a truthy
+    # non-dict stamp, e.g. a string, since strings have no .get()).
+    result = app_module._check_arweave_anchor({'stamp': 'not-an-object'})
+    assert result['ok'] is False
+    result = app_module._check_arweave_anchor({})
+    assert result['ok'] is False

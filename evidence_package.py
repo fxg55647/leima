@@ -27,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import json
 import zipfile
+import zlib
 from dataclasses import dataclass
 
 STAMP_FORMAT_VERSION = 2
@@ -179,7 +180,7 @@ def read(data: bytes, *, max_bytes: int = MAX_COMPRESSED) -> Package:
     try:
         zf = zipfile.ZipFile(_io.BytesIO(data))
         infos = zf.infolist()
-    except (zipfile.BadZipFile, EOFError, OSError) as e:
+    except (zipfile.BadZipFile, EOFError, OSError, UnicodeDecodeError) as e:
         raise PackageFormatError(f"Not a valid ZIP file: {e}") from e
 
     if len(infos) > MAX_MEMBERS:
@@ -225,11 +226,15 @@ def read(data: bytes, *, max_bytes: int = MAX_COMPRESSED) -> Package:
             if running_total > MAX_TOTAL_UNCOMPRESSED:
                 raise PackageFormatError("Package uncompressed size exceeds limit")
             raw_members[info.filename] = content
-    except (zipfile.BadZipFile, RuntimeError, OSError, EOFError) as e:
+    except (zipfile.BadZipFile, RuntimeError, OSError, EOFError, zlib.error) as e:
         raise PackageFormatError(f"Corrupt package member: {e}") from e
 
     try:
-        manifest = json.loads(raw_members[MANIFEST_NAME], object_pairs_hook=_no_dup_keys)
+        manifest_text = raw_members[MANIFEST_NAME].decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise PackageFormatError(f"manifest.json is not valid UTF-8: {e}") from e
+    try:
+        manifest = json.loads(manifest_text, object_pairs_hook=_no_dup_keys)
     except json.JSONDecodeError as e:
         raise PackageFormatError(f"manifest.json is not valid JSON: {e}") from e
 
@@ -237,6 +242,8 @@ def read(data: bytes, *, max_bytes: int = MAX_COMPRESSED) -> Package:
         raise PackageFormatError("manifest.json must be a JSON object")
     if manifest.get("stamp_format_version") != STAMP_FORMAT_VERSION:
         raise PackageFormatError("Unsupported or missing stamp_format_version")
+    if "stamp" in manifest and not isinstance(manifest["stamp"], dict):
+        raise PackageFormatError("manifest.json: stamp must be an object")
 
     source_filename = manifest.get("source_file")
     if not isinstance(source_filename, str) or not source_filename:

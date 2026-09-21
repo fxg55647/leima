@@ -1920,10 +1920,10 @@ def _check_arweave_anchor(manifest: dict) -> dict:
     """Fetch the stamp record from the configured gateway by tx_id and compare it to the
     local manifest (minus the stamp field). A gateway failure is reported as unverified,
     never as a silent pass."""
-    stamp = manifest.get("stamp") or {}
-    tx_id = stamp.get("tx_id")
+    stamp = manifest.get("stamp")
+    tx_id = stamp.get("tx_id") if isinstance(stamp, dict) else None
     check = {"label": "Arweave anchor", "ok": False, "expected": "", "actual": ""}
-    if not tx_id:
+    if not isinstance(tx_id, str) or not tx_id:
         check["actual"] = "No stamp.tx_id in manifest"
         return check
     try:
