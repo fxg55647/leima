@@ -167,10 +167,11 @@ class TestIssueAndVerify:
         private_key, public_key = issuer_keys
         raw = build_raw_email("alice@example.com", VALID_DATE, rsa_key_pem)
 
-        credential_jws, secret_b64 = issue_credential(
+        issued = issue_credential(
             raw, policy, issuer_id="stampd-test-issuer", issuer_kid="test-key-1",
             issuer_private_key=private_key, dnsfunc=dnsfunc,
         )
+        credential_jws, secret_b64 = issued.credential_jws, issued.disclosure_secret_b64
 
         payload = verify_attestation(
             credential_jws, secret_b64, "alice@example.com", policy,
@@ -182,9 +183,10 @@ class TestIssueAndVerify:
     def test_verification_fails_for_wrong_recipient(self, rsa_key_pem, dnsfunc, policy, issuer_keys):
         private_key, public_key = issuer_keys
         raw = build_raw_email("alice@example.com", VALID_DATE, rsa_key_pem)
-        credential_jws, secret_b64 = issue_credential(
+        issued = issue_credential(
             raw, policy, "stampd-test-issuer", "test-key-1", private_key, dnsfunc=dnsfunc,
         )
+        credential_jws, secret_b64 = issued.credential_jws, issued.disclosure_secret_b64
         with pytest.raises(RejectedMessage, match="does not match"):
             verify_attestation(
                 credential_jws, secret_b64, "bob@example.com", policy,
@@ -194,9 +196,10 @@ class TestIssueAndVerify:
     def test_verification_fails_for_unknown_issuer_key(self, rsa_key_pem, dnsfunc, policy, issuer_keys):
         private_key, _ = issuer_keys
         raw = build_raw_email("alice@example.com", VALID_DATE, rsa_key_pem)
-        credential_jws, secret_b64 = issue_credential(
+        issued = issue_credential(
             raw, policy, "stampd-test-issuer", "test-key-1", private_key, dnsfunc=dnsfunc,
         )
+        credential_jws, secret_b64 = issued.credential_jws, issued.disclosure_secret_b64
         with pytest.raises(RejectedMessage, match="untrusted issuer key"):
             verify_attestation(
                 credential_jws, secret_b64, "alice@example.com", policy,
@@ -206,9 +209,10 @@ class TestIssueAndVerify:
     def test_verification_fails_for_tampered_signature(self, rsa_key_pem, dnsfunc, policy, issuer_keys):
         private_key, public_key = issuer_keys
         raw = build_raw_email("alice@example.com", VALID_DATE, rsa_key_pem)
-        credential_jws, secret_b64 = issue_credential(
+        issued = issue_credential(
             raw, policy, "stampd-test-issuer", "test-key-1", private_key, dnsfunc=dnsfunc,
         )
+        credential_jws, secret_b64 = issued.credential_jws, issued.disclosure_secret_b64
         header_b64, payload_b64, sig_b64 = credential_jws.split(".")
         tampered = f"{header_b64}.{payload_b64}.{sig_b64[:-4]}AAAA"
         with pytest.raises(RejectedMessage, match="does not verify"):
@@ -220,9 +224,10 @@ class TestIssueAndVerify:
     def test_verification_fails_for_wrong_policy(self, rsa_key_pem, dnsfunc, policy, issuer_keys):
         private_key, public_key = issuer_keys
         raw = build_raw_email("alice@example.com", VALID_DATE, rsa_key_pem)
-        credential_jws, secret_b64 = issue_credential(
+        issued = issue_credential(
             raw, policy, "stampd-test-issuer", "test-key-1", private_key, dnsfunc=dnsfunc,
         )
+        credential_jws, secret_b64 = issued.credential_jws, issued.disclosure_secret_b64
         different_policy = HistoricalEmailPolicy(
             policy_id=policy.policy_id,
             policy_version=2,

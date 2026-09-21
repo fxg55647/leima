@@ -166,6 +166,13 @@ def verify_jws(token: str, trusted_issuer_keys: dict[str, Ed25519PublicKey]) -> 
     return json.loads(b64url_decode(payload_b64))
 
 
+@dataclass
+class IssuedCredential:
+    credential_jws: str
+    disclosure_secret_b64: str
+    recipient_email: str
+
+
 def issue_credential(
     raw_email: bytes,
     policy: HistoricalEmailPolicy,
@@ -173,8 +180,8 @@ def issue_credential(
     issuer_kid: str,
     issuer_private_key: Ed25519PrivateKey,
     dnsfunc=None,
-) -> tuple[str, str]:
-    """Plan section 3. Returns (credential_jws, disclosure_secret_b64url)."""
+) -> IssuedCredential:
+    """Plan section 3."""
 
     check = check_message_fields(raw_email, policy, dnsfunc=dnsfunc)
 
@@ -199,4 +206,8 @@ def issue_credential(
         "statusReference": "local-test:no-revocation-mechanism-yet",
     }
     credential_jws = sign_jws(payload, issuer_private_key, issuer_kid)
-    return credential_jws, b64url_encode(secret)
+    return IssuedCredential(
+        credential_jws=credential_jws,
+        disclosure_secret_b64=b64url_encode(secret),
+        recipient_email=check.recipient_email,
+    )
