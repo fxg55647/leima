@@ -120,3 +120,21 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -d '{"ref":"main"}' \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/tread.yml/dispatches"
+
+      - name: Generate changelog page
+        continue-on-error: true
+        run: python generate_changelog.py
+
+      - name: Publish changelog to gh-pages
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages
+          git checkout -B gh-pages origin/gh-pages
+          cp pages-output/changelog.html changelog.html
+          git add changelog.html
+          git diff --cached --quiet && echo "No changelog changes" || git commit -m "chore: update changelog"
+          git push origin gh-pages
