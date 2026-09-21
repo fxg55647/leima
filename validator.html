@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leima Validator v1</title>
+  <title>Leima Validator v2</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -228,7 +228,7 @@
 <div class="card">
   <header>
     <h1>Leima Validator</h1>
-    <span class="version-badge">v1</span>
+    <span class="version-badge">v2</span>
     <div class="permalink" id="permalink"></div>
   </header>
 
@@ -240,20 +240,11 @@
   <!-- AI Verdict panel -->
   <div id="panel-verdict" class="panel active">
     <div class="field-group">
-      <span class="field-label">source</span>
-      <label class="file-btn" id="lbl-source" for="inp-source">Choose file…</label>
-      <input type="file" id="inp-source" onchange="setLabel(this,'lbl-source')">
+      <span class="field-label">package.zip</span>
+      <label class="file-btn" id="lbl-package" for="inp-package">Choose file…</label>
+      <input type="file" id="inp-package" accept=".zip,application/zip" onchange="setLabel(this,'lbl-package')">
     </div>
-    <div class="field-group">
-      <span class="field-label">verdict.pdf</span>
-      <label class="file-btn" id="lbl-verdict" for="inp-verdict">Choose file…</label>
-      <input type="file" id="inp-verdict" accept="application/pdf" onchange="setLabel(this,'lbl-verdict')">
-    </div>
-    <div class="field-group">
-      <span class="field-label">manifest.json</span>
-      <label class="file-btn" id="lbl-manifest" for="inp-manifest">Choose file…</label>
-      <input type="file" id="inp-manifest" accept="application/json" onchange="setLabel(this,'lbl-manifest')">
-    </div>
+    <p class="hint" id="zip-unsupported-hint" style="display:none;">This browser cannot decompress ZIP packages in-page (no DecompressionStream support). Try a recent Chrome, Edge, Firefox, or Safari.</p>
     <button class="validate-btn" onclick="validateVerdict()">Validate</button>
   </div>
 
@@ -297,6 +288,10 @@
     if (tx) {
       document.getElementById('notary-tx').value = tx;
       switchTab('notary', document.querySelectorAll('.tab-btn')[1]);
+    }
+    if (typeof DecompressionStream === 'undefined') {
+      document.getElementById('zip-unsupported-hint').style.display = 'block';
+      document.querySelector('#panel-verdict .validate-btn').disabled = true;
     }
   })();
 
@@ -350,10 +345,10 @@
       html += '<div class="val-detail">';
       html += '<span class="val-label">' + escHtml(r.label) + '</span>';
       if (r.ok) {
-        html += '<span class="val-code ok">' + escHtml(r.value) + '</span>';
+        html += '<span class="val-code ok">' + escHtml(r.value || r.actual || '') + '</span>';
       } else {
-        html += '<span class="val-code fail">Expected: ' + escHtml(r.expected) + '</span>';
-        html += '<span class="val-code fail">Got:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + escHtml(r.actual) + '</span>';
+        if (r.expected) html += '<span class="val-code fail">Expected: ' + escHtml(r.expected) + '</span>';
+        html += '<span class="val-code fail">' + (r.expected ? 'Got:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' : '') + escHtml(r.actual || '') + '</span>';
       }
       html += '</div></div>';
     }
@@ -361,64 +356,196 @@
     document.getElementById('results').innerHTML = html;
   }
 
-  async function validateVerdict() {
-    const sourceBytes = await readFile(document.getElementById('inp-source'));
-    const verdictBytes = await readFile(document.getElementById('inp-verdict'));
-    const manifestBytes = await readFile(document.getElementById('inp-manifest'));
+  // --- Minimal, bounded ZIP reader for Leima packages (stamp_format_version=2) ---
+  // Mirrors evidence_package.py's read(): flat namespace, known filenames only,
+  // exact hash verification per file, size/member limits. Never executes/renders
+  // package content. Uses the browser's native DecompressionStream — no CDN library.
 
-    if (!sourceBytes || !verdictBytes || !manifestBytes) {
-      return showError('Please select all three files.');
+  const PKG_MANIFEST_NAME = 'manifest.json';
+  const PKG_REQUIRED_VERDICTS = ['verdict.pdf', 'verdict.txt', 'verdict.html', 'verdict.json'];
+  const PKG_OPTIONAL = ['source-index.json'];
+  const PKG_STAMP_FORMAT_VERSION = 2;
+  const PKG_MAX_BYTES = 50 * 1024 * 1024;
+  const PKG_MAX_MEMBER_BYTES = 50 * 1024 * 1024;
+  const PKG_MAX_TOTAL_BYTES = 150 * 1024 * 1024;
+  const PKG_MAX_MANIFEST_BYTES = 1 * 1024 * 1024;
+  const PKG_MAX_MEMBERS = 8;
+
+  class PackageFormatError extends Error {}
+
+  function pkgRejectUnsafeName(name) {
+    if (!name || name.endsWith('/')) throw new PackageFormatError('Directory entries are not allowed: ' + name);
+    if (name.startsWith('/') || name.startsWith('\\')) throw new PackageFormatError('Absolute paths are not allowed: ' + name);
+    if (name.includes('\\')) throw new PackageFormatError('Backslashes are not allowed in names: ' + name);
+    if (name.includes('/')) throw new PackageFormatError('Nested paths are not allowed: ' + name);
+    if (name === '.' || name === '..' || name.split('/').includes('..')) throw new PackageFormatError('Path traversal is not allowed: ' + name);
+  }
+
+  function pkgFindEOCD(bytes, dv) {
+    const sig = 0x06054b50;
+    const start = Math.max(0, bytes.length - 22 - 65535);
+    for (let i = bytes.length - 22; i >= start; i--) {
+      if (dv.getUint32(i, true) === sig) return i;
+    }
+    throw new PackageFormatError('Not a valid ZIP file (end-of-directory record not found)');
+  }
+
+  async function pkgInflateRaw(bytes) {
+    if (typeof DecompressionStream === 'undefined') {
+      throw new PackageFormatError('This browser cannot decompress ZIP packages (no DecompressionStream support)');
+    }
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  async function readLeimaPackage(bytes) {
+    if (!bytes.length) throw new PackageFormatError('Empty upload');
+    if (bytes.length > PKG_MAX_BYTES) throw new PackageFormatError('Package exceeds size limit');
+
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const eocdOff = pkgFindEOCD(bytes, dv);
+    const totalEntries = dv.getUint16(eocdOff + 10, true);
+    const cdOffset = dv.getUint32(eocdOff + 16, true);
+    if (totalEntries > PKG_MAX_MEMBERS) throw new PackageFormatError('Too many members in package');
+
+    const entries = [];
+    const seenNames = new Set();
+    let pos = cdOffset;
+    for (let i = 0; i < totalEntries; i++) {
+      if (dv.getUint32(pos, true) !== 0x02014b50) throw new PackageFormatError('Corrupt central directory');
+      const flags = dv.getUint16(pos + 8, true);
+      const method = dv.getUint16(pos + 10, true);
+      const compSize = dv.getUint32(pos + 20, true);
+      const uncompSize = dv.getUint32(pos + 24, true);
+      const nameLen = dv.getUint16(pos + 28, true);
+      const extraLen = dv.getUint16(pos + 30, true);
+      const commentLen = dv.getUint16(pos + 32, true);
+      const externalAttrs = dv.getUint32(pos + 38, true);
+      const localHeaderOffset = dv.getUint32(pos + 42, true);
+      const name = new TextDecoder('utf-8').decode(bytes.subarray(pos + 46, pos + 46 + nameLen));
+      pos += 46 + nameLen + extraLen + commentLen;
+
+      pkgRejectUnsafeName(name);
+      if (seenNames.has(name)) throw new PackageFormatError('Duplicate member name: ' + name);
+      seenNames.add(name);
+
+      const unixMode = externalAttrs >>> 16;
+      if ((unixMode & 0xF000) === 0xA000) throw new PackageFormatError('Symlink members are not allowed: ' + name);
+      if (flags & 0x1) throw new PackageFormatError('Encrypted members are not allowed: ' + name);
+      if (method !== 0 && method !== 8) throw new PackageFormatError('Unsupported compression method for: ' + name);
+      if (uncompSize > PKG_MAX_MEMBER_BYTES) throw new PackageFormatError('Member too large: ' + name);
+
+      entries.push({ name, method, compSize, uncompSize, localHeaderOffset });
     }
 
+    if (!seenNames.has(PKG_MANIFEST_NAME)) throw new PackageFormatError('Missing manifest.json');
+
+    const rawMembers = {};
+    let totalUncompressed = 0;
+    for (const entry of entries) {
+      if (dv.getUint32(entry.localHeaderOffset, true) !== 0x04034b50) {
+        throw new PackageFormatError('Corrupt local header for: ' + entry.name);
+      }
+      const lfNameLen = dv.getUint16(entry.localHeaderOffset + 26, true);
+      const lfExtraLen = dv.getUint16(entry.localHeaderOffset + 28, true);
+      const dataStart = entry.localHeaderOffset + 30 + lfNameLen + lfExtraLen;
+      const compBytes = bytes.subarray(dataStart, dataStart + entry.compSize);
+      const content = entry.method === 0 ? compBytes : await pkgInflateRaw(compBytes);
+      if (content.length !== entry.uncompSize) throw new PackageFormatError('Corrupt package member: ' + entry.name);
+      totalUncompressed += content.length;
+      if (totalUncompressed > PKG_MAX_TOTAL_BYTES) throw new PackageFormatError('Package uncompressed size exceeds limit');
+      rawMembers[entry.name] = content;
+    }
+
+    if (rawMembers[PKG_MANIFEST_NAME].length > PKG_MAX_MANIFEST_BYTES) {
+      throw new PackageFormatError('manifest.json exceeds size limit');
+    }
     let manifest;
     try {
-      manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
-    } catch {
-      return showError('manifest.json is not valid JSON.');
+      manifest = JSON.parse(new TextDecoder('utf-8').decode(rawMembers[PKG_MANIFEST_NAME]));
+    } catch (e) {
+      throw new PackageFormatError('manifest.json is not valid JSON: ' + e);
+    }
+    if (typeof manifest !== 'object' || manifest === null || Array.isArray(manifest)) {
+      throw new PackageFormatError('manifest.json must be a JSON object');
+    }
+    if (manifest.stamp_format_version !== PKG_STAMP_FORMAT_VERSION) {
+      throw new PackageFormatError('Unsupported or missing stamp_format_version');
+    }
+    const sourceFilename = manifest.source_file;
+    if (typeof sourceFilename !== 'string' || !sourceFilename) {
+      throw new PackageFormatError('manifest.json: source_file must be a non-empty string');
+    }
+    const filesMap = manifest.files;
+    if (typeof filesMap !== 'object' || filesMap === null || Array.isArray(filesMap) || !Object.keys(filesMap).length) {
+      throw new PackageFormatError('manifest.json: files must be a non-empty object');
+    }
+    for (const v of Object.values(filesMap)) {
+      if (typeof v !== 'string' || !v.startsWith('sha256:')) {
+        throw new PackageFormatError("manifest.json: files entries must map name -> 'sha256:<hex>'");
+      }
+    }
+    if (!(sourceFilename in filesMap)) throw new PackageFormatError('manifest.json: source_file is not listed in files');
+    for (const required of PKG_REQUIRED_VERDICTS) {
+      if (!(required in filesMap)) throw new PackageFormatError('manifest.json: missing required file entry ' + required);
+    }
+    for (const name of Object.keys(filesMap)) {
+      if (!PKG_REQUIRED_VERDICTS.includes(name) && name !== sourceFilename && !PKG_OPTIONAL.includes(name)) {
+        throw new PackageFormatError('manifest.json: unexpected file entry ' + name);
+      }
     }
 
-    const rows = [];
+    const expectedNames = new Set([...Object.keys(filesMap), PKG_MANIFEST_NAME]);
+    const namesMatch = expectedNames.size === seenNames.size && [...expectedNames].every(n => seenNames.has(n));
+    if (!namesMatch) throw new PackageFormatError('Package contents do not match manifest files map');
 
-    const sourceHash = await sha256hex(sourceBytes);
-    const sourceExpected = (manifest.input || {}).sha256 || '';
-    rows.push({
-      label: 'Source hash',
-      ok: sourceHash === sourceExpected,
-      expected: sourceExpected,
-      actual: sourceHash,
-      value: sourceHash,
-    });
+    const contentFiles = {};
+    for (const [name, expected] of Object.entries(filesMap)) {
+      const actualHash = 'sha256:' + (await sha256hex(rawMembers[name]));
+      if (actualHash !== expected) throw new PackageFormatError('Hash mismatch for ' + name);
+      contentFiles[name] = rawMembers[name];
+    }
 
-    const verdictHash = await sha256hex(verdictBytes);
-    const verdictExpected = (manifest.verdict_pdf || {}).sha256 || '';
-    rows.push({
-      label: 'Verdict PDF hash',
-      ok: verdictHash === verdictExpected,
-      expected: verdictExpected,
-      actual: verdictHash,
-      value: verdictHash,
-    });
+    return { manifest, files: contentFiles };
+  }
 
-    const stamp = manifest.stamp || manifest.arweave || manifest.irys || {};
+  async function validateVerdict() {
+    const input = document.getElementById('inp-package');
+    const file = input.files[0];
+    if (!file) return showError('Please select a Leima package (.zip).');
+    const bytes = new Uint8Array(await file.arrayBuffer());
+
+    let pkg;
+    try {
+      pkg = await readLeimaPackage(bytes);
+    } catch (e) {
+      return renderResults([
+        { label: 'Package integrity', ok: false, actual: e instanceof PackageFormatError ? e.message : String(e) },
+        { label: 'Arweave anchor', ok: false, actual: 'Not checked — package invalid' },
+      ]);
+    }
+
+    const rows = [{ label: 'Package integrity', ok: true, value: 'Package structure and file hashes verified' }];
+
+    const stamp = pkg.manifest.stamp || {};
     const txId = stamp.tx_id;
     if (!txId) {
-      rows.push({ label: 'Arweave record', ok: false, expected: 'tx_id in manifest', actual: 'missing', value: '' });
+      rows.push({ label: 'Arweave anchor', ok: false, expected: 'stamp.tx_id in manifest', actual: 'missing' });
     } else {
       try {
         const resp = await fetch(GATEWAY + '/' + txId);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const remote = await resp.json();
-        const base = Object.fromEntries(Object.entries(manifest).filter(([k]) => k !== 'stamp'));
-        const match = JSON.stringify(remote) === JSON.stringify(base);
+        const local = Object.fromEntries(Object.entries(pkg.manifest).filter(([k]) => k !== 'stamp'));
+        const match = JSON.stringify(remote) === JSON.stringify(local);
         rows.push({
-          label: 'Arweave record',
+          label: 'Arweave anchor',
           ok: match,
-          expected: 'content matches',
-          actual: match ? '' : 'content mismatch',
           value: GATEWAY + '/' + txId,
+          actual: match ? undefined : 'Arweave content does not match local manifest',
         });
       } catch (e) {
-        rows.push({ label: 'Arweave record', ok: false, expected: 'fetch ok', actual: String(e), value: '' });
+        rows.push({ label: 'Arweave anchor', ok: false, actual: 'Fetch failed: ' + e });
       }
     }
 

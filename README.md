@@ -50,12 +50,13 @@ The first two passes are stateless and adversarial by design: each sees only the
 
 The result is not a confident binary verdict. It is an epistemic map: what the document actually supports, what it does not, and how certain that conclusion is.
 
-After analysis you download three files:
-- `source` — the input document in its original format (PDF, image, or a PDF rendering of text/web input)
-- `verdict.pdf` — the three-pass AI analysis (also available as TXT, HTML, or JSON)
-- `manifest.json` — cryptographic hashes of both files, timestamp, model version, and a link to the stamp record on Arweave
+After analysis you download a single Leima package (a `.zip`) containing:
+- `source.<ext>` — the input document in its original format (PDF, image, or a PDF rendering of text/web input)
+- `verdict.pdf`, `verdict.txt`, `verdict.html`, `verdict.json` — the three-pass AI analysis in every format, always all four
+- `manifest.json` — a `files` map of every other file's name to its SHA-256 hash, plus timestamp, model version, and a link to the stamp record on Arweave
+- `source-index.json` — only present for web-page stamps; used by the correspondence check
 
-**The document is not stored on the blockchain or anywhere permanently.** It is processed server-side for AI analysis and then discarded. A stamp record — containing SHA-256 hashes of both files — is published to Arweave via Irys. The `manifest.json` you download contains this stamp record plus the Arweave transaction ID pointing to it. Anyone who later holds all three files can run them through the **Validate** page to confirm nothing has been tampered with.
+**The document is not stored on the blockchain or anywhere permanently.** It is processed server-side for AI analysis and then discarded. A stamp record — containing the `files` hash map — is published to Arweave via Irys. The `manifest.json` inside the package contains this stamp record plus the Arweave transaction ID pointing to it. Anyone who later holds the package can run it through the **Validate** page (or the standalone `validator.html`) to confirm nothing has been tampered with — the same package is also what you feed back into Bundle analysis or the web-page correspondence check, without ever unzipping it yourself.
 
 Leima produces guarantees that work independently of each other:
 
@@ -77,14 +78,13 @@ These layers serve different purposes and can be relied on for different things.
 ## 2. How the proof works
 
 ```
-source.pdf  ──sha256──►  input.sha256  ──┐
-                                          ├──► stamp record ──► Arweave (permanent)
-verdict.pdf ──sha256──►  verdict.sha256 ──┘                          │
-                                                                      ▼
+source.pdf, verdict.pdf/txt/html/json  ──sha256──►  files: {name: sha256}  ──┐
+                                                                              ├──► stamp record ──► Arweave (permanent)
+                                                                              │
                                                     manifest.json (stamp.tx_id points here)
 ```
 
-The stamp record is the immutable on-chain object: it contains the hashes, timestamp, and model, but no Arweave link (since that ID doesn't exist yet when it's created). The `manifest.json` you download is the stamp record plus a `stamp` field with the Arweave transaction ID and URL. A validator fetches the stamp record from Arweave and compares it to `manifest.json` (minus the `stamp` field) — if they match, and the file hashes check out, the verdict is proven authentic and unmodified.
+The stamp record is the immutable on-chain object: it contains the `files` hash map, timestamp, and model, but no Arweave link (since that ID doesn't exist yet when it's created). The `manifest.json` inside the package is the stamp record plus a `stamp` field with the Arweave transaction ID and URL. A validator fetches the stamp record from Arweave and compares it to `manifest.json` (minus the `stamp` field) — if they match, and every file's hash in the package matches the `files` map, the verdict is proven authentic and unmodified. See [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md) for the exact package contract.
 
 ---
 
@@ -253,9 +253,12 @@ Response:
   "timestamp": "2026-05-12 10:00:00 UTC",
   "model": "gemini-3.1-flash-lite",
   "stamp": { "tx_id": "...", "url": "https://gateway.irys.xyz/..." },
-  "manifest": { ... }
+  "manifest": { ... },
+  "download_url": "/download/<session_id>/package.zip"
 }
 ```
+
+`download_url` serves the same Leima package (`.zip`) the UI offers. It is temporary and bound to the server's in-memory session — it can stop working, for example after a server restart. Fetch and store the package yourself if you need it later; Leima makes no permanent-storage promise for it.
 
 ---
 
@@ -411,15 +414,18 @@ uvicorn main:app --reload
 
 ## 15. Validation
 
-**AI verdict flow.** Any party who receives the three files can verify integrity at `/validate`:
+**AI verdict flow.** Anyone who receives the Leima package can verify integrity at `/validate` (or the standalone `validator.html`) by uploading the single `.zip` — no need to unpack it first:
 
-- SHA-256 of `source` matches `manifest.json → input.sha256`
-- SHA-256 of `verdict.pdf` matches `manifest.json → verdict_pdf.sha256`
-- The stamp record fetched from Arweave matches the local `manifest.json` (minus the `stamp` field)
+- Package integrity: every file inside matches the SHA-256 recorded for it in `manifest.json → files`, and the file set exactly matches that map (no missing or extra files)
+- Arweave anchor: the stamp record fetched from Arweave matches the local `manifest.json` (minus the `stamp` field)
 
-If all three pass, the verdict is authentic and unmodified.
+If both pass, the verdict is authentic and unmodified. The exact package layout and validation rules are in [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md).
 
 **Email notary flow.** Each notarised email contains a direct link to `/validate?tx=<arweave_id>`. Open the link, upload the `original.eml` attachment from the same email, and the page confirms that the email hash matches the Arweave record and that DKIM was valid at the time of notarisation. No other files are needed.
+
+**Bundle analysis.** The Bundle tab draws a new AI conclusion from 2–10 existing Leima packages. Upload one `.zip` per stamp (the same package the Validate page accepts); each is checked for structural integrity and its Arweave anchor before anything is shown to the AI — an invalid or unverifiable package aborts the whole request. The claim and analysis text are read from each package's hash-verified `verdict.json`.
+
+**Web-page correspondence.** `/check-correspondence` also takes a single package `.zip`. It only works for stamps of a web page (those that include `source-index.json`); other packages get a clear "not available" response. The package's integrity and Arweave anchor are verified before the recorded page text is compared against the current live page.
 
 ---
 

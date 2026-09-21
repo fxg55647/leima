@@ -338,8 +338,8 @@
 
         <div id="tab-bundle" class="tab-panel">
           <div id="bundle-entries" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem;"></div>
-          <button type="button" onclick="addBundleEntry()" id="bundle-add-btn" class="fetch-btn" style="margin-bottom:0.25rem;">+ Add Leima files</button>
-          <div style="font-size:0.75rem;color:var(--text-faint);margin-top:0.3rem;">2–10 Leima files · manifest.json + verdict.pdf per file</div>
+          <button type="button" onclick="addBundleEntry()" id="bundle-add-btn" class="fetch-btn" style="margin-bottom:0.25rem;">+ Add Leima package</button>
+          <div style="font-size:0.75rem;color:var(--text-faint);margin-top:0.3rem;">2–10 Leima packages (.zip) · one package per stamp</div>
         </div>
 
         <div id="tab-claim" class="tab-panel">
@@ -467,12 +467,12 @@
             <span class="email-guide-header-title">How to use the Bundle tab</span>
           </div>
           <div class="email-guide-body" id="bundle-guide-body">
-            <p>Use this tab to draw a new conclusion from two or more existing Leima stamps. For each stamp, upload the <code style="font-family:monospace;font-size:0.85em;">manifest.json</code> and <code style="font-family:monospace;font-size:0.85em;">verdict.pdf</code> — both appear in the download row below any verdict. The system validates each manifest, reads the full verdict content, and lets the AI reason across all of them to evaluate your new combined claim.</p>
+            <p>Use this tab to draw a new conclusion from two or more existing Leima stamps. For each stamp, upload the Leima package (.zip) you downloaded when the stamp was created. The system validates each package's integrity and Arweave anchor, reads the full verdict content, and lets the AI reason across all of them to evaluate your new combined claim.</p>
             <p>For example: three reference letters stamped separately each prove one thing. A bundle can then prove <em>"this person has three verified references."</em></p>
             <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>What you can prove</h4>
             <p>The bundle verdict is itself a new permanent stamp. It proves that on this date, a set of independently sealed verdicts was examined and found to support your combined claim. The original stamps remain unchanged on Arweave — the bundle is an additional layer of reasoning on top of them.</p>
-            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Where to find the manifest file</h4>
-            <p>After any stamp is created, a download row appears below the verdict with buttons for <strong>⬇ manifest.json</strong> and <strong>⬇ verdict.pdf</strong>. Save both files and upload them here — one pair per stamp, 2–10 pairs total.</p>
+            <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Where to find the package file</h4>
+            <p>After any stamp is created, a download button appears below the verdict: <strong>⬇ Download Leima package (.zip)</strong>. Save it and upload it here — one package per stamp, 2–10 packages total.</p>
             <h4><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Writing a good claim</h4>
             <p>Describe what the documents <em>together</em> prove — a timeline, an agreement, or a sequence of events across multiple sources.</p>
             <div class="email-guide-fade"></div>
@@ -636,7 +636,7 @@
     if (tab === 'text') return document.getElementById('text-input').value.trim() !== '' || document.getElementById('txt-file-input').files.length > 0;
     if (tab === 'github') return document.getElementById('gh-repo').value.trim() !== '' || document.getElementById('gh-paths').value.trim() !== '';
     if (tab === 'email') return ['email_user','email_password','email_sender','email_start','email_end'].some(n => document.querySelector(`[name="${n}"]`).value.trim() !== '') || document.getElementById('eml-file-input').files.length > 0;
-    if (tab === 'bundle') return Array.from(document.querySelectorAll('#bundle-entries input[name="bundle_manifests"]')).some(i => i.files && i.files.length > 0);
+    if (tab === 'bundle') return Array.from(document.querySelectorAll('#bundle-entries input[name="bundle_packages"]')).some(i => i.files && i.files.length > 0);
     return false;
   }
 
@@ -878,16 +878,12 @@
     div.innerHTML =
       `<div style="display:flex;align-items:center;gap:0.5rem;">` +
         `<span style="font-size:0.72rem;color:var(--text-muted);width:1.25rem;text-align:right;flex-shrink:0;">${idx}</span>` +
-        `<span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);flex:1;">Leima file ${idx}</span>` +
+        `<span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);flex:1;">Leima package ${idx}</span>` +
         `<button type="button" onclick="removeBundleEntry(this)" class="bundle-remove" style="${canRemove ? '' : 'display:none;'}background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:0 0.3rem;line-height:1;">×</button>` +
       `</div>` +
       `<div style="display:flex;gap:0.5rem;align-items:center;padding-left:1.75rem;">` +
-        `<label style="font-size:0.75rem;color:var(--text-muted);width:5.5rem;flex-shrink:0;">manifest.json</label>` +
-        `<input type="file" name="bundle_manifests" accept=".json,application/json" style="flex:1;font-size:0.8rem;color:var(--text);">` +
-      `</div>` +
-      `<div style="display:flex;gap:0.5rem;align-items:center;padding-left:1.75rem;">` +
-        `<label style="font-size:0.75rem;color:var(--text-muted);width:5.5rem;flex-shrink:0;">verdict.pdf</label>` +
-        `<input type="file" name="bundle_verdicts" accept=".pdf,application/pdf" style="flex:1;font-size:0.8rem;color:var(--text);">` +
+        `<label style="font-size:0.75rem;color:var(--text-muted);width:5.5rem;flex-shrink:0;">package.zip</label>` +
+        `<input type="file" name="bundle_packages" accept=".zip,application/zip" style="flex:1;font-size:0.8rem;color:var(--text);">` +
       `</div>`;
     return div;
   }

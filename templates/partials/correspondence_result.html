@@ -1,16 +1,7 @@
-{% if error == "no_index_in_manifest" %}
+{% if error == "no_index_in_package" %}
 <div class="corr-block corr-unavailable">
   <div class="corr-title">Correspondence check not available</div>
-  <p class="corr-note">This stamp was created before source indexing was introduced. Correspondence checking requires a stamp generated with the current version of Leima.</p>
-  {% if analysis_url %}<p class="corr-meta">Original URL: <code>{{ analysis_url }}</code></p>{% endif %}
-</div>
-
-{% elif error == "index_hash_mismatch" %}
-<div class="corr-block corr-fail">
-  <div class="corr-title">Integrity check failed</div>
-  <p class="corr-note">The source-index.json does not match the hash recorded in manifest.json. The index may have been modified or does not belong to this stamp.</p>
-  <div class="corr-hash-row"><span class="corr-hash-label">Expected</span><code class="corr-hash">{{ expected_hash }}</code></div>
-  <div class="corr-hash-row"><span class="corr-hash-label">Got</span><code class="corr-hash">{{ actual_hash }}</code></div>
+  <p class="corr-note">This package does not include a source-index.json. Correspondence checking only works for stamps of a web page, created with source indexing enabled.</p>
 </div>
 
 {% elif error == "fetch_failed" %}
@@ -172,10 +163,6 @@
 
   .corr-meta { font-size: 0.82rem; color: #6c757d; margin-bottom: 0.35rem; }
   .corr-meta code { font-size: 0.78rem; background: #f1f3f5; padding: 0.1em 0.35em; border-radius: 3px; word-break: break-all; }
-
-  .corr-hash-row { display: flex; gap: 0.5rem; align-items: flex-start; margin-bottom: 0.25rem; }
-  .corr-hash-label { font-size: 0.7rem; color: #adb5bd; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; margin-top: 0.15rem; }
-  .corr-hash { font-size: 0.72rem; background: #f1f3f5; padding: 0.15em 0.35em; border-radius: 3px; word-break: break-all; color: #212529; }
 
   .corr-integrity-row {
     margin-bottom: 0.5rem;

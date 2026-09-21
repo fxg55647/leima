@@ -9,8 +9,8 @@
     <div class="val-detail">
       <span class="val-label">{{ r.label }}</span>
       {% if not r.ok %}
-      <code class="val-mismatch">Expected: {{ r.expected }}</code>
-      <code class="val-mismatch">Got:      {{ r.actual }}</code>
+      {% if r.expected %}<code class="val-mismatch">Expected: {{ r.expected }}</code>{% endif %}
+      <code class="val-mismatch">{% if r.expected %}Got:      {% endif %}{{ r.actual }}</code>
       {% else %}
       <code class="val-match">{{ r.actual if r.actual else r.expected }}</code>
       {% endif %}

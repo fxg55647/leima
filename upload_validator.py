@@ -29,7 +29,7 @@ tags = tags_from_dict({
     "Content-Type": "text/html",
     "App-Name": "Leima",
     "Leima-Type": "validator",
-    "Leima-Validator-Version": "1",
+    "Leima-Validator-Version": "2",
 })
 
 result = uploader.upload(bytearray(data), tags)

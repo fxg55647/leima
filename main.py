@@ -1,6 +1,5 @@
 import os
 import io
-import zipfile
 
 import asyncio
 import base64
@@ -41,6 +40,7 @@ import email_eml
 from fpdf import FPDF
 from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
+import evidence_package
 
 load_dotenv()
 
@@ -366,6 +366,8 @@ browser_session_receipts: dict[str, dict] = {}
 
 SESSION_TTL = 3600  # seconds
 
+_BUNDLE_MAX_TOTAL_BYTES = 150 * 1024 * 1024  # combined cap across all packages in one bundle request
+
 def _evict_old_sessions() -> None:
     cutoff = time.time() - SESSION_TTL
     for d in (store, email_sessions, eml_sessions, browser_session_receipts):
@@ -659,23 +661,25 @@ def build_verdict_pdf(
 
 def build_manifest(
     timestamp: str,
-    input_hash: str,
-    verdict_hash: str,
-    verdict_formats: dict | None = None,
-    source_index_sha256: str | None = None,
+    source_filename: str,
+    source_bytes: bytes,
+    verdict_pdf: bytes,
+    verdict_txt: bytes,
+    verdict_html: bytes,
+    verdict_json: bytes,
+    source_index_bytes: bytes | None = None,
 ) -> dict:
-    m = {
-        "stamp_format_version": 1,
-        "timestamp": timestamp,
-        "commit": os.getenv("VERCEL_GIT_COMMIT_SHA", "unknown"),
-        "input": f"sha256:{input_hash}",
-        "verdict": f"sha256:{verdict_hash}",
-    }
-    if verdict_formats:
-        m["verdict_formats"] = {fmt: f"sha256:{h}" for fmt, h in verdict_formats.items()}
-    if source_index_sha256:
-        m["source_index"] = f"sha256:{source_index_sha256}"
-    return m
+    return evidence_package.build_manifest(
+        timestamp=timestamp,
+        commit=os.getenv("VERCEL_GIT_COMMIT_SHA", "unknown"),
+        source_filename=source_filename,
+        source_bytes=source_bytes,
+        verdict_pdf=verdict_pdf,
+        verdict_txt=verdict_txt,
+        verdict_html=verdict_html,
+        verdict_json=verdict_json,
+        source_index_bytes=source_index_bytes,
+    )
 
 
 _CR_SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".github", "hooks"}
@@ -1771,158 +1775,72 @@ async def preview_eml_part(request: Request, session_id: str, path: str):
     )
 
 
-@app.get("/download/{session_id}/source")
-async def download_source(session_id: str):
-    entry = store.get(session_id)
-    if not entry or not entry.get("source"):
-        return Response(status_code=404)
-    ext = entry.get("source_ext", "pdf")
-    mime = entry.get("source_mime", "application/pdf")
-    return Response(
-        content=entry["source"],
-        media_type=mime,
-        headers={"Content-Disposition": f"attachment; filename=source.{ext}"},
-    )
-
-
-@app.get("/download/{session_id}/verdict.txt")
-async def download_verdict_txt(session_id: str):
+def _ensure_stamped(session_id: str) -> dict:
+    """Publish the stamp-less manifest to Arweave exactly once per session, then graft
+    stamp.tx_id/url onto the local manifest. Safe to call repeatedly: a session that is
+    already stamped is returned as-is without a second upload. A failed upload leaves the
+    session unstamped so the caller can retry."""
     entry = store.get(session_id)
     if not entry:
-        return Response(status_code=404)
-    return Response(
-        content=entry["verdict_txt"],
-        media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=verdict.txt"},
-    )
-
-
-@app.get("/download/{session_id}/verdict.html")
-async def download_verdict_html(session_id: str):
-    entry = store.get(session_id)
-    if not entry:
-        return Response(status_code=404)
-    return Response(
-        content=entry["verdict_html"],
-        media_type="text/html; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=verdict.html"},
-    )
-
-
-@app.get("/download/{session_id}/verdict.json")
-async def download_verdict_json_file(session_id: str):
-    entry = store.get(session_id)
-    if not entry:
-        return Response(status_code=404)
-    return Response(
-        content=entry["verdict_json"],
-        media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=verdict.json"},
-    )
+        raise HTTPException(status_code=404)
+    lock = entry.setdefault("_lock", threading.Lock())
+    with lock:
+        if "stamp" not in entry["manifest"]:
+            stamp_record = evidence_package.strip_stamp(entry["manifest"])
+            record_bytes = json.dumps(stamp_record, indent=2, ensure_ascii=False).encode()
+            irys_tx = _irys_upload(record_bytes, "application/json", {"Leima-Type": "stamp-record"})
+            irys_url = f"{IRYS_GATEWAY}/{irys_tx}"
+            entry["manifest"] = {**stamp_record, "stamp": {"tx_id": irys_tx, "url": irys_url}}
+    return entry
 
 
 @app.post("/files/{session_id}", response_class=HTMLResponse)
-async def files(request: Request, session_id: str, formats: list[str] = Form(default=[])):
+async def files(request: Request, session_id: str):
     entry = store.get(session_id)
     if not entry:
         return Response(status_code=404)
 
-    if not formats:
-        formats = ["pdf"]
-
-    stamp_record = {k: v for k, v in entry["manifest"].items() if k != "stamp"}
-    record_bytes = json.dumps(stamp_record, indent=2, ensure_ascii=False).encode()
-
     try:
-        irys_tx = _irys_upload(record_bytes, "application/json", {"Leima-Type": "stamp-record"})
+        entry = _ensure_stamped(session_id)
+    except HTTPException as e:
+        return Response(status_code=e.status_code)
     except Exception as e:
         return HTMLResponse(f'<p class="error">Arweave upload failed: {_html_escape(str(e))}</p>', status_code=503)
 
-    irys_url = f"{IRYS_GATEWAY}/{irys_tx}"
-    entry["manifest"] = {**stamp_record, "stamp": {"tx_id": irys_tx, "url": irys_url}}
-
+    stamp = entry["manifest"]["stamp"]
     return templates.TemplateResponse(
         "partials/files.html",
         {
             "request": request,
             "session_id": session_id,
-            "irys_tx": irys_tx,
-            "irys_url": irys_url,
-            "formats": formats,
-            "source_ext": entry.get("source_ext", "pdf"),
-            "has_source_index": bool(entry.get("source_index")),
+            "irys_tx": stamp["tx_id"],
+            "irys_url": stamp["url"],
         },
     )
 
 
-@app.get("/download/{session_id}/verdict.pdf")
-async def download_verdict(session_id: str):
+@app.get("/download/{session_id}/package.zip")
+async def download_package(session_id: str):
     entry = store.get(session_id)
     if not entry:
         return Response(status_code=404)
-    return Response(
-        content=entry["pdf"],
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=verdict.pdf"},
+    if "stamp" not in entry["manifest"]:
+        return Response(status_code=409, content="Session is not stamped yet")
+
+    data = evidence_package.pack(
+        entry["manifest"],
+        f"source.{entry.get('source_ext', 'pdf')}",
+        entry["source"],
+        entry["pdf"],
+        entry["verdict_txt"],
+        entry["verdict_html"],
+        entry["verdict_json"],
+        entry.get("source_index"),
     )
-
-
-@app.get("/download/{session_id}/manifest.json")
-async def download_manifest(session_id: str):
-    entry = store.get(session_id)
-    if not entry:
-        return Response(status_code=404)
     return Response(
-        content=json.dumps(entry["manifest"], indent=2, ensure_ascii=False),
-        media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=manifest.json"},
-    )
-
-
-@app.get("/download/{session_id}/source-index.json")
-async def download_source_index(session_id: str):
-    entry = store.get(session_id)
-    if not entry or not entry.get("source_index"):
-        return Response(status_code=404)
-    return Response(
-        content=entry["source_index"],
-        media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=source-index.json"},
-    )
-
-
-@app.get("/download/{session_id}/all.zip")
-async def download_all_zip(session_id: str):
-    entry = store.get(session_id)
-    if not entry:
-        return Response(status_code=404)
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        if entry.get("source"):
-            zf.writestr(f"source.{entry.get('source_ext', 'pdf')}", entry["source"])
-        if entry.get("pdf"):
-            zf.writestr("verdict.pdf", entry["pdf"])
-        zf.writestr(
-            "verdict.txt",
-            build_verdict_txt(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
-        )
-        zf.writestr(
-            "verdict.html",
-            build_verdict_html_export(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
-        )
-        zf.writestr(
-            "verdict.json",
-            build_verdict_json_export(entry["question"], entry["passes"], entry["timestamp"], entry["input_hash"]),
-        )
-        zf.writestr("manifest.json", json.dumps(entry["manifest"], indent=2, ensure_ascii=False))
-        if entry.get("source_index"):
-            zf.writestr("source-index.json", entry["source_index"])
-
-    return Response(
-        content=buf.getvalue(),
+        content=data,
         media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=leima-stamp.zip"},
+        headers={"Content-Disposition": f"attachment; filename=leima-{session_id[:8]}.zip"},
     )
 
 
@@ -1998,81 +1916,55 @@ async def _validate_notary(request: Request, tx_id: str, eml_file) -> HTMLRespon
     )
 
 
+def _check_arweave_anchor(manifest: dict) -> dict:
+    """Fetch the stamp record from the configured gateway by tx_id and compare it to the
+    local manifest (minus the stamp field). A gateway failure is reported as unverified,
+    never as a silent pass."""
+    stamp = manifest.get("stamp") or {}
+    tx_id = stamp.get("tx_id")
+    check = {"label": "Arweave anchor", "ok": False, "expected": "", "actual": ""}
+    if not tx_id:
+        check["actual"] = "No stamp.tx_id in manifest"
+        return check
+    try:
+        resp = http_requests.get(f"{IRYS_GATEWAY}/{tx_id}", timeout=15)
+        resp.raise_for_status()
+        remote_manifest = resp.json()
+        local_manifest = evidence_package.strip_stamp(manifest)
+        check["ok"] = remote_manifest == local_manifest
+        check["actual"] = (
+            f"Verified at {IRYS_GATEWAY}/{tx_id}" if check["ok"]
+            else "Arweave content does not match local manifest"
+        )
+    except Exception as e:
+        check["actual"] = f"Fetch failed: {e}"
+    return check
+
+
 @app.post("/validate", response_class=HTMLResponse)
 async def validate(
     request: Request,
     tx_id: str = Form(""),
     eml_file: UploadFile = File(None),
-    source_file: UploadFile = File(None),
-    verdict_file: UploadFile = File(None),
-    manifest_file: UploadFile = File(None),
+    package_file: UploadFile = File(None),
 ):
     if tx_id:
         return await _validate_notary(request, tx_id, eml_file)
-    if not source_file or not source_file.filename:
-        return HTMLResponse('<p class="error">Please upload a source file.</p>')
-    if not verdict_file or not verdict_file.filename:
-        return HTMLResponse('<p class="error">Please upload a verdict file.</p>')
-    if not manifest_file or not manifest_file.filename:
-        return HTMLResponse('<p class="error">Please upload a manifest file.</p>')
-    _validate_max = 50 * 1024 * 1024
-    if source_file.size and source_file.size > _validate_max:
-        return HTMLResponse('<p class="error">Source file too large (max 50 MB).</p>')
-    if verdict_file.size and verdict_file.size > _validate_max:
-        return HTMLResponse('<p class="error">Verdict file too large (max 50 MB).</p>')
-    if manifest_file.size and manifest_file.size > _validate_max:
-        return HTMLResponse('<p class="error">Manifest file too large (max 50 MB).</p>')
-    source_bytes = await source_file.read()
-    verdict_bytes = await verdict_file.read()
-    manifest_bytes = await manifest_file.read()
+    if not package_file or not package_file.filename:
+        return HTMLResponse('<p class="error">Please upload a Leima package (.zip).</p>')
 
+    data = await package_file.read(evidence_package.MAX_COMPRESSED + 1)
     try:
-        manifest = json.loads(manifest_bytes)
-    except Exception:
-        return HTMLResponse('<p class="error">manifest.json is not valid JSON.</p>')
+        pkg = evidence_package.read(data)
+        integrity_ok, integrity_msg = True, "Package structure and file hashes verified"
+    except evidence_package.PackageFormatError as e:
+        pkg, integrity_ok, integrity_msg = None, False, str(e)
 
-    results = []
-
-    # 1. Source hash
-    source_actual = sha256(source_bytes)
-    source_expected = manifest.get("input", "").removeprefix("sha256:")
-    results.append({
-        "label": "Source PDF hash",
-        "ok": source_actual == source_expected,
-        "expected": source_expected,
-        "actual": source_actual,
-    })
-
-    # 2. Verdict hash
-    verdict_actual = sha256(verdict_bytes)
-    verdict_expected = manifest.get("verdict", "").removeprefix("sha256:")
-    results.append({
-        "label": "Verdict PDF hash",
-        "ok": verdict_actual == verdict_expected,
-        "expected": verdict_expected,
-        "actual": verdict_actual,
-    })
-
-    # 3. Arweave manifest integrity
-    arweave = manifest.get("stamp") or manifest.get("arweave") or manifest.get("irys") or {}
-    tx_id = arweave.get("tx_id")
-    arweave_check = {"label": "Arweave manifest", "ok": False, "expected": "", "actual": ""}
-    if not tx_id:
-        arweave_check["actual"] = "No arweave.tx_id in manifest"
+    results = [{"label": "Package integrity", "ok": integrity_ok, "expected": "", "actual": integrity_msg}]
+    if pkg is not None:
+        results.append(_check_arweave_anchor(pkg.manifest))
     else:
-        try:
-            resp = http_requests.get(f"{IRYS_GATEWAY}/{tx_id}", timeout=15)
-            resp.raise_for_status()
-            arweave_manifest = resp.json()
-            base_manifest = {k: v for k, v in manifest.items() if k != "stamp"}
-            arweave_check["ok"] = arweave_manifest == base_manifest
-            if not arweave_check["ok"]:
-                arweave_check["actual"] = "Arweave content does not match local manifest"
-            else:
-                arweave_check["actual"] = f"Verified at {IRYS_GATEWAY}/{tx_id}"
-        except Exception as e:
-            arweave_check["actual"] = f"Fetch failed: {e}"
-    results.append(arweave_check)
+        results.append({"label": "Arweave anchor", "ok": False, "expected": "", "actual": "Not checked — package invalid"})
 
     all_ok = all(r["ok"] for r in results)
     return templates.TemplateResponse(
@@ -2406,18 +2298,16 @@ def _run_analysis(question: str, contents: list, input_bytes: bytes, input_label
     verdict_txt = build_verdict_txt(question, result["passes"], result["timestamp"], input_hash)
     verdict_html_bytes = build_verdict_html_export(question, result["passes"], result["timestamp"], input_hash)
     verdict_json_bytes = build_verdict_json_export(question, result["passes"], result["timestamp"], input_hash)
-    source_index_hash = sha256(source_index_bytes) if source_index_bytes else None
+    source_filename = f"source.{source_ext}"
     manifest = build_manifest(
         timestamp=result["timestamp"],
-        input_hash=input_hash,
-        verdict_hash=verdict_hash,
-        verdict_formats={
-            "pdf": verdict_hash,
-            "txt": sha256(verdict_txt),
-            "html": sha256(verdict_html_bytes),
-            "json": sha256(verdict_json_bytes),
-        },
-        source_index_sha256=source_index_hash,
+        source_filename=source_filename,
+        source_bytes=input_bytes,
+        verdict_pdf=verdict_pdf,
+        verdict_txt=verdict_txt,
+        verdict_html=verdict_html_bytes,
+        verdict_json=verdict_json_bytes,
+        source_index_bytes=source_index_bytes,
     )
     if tread_snap and tread_snap.get("tx"):
         manifest["tread"] = {
@@ -2483,8 +2373,7 @@ async def ask(
     gh_paths: str = Form(""),
     review_mode: str = Form("claim"),
     rules_url: str = Form(""),
-    bundle_manifests: list[UploadFile] = File([]),
-    bundle_verdicts: list[UploadFile] = File([]),
+    bundle_packages: list[UploadFile] = File([]),
     use_web_search: str = Form(""),
 ):
     if review_mode != "code_review" and not question.strip():
@@ -2806,58 +2695,56 @@ async def ask(
         contents.append(f"Email from: {msg['from']}\nSubject: {msg['subject']}\nDate: {msg['date']}\n\n{body}")
 
     elif active_tab == "bundle":
-        manifest_uploads = [f for f in bundle_manifests if f and f.filename]
-        verdict_uploads = [f for f in bundle_verdicts if f and f.filename]
-        if len(manifest_uploads) < 2:
-            return HTMLResponse('<div class="error">Add at least 2 stamp pairs to create a bundle.</div>')
-        if len(manifest_uploads) > 10:
-            return HTMLResponse('<div class="error">Maximum 10 stamps per bundle.</div>')
-        if verdict_uploads and len(verdict_uploads) != len(manifest_uploads):
-            return HTMLResponse('<div class="error">Upload a verdict.pdf for each manifest, or leave all verdict fields empty.</div>')
+        package_uploads = [f for f in bundle_packages if f and f.filename]
+        if len(package_uploads) < 2:
+            return HTMLResponse('<div class="error">Add at least 2 Leima packages to create a bundle.</div>')
+        if len(package_uploads) > 10:
+            return HTMLResponse('<div class="error">Maximum 10 packages per bundle.</div>')
+
         stamps = []
-        for i, mf in enumerate(manifest_uploads):
+        total_bytes = 0
+        for pf in package_uploads:
+            raw = await pf.read(evidence_package.MAX_COMPRESSED + 1)
+            total_bytes += len(raw)
+            if total_bytes > _BUNDLE_MAX_TOTAL_BYTES:
+                return HTMLResponse('<div class="error">Bundle upload is too large.</div>')
             try:
-                raw = await mf.read()
-                mdata = json.loads(raw)
+                pkg = evidence_package.read(raw)
+            except evidence_package.PackageFormatError as e:
+                return HTMLResponse(
+                    f'<div class="error">{_html_escape(pf.filename or "file")}: {_html_escape(str(e))}</div>'
+                )
+            anchor = _check_arweave_anchor(pkg.manifest)
+            if not anchor["ok"]:
+                return HTMLResponse(
+                    f'<div class="error">{_html_escape(pf.filename or "file")}: Arweave anchor could not be '
+                    f'verified ({_html_escape(anchor["actual"])}).</div>'
+                )
+            try:
+                verdict_data = json.loads(pkg.verdict("json"))
             except Exception:
-                return HTMLResponse(f'<div class="error">Could not read {_html_escape(mf.filename or "file")}: not valid JSON.</div>')
-            if not isinstance(mdata, dict) or mdata.get("stamp_format_version") != 1:
-                return HTMLResponse(f'<div class="error">{_html_escape(mf.filename or "file")} is not a valid Leima manifest.</div>')
-            pdf_text = ""
-            if i < len(verdict_uploads):
-                vf = verdict_uploads[i]
-                if vf and vf.filename:
-                    try:
-                        import io as _io
-                        from pypdf import PdfReader
-                        pdf_bytes = await vf.read()
-                        reader = PdfReader(_io.BytesIO(pdf_bytes))
-                        pdf_text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
-                    except Exception:
-                        pdf_text = ""
+                return HTMLResponse(
+                    f'<div class="error">{_html_escape(pf.filename or "file")}: verdict.json is not valid JSON.</div>'
+                )
             stamps.append({
-                "filename": mf.filename or "",
-                "timestamp": mdata.get("timestamp", ""),
-                "question": mdata.get("question", ""),
-                "verdict_summary": mdata.get("verdict_summary", ""),
-                "verdict_category": mdata.get("verdict_category", ""),
-                "model": mdata.get("model", ""),
-                "tx_id": mdata.get("stamp", {}).get("tx_id", "") if isinstance(mdata.get("stamp"), dict) else "",
-                "pdf_text": pdf_text,
+                "filename": pf.filename or "",
+                "timestamp": pkg.manifest.get("timestamp", ""),
+                "claim": verdict_data.get("claim", ""),
+                "model": verdict_data.get("model", ""),
+                "passes": verdict_data.get("passes", []),
+                "tx_id": pkg.manifest.get("stamp", {}).get("tx_id", ""),
             })
         lines = ["Bundle of uploaded Leima stamps:\n"]
         for i, s in enumerate(stamps, 1):
             lines.append(f"Stamp {i} — {s['filename']}")
             if s["timestamp"]:
                 lines.append(f"  Sealed at: {s['timestamp']}")
-            if s["question"]:
-                lines.append(f"  Verified claim: {s['question']}")
-            if s["verdict_summary"]:
-                lines.append(f"  Verdict summary: {s['verdict_summary']}")
-            if s["verdict_category"]:
-                lines.append(f"  Category: {s['verdict_category']}")
-            if s["pdf_text"]:
-                lines.append(f"  Full verdict:\n{s['pdf_text']}")
+            if s["claim"]:
+                lines.append(f"  Verified claim: {s['claim']}")
+            for p in s["passes"]:
+                label, text = p.get("label", ""), p.get("text", "")
+                if text:
+                    lines.append(f"  {label}:\n{text}")
             lines.append("")
         bundle_text = "\n".join(lines)
         input_bytes = bundle_text.encode("utf-8")
@@ -2935,53 +2822,39 @@ async def ask(
     )
 
 
-_CORRESPONDENCE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
-
-
 @app.post("/check-correspondence", response_class=HTMLResponse)
 async def check_correspondence(
     request: Request,
-    manifest_file: UploadFile = File(...),
-    source_index_file: UploadFile = File(...),
+    package_file: UploadFile = File(...),
 ):
-    if manifest_file.size and manifest_file.size > _CORRESPONDENCE_MAX_BYTES:
-        return HTMLResponse('<p class="corr-error">manifest.json too large.</p>')
-    if source_index_file.size and source_index_file.size > _CORRESPONDENCE_MAX_BYTES:
-        return HTMLResponse('<p class="corr-error">source-index.json too large.</p>')
-
-    manifest_bytes = await manifest_file.read()
-    index_bytes = await source_index_file.read()
-
+    data = await package_file.read(evidence_package.MAX_COMPRESSED + 1)
     try:
-        manifest = json.loads(manifest_bytes)
-    except Exception:
-        return HTMLResponse('<p class="corr-error">manifest.json is not valid JSON.</p>')
+        pkg = evidence_package.read(data)
+    except evidence_package.PackageFormatError as e:
+        return HTMLResponse(f'<p class="corr-error">{_html_escape(str(e))}</p>')
+
+    anchor = _check_arweave_anchor(pkg.manifest)
+    if not anchor["ok"]:
+        return HTMLResponse(
+            f'<p class="corr-error">Arweave anchor could not be verified: {_html_escape(anchor["actual"])}</p>'
+        )
+
+    if pkg.source_index_bytes is None:
+        return templates.TemplateResponse(
+            "partials/correspondence_result.html",
+            {"request": request, "error": "no_index_in_package"},
+        )
+
+    manifest = pkg.manifest
+    index_bytes = pkg.source_index_bytes
     try:
         original_index = json.loads(index_bytes)
     except Exception:
         return HTMLResponse('<p class="corr-error">source-index.json is not valid JSON.</p>')
 
-    # Verify format
+    # Verify format (hash integrity already verified by evidence_package.read())
     if original_index.get("format_version") != _SOURCE_INDEX_FORMAT_VERSION:
         return HTMLResponse('<p class="corr-error">source-index.json format version not supported.</p>')
-
-    # Integrity: manifest must contain the source_index hash
-    manifest_index_field = manifest.get("source_index", "")
-    if not manifest_index_field:
-        return templates.TemplateResponse(
-            "partials/correspondence_result.html",
-            {"request": request, "error": "no_index_in_manifest",
-             "analysis_url": original_index.get("final_url", original_index.get("requested_url", ""))},
-        )
-
-    expected_hash = manifest_index_field.removeprefix("sha256:")
-    actual_hash = sha256(index_bytes)
-    if actual_hash != expected_hash:
-        return templates.TemplateResponse(
-            "partials/correspondence_result.html",
-            {"request": request, "error": "index_hash_mismatch",
-             "expected_hash": expected_hash, "actual_hash": actual_hash},
-        )
 
     # Re-fetch current page
     target_url = original_index.get("final_url") or original_index.get("requested_url", "")
@@ -3082,16 +2955,14 @@ async def api_stamp(body: StampRequest):
     except Exception as e:
         return JSONResponse({"error": f"Analysis failed: {e}"}, status_code=500)
 
-    manifest = result["manifest"]
-    manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode()
+    session_id = result["session_id"]
     try:
-        tx_id = _irys_upload(manifest_bytes, "application/json", {"Leima-Type": "manifest"})
+        entry = _ensure_stamped(session_id)
     except Exception as e:
         return JSONResponse({"error": f"Arweave upload failed: {e}"}, status_code=502)
 
-    irys_url = f"{IRYS_GATEWAY}/{tx_id}"
-    full_manifest = {**manifest, "stamp": {"tx_id": tx_id, "url": irys_url}}
-    store[result["session_id"]]["manifest"] = full_manifest
+    full_manifest = entry["manifest"]
+    stamp = full_manifest["stamp"]
 
     return JSONResponse({
         "verdict": result["summary_verdict"],
@@ -3100,8 +2971,9 @@ async def api_stamp(body: StampRequest):
         "verdict_hash": result["verdict_hash"],
         "timestamp": result["timestamp"],
         "model": MODEL,
-        "stamp": {"tx_id": tx_id, "url": irys_url},
+        "stamp": stamp,
         "manifest": full_manifest,
+        "download_url": f"/download/{session_id}/package.zip",
     })
 
 

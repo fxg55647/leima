@@ -35,10 +35,18 @@ selain on asennettu Playwrightilla. Ensimmäinen toteutus on varmennettu Chromiu
 
 ## Testien rajat
 
-- `tests/test_integrity.py`: oikea `/ask` → `/files` → lataukset → `/validate`.
-  PDF:t, manifesti ja ZIP tuotetaan oikealla sovelluskoodilla. Vain Gemini ja
-  Irys/Arweave korvataan testivastauksilla. Muutettu lähde, tulos, manifesti ja
-  ketjutietue hylätään; yhteysvirhe ei tuota onnistumista.
+- `tests/test_integrity.py`: oikea `/ask` → `/files` → `package.zip`-lataus → `/validate`,
+  sekä `/check-correspondence` ja bundle-haara (`/ask` `active_tab=bundle`). PDF:t, manifesti
+  (stamp_format_version=2) ja ZIP tuotetaan oikealla sovelluskoodilla. Vain Gemini ja
+  Irys/Arweave korvataan testivastauksilla. Muutettu sisältötiedosto, manifesti ja
+  ketjutietue hylätään; yhteysvirhe ei tuota onnistumista. Kattaa myös leimauksen
+  idempotenssin (uudelleenyritys epäonnistumisen jälkeen, ei tuplajulkaisua onnistumisen
+  jälkeen) ja sen, että pakatun ZIP-kuoren muuttaminen samoilla sisältötavuilla ei riko
+  validointia.
+- `tests/test_evidence_package.py`: `evidence_package`-moduulin ZIP-lukijan/-kirjoittajan
+  yksikkötestit — puuttuva/ylimääräinen jäsen, duplikaattinimi, polkuhyökkäykset, väärä
+  versio, virheelliset JSON-tyypit, JSON:n duplikaattiavaimet, salattu/tukematon jäsen,
+  liian suuri paketti, viallinen ZIP.
 - `tests/test_analysis.py`: AI-analyysien riippumattomuus, synteesin syötteet ja
   hylätyn aineiston käsittelyn keskeytyminen. Ei mittaa oikean mallin laatua.
 - `tests/test_tread_monitor.py`: palvelimen tarkistus, muutoksen havaitseminen ja
@@ -49,7 +57,10 @@ selain on asennettu Playwrightilla. Ensimmäinen toteutus on varmennettu Chromiu
   GitHub-häiriö, vanhentunut ajastus ja poistettu workflow.
 - `tests/browser`: oikea FastAPI-palvelin satunnaisessa localhost-portissa ja
   oikea selain. TREADin palveluvastauksia ohjataan selaimen verkkorajalla;
-  validointilomake käyttää oikeaa backendia. Testataan myös 360 px ja 1440 px leveydet.
+  validointilomake käyttää oikeaa backendia. Testataan myös erikseen julkaistava
+  `validator.html` sen omalla selaimen sisäisellä ZIP-lukijalla (tarjoillaan
+  testipalvelimelta väliaikaisesta reitistä, Arweave-gateway mockataan). Testataan
+  myös 360 px ja 1440 px leveydet.
 - Olemassa olevat selainkaappauksen Python-testit ja Android-paketin tarkistimen
   Python-testit kuuluvat pytestin oletusajoon. Androidin laitetestit eivät kuulu siihen.
 
@@ -69,9 +80,13 @@ Workflowt tulevat käyttöön vasta muutosten pushauksen jälkeen.
 
 Tämä on ensimmäinen toimiva testikerros, ei koko sovelluksen kattavuuslupaus.
 Seuraavaksi tarvitaan kaikkien syötetapojen selainpolut, sähköpostin MIME/DKIM,
-SSRF/ZIP-rajojen laajempi testiaineisto, saavutettavuuden axe-tarkistukset,
-hyväksyttävät kuvavertailut, näppäimistökäyttö, verkon vastausjärjestyksen kilpailutilanteet,
-varoitusten 24 tunnin vaimennus sekä aidot palveluintegraatiot erillisessä ympäristössä.
+saavutettavuuden axe-tarkistukset, hyväksyttävät kuvavertailut, näppäimistökäyttö,
+verkon vastausjärjestyksen kilpailutilanteet, varoitusten 24 tunnin vaimennus sekä
+aidot palveluintegraatiot erillisessä ympäristössä. Web-page-korrespondenssitarkistuksen
+onnistumispolku (oikea nykyisen sivun uudelleenhaku) on tässä testattu vain
+kielteisiltä poluilta (puuttuva source-index, virheellinen ankkuri) — onnistumispolku
+vaatisi turvallisen tavan simuloida `_safe_get`-hakua verkkoon koskematta, mikä on
+jätetty myöhemmäksi.
 TREADin koko GitHub → hosting → Arweave -ketjua ei tässä ajeta oikeita palveluja vasten.
 Automaattitesti ei myöskään todista hosting-palvelussa ajettavan koodin aitoutta.
 
