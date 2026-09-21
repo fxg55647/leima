@@ -12,6 +12,7 @@ import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from email.header import decode_header as _decode_header
 from email.parser import BytesHeaderParser
 from email.utils import parseaddr, parsedate_to_datetime
 
@@ -51,6 +52,20 @@ class MessageCheckResult:
     signed_date_utc: datetime
     signing_domain: str
     checks: dict[str, bool]
+
+
+def _decode_header_value(value: str) -> str:
+    parts = _decode_header(value)
+    decoded = []
+    for part, enc in parts:
+        if isinstance(part, bytes):
+            try:
+                decoded.append(part.decode(enc or "utf-8", errors="replace"))
+            except (LookupError, ValueError):
+                decoded.append(part.decode("utf-8", errors="replace"))
+        else:
+            decoded.append(part)
+    return " ".join(decoded)
 
 
 def _single_header(msg, name: str) -> str:
@@ -97,6 +112,14 @@ def check_message_fields(raw: bytes, policy: HistoricalEmailPolicy, dnsfunc=None
     if missing:
         raise RejectedMessage(f"required headers not covered by DKIM signature: {sorted(missing)}")
 
+    subject_header = _decode_header_value(_single_header(msg, "Subject"))
+    if subject_header not in policy.allowed_subjects:
+        raise RejectedMessage(
+            f"message subject {subject_header!r} does not match this policy's approved "
+            "message class -- the same approved sender can send other kinds of mail "
+            "(e.g. a generic reply) that do not imply identity verification"
+        )
+
     to_header = _single_header(msg, "To")
     _, to_addr = parseaddr(to_header)
     if not to_addr:
@@ -119,6 +142,7 @@ def check_message_fields(raw: bytes, policy: HistoricalEmailPolicy, dnsfunc=None
 
     checks = {
         "approvedDkimSigner": True,
+        "approvedMessageClass": True,
         "signedRecipient": True,
         "signedDateBeforeCutoff": True,
     }

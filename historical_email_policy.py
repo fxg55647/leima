@@ -35,9 +35,10 @@ class HistoricalEmailPolicy:
     policy_version: int
     evidence_class: str
     allowed_dkim_signers: tuple[str, ...]
+    allowed_subjects: tuple[str, ...]
     cutoff: datetime  # tz-aware, compared in UTC
     human_verification_basis: str
-    required_signed_headers: tuple[str, ...] = ("to", "date")
+    required_signed_headers: tuple[str, ...] = ("to", "date", "subject")
 
     def __post_init__(self) -> None:
         if self.cutoff.tzinfo is None:
@@ -46,7 +47,24 @@ class HistoricalEmailPolicy:
             raise ValueError(
                 "human_verification_basis must document why this signer's own "
                 "registration process implies human identity verification -- "
-                "it cannot be empty (see signer_vetting.py to draft one)"
+                "it cannot be empty (see signer_vetting.draft_human_verification_basis "
+                "for an automated best-guess assessment)"
+            )
+        if not self.allowed_subjects:
+            raise ValueError(
+                "allowed_subjects must list the exact, boilerplate subject "
+                "line(s) for the one vetted message class (plan section 9.1: "
+                "'valitaan yksi hyväksyttävä viestiluokka') -- the same "
+                "DKIM-approved sender can send other message classes (e.g. a "
+                "generic 'thanks for contacting us' reply) that imply nothing "
+                "about identity verification, so the signer domain alone is "
+                "not sufficient"
+            )
+        if "subject" not in self.required_signed_headers:
+            raise ValueError(
+                "'subject' must be in required_signed_headers -- otherwise "
+                "allowed_subjects could not be trusted (an unsigned Subject "
+                "header can be changed after the fact without breaking DKIM)"
             )
 
     def canonical_bytes(self) -> bytes:
@@ -55,6 +73,7 @@ class HistoricalEmailPolicy:
             "policyVersion": self.policy_version,
             "evidenceClass": self.evidence_class,
             "allowedDkimSigners": sorted(self.allowed_dkim_signers),
+            "allowedSubjects": sorted(self.allowed_subjects),
             "cutoff": self.cutoff.astimezone(timezone.utc).isoformat(),
             "humanVerificationBasis": self.human_verification_basis,
             "requiredSignedHeaders": sorted(self.required_signed_headers),

@@ -10,10 +10,15 @@ a prompt-injection surface. Researching an organization's own known
 registration process, using its name and domain rather than message text, does
 not have that problem.
 
-This is a DRAFTING aid, not part of the issuance or verification path. It
-never adds a domain to a policy's allowed_dkim_signers by itself -- a human
-reviews the verdict and reasoning, then writes (or rejects) the
-human_verification_basis text that gets locked into the policy.
+This is not part of the per-message issuance or verification path -- it runs
+once when a policy is authored, not per credential. There is no human review
+gate: the verdict is the best available machine judgment and is used
+directly as the policy's human_verification_basis text. Per Leima's
+two-layer model, this stays a soft, practical-guidance judgment -- it never
+substitutes for or overrides the hard cryptographic checks (DKIM validity,
+approved signer, signed message class, cutoff, email binding) in
+historical_email_proof.py, which remain the hard guarantee regardless of
+what this function concludes.
 """
 
 from __future__ import annotations
@@ -91,3 +96,16 @@ def assess_signer_human_verification_basis(
             verdict = candidate
 
     return SignerVettingResult(domain=domain, verdict=verdict, reasoning=reasoning, search_queries=queries)
+
+
+def draft_human_verification_basis(
+    domain: str,
+    organization_hint: str = "",
+    search_fn: SearchFn = _default_search,
+) -> str:
+    """Runs the automated assessment and formats it directly as ready-to-use
+    policy.human_verification_basis text -- the model's best available guess,
+    used as-is. An 'uncertain' verdict is included verbatim rather than
+    hidden, so it stays visible to anyone reading the locked policy later."""
+    result = assess_signer_human_verification_basis(domain, organization_hint, search_fn)
+    return f"AI-assessed (verdict: {result.verdict}): {result.reasoning}"

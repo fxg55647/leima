@@ -46,7 +46,7 @@ def verify_attestation(
         raise RejectedMessage("credential does not match the expected, locked policy")
 
     checks = payload.get("checks") or {}
-    required = ("approvedDkimSigner", "signedRecipient", "signedDateBeforeCutoff")
+    required = ("approvedDkimSigner", "approvedMessageClass", "signedRecipient", "signedDateBeforeCutoff")
     if not all(checks.get(name) is True for name in required):
         raise RejectedMessage("credential checks were not all satisfied")
 

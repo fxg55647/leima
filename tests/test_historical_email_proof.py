@@ -100,6 +100,7 @@ def policy():
         policy_version=1,
         evidence_class="test-notification",
         allowed_dkim_signers=(SIGNER_DOMAIN.decode(),),
+        allowed_subjects=("Notice of registration",),
         cutoff=datetime(2026, 1, 1, tzinfo=timezone.utc),
         human_verification_basis="test fixture -- not a real vetting decision",
     )
@@ -128,12 +129,22 @@ class TestCheckMessageFields:
             policy_version=policy.policy_version,
             evidence_class=policy.evidence_class,
             allowed_dkim_signers=("someone-else.example.test",),
+            allowed_subjects=policy.allowed_subjects,
             cutoff=policy.cutoff,
             human_verification_basis=policy.human_verification_basis,
         )
         raw = build_raw_email("alice@example.com", VALID_DATE, rsa_key_pem)
         with pytest.raises(RejectedMessage, match="approved signer"):
             check_message_fields(raw, other_policy, dnsfunc=dnsfunc)
+
+    def test_rejects_unapproved_message_class(self, rsa_key_pem, dnsfunc, policy):
+        # Same approved sender, but a different (signed, unforged) subject --
+        # e.g. a generic contact-form reply instead of the vetted notice type.
+        raw = build_raw_email(
+            "alice@example.com", VALID_DATE, rsa_key_pem, subject="Thanks for contacting us",
+        )
+        with pytest.raises(RejectedMessage, match="approved message class"):
+            check_message_fields(raw, policy, dnsfunc=dnsfunc)
 
     def test_rejects_partial_body_signature(self, rsa_key_pem, dnsfunc, policy):
         raw = build_raw_email("alice@example.com", VALID_DATE, rsa_key_pem, length=True)
@@ -235,6 +246,7 @@ class TestIssueAndVerify:
             policy_version=2,
             evidence_class=policy.evidence_class,
             allowed_dkim_signers=policy.allowed_dkim_signers,
+            allowed_subjects=policy.allowed_subjects,
             cutoff=policy.cutoff,
             human_verification_basis=policy.human_verification_basis,
         )
