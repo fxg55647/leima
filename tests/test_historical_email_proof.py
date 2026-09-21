@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from historical_email_policy import HistoricalEmailPolicy, normalize_email
-from historical_email_proof import RejectedMessage, check_message_fields, issue_credential
+from historical_email_proof import RejectedMessage, check_message_fields, issue_credential, verify_jws
 from proof_verifier import verify_attestation
 
 SIGNER_DOMAIN = b"gov.example.test"
@@ -108,6 +108,72 @@ def policy():
 
 VALID_DATE = "Mon, 01 Dec 2025 12:00:00 +0000"
 AFTER_CUTOFF_DATE = "Thu, 15 Jan 2026 12:00:00 +0000"
+
+
+class TestPolicyValidation:
+    def _base_kwargs(self, policy):
+        return dict(
+            policy_id=policy.policy_id,
+            policy_version=policy.policy_version,
+            evidence_class=policy.evidence_class,
+            allowed_dkim_signers=policy.allowed_dkim_signers,
+            allowed_subjects=policy.allowed_subjects,
+            cutoff=policy.cutoff,
+            human_verification_basis=policy.human_verification_basis,
+        )
+
+    @pytest.mark.parametrize("headers", [("subject",), ("to", "subject"), ("date", "subject"), ()])
+    def test_rejects_policy_missing_required_signed_headers(self, policy, headers):
+        # A policy that only requires "subject" (or omits it) to be signed
+        # would let check_message_fields report signedRecipient/
+        # signedDateBeforeCutoff as true even for an unsigned, forgeable
+        # To/Date header -- this must be rejected at construction time.
+        with pytest.raises(ValueError, match="required_signed_headers"):
+            HistoricalEmailPolicy(**self._base_kwargs(policy), required_signed_headers=headers)
+
+    def test_accepts_policy_with_extra_signed_headers(self, policy):
+        HistoricalEmailPolicy(**self._base_kwargs(policy), required_signed_headers=("to", "date", "subject", "from"))
+
+
+class TestVerifyJwsRobustness:
+    def test_rejects_non_object_header(self):
+        from historical_email_policy import b64url_encode
+        import json as _json
+
+        header_b64 = b64url_encode(_json.dumps(["not", "an", "object"]).encode())
+        payload_b64 = b64url_encode(_json.dumps({"a": 1}).encode())
+        token = f"{header_b64}.{payload_b64}.{b64url_encode(b'sig')}"
+        with pytest.raises(RejectedMessage, match="JSON object"):
+            verify_jws(token, trusted_issuer_keys={})
+
+    def test_rejects_invalid_base64_header(self):
+        from historical_email_policy import b64url_encode
+        import json as _json
+
+        payload_b64 = b64url_encode(_json.dumps({"a": 1}).encode())
+        # base64.urlsafe_b64decode (validate=False) silently drops invalid
+        # characters rather than erroring -- what matters here is that
+        # whatever garbage results is turned into a clean RejectedMessage
+        # instead of an unhandled exception.
+        token = f"not-valid-base64!!!.{payload_b64}.{b64url_encode(b'sig')}"
+        with pytest.raises(RejectedMessage, match="encoding|not valid JSON"):
+            verify_jws(token, trusted_issuer_keys={})
+
+    def test_rejects_header_with_bad_padding(self):
+        payload_b64 = "eyJhIjogMX0"  # {"a": 1}
+        token = f"a===.{payload_b64}.sig"
+        with pytest.raises(RejectedMessage, match="encoding"):
+            verify_jws(token, trusted_issuer_keys={})
+
+    def test_rejects_non_json_header(self):
+        from historical_email_policy import b64url_encode
+        import json as _json
+
+        header_b64 = b64url_encode(b"not json at all")
+        payload_b64 = b64url_encode(_json.dumps({"a": 1}).encode())
+        token = f"{header_b64}.{payload_b64}.{b64url_encode(b'sig')}"
+        with pytest.raises(RejectedMessage, match="not valid JSON"):
+            verify_jws(token, trusted_issuer_keys={})
 
 
 class TestCheckMessageFields:

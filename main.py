@@ -3134,22 +3134,27 @@ async def historical_email_proof_issue(session_id: str):
     entry = historical_email_proof_sessions.get(session_id)
     if not entry:
         raise HTTPException(404, "Unknown or expired session")
-    if "issued" in entry:
+    if "package" in entry:
         raise HTTPException(409, "A credential has already been issued for this session")
 
-    try:
-        issuer_key = _historical_email_issuer_key()
-    except Exception as exc:
-        raise HTTPException(503, f"Issuer key not available: {exc}")
+    # If a prior call already minted the credential but Arweave publishing
+    # failed, retry only the anchor step below -- re-issuing here would mint
+    # a second credential (new id, new disclosure secret) for the same email.
+    issued = entry.get("issued")
+    if issued is None:
+        try:
+            issuer_key = _historical_email_issuer_key()
+        except Exception as exc:
+            raise HTTPException(503, f"Issuer key not available: {exc}")
 
-    try:
-        issued = historical_email_proof.issue_credential(
-            entry["raw"], _HISTORICAL_EMAIL_DEMO_POLICY,
-            HISTORICAL_EMAIL_ISSUER_ID, HISTORICAL_EMAIL_ISSUER_KID, issuer_key,
-        )
-    except historical_email_proof.RejectedMessage as exc:
-        raise HTTPException(422, exc.reason)
-    entry["issued"] = issued
+        try:
+            issued = historical_email_proof.issue_credential(
+                entry["raw"], _HISTORICAL_EMAIL_DEMO_POLICY,
+                HISTORICAL_EMAIL_ISSUER_ID, HISTORICAL_EMAIL_ISSUER_KID, issuer_key,
+            )
+        except historical_email_proof.RejectedMessage as exc:
+            raise HTTPException(422, exc.reason)
+        entry["issued"] = issued
 
     try:
         anchor = historical_email_anchor.publish_anchor(
@@ -3186,6 +3191,10 @@ async def historical_email_proof_download(session_id: str):
     )
 
 
+HISTORICAL_EMAIL_MAX_SENDS_PER_SESSION = 3
+HISTORICAL_EMAIL_MIN_SEND_INTERVAL_SECONDS = 30
+
+
 @app.post("/api/historical-email-proof/{session_id}/email")
 async def historical_email_proof_email(session_id: str):
     entry = historical_email_proof_sessions.get(session_id)
@@ -3193,6 +3202,15 @@ async def historical_email_proof_email(session_id: str):
         raise HTTPException(404, "No issued credential for this session")
     if not (NOTARY_SMTP_USER and NOTARY_SMTP_PASSWORD):
         raise HTTPException(503, "Email delivery is not configured")
+
+    send_count = entry.get("email_send_count", 0)
+    last_sent_at = entry.get("email_last_sent_at", 0.0)
+    if send_count >= HISTORICAL_EMAIL_MAX_SENDS_PER_SESSION:
+        raise HTTPException(429, "Delivery already attempted the maximum number of times for this session")
+    if time.time() - last_sent_at < HISTORICAL_EMAIL_MIN_SEND_INTERVAL_SECONDS:
+        raise HTTPException(429, "Please wait before requesting another delivery")
+    entry["email_send_count"] = send_count + 1
+    entry["email_last_sent_at"] = time.time()
 
     recipient = entry["check"].recipient_email
 

@@ -60,11 +60,15 @@ class HistoricalEmailPolicy:
                 "about identity verification, so the signer domain alone is "
                 "not sufficient"
             )
-        if "subject" not in self.required_signed_headers:
+        missing_required = {"to", "date", "subject"} - set(self.required_signed_headers)
+        if missing_required:
             raise ValueError(
-                "'subject' must be in required_signed_headers -- otherwise "
-                "allowed_subjects could not be trusted (an unsigned Subject "
-                "header can be changed after the fact without breaking DKIM)"
+                f"required_signed_headers is missing {sorted(missing_required)} -- "
+                "to/date/subject must always be DKIM-signed, otherwise an "
+                "attacker could change the recipient, date, or message class "
+                "after signing without breaking the signature, and "
+                "check_message_fields would still report signedRecipient/"
+                "signedDateBeforeCutoff/approvedMessageClass as true"
             )
 
     def canonical_bytes(self) -> bytes:

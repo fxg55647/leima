@@ -124,6 +124,30 @@ def test_issue_surfaces_anchor_failure(client, checked_session, app_module, monk
     assert "anchor failed" in response.json()["detail"]
 
 
+def test_issue_retries_anchor_without_reissuing_after_failure(client, checked_session, app_module, monkeypatch):
+    def failing_upload(data, content_type, tags):
+        raise RuntimeError("irys down")
+    monkeypatch.setattr(app_module, "_irys_upload", failing_upload)
+    first = client.post(f"/api/historical-email-proof/{checked_session}/issue")
+    assert first.status_code == 502
+    issued_after_failure = app_module.historical_email_proof_sessions[checked_session]["issued"]
+
+    monkeypatch.setattr(app_module, "_irys_upload", lambda data, content_type, tags: "tx-retry-1")
+    second = client.post(f"/api/historical-email-proof/{checked_session}/issue")
+
+    assert second.status_code == 200
+    assert second.json()["arweave_tx_id"] == "tx-retry-1"
+    assert second.json()["credential_jws"] == issued_after_failure.credential_jws
+
+    # The download must now work -- the failed first attempt must not have
+    # left the session permanently stuck as "issued but no package".
+    download = client.get(f"/api/historical-email-proof/{checked_session}/download")
+    assert download.status_code == 200
+
+    third = client.post(f"/api/historical-email-proof/{checked_session}/issue")
+    assert third.status_code == 409
+
+
 def test_download_requires_issued_credential(client, checked_session):
     response = client.get(f"/api/historical-email-proof/{checked_session}/download")
     assert response.status_code == 404
@@ -167,3 +191,32 @@ def test_email_sends_to_verified_recipient_only(client, checked_session, app_mod
     assert response.status_code == 200
     assert captured["to"] == "alice@example.com"
     assert b"stampd-proof.json" in captured["msg_bytes"]
+
+
+def test_email_enforces_minimum_interval_between_sends(client, checked_session, app_module, monkeypatch):
+    monkeypatch.setattr(app_module, "_irys_upload", lambda data, content_type, tags: "tx-demo-1")
+    client.post(f"/api/historical-email-proof/{checked_session}/issue")
+    monkeypatch.setattr(app_module, "NOTARY_SMTP_USER", "user")
+    monkeypatch.setattr(app_module, "NOTARY_SMTP_PASSWORD", "pw")
+    monkeypatch.setattr(app_module, "_notary_smtp_send", lambda *a: None)
+
+    first = client.post(f"/api/historical-email-proof/{checked_session}/email")
+    assert first.status_code == 200
+
+    second = client.post(f"/api/historical-email-proof/{checked_session}/email")
+    assert second.status_code == 429
+
+
+def test_email_enforces_max_sends_per_session(client, checked_session, app_module, monkeypatch):
+    monkeypatch.setattr(app_module, "_irys_upload", lambda data, content_type, tags: "tx-demo-1")
+    client.post(f"/api/historical-email-proof/{checked_session}/issue")
+    monkeypatch.setattr(app_module, "NOTARY_SMTP_USER", "user")
+    monkeypatch.setattr(app_module, "NOTARY_SMTP_PASSWORD", "pw")
+    monkeypatch.setattr(app_module, "_notary_smtp_send", lambda *a: None)
+    monkeypatch.setattr(app_module, "HISTORICAL_EMAIL_MIN_SEND_INTERVAL_SECONDS", 0)
+
+    entry = app_module.historical_email_proof_sessions[checked_session]
+    entry["email_send_count"] = app_module.HISTORICAL_EMAIL_MAX_SENDS_PER_SESSION
+
+    response = client.post(f"/api/historical-email-proof/{checked_session}/email")
+    assert response.status_code == 429

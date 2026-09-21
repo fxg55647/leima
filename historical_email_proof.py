@@ -166,13 +166,27 @@ def sign_jws(payload: dict, private_key: Ed25519PrivateKey, kid: str) -> str:
     return f"{header_b64}.{payload_b64}.{b64url_encode(signature)}"
 
 
+def _decode_json_object(segment_b64: str, label: str) -> dict:
+    try:
+        raw = b64url_decode(segment_b64)
+    except ValueError as exc:
+        raise RejectedMessage(f"malformed credential {label} encoding: {exc}") from exc
+    try:
+        value = json.loads(raw)
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise RejectedMessage(f"credential {label} is not valid JSON: {exc}") from exc
+    if not isinstance(value, dict):
+        raise RejectedMessage(f"credential {label} must be a JSON object, got {type(value).__name__}")
+    return value
+
+
 def verify_jws(token: str, trusted_issuer_keys: dict[str, Ed25519PublicKey]) -> dict:
     try:
         header_b64, payload_b64, signature_b64 = token.split(".")
     except ValueError as exc:
         raise RejectedMessage("malformed credential (expected header.payload.signature)") from exc
 
-    header = json.loads(b64url_decode(header_b64))
+    header = _decode_json_object(header_b64, "header")
     if header.get("alg") not in ALLOWED_JWS_ALGORITHMS:
         raise RejectedMessage(f"unsupported JWS algorithm {header.get('alg')!r}")
 
@@ -181,13 +195,18 @@ def verify_jws(token: str, trusted_issuer_keys: dict[str, Ed25519PublicKey]) -> 
     if public_key is None:
         raise RejectedMessage(f"unknown or untrusted issuer key id {kid!r}")
 
+    try:
+        signature = b64url_decode(signature_b64)
+    except ValueError as exc:
+        raise RejectedMessage(f"malformed credential signature encoding: {exc}") from exc
+
     signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
     try:
-        public_key.verify(b64url_decode(signature_b64), signing_input)
+        public_key.verify(signature, signing_input)
     except InvalidSignature as exc:
         raise RejectedMessage("credential signature does not verify") from exc
 
-    return json.loads(b64url_decode(payload_b64))
+    return _decode_json_object(payload_b64, "payload")
 
 
 @dataclass
