@@ -36,11 +36,18 @@ class HistoricalEmailPolicy:
     evidence_class: str
     allowed_dkim_signers: tuple[str, ...]
     cutoff: datetime  # tz-aware, compared in UTC
+    human_verification_basis: str
     required_signed_headers: tuple[str, ...] = ("to", "date")
 
     def __post_init__(self) -> None:
         if self.cutoff.tzinfo is None:
             raise ValueError("policy cutoff must be timezone-aware")
+        if not self.human_verification_basis.strip():
+            raise ValueError(
+                "human_verification_basis must document why this signer's own "
+                "registration process implies human identity verification -- "
+                "it cannot be empty (see signer_vetting.py to draft one)"
+            )
 
     def canonical_bytes(self) -> bytes:
         payload = {
@@ -49,6 +56,7 @@ class HistoricalEmailPolicy:
             "evidenceClass": self.evidence_class,
             "allowedDkimSigners": sorted(self.allowed_dkim_signers),
             "cutoff": self.cutoff.astimezone(timezone.utc).isoformat(),
+            "humanVerificationBasis": self.human_verification_basis,
             "requiredSignedHeaders": sorted(self.required_signed_headers),
         }
         return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")

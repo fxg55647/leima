@@ -101,6 +101,7 @@ def policy():
         evidence_class="test-notification",
         allowed_dkim_signers=(SIGNER_DOMAIN.decode(),),
         cutoff=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        human_verification_basis="test fixture -- not a real vetting decision",
     )
 
 
@@ -128,6 +129,7 @@ class TestCheckMessageFields:
             evidence_class=policy.evidence_class,
             allowed_dkim_signers=("someone-else.example.test",),
             cutoff=policy.cutoff,
+            human_verification_basis=policy.human_verification_basis,
         )
         raw = build_raw_email("alice@example.com", VALID_DATE, rsa_key_pem)
         with pytest.raises(RejectedMessage, match="approved signer"):
@@ -234,6 +236,7 @@ class TestIssueAndVerify:
             evidence_class=policy.evidence_class,
             allowed_dkim_signers=policy.allowed_dkim_signers,
             cutoff=policy.cutoff,
+            human_verification_basis=policy.human_verification_basis,
         )
         with pytest.raises(RejectedMessage, match="locked policy"):
             verify_attestation(
