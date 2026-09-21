@@ -17,7 +17,7 @@ import email as email_lib
 from collections import Counter
 from email.header import decode_header as _decode_header
 from html.parser import HTMLParser as _HTMLParser
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 import re
@@ -34,6 +34,11 @@ from fpdf.enums import MethodReturnValue
 from google.genai import types
 from neutral_witness import analyse, analyse_code_review, PASS_LABELS, MODEL
 from notary import poll_and_process as _notary_poll
+from notary import _smtp_send as _notary_smtp_send
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from browser_session import parse_and_verify as _parse_browser_session
 from browser_session import EvidenceBodyLimitMiddleware, MAX_ZIP_BYTES
 import email_eml
@@ -41,6 +46,11 @@ from fpdf import FPDF
 from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
 import evidence_package
+import historical_email_anchor
+import historical_email_policy
+import historical_email_proof
+import proof_delivery
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 load_dotenv()
 
@@ -98,6 +108,13 @@ NOTARY_SMTP_USER = os.getenv("NOTARY_SMTP_USER")
 NOTARY_SMTP_PASSWORD = os.getenv("NOTARY_SMTP_PASSWORD")
 NOTARY_FROM = os.getenv("NOTARY_FROM", "Leima <noreply@leima.io>")
 NOTARY_POLL_TOKEN = os.getenv("NOTARY_POLL_TOKEN")
+
+# Historical email proof (docs/todo/HISTORICAL_EMAIL_PROOF_PLAN.md). No real
+# vetted DKIM signer/message class has been chosen yet -- this wiring is a
+# demo path only, gated by _DEMO_POLICY below, not a production policy.
+HISTORICAL_EMAIL_ISSUER_PRIVATE_KEY_B64 = os.getenv("HISTORICAL_EMAIL_ISSUER_PRIVATE_KEY_B64")
+HISTORICAL_EMAIL_ISSUER_ID = os.getenv("HISTORICAL_EMAIL_ISSUER_ID", "stampd-historical-email-demo-issuer")
+HISTORICAL_EMAIL_ISSUER_KID = os.getenv("HISTORICAL_EMAIL_ISSUER_KID", "stampd-historical-email-demo-key-1")
 LEIMA_URL = os.getenv("LEIMA_URL", "https://leima.io")
 
 _KV_URL              = os.getenv("KV_REST_API_URL", "")
@@ -363,6 +380,8 @@ email_sessions: dict[str, list[dict]] = {}
 eml_sessions: dict[str, dict] = {}
 # Browser-session evidence receipts: receipt_id → receipt entry (no image bytes)
 browser_session_receipts: dict[str, dict] = {}
+# Historical email proof sessions: session_id → {check, issued, anchor, package, ...}
+historical_email_proof_sessions: dict[str, dict] = {}
 
 SESSION_TTL = 3600  # seconds
 
@@ -370,7 +389,7 @@ _BUNDLE_MAX_TOTAL_BYTES = 150 * 1024 * 1024  # combined cap across all packages 
 
 def _evict_old_sessions() -> None:
     cutoff = time.time() - SESSION_TTL
-    for d in (store, email_sessions, eml_sessions, browser_session_receipts):
+    for d in (store, email_sessions, eml_sessions, browser_session_receipts, historical_email_proof_sessions):
         stale = [k for k, v in d.items() if v.get("_stored_at", 0) < cutoff]
         for k in stale:
             d.pop(k, None)
@@ -3040,3 +3059,164 @@ async def api_code_review(body: CodeReviewRequest):
         "rules_url": body.rules_url.strip(),
         **({"stamp": {"tx_id": tx_id, "url": arweave_url}} if tx_id else {}),
     })
+
+
+# --- Historical email proof (docs/todo/HISTORICAL_EMAIL_PROOF_PLAN.md) ---
+#
+# No real DKIM signer/message class has been vetted yet (see
+# signer_vetting.py). This policy is a demo fixture only: it can never accept
+# a real-world email, since "stampd-demo.example" publishes no DKIM key.
+# Swap it for a vetted HistoricalEmailPolicy once a real signer is chosen.
+_HISTORICAL_EMAIL_DEMO_POLICY = historical_email_policy.HistoricalEmailPolicy(
+    policy_id="stampd-historical-email-demo-v1",
+    policy_version=1,
+    evidence_class="demo-notification",
+    allowed_dkim_signers=("stampd-demo.example",),
+    allowed_subjects=("Stampd demo notice",),
+    cutoff=datetime(2035, 1, 1, tzinfo=timezone.utc),
+    human_verification_basis=(
+        "DEMO POLICY -- not vetted against any real organization. Exists only "
+        "to exercise the historical-email-proof pipeline end to end; an "
+        "issued demo credential is not a real personhood claim."
+    ),
+)
+
+_historical_email_issuer_key_cache: Ed25519PrivateKey | None = None
+
+
+def _historical_email_issuer_key() -> Ed25519PrivateKey:
+    global _historical_email_issuer_key_cache
+    if HISTORICAL_EMAIL_ISSUER_PRIVATE_KEY_B64:
+        seed = historical_email_policy.b64url_decode(HISTORICAL_EMAIL_ISSUER_PRIVATE_KEY_B64)
+        return Ed25519PrivateKey.from_private_bytes(seed)
+    if _historical_email_issuer_key_cache is None:
+        _logging.getLogger("historical_email_proof").warning(
+            "HISTORICAL_EMAIL_ISSUER_PRIVATE_KEY_B64 not set -- generating an "
+            "ephemeral demo issuer key for this process. Credentials issued "
+            "now will stop verifying after a restart."
+        )
+        _historical_email_issuer_key_cache = Ed25519PrivateKey.generate()
+    return _historical_email_issuer_key_cache
+
+
+@app.post("/api/historical-email-proof/check")
+async def historical_email_proof_check(eml_file: UploadFile = File(...)):
+    if not eml_file.filename:
+        return JSONResponse({"error": "Please choose a .eml file."}, status_code=400)
+    raw = await eml_file.read()
+    if not raw:
+        return JSONResponse({"error": "The file is empty."}, status_code=400)
+    if len(raw) > email_eml.MAX_EML_BYTES:
+        return JSONResponse({"error": "File too large (max 20 MB)."}, status_code=400)
+
+    try:
+        result = historical_email_proof.check_message_fields(raw, _HISTORICAL_EMAIL_DEMO_POLICY)
+    except historical_email_proof.RejectedMessage as exc:
+        return JSONResponse({"error": exc.reason}, status_code=422)
+
+    session_id = uuid.uuid4().hex
+    _evict_old_sessions()
+    historical_email_proof_sessions[session_id] = {
+        "raw": raw,
+        "check": result,
+        "_stored_at": time.time(),
+    }
+    return JSONResponse({
+        "session_id": session_id,
+        "signing_domain": result.signing_domain,
+        "signed_date_utc": result.signed_date_utc.isoformat(),
+        "checks": result.checks,
+    })
+
+
+@app.post("/api/historical-email-proof/{session_id}/issue")
+async def historical_email_proof_issue(session_id: str):
+    entry = historical_email_proof_sessions.get(session_id)
+    if not entry:
+        raise HTTPException(404, "Unknown or expired session")
+    if "issued" in entry:
+        raise HTTPException(409, "A credential has already been issued for this session")
+
+    try:
+        issuer_key = _historical_email_issuer_key()
+    except Exception as exc:
+        raise HTTPException(503, f"Issuer key not available: {exc}")
+
+    try:
+        issued = historical_email_proof.issue_credential(
+            entry["raw"], _HISTORICAL_EMAIL_DEMO_POLICY,
+            HISTORICAL_EMAIL_ISSUER_ID, HISTORICAL_EMAIL_ISSUER_KID, issuer_key,
+        )
+    except historical_email_proof.RejectedMessage as exc:
+        raise HTTPException(422, exc.reason)
+    entry["issued"] = issued
+
+    try:
+        anchor = historical_email_anchor.publish_anchor(
+            issued.credential_jws, upload_fn=_irys_upload, gateway_base_url=IRYS_GATEWAY,
+        )
+    except historical_email_anchor.AnchorPublishError as exc:
+        # The credential itself is valid and already stored in the session;
+        # a retry of this endpoint would re-issue rather than re-anchor, so
+        # callers should treat this as "issued, anchor pending" rather than
+        # a hard failure of the whole flow.
+        raise HTTPException(502, f"Credential issued but Arweave anchor failed: {exc.reason}")
+    entry["anchor"] = anchor
+    entry["package"] = proof_delivery.build_proof_package(
+        issued.credential_jws, issued.disclosure_secret_b64, anchor.tx_id,
+    )
+
+    return JSONResponse({
+        "credential_jws": issued.credential_jws,
+        "arweave_tx_id": anchor.tx_id,
+        "arweave_url": anchor.gateway_url,
+    })
+
+
+@app.get("/api/historical-email-proof/{session_id}/download")
+async def historical_email_proof_download(session_id: str):
+    entry = historical_email_proof_sessions.get(session_id)
+    if not entry or "package" not in entry:
+        raise HTTPException(404, "No issued credential for this session")
+    data = proof_delivery.package_bytes(entry["package"])
+    return Response(
+        content=data,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{proof_delivery.PACKAGE_FILENAME}"'},
+    )
+
+
+@app.post("/api/historical-email-proof/{session_id}/email")
+async def historical_email_proof_email(session_id: str):
+    entry = historical_email_proof_sessions.get(session_id)
+    if not entry or "package" not in entry:
+        raise HTTPException(404, "No issued credential for this session")
+    if not (NOTARY_SMTP_USER and NOTARY_SMTP_PASSWORD):
+        raise HTTPException(503, "Email delivery is not configured")
+
+    recipient = entry["check"].recipient_email
+
+    def send_fn(to_addr: str, subject: str, body: str, attachment_bytes: bytes, filename: str) -> None:
+        outer = MIMEMultipart()
+        outer["From"] = NOTARY_FROM
+        outer["To"] = to_addr
+        outer["Subject"] = subject
+        outer.attach(MIMEText(body, "plain", "utf-8"))
+        part = MIMEBase("application", "json")
+        part.set_payload(attachment_bytes)
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", "attachment", filename=filename)
+        outer.attach(part)
+        _notary_smtp_send(
+            to_addr, outer.as_bytes(), NOTARY_SMTP_HOST, NOTARY_SMTP_PORT,
+            NOTARY_SMTP_USER, NOTARY_SMTP_PASSWORD, NOTARY_FROM,
+        )
+
+    try:
+        proof_delivery.send_proof_email(
+            entry["package"], recipient, recipient, send_fn, entry["anchor"].gateway_url,
+        )
+    except proof_delivery.DeliveryError as exc:
+        raise HTTPException(502, exc.reason)
+
+    return JSONResponse({"sent": True})
