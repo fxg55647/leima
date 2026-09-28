@@ -220,13 +220,13 @@
 {% block tabs_nav %}
     <div class="tabs-wrap">
       <div class="tabs">
-        <button type="button" class="tab-btn active" onclick="switchCat('text', this)">Text</button>
-        <button type="button" class="tab-btn" onclick="switchCat('claim', this)">Claim only</button>
-        <button type="button" class="tab-btn" onclick="switchCat('web', this)">Web</button>
-        <button type="button" class="tab-btn" onclick="switchCat('image', this)">Image</button>
-        <button type="button" class="tab-btn" onclick="switchCat('email', this)">Email</button>
-        <button type="button" class="tab-btn" onclick="switchCat('github', this)">GitHub</button>
-        <button type="button" class="tab-btn" onclick="switchCat('bundle', this)">Bundle</button>
+        <button type="button" class="tab-btn active" data-cat="text" onclick="switchCat('text', this)">Text</button>
+        <button type="button" class="tab-btn" data-cat="claim" onclick="switchCat('claim', this)">Claim only</button>
+        <button type="button" class="tab-btn" data-cat="web" onclick="switchCat('web', this)">Web</button>
+        <button type="button" class="tab-btn" data-cat="image" onclick="switchCat('image', this)">Image</button>
+        <button type="button" class="tab-btn" data-cat="email" onclick="switchCat('email', this)">Email</button>
+        <button type="button" class="tab-btn" data-cat="github" onclick="switchCat('github', this)">GitHub</button>
+        <button type="button" class="tab-btn" data-cat="bundle" onclick="switchCat('bundle', this)">Bundle</button>
       </div>
       <div class="tabs-scroll-hint" id="tabs-scroll-hint">›</div>
 
@@ -810,6 +810,7 @@
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     _currentCat = cat;
+    history.replaceState(null, '', cat === 'text' ? location.pathname + location.search : '#' + cat);
     document.querySelectorAll('.sub-row').forEach(r => r.style.display = 'none');
     if (CAT_HAS_SUB.has(cat)) {
       const row = document.getElementById('sub-' + cat);
@@ -926,6 +927,11 @@
     if (CAT_HAS_SUB.has(_currentCat)) {
       const subRow = document.getElementById('sub-' + _currentCat);
       if (subRow) subRow.style.display = 'flex';
+    }
+    const hashCat = location.hash.slice(1);
+    if (hashCat && Object.prototype.hasOwnProperty.call(CAT_DEFAULT, hashCat)) {
+      const hashBtn = document.querySelector('.tab-btn[data-cat="' + hashCat + '"]');
+      if (hashBtn) switchCat(hashCat, hashBtn);
     }
   })();
 
