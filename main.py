@@ -4,6 +4,7 @@ import io
 import asyncio
 import base64
 import hashlib
+import hmac
 import uuid
 import json
 import time
@@ -30,6 +31,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from fpdf.enums import MethodReturnValue
 from google.genai import types
 from neutral_witness import analyse, analyse_code_review, PASS_LABELS, MODEL
@@ -46,6 +48,7 @@ from fpdf import FPDF
 from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
 import evidence_package
+import mcp_server
 import historical_email_anchor
 import historical_email_policy
 import historical_email_proof
@@ -2994,6 +2997,173 @@ async def api_stamp(body: StampRequest):
         "manifest": full_manifest,
         "download_url": f"/download/{session_id}/package.zip",
     })
+
+
+# ── MCP (agent connectors, e.g. ChatGPT) ─────────────────────────────────────────────
+# Same analysis + stamping pipeline as /api/stamp, exposed as an MCP tool. Unlike
+# /api/stamp this endpoint is closed by default: it only answers when LEIMA_MCP_KEYS
+# (comma-separated) is set, and every call must carry one of those keys, either as
+# "Authorization: Bearer <key>" or as ?key=<key> (ChatGPT connectors can't send headers).
+
+MCP_CLAIM_MAX_CHARS = 2000
+MCP_CITED_PASSAGE_MAX_CHARS = 5000
+MCP_SOURCE_TEXT_MAX_CHARS = 500_000
+
+
+def _mcp_keys() -> list[str]:
+    return [k.strip() for k in os.getenv("LEIMA_MCP_KEYS", "").split(",") if k.strip()]
+
+
+def _mcp_authorized(request: Request, keys: list[str]) -> bool:
+    auth = request.headers.get("authorization", "")
+    supplied = auth[7:].strip() if auth.lower().startswith("bearer ") else request.query_params.get("key", "")
+    return bool(supplied) and any(hmac.compare_digest(supplied.encode(), k.encode()) for k in keys)
+
+
+def _stamp_citation(arguments: dict) -> dict:
+    """MCP tool stamp_citation. Output keeps the two layers apart: 'verdict' is the AI
+    assessment, 'evidence' is the hash commitment — shaped so it can later become the
+    credentialSubject of a W3C VC without restructuring."""
+    claim = str(arguments.get("claim") or "").strip()
+    source_url = str(arguments.get("source_url") or "").strip()
+    source_text = str(arguments.get("source_text") or "").strip()
+    source_title = str(arguments.get("source_title") or "").strip()[:300]
+
+    if not claim:
+        raise mcp_server.ToolError("claim is required")
+    if len(claim) > MCP_CLAIM_MAX_CHARS:
+        raise mcp_server.ToolError(f"claim is too long (max {MCP_CLAIM_MAX_CHARS} characters)")
+    if not source_url and not source_text:
+        raise mcp_server.ToolError("Give source_url (preferred) or source_text")
+
+    question = claim
+    source_index_bytes = None
+    final_url = fetched_at = None
+    contents = []
+    if source_url:
+        parsed = urlparse(source_url)
+        if parsed.scheme not in ("http", "https"):
+            raise mcp_server.ToolError("source_url must be an http(s) URL")
+        if len(source_text) > MCP_CITED_PASSAGE_MAX_CHARS:
+            raise mcp_server.ToolError(
+                f"source_text is too long for a cited passage (max {MCP_CITED_PASSAGE_MAX_CHARS} characters)")
+        try:
+            if parsed.path.lower().endswith(".pdf"):
+                input_bytes, input_label = _fetch_pdf_from_url(source_url)
+                final_url = source_url
+                fetched_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                source_context = {"type": "pdf_url", "domain": parsed.netloc, "fetched_at": fetched_at, "url": source_url}
+                contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
+            else:
+                input_bytes, page_text, final_url, fetched_at, raw_html = _fetch_webpage(source_url)
+                _, source_index_bytes = _build_source_index(source_url, final_url, raw_html, fetched_at)
+                input_label = final_url
+                source_context = {"type": "web", "domain": urlparse(final_url).netloc,
+                                  "fetched_at": fetched_at, "url": final_url}
+                contents.append(f"Web page from: {final_url}\nFetched at: {fetched_at}\n\n{page_text}")
+        except Exception as e:
+            raise mcp_server.ToolError(f"Could not fetch source_url: {e}")
+        provenance = "fetched_by_leima"
+        if source_text:
+            # Part of the question, so the cited passage ends up in the hashed verdict too.
+            question = (f"{claim}\n\nCited passage (check that it appears in the source and "
+                        f"supports the claim): \"{source_text}\"")
+    else:
+        if len(source_text) > MCP_SOURCE_TEXT_MAX_CHARS:
+            raise mcp_server.ToolError(f"source_text is too long (max {MCP_SOURCE_TEXT_MAX_CHARS} characters)")
+        input_bytes = _text_to_input_pdf(source_text)
+        input_label = "mcp-text"
+        source_context = None
+        contents.append(f"Document content:\n{source_text}")
+        provenance = "agent_supplied"
+    contents.append(question)
+
+    try:
+        result = _run_analysis(question, contents, input_bytes, input_label,
+                               source_context=source_context, source_index_bytes=source_index_bytes)
+    except ValueError as e:
+        raise mcp_server.ToolError(str(e))
+    except Exception as e:
+        raise mcp_server.ToolError(f"Analysis failed: {e}")
+
+    session_id = result["session_id"]
+    try:
+        entry = _ensure_stamped(session_id)
+    except Exception as e:
+        raise mcp_server.ToolError(f"Arweave upload failed: {e}")
+    stamp = entry["manifest"]["stamp"]
+
+    accessed = (fetched_at or result["timestamp"])[:10]
+    if source_url:
+        citation = f"{source_title or final_url}. {final_url} (accessed {accessed})."
+    else:
+        citation = f"{source_title or 'Agent-supplied text'} (submitted {accessed})."
+    citation += f" Leima stamp: {stamp['url']}"
+
+    return {
+        "type": "LeimaCitationVerdict",
+        "schema_version": "0.1",
+        "claim": claim,
+        "source": {
+            "url": source_url or None,
+            "final_url": final_url,
+            "title": source_title or None,
+            "fetched_at": fetched_at,
+            "provenance": provenance,
+            "cited_passage": source_text if source_url and source_text else None,
+        },
+        "verdict": {
+            "nature": "ai_assessment",
+            "category": result["verdict_category"],
+            "summary": result["summary_verdict"],
+            "passes": [{"label": label, "text": text} for label, text in result["passes"]],
+            "model": MODEL,
+            "timestamp": result["timestamp"],
+        },
+        "evidence": {
+            "nature": "hash_commitment",
+            "input_hash": result["input_hash"],
+            "verdict_hash": result["verdict_hash"],
+            "arweave_tx": stamp["tx_id"],
+            "arweave_url": stamp["url"],
+            "package_url": f"{LEIMA_URL}/download/{session_id}/package.zip",
+        },
+        "citation": citation,
+    }
+
+
+def _mcp_call_tool(name: str, arguments: dict) -> dict:
+    if name == "stamp_citation":
+        return _stamp_citation(arguments)
+    raise mcp_server.ToolError(f"Unknown tool: {name}")
+
+
+@app.post("/mcp")
+async def mcp_endpoint(request: Request):
+    keys = _mcp_keys()
+    if not keys:
+        return JSONResponse({"error": "MCP endpoint is not enabled"}, status_code=503)
+    if not _mcp_authorized(request, keys):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        message = await request.json()
+    except Exception:
+        return JSONResponse({"jsonrpc": "2.0", "id": None,
+                             "error": {"code": -32700, "message": "Parse error"}}, status_code=400)
+    if isinstance(message, list):
+        return JSONResponse({"jsonrpc": "2.0", "id": None,
+                             "error": {"code": -32600, "message": "Batch requests are not supported"}},
+                            status_code=400)
+    response = await run_in_threadpool(mcp_server.handle_message, message, _mcp_call_tool)
+    if response is None:
+        return Response(status_code=202)
+    return JSONResponse(response)
+
+
+@app.api_route("/mcp", methods=["GET", "DELETE"])
+async def mcp_no_stream():
+    # Stateless server: no server-initiated SSE stream and no sessions to terminate.
+    return Response(status_code=405, headers={"Allow": "POST"})
 
 
 @app.post("/api/code-review")
