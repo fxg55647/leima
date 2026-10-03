@@ -10,6 +10,8 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 
 **Leima Mobile** extends this idea to field observations. The open-source Android prototype records guided photo sessions, optional location and device sensors into tamper-evident evidence packages — designed for use cases such as documenting how a donor-funded well or construction project progresses before the next payment is released. [Read about Leima Mobile →](MOBILE_APP.md)
 
+**Leima Research Appliance** turns the same Android app into a browser that an AI agent (for example Claude Desktop) drives over USB. The phone opens sources, hands control to the person for logins, captures pages as hash-manifested evidence packages, and moves them to an archive on the PC. Captures can then be stamped in Leima as `device_captured` sources. [Read about the Research Appliance →](#9b-research-appliance)
+
 ---
 
 ## Contents
@@ -23,6 +25,7 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 7. [Document sources](#7-document-sources)
 8. [Browser tab](#8-browser-tab)
 9. [API](#9-api)
+    - [9b. Research Appliance](#9b-research-appliance)
 10. [Trust model](#10-trust-model)
 11. [Threat model](#11-threat-model)
 12. [Economic case](#12-economic-case)
@@ -259,6 +262,61 @@ Response:
 ```
 
 `download_url` serves the same Leima package (`.zip`) the UI offers. It is temporary and bound to the server's in-memory session — it can stop working, for example after a server restart. Fetch and store the package yourself if you need it later; Leima makes no permanent-storage promise for it.
+
+### Agent connectors (MCP)
+
+`POST /mcp` exposes the same pipeline as the MCP tool `stamp_citation` for agent platforms. It is closed unless `LEIMA_MCP_KEYS` is set. See [docs/MCP_SERVER.md](docs/MCP_SERVER.md).
+
+### Phone captures
+
+```
+POST /api/stamp/device-capture
+Content-Type: multipart/form-data
+
+claim=<statement>  cited_passage=<optional>  package=<browser capture .zip from the Leima Android app>
+```
+
+The response is a `LeimaCitationVerdict` with three separate layers: `source` (provenance `device_captured` — the phone acquired the page, Leima did not fetch it — plus the capture's hashes and method), `verdict` (the AI assessment and model) and `evidence` (hash commitment, storage network, submission status). It also lists the evidence `limits`. The whole capture ZIP is the stamped source, so `evidence.input_hash` equals the package's SHA-256. As with every Leima stamp, only the hash manifest goes to Arweave. Maximum package size is 4 MB.
+
+---
+
+## 9b. Research Appliance
+
+An Android phone running the Leima app becomes a research browser that a local AI agent controls over USB, with the person in charge of logins and of what content the agent may see.
+
+```text
+Claude Desktop (or another local MCP client)
+   │ MCP over stdio
+PC bridge: python -m bridge mcp            (bridge/)
+   │ adb forward → abstract socket, paired token
+Leima Android app: WebView browser, handoff panel, evidence store
+   │ capture → SHA-256 manifest → ZIP
+PC archive: evidence/<kind>/<yyyy>/<mm>/…/package.zip + index.jsonl
+   │ optional, person-initiated
+Leima: POST /api/stamp/device-capture → AI verdict + hash stamp
+```
+
+**What the agent can do** — MCP tools: `device_status`, `browser_navigate`, `browser_observe`, `browser_click`, `browser_type`, `browser_back`, `browser_screenshot`, `browser_capture`, `browser_request_human`, `browser_resume`, `browser_end_session`, `packages_list`, `packages_sync`, `package_verify`, `capture_stamp`.
+
+**Safety properties**
+
+- *USB only, paired.* The phone opens no TCP port. It listens on an abstract socket that accepts only adbd's uid, and every session authenticates with a token from a one-time pairing confirmed on the phone. The bridge never exposes an ADB shell.
+- *No wrong clicks.* Actions name an element from the latest observation. If the page changed, the element changed (e.g. "Preview" became "Delete") or the observation was already used, the action fails with `STALE_OBSERVATION`. State-changing commands carry a `request_id` and are never repeated after a USB drop.
+- *The person stays in control.* The agent can ask for help with a login, MFA or a CAPTCHA. During a handoff every agent browser command is refused until the person presses **Jatka** on the phone. **Keskeytä** stops the agent until the person allows it again, and the person can take control at any time.
+- *Secrets stay out.* Password and one-time-code fields are never read or typed by the agent. They are blacked out in screenshots, including inside same-origin frames, and a screenshot is refused if a frame that cannot be inspected is visible. Recognisable tokens are scrubbed from text and URLs sent to the agent.
+- *The person decides what the agent sees.* In **Automatic** mode, a site the person has logged into becomes *local-only*: the agent gets structure and hashes, but no page text, names, links or screenshots. *Agent-readable* and *always local-only* modes are also available.
+- *Evidence, not proof.* A capture records what the phone rendered: the DOM serialization, visible text, element list and masked screenshot, under a SHA-256 manifest. It is not the server's original response. The device clock and the package are not independently authenticated.
+
+**Packages and the PC archive.** `python -m bridge sync` copies every finished package (photo, screenshot, meeting session, browser capture) from the phone to `evidence/`. It verifies each ZIP's hash and manifest and stores it unchanged. Only then does it delete the phone copy. The folder layout is `evidence/<kind>/<yyyy>/<mm>/<time>_<domain>_<sha8>/package.zip`, and `index.jsonl` is an append-only log. Group packages by case with `python -m bridge tag`. Any package can be checked without Leima: `python android/tools/verify_package.py package.zip`.
+
+**Stamping a capture.** `python -m bridge stamp <sha256> --claim "…"` shows what will leave the PC and asks before sending. The capture's content goes to Leima and its AI provider; only hashes go to Arweave. The result is saved next to the package. Agents can use `capture_stamp` only for captures that were agent-readable on the phone.
+
+This is a developer and power-user tool: it needs USB debugging on the phone and Android platform-tools on the PC. Documentation (in Finnish):
+
+- [Architecture, threat model, privacy and setup](docs/RESEARCH_APPLIANCE_ARCHITECTURE.md)
+- [USB protocol v1](docs/RESEARCH_APPLIANCE_USB_PROTOCOL.md)
+- [Package formats and PC archive](docs/RESEARCH_APPLIANCE_PACKAGES.md)
+- [Android app build and checks](android/README.md)
 
 ---
 

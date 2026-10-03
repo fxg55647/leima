@@ -98,7 +98,24 @@ permanent Leima stamp
 
 The human decision remains important. A useful outcome is not only “approved” or “rejected”; the assessment can also identify missing measurements, inconsistent evidence, or the need for another visit.
 
-Server submission and permanent stamping are not yet connected to the new multi-photo session format. The existing Leima server can receive and validate the older single-capture package format. Support for multi-photo field sessions is a separate implementation stage.
+Server submission and permanent stamping are not yet connected to the multi-photo session format. The existing Leima server can receive and validate the older single-capture package format. Browser captures from the Research Appliance (below) can be stamped through `POST /api/stamp/device-capture` with provenance `device_captured`. Support for multi-photo field sessions is a separate implementation stage.
+
+---
+
+## Research Appliance: an agent-controlled browser over USB
+
+The same app can act as a research browser for a local AI agent. With **USB-ohjaus (ADB)** switched on, a paired PC bridge (`python -m bridge`, in the repository root) can do the following:
+
+- open HTTPS pages and read their text and interactive elements;
+- click and type into ordinary fields;
+- take masked screenshots;
+- capture pages as `browser` evidence packages.
+
+The person keeps control. Logins and one-time codes are entered by hand during a handoff, which the agent cannot end itself. The agent can be stopped at any time. A privacy setting decides whether page content may leave the phone at all.
+
+All four package kinds (photo, screenshot, meeting session, browser capture) share one envelope: `manifest.json` with a `kind` field, plus `manifest.sha256`. `python -m bridge sync` moves them to a verified, append-only archive on the PC and deletes the phone copy only afterwards.
+
+Full description: [README → Research Appliance](README.md#9b-research-appliance) and [docs/RESEARCH_APPLIANCE_ARCHITECTURE.md](docs/RESEARCH_APPLIANCE_ARCHITECTURE.md).
 
 ---
 
@@ -109,7 +126,8 @@ Field evidence can expose people as well as projects. Faces, homes, precise coor
 - Location is permission-based and its absence is recorded rather than filled with an invented value.
 - Browser captures allow irreversible cropping and black masks before storage.
 - Query strings and URL fragments are removed from browser metadata.
-- Android automatic backup is disabled and packages remain in private app storage until export.
+- Android automatic backup is disabled and packages remain in private app storage until export or transfer to the PC archive.
+- An agent connected over USB never receives password or one-time-code values. Pages behind a login stay local-only by default.
 - An interrupted recording is stopped when the application moves to the background.
 - Missing sensors and permissions appear as limitations in the record.
 
