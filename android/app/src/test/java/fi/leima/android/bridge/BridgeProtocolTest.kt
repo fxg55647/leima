@@ -104,6 +104,35 @@ class BridgeProtocolTest {
     }
 
     @Test
+    fun clearingPairingsRevokesAnAuthenticatedSession() {
+        val store = store()
+        val connection = connection(store)
+        connection.hello()
+        val token = connection.call(2, "pair_begin", JSONObject().put("code", "123456")).getJSONObject("result").getString("token")
+        connection.call(3, "auth", JSONObject().put("token", token))
+        assertTrue(connection.call(4, "device_status").has("result"))
+
+        store.clear()
+        assertEquals("SESSION_REVOKED", connection.call(5, "device_status").errorCode())
+        assertNull(connection.sessionId)
+        assertEquals("NOT_AUTHENTICATED", connection.call(6, "device_status").errorCode())
+    }
+
+    @Test
+    fun repairingRevokesSessionsHoldingTheOldToken() {
+        val store = store()
+        val old = connection(store)
+        old.hello()
+        val token = old.call(2, "pair_begin", JSONObject().put("code", "123456")).getJSONObject("result").getString("token")
+        old.call(3, "auth", JSONObject().put("token", token))
+
+        val fresh = connection(store)
+        fresh.hello()
+        fresh.call(2, "pair_begin", JSONObject().put("code", "654321"))
+        assertEquals("SESSION_REVOKED", old.call(4, "device_status").errorCode())
+    }
+
+    @Test
     fun unpairRemovesThisBridgeOnly() {
         val store = store()
         store.pair("b_" + "f".repeat(32), "Other PC", "other-token", "2026-10-03T00:00:00Z")

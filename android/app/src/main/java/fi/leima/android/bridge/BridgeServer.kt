@@ -41,6 +41,9 @@ class BridgeServer(private val newConnection: () -> BridgeConnection) {
 
     val isRunning: Boolean get() = running
 
+    /** Closes the current client connection, if any; the server keeps listening. */
+    fun disconnectClient() { runCatching { client?.close() } }
+
     private fun acceptLoop(socket: LocalServerSocket) {
         while (running) {
             val peer = try { socket.accept() } catch (e: IOException) { if (running) Log.w(TAG, "accept failed", e); break }

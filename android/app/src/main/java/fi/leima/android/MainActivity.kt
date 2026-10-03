@@ -123,7 +123,7 @@ class MainActivity : ComponentActivity() {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Switch(checked = bridgeEnabled, onCheckedChange = ::switchBridge)
                         Text("USB-ohjaus (ADB)", style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { pairings.clear(); status = "PC-paritukset poistettu." }) { Text("Poista PC-paritukset") }
+                        TextButton(onClick = { pairings.clear(); bridge?.disconnectClient(); status = "PC-paritukset poistettu ja USB-yhteys katkaistu." }) { Text("Poista PC-paritukset") }
                     }
                     if (!cameraMode && !meetingMode) {
                         OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Verkko-osoite (HTTPS)") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)

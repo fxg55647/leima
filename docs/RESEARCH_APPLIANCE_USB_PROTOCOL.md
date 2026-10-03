@@ -89,7 +89,11 @@ Ennen `hello`-viestiä kaikki muut metodit palauttavat `HELLO_REQUIRED`.
 ```
 
 Token tarkistetaan `hello`:ssa ilmoitettua `bridge_id`:tä vastaan vakioaikaisella vertailulla.
-Väärä tai tuntematon token: `AUTH_FAILED`. Istunto on voimassa yhteyden ajan.
+Väärä tai tuntematon token: `AUTH_FAILED`. Istunto on voimassa yhteyden ajan, mutta puhelin
+tarkistaa istunnon tokenin paritustiedoista uudelleen jokaisen istuntoa vaativan komennon kohdalla.
+Jos paritus on poistettu (puhelimen **Poista PC-paritukset** tai `unpair`) tai korvattu uudella
+parituksella, komento palauttaa `SESSION_REVOKED` ja istunto päättyy. **Poista PC-paritukset**
+katkaisee lisäksi avoimen yhteyden heti.
 
 ### `device_status`
 
@@ -123,6 +127,7 @@ saman laitteen tokenin.
 | `UNKNOWN_METHOD` | Tuntematon metodi |
 | `NOT_AUTHENTICATED` | Metodi vaatii `auth`-istunnon |
 | `AUTH_FAILED` | Token ei kelpaa tälle sillalle |
+| `SESSION_REVOKED` | Istunnon paritus poistettiin tai korvattiin; paritettava uudelleen |
 | `PAIRING_REJECTED` | Käyttäjä hylkäsi parituksen |
 | `PAIRING_TIMEOUT` | Käyttäjä ei vastannut 120 sekunnissa |
 | `PAIRING_BUSY` | Toinen paritus on jo kesken |

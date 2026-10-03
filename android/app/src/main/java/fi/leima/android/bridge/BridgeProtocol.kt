@@ -77,6 +77,7 @@ class BridgeConnection(
     private var bridgeName: String = ""
     var sessionId: String? = null
         private set
+    private var sessionToken: String? = null
     var closeRequested = false
         private set
 
@@ -109,8 +110,8 @@ class BridgeConnection(
         return when (method) {
             "pair_begin" -> pairBegin(bridge, params)
             "auth" -> auth(bridge, params)
-            "device_status" -> { requireSession(); deviceStatus() }
-            "unpair" -> { requireSession(); pairings.unpair(bridge); sessionId = null; JSONObject() }
+            "device_status" -> { requireSession(bridge); deviceStatus() }
+            "unpair" -> { requireSession(bridge); pairings.unpair(bridge); endSession(); JSONObject() }
             else -> throw ProtocolError("UNKNOWN_METHOD", "Unknown method: $method")
         }
     }
@@ -150,6 +151,7 @@ class BridgeConnection(
         if (!pairings.verify(bridge, token)) throw ProtocolError("AUTH_FAILED", "Token is not valid for this bridge")
         val session = "s_" + randomToken(12)
         sessionId = session
+        sessionToken = token
         return JSONObject().put("session_id", session)
     }
 
@@ -163,7 +165,20 @@ class BridgeConnection(
             .put("browser", JSONObject().put("state", "NOT_AVAILABLE"))
     }
 
-    private fun requireSession() { if (sessionId == null) throw ProtocolError("NOT_AUTHENTICATED", "Authenticate with auth first") }
+    /**
+     * Re-checks the session's token against the pairing store on every command, so removing or
+     * replacing a pairing on the phone revokes sessions that authenticated before the change.
+     */
+    private fun requireSession(bridge: String) {
+        val token = sessionToken
+        if (sessionId == null || token == null) throw ProtocolError("NOT_AUTHENTICATED", "Authenticate with auth first")
+        if (!pairings.verify(bridge, token)) {
+            endSession()
+            throw ProtocolError("SESSION_REVOKED", "The pairing was removed or replaced on the phone; pair again")
+        }
+    }
+
+    private fun endSession() { sessionId = null; sessionToken = null }
 
     private fun randomToken(bytes: Int): String =
         Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(bytes).also(random::nextBytes))
