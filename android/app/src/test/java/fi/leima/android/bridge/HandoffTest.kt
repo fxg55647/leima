@@ -128,13 +128,27 @@ class HandoffTest {
         assertEquals("BAD_REQUEST", code { c.requestHuman(JSONObject().put("reason", "PAY").put("request_id", "a")) })
         assertEquals("BAD_REQUEST", code { c.requestHuman(JSONObject().put("reason", "OTHER").put("task", "x".repeat(301)).put("request_id", "b")) })
         assertEquals("BAD_REQUEST", code { c.requestHuman(JSONObject().put("reason", "OTHER").put("timeout_s", 5).put("request_id", "c")) })
-        request(c, "d")
+        val id = request(c, "d")
         assertEquals("HUMAN_ACTION_PENDING", code { request(c, "e") })
         val old = c.sessionId
         val ended = c.endSession()
         assertEquals(old, ended.getString("ended_session_id"))
         assertNotEquals(old, c.sessionId)
-        assertEquals(ControlState.READY, c.snapshot().state)
-        assertFalse(c.snapshot().handoff != null)
+        // ending the session never ends the person's control
+        assertEquals(ControlState.HUMAN_ACTION_REQUIRED, c.snapshot().state)
+        assertEquals("HUMAN_ACTION_PENDING", code { c.observe() })
+        assertEquals("HUMAN_ACTION_PENDING", code { c.navigate(JSONObject().put("url", "https://x.org").put("request_id", "f")) })
+        c.personContinue()
+        assertEquals("READY", c.resume(JSONObject().put("handoff_id", id)).getString("state"))
+    }
+
+    @Test
+    fun endingTheSessionDoesNotUndoAStop() {
+        val c = controller()
+        request(c)
+        c.personCancel()
+        c.endSession()
+        assertEquals(ControlState.CANCELLED, c.snapshot().state)
+        assertEquals("SESSION_CANCELLED", code { c.observe() })
     }
 }

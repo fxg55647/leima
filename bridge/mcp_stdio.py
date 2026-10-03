@@ -3,6 +3,7 @@
 Reuses the JSON-RPC handling of the public /mcp endpoint (mcp_server.handle_message) with the
 bridge's own tool list. stdout carries only protocol messages; diagnostics go to stderr.
 """
+import base64
 import json
 import sys
 from typing import Callable, TextIO
@@ -12,7 +13,7 @@ from mcp_server import ToolError, ToolResult
 
 from .adb import Adb
 from .archive import Archive
-from .client import list_packages, run_command, session, sync
+from .client import SLOW_METHOD_TIMEOUT_S, list_packages, read_screenshot, run_command, session, sync
 from .config import BridgeConfig
 from .errors import BridgeError
 
@@ -182,7 +183,7 @@ BROWSER_TOOLS = [
 
 TOOLS = [DEVICE_STATUS_TOOL, PACKAGES_LIST_TOOL, PACKAGES_SYNC_TOOL, PACKAGE_VERIFY_TOOL, *BROWSER_TOOLS]
 
-_CONTENT_KEYS = ("visible_text", "title", "png_base64")
+_CONTENT_KEYS = ("visible_text", "title", "screenshot_id")
 _ELEMENT_CONTENT_KEYS = ("name", "value", "href")
 
 
@@ -221,17 +222,20 @@ def make_call_tool(adb_factory: Callable[[], Adb] = Adb, config_factory: Callabl
                 with session(adb_factory(), config_factory(), arguments.get("serial")) as (device, client):
                     results = sync(client, device, archive, delete=not arguments.get("keep_on_phone", False))
                 return {"serial": device.serial, "archive": str(archive.root), "results": results}
+            if name == "browser_screenshot":
+                # The PNG stays on the phone until read in chunks over the same connection.
+                with session(adb_factory(), config_factory(), arguments.get("serial")) as (_device, client):
+                    meta = enforce_local_only(client.request("browser.screenshot", {}, timeout=SLOW_METHOD_TIMEOUT_S))
+                    if "screenshot_id" not in meta:
+                        raise ToolError("CONTENT_WITHHELD: this page is local-only on the phone")
+                    png = read_screenshot(client, meta)
+                meta.pop("screenshot_id")
+                return ToolResult(meta, [{"type": "image", "data": base64.b64encode(png).decode(), "mimeType": "image/png"}])
             if name in _BROWSER_TOOL_NAMES:
                 serial = arguments.get("serial")
                 params = {k: v for k, v in arguments.items() if k != "serial"}
-                result = enforce_local_only(run_command(lambda: session(adb_factory(), config_factory(), serial),
-                                                        "browser." + name.removeprefix("browser_"), params))
-                if name == "browser_screenshot":
-                    if "png_base64" not in result:
-                        raise ToolError("CONTENT_WITHHELD: this page is local-only on the phone")
-                    image = result.pop("png_base64")
-                    return ToolResult(result, [{"type": "image", "data": image, "mimeType": "image/png"}])
-                return result
+                return enforce_local_only(run_command(lambda: session(adb_factory(), config_factory(), serial),
+                                                      "browser." + name.removeprefix("browser_"), params))
             if name == "package_verify":
                 sha = arguments.get("sha256")
                 if not isinstance(sha, str):

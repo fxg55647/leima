@@ -22,6 +22,7 @@ class BrowserControllerTest {
         val commands = mutableListOf<String>()
         val navigations = mutableListOf<String>()
         var clickError: String? = null
+        var shotBytes = byteArrayOf(1, 2, 3)
 
         private fun check() { if (!available) throw ProtocolError("BROWSER_UNAVAILABLE", "hidden") }
         override fun state(): PageState { check(); return page }
@@ -40,14 +41,14 @@ class BrowserControllerTest {
                 "click" -> clickError?.let { JSONObject().put("error", it) } ?: JSONObject().put("ok", true).put("method", "dom_click")
                 "type" -> JSONObject().put("ok", true).put("method", "dom_value_setter")
                 "masks" -> JSONObject().put("rects", JSONArray().put(JSONObject().put("x", 1).put("y", 2).put("width", 3).put("height", 4)))
-                    .put("viewport", JSONObject().put("width", 400)).put("visible_cross_origin_iframes", crossOriginFrames)
+                    .put("viewport", JSONObject().put("width", 400)).put("unmaskable_frames", crossOriginFrames)
                 "dom" -> JSONObject().put("html", "<html><body>Hello</body></html>")
                     .put("redactions", JSONObject().put("sensitive_inputs", 1).put("hidden_inputs", 0).put("csrf_meta", 0))
                 else -> error(command)
             }
         }
         override fun screenshot(masks: List<MaskRect>, cssWidth: Double): Screenshot {
-            check(); assertEquals(1, masks.size); return Screenshot(byteArrayOf(1, 2, 3), 800, 600)
+            check(); assertEquals(1, masks.size); return Screenshot(shotBytes, 800, 600)
         }
         override fun certificate() = JSONObject().put("issuedTo", JSONObject().put("cn", "example.org"))
         override fun environment() = JSONObject().put("appVersion", "0.1.0").put("webViewVersion", "129").put("device", JSONObject().put("model", "Test"))
@@ -127,6 +128,34 @@ class BrowserControllerTest {
         assertEquals(1, c.screenshot().getInt("masked_regions"))
         host.crossOriginFrames = 1
         assertEquals("SCREENSHOT_BLOCKED", code { c.screenshot() })
+    }
+
+    @Test
+    fun largeScreenshotIsReadInChunksOnlyWhileAllowed() {
+        host.shotBytes = ByteArray(700_000).also { java.util.Random(3).nextBytes(it) }
+        val c = controller()
+        val meta = c.screenshot()
+        assertFalse(meta.has("png_base64"))
+        assertEquals(700_000, meta.getInt("size"))
+        val id = meta.getString("screenshot_id")
+        val out = java.io.ByteArrayOutputStream()
+        var chunks = 0
+        while (true) {
+            val chunk = c.screenshotRead(JSONObject().put("screenshot_id", id).put("offset", out.size()).put("length", PackageRepository.MAX_READ_BYTES))
+            // every chunk fits a protocol line with room to spare
+            assertTrue(chunk.toString().length < BridgeProtocol.MAX_LINE_BYTES / 2)
+            out.write(java.util.Base64.getDecoder().decode(chunk.getString("data_base64")))
+            chunks++
+            if (chunk.getBoolean("eof")) break
+        }
+        assertTrue(chunks >= 3)
+        assertTrue(host.shotBytes.contentEquals(out.toByteArray()))
+        assertEquals(BrowserCaptureStore.sha256Hex(host.shotBytes), meta.getString("sha256"))
+
+        val newer = c.screenshot().getString("screenshot_id")
+        assertEquals("SCREENSHOT_EXPIRED", code { c.screenshotRead(JSONObject().put("screenshot_id", id).put("offset", 0).put("length", 10)) })
+        c.exportPolicy = ExportPolicy.LOCAL_ONLY
+        assertEquals("CONTENT_WITHHELD", code { c.screenshotRead(JSONObject().put("screenshot_id", newer).put("offset", 0).put("length", 10)) })
     }
 
     @Test

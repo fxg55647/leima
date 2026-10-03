@@ -43,7 +43,7 @@
 
   function isVisible(el) {
     if (!el.isConnected || el.getClientRects().length === 0) return false;
-    var style = window.getComputedStyle(el);
+    var style = (el.ownerDocument.defaultView || window).getComputedStyle(el);
     return style.visibility !== "hidden" && style.display !== "none";
   }
 
@@ -162,7 +162,7 @@
         break;
       }
       var id = "el_" + (elements.length + 1);
-      refs.set(id, el);
+      refs.set(id, { el: el, signature: signature(el) });
       elements.push(describe(el, id));
     }
     // Only the newest observation's references are kept: every older observation is stale.
@@ -183,11 +183,20 @@
     };
   }
 
+  // What the agent saw: if any of this changes (e.g. a "Preview" button relabelled "Delete"),
+  // acting on the old observation is refused. Field values are left out so typing does not count.
+  function signature(el) {
+    return JSON.stringify([el.tagName, (el.getAttribute("type") || "").toLowerCase(), roleOf(el), nameOf(el),
+      el.getAttribute("href") || "", el.getAttribute("formaction") || ""]);
+  }
+
   function lookup() {
     if (store.observationId !== args.observation_id || !store.elements) return { error: "STALE_OBSERVATION" };
-    var el = store.elements.get(args.element_id);
-    if (!el) return { error: "UNKNOWN_ELEMENT" };
+    var entry = store.elements.get(args.element_id);
+    if (!entry) return { error: "UNKNOWN_ELEMENT" };
+    var el = entry.el;
     if (!isVisible(el)) return { error: "STALE_OBSERVATION", detail: "Element is no longer in the page or visible" };
+    if (signature(el) !== entry.signature) return { error: "STALE_OBSERVATION", detail: "Element changed since the observation" };
     return { el: el };
   }
 
@@ -224,21 +233,39 @@
     return { ok: true, method: "dom_value_setter" };
   }
 
-  function masks() {
-    var vv = window.visualViewport || { width: window.innerWidth, height: window.innerHeight, offsetLeft: 0, offsetTop: 0 };
-    var rects = [];
-    Array.prototype.forEach.call(document.querySelectorAll("input,textarea,[autocomplete]"), function (el) {
+  var MAX_FRAME_DEPTH = 5;
+
+  // Secret-field rectangles of [doc] and every readable frame inside it, in top-document
+  // coordinates. A visible frame that cannot be read (cross-origin, object/embed, too deep) is
+  // counted as unmaskable: the caller then refuses to export a screenshot.
+  function collectMasks(doc, offsetX, offsetY, depth, rects, state) {
+    Array.prototype.forEach.call(doc.querySelectorAll("input,textarea,[autocomplete]"), function (el) {
       if (!isSensitive(el) || !isVisible(el)) return;
       var r = el.getBoundingClientRect();
-      rects.push({ x: r.left - vv.offsetLeft, y: r.top - vv.offsetTop, width: r.width, height: r.height });
+      rects.push({ x: offsetX + r.left, y: offsetY + r.top, width: r.width, height: r.height });
     });
-    var visibleCrossOrigin = 0;
-    Array.prototype.forEach.call(document.querySelectorAll("iframe,frame"), function (f) {
-      var doc = null;
-      try { doc = f.contentDocument; } catch (e) { doc = null; }
-      if (!doc && isVisible(f) && inViewport(f)) visibleCrossOrigin++;
+    Array.prototype.forEach.call(doc.querySelectorAll("iframe,frame,object,embed"), function (f) {
+      if (!isVisible(f)) return;
+      var r = f.getBoundingClientRect();
+      var left = offsetX + r.left, top = offsetY + r.top;
+      var onScreen = top + r.height > 0 && left + r.width > 0 && top < window.innerHeight && left < window.innerWidth;
+      var inner = null;
+      if (f.tagName === "IFRAME" || f.tagName === "FRAME") {
+        try { inner = f.contentDocument; } catch (e) { inner = null; }
+      }
+      if (!inner || depth >= MAX_FRAME_DEPTH) {
+        if (onScreen) state.unmaskable++;
+        return;
+      }
+      collectMasks(inner, left + f.clientLeft, top + f.clientTop, depth + 1, rects, state);
     });
-    return { rects: rects, viewport: { width: vv.width, height: vv.height }, visible_cross_origin_iframes: visibleCrossOrigin };
+  }
+
+  function masks() {
+    var vv = window.visualViewport || { width: window.innerWidth, height: window.innerHeight, offsetLeft: 0, offsetTop: 0 };
+    var rects = [], state = { unmaskable: 0 };
+    collectMasks(document, -vv.offsetLeft, -vv.offsetTop, 0, rects, state);
+    return { rects: rects, viewport: { width: vv.width, height: vv.height }, unmaskable_frames: state.unmaskable };
   }
 
   function dom() {

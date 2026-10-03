@@ -99,6 +99,7 @@ def test_masks_cover_sensitive_fields(page):
     assert len(result["rects"]) == 2  # password + one-time-code
     assert all(r["width"] > 0 and r["height"] > 0 for r in result["rects"])
     assert result["viewport"]["width"] > 0
+    assert result["unmaskable_frames"] == 1  # the cross-origin example.com frame
 
 
 def test_dom_snapshot_redacts_secrets(page):
@@ -124,3 +125,40 @@ def test_human_action_hints(page):
     assert [h["code"] for h in run(page, "observe", observation_id="obs_2")["human_action_hints"]] == ["CAPTCHA"]
     page.set_content("<p>Nothing to do</p>")
     assert run(page, "observe", observation_id="obs_3")["human_action_hints"] == []
+
+
+FRAMED = """<!DOCTYPE html><html><body style="margin:0">
+<iframe id="outer" style="position:absolute;left:40px;top:100px;width:400px;height:300px;border:5px solid black"
+  srcdoc="<body style='margin:0'><input type='password' style='position:absolute;left:10px;top:20px;width:100px;height:30px'>
+  <iframe style='position:absolute;left:0;top:100px;width:300px;height:100px;border:0'
+    srcdoc=&quot;<body style='margin:0'><input autocomplete='one-time-code' style='position:absolute;left:7px;top:9px;width:50px;height:20px'></body>&quot;></iframe></body>"></iframe>
+</body></html>"""
+
+
+def test_masks_reach_into_same_origin_frames(page):
+    page.set_content(FRAMED)
+    page.wait_for_function("() => { const d = document.getElementById('outer').contentDocument;"
+                           " const inner = d && d.querySelector('iframe'); return inner && inner.contentDocument"
+                           " && inner.contentDocument.querySelector('input'); }")
+    result = run(page, "masks")
+    assert result["unmaskable_frames"] == 0
+    rects = sorted((round(r["x"]), round(r["y"]), r["width"], r["height"]) for r in result["rects"])
+    # outer frame content starts at (45, 105): its border is 5 px. Sizes include the inputs' own
+    # default padding and border, so they are at least the declared CSS size.
+    assert [(x, y) for x, y, _, _ in rects] == [(45 + 7, 105 + 100 + 9), (45 + 10, 105 + 20)]
+    assert rects[0][2] >= 50 and rects[0][3] >= 20 and rects[1][2] >= 100 and rects[1][3] >= 30
+
+
+def test_object_and_embed_block_masking(page):
+    page.set_content('<embed src="https://example.com/x.pdf" style="width:200px;height:200px">')
+    assert run(page, "masks")["unmaskable_frames"] == 1
+
+
+def test_relabelled_element_is_stale(page):
+    page.set_content('<button id="b" onclick="document.body.dataset.clicked=this.textContent">Preview</button>')
+    obs = run(page, "observe", observation_id="obs_1")
+    element = by_name(obs, "Preview")["element_id"]
+    page.evaluate("document.getElementById('b').textContent = 'Delete'")
+    result = run(page, "click", observation_id="obs_1", element_id=element)
+    assert result["error"] == "STALE_OBSERVATION" and "changed" in result["detail"]
+    assert page.evaluate("document.body.dataset.clicked") is None

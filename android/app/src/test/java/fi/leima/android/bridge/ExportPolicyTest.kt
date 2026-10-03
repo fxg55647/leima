@@ -26,7 +26,7 @@ class ExportPolicyTest {
                 .put("elements", JSONArray().put(JSONObject().put("element_id", "el_1").put("role", "link")
                     .put("name", "Tiliote").put("href", "https://bank.example/statement?auth=xyz&month=9")))
                 .put("limitations", JSONArray()).put("human_action_hints", JSONArray())
-            "masks" -> JSONObject().put("rects", JSONArray()).put("viewport", JSONObject().put("width", 400)).put("visible_cross_origin_iframes", 0)
+            "masks" -> JSONObject().put("rects", JSONArray()).put("viewport", JSONObject().put("width", 400)).put("unmaskable_frames", 0)
             else -> error(command)
         }
         override fun screenshot(masks: List<MaskRect>, cssWidth: Double) = Screenshot(byteArrayOf(9), 1, 1)

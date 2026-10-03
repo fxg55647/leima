@@ -145,6 +145,7 @@ class BridgeConnection(
             "browser.request_human" -> browser.requestHuman(params)
             "browser.resume" -> browser.resume(params)
             "browser.end_session" -> browser.endSession()
+            "browser.screenshot_read" -> browser.screenshotRead(params)
             else -> throw ProtocolError("UNKNOWN_METHOD", "Unknown method: $method")
         }
     }

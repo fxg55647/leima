@@ -1,4 +1,5 @@
 """Phase B on the PC side: browser command runner, MCP browser tools and browser packages."""
+import base64
 import hashlib
 import io
 import json
@@ -97,25 +98,56 @@ def _serve(lines, call_tool):
     return [json.loads(line) for line in out.getvalue().splitlines()]
 
 
+class ScreenshotPhone:
+    """Phone side of browser.screenshot + browser.screenshot_read with the real chunk contract."""
+
+    def __init__(self, png: bytes, corrupt=False, policy="AGENT_READABLE"):
+        self.png, self.corrupt, self.policy, self.reads = png, corrupt, policy, 0
+
+    def request(self, method, params=None, timeout=None):
+        params = params or {}
+        if method == "browser.screenshot":
+            meta = {"export_policy": self.policy, "url": "https://example.org/", "width": 2, "height": 1, "masked_regions": 1,
+                    "screenshot_id": "shot_1", "size": len(self.png), "sha256": hashlib.sha256(self.png).hexdigest()}
+            return meta
+        assert method == "browser.screenshot_read" and params["screenshot_id"] == "shot_1"
+        self.reads += 1
+        data = self.png[params["offset"]:params["offset"] + params["length"]]
+        if self.corrupt:
+            data = data[::-1]
+        return {"offset": params["offset"], "data_base64": base64.b64encode(data).decode(),
+                "eof": params["offset"] + len(data) >= len(self.png)}
+
+
+def test_mcp_screenshot_is_read_in_chunks(monkeypatch):
+    png = bytes(range(256)) * 4000  # ~1 MB: larger than one protocol line
+    phone = ScreenshotPhone(png)
+    monkeypatch.setattr(mcp_stdio, "session", lambda *a: sessions(phone)())
+    shot = _serve([{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "browser_screenshot", "arguments": {}}}],
+                  mcp_stdio.make_call_tool(lambda: None, lambda: None))[0]
+    image, text = shot["result"]["content"]
+    assert base64.b64decode(image["data"]) == png and image["mimeType"] == "image/png"
+    assert phone.reads == 4
+    assert "screenshot_id" not in shot["result"]["structuredContent"]
+    assert json.loads(text["text"])["masked_regions"] == 1
+
+
+def test_mcp_screenshot_rejects_corrupted_transfer(monkeypatch):
+    monkeypatch.setattr(mcp_stdio, "session", lambda *a: sessions(ScreenshotPhone(b"abcdef" * 10, corrupt=True))())
+    shot = _serve([{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "browser_screenshot", "arguments": {}}}],
+                  mcp_stdio.make_call_tool(lambda: None, lambda: None))[0]
+    assert shot["result"]["isError"] and "SCREENSHOT_FAILED" in shot["result"]["content"][0]["text"]
+
+
 def test_mcp_browser_tools(monkeypatch):
     log = []
-    answers = [
-        {"url": "https://example.org/", "width": 2, "height": 1, "masked_regions": 1, "png_base64": "iVBORw0KGgo="},
-        {"url": "https://example.org/", "title": "Ex", "loading": False},
-    ]
+    answers = [{"url": "https://example.org/", "title": "Ex", "loading": False}]
     monkeypatch.setattr(mcp_stdio, "session", lambda *a: sessions(ScriptedClient(log, answers))())
     call_tool = mcp_stdio.make_call_tool(lambda: None, lambda: None)
-    shot, nav = _serve([
-        {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "browser_screenshot", "arguments": {}}},
-        {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
-         "params": {"name": "browser_navigate", "arguments": {"url": "https://example.org/", "serial": "S"}}},
-    ], call_tool)
-    image, text = shot["result"]["content"]
-    assert image == {"type": "image", "data": "iVBORw0KGgo=", "mimeType": "image/png"}
-    assert "png_base64" not in shot["result"]["structuredContent"]
-    assert json.loads(text["text"])["masked_regions"] == 1
+    nav = _serve([{"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                   "params": {"name": "browser_navigate", "arguments": {"url": "https://example.org/", "serial": "S"}}}], call_tool)[0]
     assert nav["result"]["structuredContent"]["title"] == "Ex"
-    assert log[1][0] == "browser.navigate" and "serial" not in log[1][1] and "request_id" in log[1][1]
+    assert log[0][0] == "browser.navigate" and "serial" not in log[0][1] and "request_id" in log[0][1]
 
 
 def test_mcp_browser_tool_annotations():
@@ -204,10 +236,11 @@ def test_bridge_strips_content_when_phone_says_local_only():
 
 
 def test_local_only_screenshot_never_returns_an_image(monkeypatch):
-    answers = [{"export_policy": "LOCAL_ONLY", "url": "https://bank.example", "png_base64": "iVBOR"}]
-    monkeypatch.setattr(mcp_stdio, "session", lambda *a: sessions(ScriptedClient([], answers))())
+    # An older or buggy app that still offers a screenshot under LOCAL_ONLY: the bridge never reads it.
+    phone = ScreenshotPhone(b"secret-pixels", policy="LOCAL_ONLY")
+    monkeypatch.setattr(mcp_stdio, "session", lambda *a: sessions(phone)())
     response = _serve([{"jsonrpc": "2.0", "id": 1, "method": "tools/call",
                         "params": {"name": "browser_screenshot", "arguments": {}}}],
                       mcp_stdio.make_call_tool(lambda: None, lambda: None))[0]
     assert response["result"]["isError"] and "CONTENT_WITHHELD" in response["result"]["content"][0]["text"]
-    assert "iVBOR" not in json.dumps(response)
+    assert phone.reads == 0

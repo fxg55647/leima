@@ -57,7 +57,8 @@ saa `id: null`.
 | `browser.click` | kyllä | Klikkaa havainnon elementtiä (tilaa muuttava) |
 | `browser.type` | kyllä | Kirjoittaa tekstikenttään (tilaa muuttava) |
 | `browser.back` | kyllä | Edellinen sivu (tilaa muuttava) |
-| `browser.screenshot` | kyllä | Peitetty PNG näkyvästä selainalueesta |
+| `browser.screenshot` | kyllä | Ottaa peitetyn PNG:n näkyvästä selainalueesta ja säilyttää sen puhelimessa |
+| `browser.screenshot_read` | kyllä | Viimeisimmän kuvakaappauksen tavut paloina |
 | `browser.capture` | kyllä | Tallentaa sivun `browser`-pakettina (tilaa muuttava) |
 | `command_status` | kyllä | Tilaa muuttavan komennon lopputulos `request_id`:llä |
 | `browser.request_human` | kyllä | Luovuttaa ohjauksen ihmiselle (tilaa muuttava) |
@@ -181,7 +182,9 @@ Jokainen tilaa muuttava komento päättää voimassa olevan havainnon.
 → {"id":13,"method":"browser.type","params":{"session_id":"…","observation_id":"…","element_id":"el_2","text":"Helsinki","replace":true,"request_id":"r_5e6f"}}
 
 → {"id":14,"method":"browser.screenshot","params":{}}
-← {"id":14,"result":{"url":"…","width":1080,"height":1900,"masked_regions":1,"png_base64":"iVBOR…"}}
+← {"id":14,"result":{"url":"…","width":1080,"height":1900,"masked_regions":1,"screenshot_id":"shot_…","size":1843211,"sha256":"…"}}
+→ {"id":15,"method":"browser.screenshot_read","params":{"screenshot_id":"shot_…","offset":0,"length":262144}}
+← {"id":15,"result":{"offset":0,"data_base64":"iVBOR…","eof":false}}
 
 → {"id":15,"method":"browser.capture","params":{"request_id":"r_7a8b"}}
 ← {"id":15,"result":{"package_id":"evidence:…","kind":"browser","capture_status":"complete","missing":[],"size":48211,"sha256":"…"}}
@@ -258,7 +261,8 @@ saman laitteen tokenin.
 | `SENSITIVE_FIELD` | Salasana- tai kertakoodikenttä; ihminen täyttää |
 | `NOT_TEXT_INPUT` | Elementti ei ole tekstikenttä |
 | `NO_HISTORY` | Ei edellistä sivua |
-| `SCREENSHOT_BLOCKED` | Näkyvä cross-origin-kehys estää varman peittämisen |
+| `SCREENSHOT_BLOCKED` | Näkyvä kehys tai `object`/`embed`, jota ei voi tarkistaa, estää varman peittämisen |
+| `SCREENSHOT_EXPIRED` | Vain viimeisin kuvakaappaus on luettavissa |
 | `SCREENSHOT_FAILED` | PixelCopy epäonnistui |
 | `SCRIPT_ERROR` | Sivuskripti ei palauttanut tulosta |
 | `COMMAND_IN_PROGRESS` | Toinen selainkomento on kesken |

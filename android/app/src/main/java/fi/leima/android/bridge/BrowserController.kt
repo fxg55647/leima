@@ -105,6 +105,8 @@ class BrowserController(
     private var observationGeneration = -1
     private var lastRequestedUrl: String? = null
     private val running = AtomicReference<String?>(null)
+    private class StoredScreenshot(val id: String, val png: ByteArray, val url: String)
+    @Volatile private var lastScreenshot: StoredScreenshot? = null
     private val outcomes = object : LinkedHashMap<String, JSONObject>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, JSONObject>?) = size > MAX_OUTCOMES
     }
@@ -212,15 +214,43 @@ class BrowserController(
         return screenshotNow()
     }
 
+    /**
+     * Takes the masked screenshot and keeps it on the phone; the bridge reads it with
+     * [screenshotRead] in chunks, because a PNG does not fit in one protocol line.
+     */
     private fun screenshotNow(): JSONObject = synchronized(lock) {
         val state = host.state()
         val shot = maskedScreenshot()
+        val stored = StoredScreenshot("shot_" + token(9), shot.first.png, state.url)
+        lastScreenshot = stored
         onActivity("otti kuvakaappauksen")
         JSONObject().put("url", state.url).put("width", shot.first.width).put("height", shot.first.height)
-            .put("masked_regions", shot.second).put("png_base64", Base64.getEncoder().encodeToString(shot.first.png))
+            .put("masked_regions", shot.second).put("screenshot_id", stored.id).put("size", stored.png.size)
+            .put("sha256", BrowserCaptureStore.sha256Hex(stored.png))
     }
 
     fun capture(params: JSONObject): JSONObject = mutating(params) { captureNow() }
+
+    /** One chunk of the latest screenshot. Same handoff and export checks as taking it. */
+    fun screenshotRead(params: JSONObject): JSONObject {
+        ensureAgentAllowed()
+        val id = params.opt("screenshot_id") as? String ?: throw ProtocolError("BAD_REQUEST", "screenshot_id is required")
+        val shot = lastScreenshot?.takeIf { it.id == id }
+            ?: throw ProtocolError("SCREENSHOT_EXPIRED", "Only the latest screenshot can be read; take a new one")
+        if (isLocalOnly(shot.url) || isLocalOnly(host.state().url)) {
+            lastScreenshot = null
+            throw ProtocolError("CONTENT_WITHHELD", "This page became local-only on the phone; the screenshot is not exported")
+        }
+        val offset = (params.opt("offset") as? Number)?.toInt() ?: throw ProtocolError("BAD_REQUEST", "offset is required")
+        val length = (params.opt("length") as? Number)?.toInt() ?: throw ProtocolError("BAD_REQUEST", "length is required")
+        if (offset < 0 || offset > shot.png.size || length !in 1..PackageRepository.MAX_READ_BYTES) {
+            throw ProtocolError("BAD_REQUEST", "offset must be 0..size and length 1..${PackageRepository.MAX_READ_BYTES}")
+        }
+        val end = minOf(shot.png.size, offset + length)
+        return JSONObject().put("offset", offset)
+            .put("data_base64", Base64.getEncoder().encodeToString(shot.png.copyOfRange(offset, end)))
+            .put("eof", end >= shot.png.size)
+    }
 
     // ---- handoff (phase C) ----------------------------------------------------------------------
 
@@ -235,6 +265,7 @@ class BrowserController(
         val opened = synchronized(control) {
             ensureAgentAllowedLocked()
             val now = clock()
+            lastScreenshot = null
             Handoff("ho_" + token(9), reason!!, task, "agent", now, now.plusSeconds(timeout)).also { handoff = it }
         }
         onActivity("pyytää apuasi")
@@ -278,11 +309,15 @@ class BrowserController(
         return JSONObject().put("state", ControlState.READY.name).put("handoff_id", id).put("observation", observeNow())
     }
 
-    /** Ends the agent's browser session: new session id, observation and stored outcomes dropped. */
+    /**
+     * Ends the agent's browser session: new session id, observation, screenshot and stored outcomes
+     * dropped. An open handoff and a stop (Keskeytä / expiry) stay as they are: only the person
+     * ends those, so ending the session never gives the agent control back.
+     */
     fun endSession(): JSONObject {
         val ended = synchronized(control) {
             val old = sessionId
-            handoff = null
+            lastScreenshot = null
             sessionId = "bs_" + token(12)
             observationId = null
             synchronized(outcomes) { outcomes.clear() }
@@ -300,6 +335,7 @@ class BrowserController(
             if (stopped != null || handoff != null) return
             val now = clock()
             handoff = Handoff("ho_" + token(9), "PERSON_TOOK_CONTROL", "", "person", now, now.plusSeconds(MAX_HANDOFF_S))
+            lastScreenshot = null
             observationId = null
         }
         changed()
@@ -325,6 +361,7 @@ class BrowserController(
         synchronized(control) {
             stopped = ControlState.CANCELLED
             handoff = null
+            lastScreenshot = null
             observationId = null
             control.notifyAll()
         }
@@ -454,8 +491,8 @@ class BrowserController(
     /** Returns the masked screenshot and the number of masked regions, or throws SCREENSHOT_BLOCKED. */
     private fun maskedScreenshot(): Pair<Screenshot, Int> {
         val masks = pageCommand("masks", JSONObject())
-        if (masks.optInt("visible_cross_origin_iframes") > 0) {
-            throw ProtocolError("SCREENSHOT_BLOCKED", "A cross-origin frame is visible; its secret fields cannot be masked, so no screenshot is exported")
+        if (masks.optInt("unmaskable_frames") > 0) {
+            throw ProtocolError("SCREENSHOT_BLOCKED", "A frame or embedded object that cannot be inspected is visible; its secret fields cannot be masked, so no screenshot is exported")
         }
         val rects = masks.optJSONArray("rects") ?: JSONArray()
         val list = (0 until rects.length()).map { rects.getJSONObject(it) }
@@ -534,7 +571,7 @@ class BrowserController(
         private val PRIVATE_AFTER = setOf("LOGIN", "MFA", "PERSON_TOOK_CONTROL")
         val METHODS = listOf("browser.navigate", "browser.observe", "browser.click", "browser.type",
             "browser.back", "browser.screenshot", "browser.capture", "command_status",
-            "browser.request_human", "browser.resume", "browser.end_session")
+            "browser.request_human", "browser.resume", "browser.end_session", "browser.screenshot_read")
         private val REQUEST_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val SECRET_PARAM = Regex("(token|key|secret|pass|session|auth|code|sig|jwt|otp|nonce|state)", RegexOption.IGNORE_CASE)
 

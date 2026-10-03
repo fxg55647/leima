@@ -224,3 +224,26 @@ def run_command(open_session: Callable, method: str, params: dict | None = None)
     raise BridgeError("COMMAND_OUTCOME_UNKNOWN",
                       f"Connection lost during {method}; the phone reports state '{status.get('state')}'. "
                       "The command was not repeated; observe the page before trying again.")
+
+
+MAX_SCREENSHOT_BYTES = 32 * 1024 * 1024
+
+
+def read_screenshot(client: PhoneClient, meta: dict) -> bytes:
+    """Reads a screenshot the phone stored with browser.screenshot, checking size and sha256."""
+    size = meta["size"]
+    if not 0 < size <= MAX_SCREENSHOT_BYTES:
+        raise BridgeError("SCREENSHOT_FAILED", f"Unexpected screenshot size {size}")
+    data = bytearray()
+    while True:
+        chunk = client.request("browser.screenshot_read", {
+            "screenshot_id": meta["screenshot_id"], "offset": len(data), "length": READ_CHUNK_BYTES,
+        })
+        if chunk["offset"] != len(data):
+            raise BridgeError("SCREENSHOT_FAILED", f"Phone returned offset {chunk['offset']}, expected {len(data)}")
+        data += base64.b64decode(chunk["data_base64"])
+        if chunk["eof"] or len(data) > size:
+            break
+    if len(data) != size or hashlib.sha256(data).hexdigest() != meta["sha256"]:
+        raise BridgeError("SCREENSHOT_FAILED", "Screenshot did not arrive intact")
+    return bytes(data)

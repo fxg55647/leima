@@ -136,14 +136,23 @@ saman `request_id`:n toistolle tallennetun lopputuloksen eikä tee toimintoa kah
 - **Havainto** on voimassa vain seuraavaan tilaa muuttavaan komentoon tai sivunvaihtoon asti
   (myös ihmisen tekemään). Vanhentuneella havainnolla toiminto palauttaa `STALE_OBSERVATION`;
   se ei koskaan osu toiseen elementtiin. Myös epäonnistunut tilaa muuttava komento päättää havainnon.
+  Havainto tallentaa jokaisen elementin tunnisteen (tagi, tyyppi, rooli, nimi, `href`,
+  `formaction`); jos jokin niistä muuttuu ennen toimintoa (esim. "Preview" → "Delete"), toiminto
+  hylätään (`STALE_OBSERVATION`, "Element changed since the observation"). Kenttien arvot eivät
+  kuulu tunnisteeseen, joten esimerkiksi sivun oma automaattinen täyttö ei hylkää toimintoa.
 - **Klikkaus ja kirjoitus** tehdään DOM-tasolla (`element.click()`, arvon asetus + `input`/`change`-
   tapahtumat). Tapahtumat eivät ole sivun silmissä käyttäjän tekemiä (`isTrusted = false`); osa
   sivuista voi ohittaa ne. Koordinaattitaputus lisätään vasta tarvittaessa.
 - **Salaisuudet**: salasana- ja kertakoodikenttien (myös `autocomplete`-vihjeet) arvoja ei
   palauteta, niihin ei kirjoiteta (`SENSITIVE_FIELD`), ne maalataan mustiksi kuvakaappauksessa ja
   niiden `value`-attribuutit poistetaan `dom.html`:stä. Myös piilokenttien arvot ja CSRF-metat
-  tyhjennetään. Kuvakaappausta ei viedä lainkaan, jos näkyvissä on cross-origin-kehys, koska sen
+  tyhjennetään. Peitot kerätään myös saman alkuperän kehyksistä rekursiivisesti (enintään 5 tasoa)
+  kehyksen sijainnilla siirrettyinä. Kuvakaappausta ei viedä lainkaan, jos näkyvissä on kehys tai
+  `object`/`embed`, jonka sisältöä ei voi tarkistaa (cross-origin tai liian syvä), koska sen
   kenttiä ei voi tunnistaa (`SCREENSHOT_BLOCKED`); capture merkitään silloin osittaiseksi.
+- **Kuvakaappauksen siirto**: PNG jää puhelimeen, ja silta lukee sen 256 KiB:n paloina
+  (`browser.screenshot_read`) ja tarkistaa koon ja SHA-256:n. Puhelin säilyttää vain viimeisimmän
+  kuvan; luovutus, keskeytys ja istunnon lopetus hävittävät sen.
 - **Saatavuus**: agentti voi käyttää selainta vain, kun Selain-välilehti on näkyvissä, sovellus
   on etualalla eikä ihminen ole kesken omaa tallennustaan (`BROWSER_UNAVAILABLE`). Puhelimen
   tilarivi näyttää, mitä agentti viimeksi teki.
@@ -166,6 +175,9 @@ CANCELLED / EXPIRED ── puhelin: Salli agentti ─▶ READY (uusi session_id)
   lukevat (`observe`, `screenshot`), koska ihminen voi juuri silloin syöttää salaisuuksia. Vain
   `command_status`, `browser.resume` ja `browser.end_session` ovat sallittuja. Jo tallennetun
   `request_id`:n lopputulos palautetaan silti (se ei koske sivuun).
+- `browser.end_session` ei päätä luovutusta eikä kumoa keskeytystä tai vanhentumista: uusi
+  istunto on yhtä lailla estetty, kunnes ihminen painaa Jatka (ja agentti kutsuu `browser.resume`)
+  tai Salli agentti.
 - Vain puhelimen **Jatka** päättää luovutuksen. Sen jälkeen agentin on kutsuttava `browser.resume`,
   joka palauttaa saman istunnon ja uuden havainnon. `wait_s` (0–120 s) odottaa Jatka-painallusta.
 - **Keskeytä agentti** ja vanhentunut luovutus (oletus 10 min, enintään 30 min) pysäyttävät
