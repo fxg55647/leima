@@ -69,7 +69,13 @@ vastaanottajan valinta ja palvelinlähetys ovat erillisiä tulevia vaiheita.
 puhelimen dialogissa koodin avulla; puhelin tallentaa vain tokenin tiivisteen. Toteutetut metodit:
 `device_status` sekä valmiiden pakettien siirto (`packages.list/read/delete`). `python -m bridge sync`
 siirtää kuva-, kuvakaappaus- ja kuvausistuntopaketit PC:n arkistoon ja poistaa ne puhelimesta vasta
-tarkistetun tallennuksen jälkeen. Uusissa paketeissa manifestissa on `kind`-kenttä. Arkkitehtuuri ja protokolla:
+tarkistetun tallennuksen jälkeen. Uusissa paketeissa manifestissa on `kind`-kenttä.
+
+Paritettu agentti voi myös ohjata Selain-välilehteä (`browser.*`): avata https-sivuja, lukea
+sivun tekstin ja elementit, klikata, kirjoittaa tavallisiin tekstikenttiin, ottaa peitetyn
+kuvakaappauksen ja tallentaa sivun `browser`-pakettina. Sivulle ajettava skripti on
+`app/src/main/assets/leima_page.js`. Agentti ei pääse selaimeen, kun jokin muu välilehti on auki tai
+sovellus on taustalla. Salasana- ja kertakoodikentät täyttää aina ihminen. Arkkitehtuuri ja protokolla:
 [`docs/RESEARCH_APPLIANCE_ARCHITECTURE.md`](../docs/RESEARCH_APPLIANCE_ARCHITECTURE.md).
 
 ## Rajat ja seuraavat vaiheet

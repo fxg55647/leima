@@ -1,4 +1,4 @@
-"""Verify a Leima Android package (photo, screenshot or meeting) against its own manifest.
+"""Verify a Leima Android package (photo, screenshot, meeting or browser) against its own manifest.
 
 Shared envelope rules: docs/RESEARCH_APPLIANCE_PACKAGES.md. Standalone on purpose (only the
 standard library; meeting signatures additionally need `cryptography`), so anyone can check a
@@ -13,11 +13,13 @@ import zipfile
 
 MAX_ENTRY_BYTES = 100 * 1024 * 1024
 ENVELOPE = {"manifest.json", "manifest.sha256"}
-# kind -> (manifest schemaVersion, exact payload files or None for "any", extra names outside the manifest)
+# kind -> (manifest schemaVersion, required payload files or None for "any", optional payload files,
+#          extra names outside the manifest)
 KINDS = {
-    "photo": (1, {"photo.jpg", "metadata.json"}, set()),
-    "screenshot": (1, {"screenshot.png", "metadata.json"}, set()),
-    "meeting": (2, None, {"signature.json"}),
+    "photo": (1, {"photo.jpg", "metadata.json"}, set(), set()),
+    "screenshot": (1, {"screenshot.png", "metadata.json"}, set(), set()),
+    "meeting": (2, None, set(), {"signature.json"}),
+    "browser": (1, {"metadata.json", "observation.json", "dom.html", "visible-text.txt"}, {"screenshot.png"}, set()),
 }
 
 
@@ -75,10 +77,10 @@ def verify(source):
         kind = manifest.get("kind") or _infer_kind(set(names))
         if kind not in KINDS:
             raise ValueError(f"Unsupported package kind: {kind}")
-        schema_version, payload, extras = KINDS[kind]
+        schema_version, payload, optional, extras = KINDS[kind]
         if manifest.get("schemaVersion") != schema_version:
             raise ValueError("Unsupported manifest")
-        if payload is not None and set(files) != payload:
+        if payload is not None and not (payload <= set(files) <= payload | optional):
             raise ValueError("Unexpected payload files")
         if set(names) != set(files) | ENVELOPE | extras:
             raise ValueError("Unexpected ZIP entries")
@@ -90,7 +92,20 @@ def verify(source):
             details = json.loads(archive.read("session.json")) if "session.json" in files else {}
         else:
             details = json.loads(archive.read("metadata.json"))
+        if kind == "browser":
+            _check_browser_metadata(details, set(files))
         return {"kind": kind, "manifest": manifest, "details": details}
+
+
+def _check_browser_metadata(metadata, files):
+    status = metadata.get("captureStatus")
+    missing = metadata.get("missing")
+    if metadata.get("kind") != "browser" or status not in ("complete", "partial") or not isinstance(missing, list):
+        raise ValueError("Browser metadata must have kind, captureStatus and missing")
+    if status == "complete" and (missing or "screenshot.png" not in files):
+        raise ValueError("Browser capture marked complete but files are missing")
+    if status == "partial" and not missing:
+        raise ValueError("Partial browser capture must list what is missing")
 
 
 if __name__ == "__main__":

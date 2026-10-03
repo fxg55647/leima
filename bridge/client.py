@@ -182,3 +182,41 @@ def sync(client: PhoneClient, device: Device, archive, delete: bool = True,
         results.append(result)
         progress(result)
     return results
+
+
+# Phone-side work (page load, capture) can take longer than an ordinary request.
+SLOW_METHOD_TIMEOUT_S = 60
+MUTATING_BROWSER_METHODS = {"browser.navigate", "browser.click", "browser.type", "browser.back", "browser.capture"}
+
+
+def run_command(open_session: Callable, method: str, params: dict | None = None) -> dict:
+    """Runs one browser command. State-changing commands get a request_id; if the USB connection
+    drops mid-command, the bridge reconnects once and asks command_status instead of repeating the
+    command (a repeated click or form submit could do harm)."""
+    params = dict(params or {})
+    timeout = SLOW_METHOD_TIMEOUT_S if method in MUTATING_BROWSER_METHODS or method == "browser.screenshot" else REQUEST_TIMEOUT_S
+    if method not in MUTATING_BROWSER_METHODS:
+        with open_session() as (_device, client):
+            return client.request(method, params, timeout=timeout)
+    request_id = "r_" + secrets.token_hex(8)
+    params["request_id"] = request_id
+    try:
+        with open_session() as (_device, client):
+            return client.request(method, params, timeout=timeout)
+    except BridgeError as e:
+        if e.code != "CONNECTION_LOST":
+            raise
+    try:
+        with open_session() as (_device, client):
+            status = client.request("command_status", {"request_id": request_id})
+    except BridgeError as e:
+        raise BridgeError("COMMAND_OUTCOME_UNKNOWN",
+                          f"Connection lost during {method} and the phone could not be asked afterwards ({e.code}). "
+                          "The command was not repeated; observe the page before trying again.") from e
+    if status.get("state") == "done":
+        if "error" in status:
+            raise BridgeError(status["error"]["code"], status["error"].get("message", ""))
+        return {**status["result"], "recovered_after_disconnect": True}
+    raise BridgeError("COMMAND_OUTCOME_UNKNOWN",
+                      f"Connection lost during {method}; the phone reports state '{status.get('state')}'. "
+                      "The command was not repeated; observe the page before trying again.")

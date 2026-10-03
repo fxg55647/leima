@@ -72,6 +72,14 @@ class ToolError(Exception):
     """Raised by a tool implementation for errors the calling model should see and can fix."""
 
 
+class ToolResult:
+    """Tool output with extra MCP content blocks (e.g. an image) in front of the JSON text block."""
+
+    def __init__(self, structured: dict, content: list[dict]):
+        self.structured = structured
+        self.content = content
+
+
 def _error(msg_id, code: int, message: str) -> dict:
     return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
 
@@ -125,8 +133,11 @@ def handle_message(message, call_tool: Callable[[str, dict], dict], *, tools: li
             structured = call_tool(name, arguments)
         except ToolError as e:
             return _result(msg_id, {"content": [{"type": "text", "text": str(e)}], "isError": True})
+        extra = []
+        if isinstance(structured, ToolResult):
+            structured, extra = structured.structured, structured.content
         return _result(msg_id, {
-            "content": [{"type": "text", "text": json.dumps(structured, ensure_ascii=False, indent=2)}],
+            "content": extra + [{"type": "text", "text": json.dumps(structured, ensure_ascii=False, indent=2)}],
             "structuredContent": structured,
             "isError": False,
         })

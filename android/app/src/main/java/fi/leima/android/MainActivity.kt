@@ -32,10 +32,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.exifinterface.media.ExifInterface
 import fi.leima.android.bridge.BridgeConnection
+import fi.leima.android.bridge.BrowserController
 import fi.leima.android.bridge.BridgeServer
 import fi.leima.android.bridge.PackageRepository
 import fi.leima.android.bridge.PairingPrompt
 import fi.leima.android.bridge.PairingStore
+import fi.leima.android.bridge.WebViewBrowserHost
 import fi.leima.android.meeting.MeetingScreen
 import org.json.JSONObject
 import java.io.File
@@ -60,6 +62,7 @@ class MainActivity : ComponentActivity() {
     private var address by mutableStateOf("https://example.com")
     private var pageReady by mutableStateOf(false)
     private var pageGeneration = 0
+    private var pageFinished = false
     private var pendingScreenshot by mutableStateOf<PendingScreenshot?>(null)
     private lateinit var pairings: PairingStore
     private val pairingPrompt = PairingPrompt()
@@ -202,7 +205,8 @@ class MainActivity : ComponentActivity() {
                 settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = !safeUrl(request.url.toString())
-                    override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) { pageReady = false; pageGeneration++ }
+                    override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) { pageReady = false; pageFinished = false; pageGeneration++ }
+                    override fun onPageFinished(view: WebView, url: String?) { pageFinished = true }
                     override fun onPageCommitVisible(view: WebView, url: String?) { pageReady = true; address = url.orEmpty() }
                     // Default SSL-error handling cancels; never bypass certificate errors.
                 }
@@ -302,9 +306,11 @@ class MainActivity : ComponentActivity() {
         if (!enabled) { status = "USB-ohjaus pois päältä."; return }
         runCatching {
             val packages = PackageRepository(filesDir)
+            val browser = BrowserController(browserHost(), File(filesDir, "evidence"),
+                onActivity = { action -> runOnUiThread { status = "USB-agentti $action." } })
             BridgeServer {
                 BridgeConnection(pairings, pairingPrompt, ::bridgeDeviceInfo, BuildConfig.VERSION_NAME,
-                    packages = packages, onPackagesChanged = { runOnUiThread { refreshLastPackage() } })
+                    packages = packages, onPackagesChanged = { runOnUiThread { refreshLastPackage() } }, browser = browser)
             }.also { it.start() }
         }.fold({ bridge = it; bridgeEnabled = true; status = "USB-ohjaus päällä. Vain paritettu PC voi ohjata puhelinta." },
             { status = "USB-ohjauksen käynnistys epäonnistui: ${it.localizedMessage}" })
@@ -314,6 +320,19 @@ class MainActivity : ComponentActivity() {
         lastPackage = File(filesDir, "evidence").listFiles()?.map { File(it, "evidence.zip") }
             ?.filter { it.isFile }?.maxByOrNull { it.lastModified() }
     }
+    /** The WebView as the USB agent sees it: only while the Selain tab is shown, idle and in the foreground. */
+    private fun browserHost() = WebViewBrowserHost(
+        activity = this,
+        pageScript = assets.open("leima_page.js").use { it.readBytes().toString(Charsets.UTF_8) },
+        webView = { web },
+        isAvailable = {
+            !cameraMode && !meetingMode && !busy && pendingScreenshot == null &&
+                lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        },
+        generation = { pageGeneration },
+        finished = { pageFinished },
+        environment = { bridgeDeviceInfo().put("appVersion", BuildConfig.VERSION_NAME).put("webViewVersion", WebView.getCurrentWebViewPackage()?.versionName) },
+    )
     private fun bridgeDeviceInfo(): JSONObject = JSONObject()
         .put("device", JSONObject().put("manufacturer", Build.MANUFACTURER).put("model", Build.MODEL)
             .put("android_api", Build.VERSION.SDK_INT).put("android_release", Build.VERSION.RELEASE))

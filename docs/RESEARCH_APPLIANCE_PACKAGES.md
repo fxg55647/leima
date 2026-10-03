@@ -1,7 +1,6 @@
 # Android-paketit ja PC:n arkisto
 
-Tila: vaihe D toteutettu (yhteinen kuori, siirto, arkisto). Laji `browser` on sopimus vaiheelle B;
-tarkistin hylkää sen, kunnes puhelin tuottaa sellaisia paketteja.
+Tila: toteutettu kaikille neljälle lajille (photo, screenshot, meeting, browser).
 
 Toteutus: `android/tools/verify_package.py` (tarkistin), `bridge/archive.py` (arkisto),
 `bridge/client.py` (`sync`), Android `bridge/PackageRepository.kt`. Testit: `tests/test_bridge_packages.py`,
@@ -40,7 +39,14 @@ tunnistetaan sisällöstä, joten niitä ei tarvitse muuntaa:
 | `photo` | `photo.jpg` | `photo.jpg`, `metadata.json` | metadata on JSON |
 | `screenshot` | `screenshot.png` + `metadata.json`, ei `dom.html` | `screenshot.png`, `metadata.json` | metadata on JSON |
 | `meeting` | `signature.json` | ks. `android/docs/meeting_v2_schema.md` | ECDSA-allekirjoitus (`meeting_crypto.py`) |
-| `browser` | — (uusi) | `metadata.json`, `observation.json`, `dom.html`, `visible-text.txt`, `screenshot.png` (valinnainen) | metadata on JSON, `capture_status` = `complete` tai `partial` + puutteet listattu |
+| `browser` | — (uusi) | `metadata.json`, `observation.json`, `dom.html`, `visible-text.txt`, `screenshot.png` (valinnainen) | `captureStatus` = `complete` (kaikki tiedostot, `missing` tyhjä) tai `partial` (`missing` listaa puutteet) |
+
+`browser`-paketin `metadata.json` (Android `BrowserController.captureNow`): `kind`, `captureStatus`,
+`missing`, `requestedAt`, `completedAt`, `durationMs`, `clock` (`device_wall_clock`, ei varmennettu),
+`url` ja `requestedUrl` (fragmentti pois, salaisen nimiset kyselyparametrit `REDACTED`), `title`,
+`certificate` (lehtivarmenne, ei ketjua), `appVersion`, `webViewVersion`, `device`, `browserSession`,
+`captureMethod` (tiedostoittain), `redactions`, `timing` ja `scope`. `dom.html` on DOM:n
+sarjallistus (attribuutit, ei kirjoitettuja kenttäarvoja), ei palvelimen alkuperäinen vastaus.
 
 Manifestin kanoninen muoto: puhelin kirjoittaa sen kerran ja tarkistin hashaa täsmälleen saadut
 tavut. Uudelleenserialisointia ei tehdä koskaan.

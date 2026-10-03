@@ -1,0 +1,160 @@
+"""Phase B on the PC side: browser command runner, MCP browser tools and browser packages."""
+import hashlib
+import io
+import json
+import zipfile
+from contextlib import contextmanager
+
+import pytest
+
+from bridge.adb import Device
+from bridge.archive import Archive
+from bridge.client import run_command
+from bridge.errors import BridgeError
+from bridge import mcp_stdio
+from verify_package import verify
+
+
+class ScriptedClient:
+    """Answers requests from a list of callables; records every request it saw."""
+
+    def __init__(self, log, answers):
+        self.log = log
+        self.answers = answers
+
+    def request(self, method, params=None, timeout=None):
+        self.log.append((method, dict(params or {})))
+        answer = self.answers.pop(0)
+        return answer(method, params) if callable(answer) else answer
+
+
+def sessions(*clients):
+    queue = list(clients)
+
+    @contextmanager
+    def open_session():
+        client = queue.pop(0)
+        if isinstance(client, BridgeError):
+            raise client
+        yield Device("S", "device"), client
+    return open_session
+
+
+def lost(*_):
+    raise BridgeError("CONNECTION_LOST", "usb unplugged")
+
+
+def test_read_only_commands_have_no_request_id():
+    log = []
+    assert run_command(sessions(ScriptedClient(log, [{"elements": []}])), "browser.observe") == {"elements": []}
+    assert log == [("browser.observe", {})]
+
+
+def test_mutating_command_is_not_repeated_after_disconnect():
+    log = []
+    done = {"state": "done", "result": {"url": "https://example.org/next"}}
+    result = run_command(sessions(ScriptedClient(log, [lost]), ScriptedClient(log, [done])),
+                         "browser.click", {"session_id": "bs", "observation_id": "o", "element_id": "el_1"})
+    assert result == {"url": "https://example.org/next", "recovered_after_disconnect": True}
+    (first, first_params), (second, second_params) = log
+    assert first == "browser.click" and second == "command_status"
+    assert second_params == {"request_id": first_params["request_id"]}
+    assert first_params["request_id"].startswith("r_")
+
+
+@pytest.mark.parametrize("status", [{"state": "running"}, {"state": "unknown"}])
+def test_unknown_outcome_is_reported_not_retried(status):
+    log = []
+    with pytest.raises(BridgeError) as e:
+        run_command(sessions(ScriptedClient(log, [lost]), ScriptedClient(log, [status])), "browser.navigate", {"url": "https://x.org"})
+    assert e.value.code == "COMMAND_OUTCOME_UNKNOWN"
+    assert [m for m, _ in log] == ["browser.navigate", "command_status"]
+
+
+def test_stored_failure_is_raised_and_unreachable_phone_is_unknown():
+    log = []
+    failed = {"state": "done", "error": {"code": "STALE_OBSERVATION", "message": "old"}}
+    with pytest.raises(BridgeError) as e:
+        run_command(sessions(ScriptedClient(log, [lost]), ScriptedClient(log, [failed])), "browser.back")
+    assert e.value.code == "STALE_OBSERVATION"
+    with pytest.raises(BridgeError) as e:
+        run_command(sessions(ScriptedClient([], [lost]), BridgeError("APP_NOT_LISTENING", "gone")), "browser.capture")
+    assert e.value.code == "COMMAND_OUTCOME_UNKNOWN"
+
+
+def test_other_errors_pass_through_without_status_query():
+    log = []
+    def refuse(*_):
+        raise BridgeError("URL_NOT_ALLOWED", "http")
+    with pytest.raises(BridgeError) as e:
+        run_command(sessions(ScriptedClient(log, [refuse])), "browser.navigate", {"url": "http://x"})
+    assert e.value.code == "URL_NOT_ALLOWED" and len(log) == 1
+
+
+def _serve(lines, call_tool):
+    out = io.StringIO()
+    mcp_stdio.serve(io.StringIO("".join(json.dumps(m) + "\n" for m in lines)), out, call_tool)
+    return [json.loads(line) for line in out.getvalue().splitlines()]
+
+
+def test_mcp_browser_tools(monkeypatch):
+    log = []
+    answers = [
+        {"url": "https://example.org/", "width": 2, "height": 1, "masked_regions": 1, "png_base64": "iVBORw0KGgo="},
+        {"url": "https://example.org/", "title": "Ex", "loading": False},
+    ]
+    monkeypatch.setattr(mcp_stdio, "session", lambda *a: sessions(ScriptedClient(log, answers))())
+    call_tool = mcp_stdio.make_call_tool(lambda: None, lambda: None)
+    shot, nav = _serve([
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "browser_screenshot", "arguments": {}}},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+         "params": {"name": "browser_navigate", "arguments": {"url": "https://example.org/", "serial": "S"}}},
+    ], call_tool)
+    image, text = shot["result"]["content"]
+    assert image == {"type": "image", "data": "iVBORw0KGgo=", "mimeType": "image/png"}
+    assert "png_base64" not in shot["result"]["structuredContent"]
+    assert json.loads(text["text"])["masked_regions"] == 1
+    assert nav["result"]["structuredContent"]["title"] == "Ex"
+    assert log[1][0] == "browser.navigate" and "serial" not in log[1][1] and "request_id" in log[1][1]
+
+
+def test_mcp_browser_tool_annotations():
+    tools = {t["name"]: t for t in mcp_stdio.TOOLS}
+    assert tools["browser_click"]["annotations"]["destructiveHint"] is True
+    assert tools["browser_observe"]["annotations"]["readOnlyHint"] is True
+    assert set(tools["browser_type"]["inputSchema"]["required"]) == {"session_id", "observation_id", "element_id", "text"}
+
+
+def browser_package(status="complete", missing=(), screenshot=True) -> bytes:
+    metadata = {"schemaVersion": 1, "kind": "browser", "captureStatus": status, "missing": list(missing),
+                "requestedAt": "2026-10-03T14:30:12Z", "url": "https://example.org/a?token=REDACTED"}
+    files = {"metadata.json": json.dumps(metadata).encode(), "observation.json": b"{}",
+             "dom.html": b"<html></html>", "visible-text.txt": b"Hello"}
+    if screenshot:
+        files["screenshot.png"] = b"png"
+    manifest = json.dumps({"schemaVersion": 1, "algorithm": "SHA-256", "kind": "browser",
+                           "files": {n: hashlib.sha256(d).hexdigest() for n, d in files.items()}}).encode()
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        for name, data in {**files, "manifest.json": manifest,
+                           "manifest.sha256": hashlib.sha256(manifest).hexdigest() + "  manifest.json\n"}.items():
+            z.writestr(name, data)
+    return out.getvalue()
+
+
+def test_browser_packages_verify_and_archive(tmp_path):
+    assert verify(io.BytesIO(browser_package()))["kind"] == "browser"
+    assert verify(io.BytesIO(browser_package("partial", [{"file": "screenshot.png", "reason": "SCREENSHOT_BLOCKED"}], screenshot=False)))
+    row, status = Archive(tmp_path).store(browser_package())
+    assert status == "archived" and row["kind"] == "browser" and row["domain"] == "example.org"
+    assert row["path"].startswith("browser/2026/10/2026-10-03_143012_example.org_")
+
+
+@pytest.mark.parametrize("data", [
+    browser_package(screenshot=False),                    # complete but screenshot missing
+    browser_package("partial"),                           # partial without saying what is missing
+    browser_package("done"),                              # unknown status
+])
+def test_inconsistent_browser_packages_are_rejected(data):
+    with pytest.raises(ValueError):
+        verify(io.BytesIO(data))

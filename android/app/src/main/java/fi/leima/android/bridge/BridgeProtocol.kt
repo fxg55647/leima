@@ -63,7 +63,8 @@ fun interface DeviceInfoProvider {
     fun deviceInfo(): JSONObject
 }
 
-private class ProtocolError(val code: String, message: String) : Exception(message)
+/** A protocol error with a stable code (docs/RESEARCH_APPLIANCE_USB_PROTOCOL.md section 4). */
+class ProtocolError(val code: String, message: String) : Exception(message)
 
 /** One client connection's protocol state. Not thread-safe; one connection is served by one thread. */
 class BridgeConnection(
@@ -75,6 +76,7 @@ class BridgeConnection(
     private val clock: () -> Instant = Instant::now,
     private val packages: PackageRepository? = null,
     private val onPackagesChanged: () -> Unit = {},
+    private val browser: BrowserController? = null,
 ) {
     private var bridgeId: String? = null
     private var bridgeName: String = ""
@@ -108,7 +110,8 @@ class BridgeConnection(
     private fun dispatch(method: String, params: JSONObject): JSONObject {
         if (method == "bye") { closeRequested = true; return JSONObject() }
         if (method == "hello") return hello(params)
-        if (method !in KNOWN_METHODS || (method in BridgeProtocol.PACKAGE_CAPABILITIES && packages == null)) {
+        if (method !in KNOWN_METHODS || (method in BridgeProtocol.PACKAGE_CAPABILITIES && packages == null) ||
+            (method in BrowserController.METHODS && browser == null)) {
             throw ProtocolError("UNKNOWN_METHOD", "Unknown method: $method")
         }
         val bridge = bridgeId ?: throw ProtocolError("HELLO_REQUIRED", "Send hello first")
@@ -120,6 +123,20 @@ class BridgeConnection(
             "packages.list" -> { requireSession(bridge); listPackages(requireNotNull(packages)) }
             "packages.read" -> { requireSession(bridge); readPackage(requireNotNull(packages), params) }
             "packages.delete" -> { requireSession(bridge); deletePackage(requireNotNull(packages), params) }
+            else -> { requireSession(bridge); browserCommand(requireNotNull(browser), method, params) }
+        }
+    }
+
+    private fun browserCommand(browser: BrowserController, method: String, params: JSONObject): JSONObject {
+        return when (method) {
+            "browser.navigate" -> browser.navigate(params)
+            "browser.observe" -> browser.observe()
+            "browser.click" -> browser.click(params)
+            "browser.type" -> browser.type(params)
+            "browser.back" -> browser.back(params)
+            "browser.screenshot" -> browser.screenshot()
+            "browser.capture" -> browser.capture(params)
+            "command_status" -> browser.commandStatus(params)
             else -> throw ProtocolError("UNKNOWN_METHOD", "Unknown method: $method")
         }
     }
@@ -169,8 +186,10 @@ class BridgeConnection(
             .put("app_version", appVersion)
             .put("device", info.optJSONObject("device") ?: JSONObject())
             .put("webview_version", info.opt("webview_version") ?: JSONObject.NULL)
-            .put("capabilities", JSONArray(BridgeProtocol.CAPABILITIES + if (packages != null) BridgeProtocol.PACKAGE_CAPABILITIES else emptyList()))
-            .put("browser", JSONObject().put("state", "NOT_AVAILABLE"))
+            .put("capabilities", JSONArray(BridgeProtocol.CAPABILITIES +
+                (if (packages != null) BridgeProtocol.PACKAGE_CAPABILITIES else emptyList()) +
+                (if (browser != null) BrowserController.METHODS else emptyList())))
+            .put("browser", browser?.status() ?: JSONObject().put("state", "NOT_AVAILABLE"))
     }
 
     /**
@@ -230,6 +249,6 @@ class BridgeConnection(
         Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(bytes).also(random::nextBytes))
 
     private companion object {
-        val KNOWN_METHODS = setOf("pair_begin", "auth", "device_status", "unpair") + BridgeProtocol.PACKAGE_CAPABILITIES
+        val KNOWN_METHODS = setOf("pair_begin", "auth", "device_status", "unpair") + BridgeProtocol.PACKAGE_CAPABILITIES + BrowserController.METHODS
     }
 }
