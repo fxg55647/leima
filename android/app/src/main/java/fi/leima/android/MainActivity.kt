@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -25,10 +26,15 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.exifinterface.media.ExifInterface
+import fi.leima.android.bridge.BridgeConnection
+import fi.leima.android.bridge.BridgeServer
+import fi.leima.android.bridge.PairingPrompt
+import fi.leima.android.bridge.PairingStore
 import fi.leima.android.meeting.MeetingScreen
 import org.json.JSONObject
 import java.io.File
@@ -54,6 +60,10 @@ class MainActivity : ComponentActivity() {
     private var pageReady by mutableStateOf(false)
     private var pageGeneration = 0
     private var pendingScreenshot by mutableStateOf<PendingScreenshot?>(null)
+    private lateinit var pairings: PairingStore
+    private val pairingPrompt = PairingPrompt()
+    private var bridge: BridgeServer? = null
+    private var bridgeEnabled by mutableStateOf(false)
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         cameraAllowed = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         recorder.start()
@@ -89,6 +99,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         recorder = SensorRecorder(this)
         store = EvidenceStore(this)
+        pairings = PairingStore(File(filesDir, "bridge/pairings.json"))
+        if (getPreferences(MODE_PRIVATE).getBoolean(PREF_BRIDGE, false)) switchBridge(true)
         cameraAllowed = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         lastPackage = File(filesDir, "evidence").listFiles()?.map { File(it, "evidence.zip") }
             ?.filter { it.isFile }?.maxByOrNull { it.lastModified() }
@@ -107,6 +119,11 @@ class MainActivity : ComponentActivity() {
                         TextButton(enabled = !busy, onClick = {
                             permissions.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
                         }) { Text("Sijaintilupa") }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Switch(checked = bridgeEnabled, onCheckedChange = ::switchBridge)
+                        Text("USB-ohjaus (ADB)", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { pairings.clear(); status = "PC-paritukset poistettu." }) { Text("Poista PC-paritukset") }
                     }
                     if (!cameraMode && !meetingMode) {
                         OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Verkko-osoite (HTTPS)") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
@@ -137,6 +154,18 @@ class MainActivity : ComponentActivity() {
                         }) { Text(if (busy) "Tallennetaan…" else if (cameraMode) "Ota kuva ja tallenna mittaukset" else "Tallenna näkyvä sivu ja mittaukset") }
                         TextButton(enabled = !busy && lastPackage != null, onClick = { export.launch("leima-${lastPackage!!.parentFile!!.name}.zip") }) { Text("Vie viimeisin kuvapaketti") }
                     }
+                }
+                pairingPrompt.pending?.let { request ->
+                    AlertDialog(
+                        onDismissRequest = { pairingPrompt.answer(request, false) },
+                        title = { Text("Paritetaanko PC?") },
+                        text = {
+                            Text("${request.bridgeName} pyytää USB-ohjausta tähän puhelimeen. " +
+                                "Hyväksy vain, jos PC:llä näkyy sama koodi: ${request.code.chunked(3).joinToString(" ")}")
+                        },
+                        confirmButton = { Button(onClick = { pairingPrompt.answer(request, true) }) { Text("Hyväksy") } },
+                        dismissButton = { TextButton(onClick = { pairingPrompt.answer(request, false) }) { Text("Hylkää") } },
+                    )
                 }
                 pendingScreenshot?.let { pending ->
                     ScreenshotEditor(pending, onCancel = {
@@ -265,6 +294,21 @@ class MainActivity : ComponentActivity() {
                 }
             })
     }
+    private fun switchBridge(enabled: Boolean) {
+        getPreferences(MODE_PRIVATE).edit().putBoolean(PREF_BRIDGE, enabled).apply()
+        bridge?.stop()
+        bridge = null
+        bridgeEnabled = false
+        if (!enabled) { status = "USB-ohjaus pois päältä."; return }
+        runCatching {
+            BridgeServer { BridgeConnection(pairings, pairingPrompt, ::bridgeDeviceInfo, BuildConfig.VERSION_NAME) }.also { it.start() }
+        }.fold({ bridge = it; bridgeEnabled = true; status = "USB-ohjaus päällä. Vain paritettu PC voi ohjata puhelinta." },
+            { status = "USB-ohjauksen käynnistys epäonnistui: ${it.localizedMessage}" })
+    }
+    private fun bridgeDeviceInfo(): JSONObject = JSONObject()
+        .put("device", JSONObject().put("manufacturer", Build.MANUFACTURER).put("model", Build.MODEL)
+            .put("android_api", Build.VERSION.SDK_INT).put("android_release", Build.VERSION.RELEASE))
+        .put("webview_version", WebView.getCurrentWebViewPackage()?.versionName ?: JSONObject.NULL)
     private fun saved(file: File) { runOnUiThread { lastPackage = file; busy = false; status = "Kuvapaketti tallennettu. Voit viedä sen ZIP-tiedostona." } }
     private fun report(message: String) { runOnUiThread { busy = false; status = message } }
     private fun safeUrl(value: String): Boolean = Uri.parse(value).let { it.scheme == "https" && !it.host.isNullOrBlank() && it.userInfo == null }
@@ -277,5 +321,7 @@ class MainActivity : ComponentActivity() {
         }
         if (::recorder.isInitialized) recorder.stop(); web?.onPause(); super.onPause()
     }
-    override fun onDestroy() { io.shutdown(); super.onDestroy() }
+    override fun onDestroy() { bridge?.stop(); io.shutdown(); super.onDestroy() }
+
+    private companion object { const val PREF_BRIDGE = "usbBridgeEnabled" }
 }

@@ -60,6 +60,15 @@ Tämä koskee uusia kuvakaappauksia; aiemmin tallennetut paketit eivät muutu.
 Muokkaus on toistaiseksi yhden kuvakaappauksen työnkulku. Selausistunnon tallennus,
 vastaanottajan valinta ja palvelinlähetys ovat erillisiä tulevia vaiheita.
 
+### USB-ohjaus (Research Appliance, vaihe A)
+
+**USB-ohjaus (ADB)** -kytkin avaa abstraktin socketin `fi.leima.android.bridge`, johon PC:n silta
+(`bridge/` repon juuressa) yhdistää `adb forward` -ohjauksella. TCP-porttia ei avata, ja vain
+`adbd`:n käyttäjätunnuksella (shell/root) tulevat yhteydet hyväksytään. PC paritetaan kerran
+puhelimen dialogissa koodin avulla; puhelin tallentaa vain tokenin tiivisteen. Vaiheessa A
+toteutettu metodi on `device_status`. Arkkitehtuuri ja protokolla:
+[`docs/RESEARCH_APPLIANCE_ARCHITECTURE.md`](../docs/RESEARCH_APPLIANCE_ARCHITECTURE.md).
+
 ## Rajat ja seuraavat vaiheet
 
 Tämä on testausta varten tehty pohja, ei vielä todennettu todistusjärjestelmä.

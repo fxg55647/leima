@@ -84,9 +84,13 @@ def _negotiate_version(requested) -> str:
     return requested if requested in SUPPORTED_PROTOCOL_VERSIONS else SUPPORTED_PROTOCOL_VERSIONS[0]
 
 
-def handle_message(message, call_tool: Callable[[str, dict], dict]) -> dict | None:
+def handle_message(message, call_tool: Callable[[str, dict], dict], *, tools: list[dict] = TOOLS,
+                   server_info: dict = SERVER_INFO, instructions: str = INSTRUCTIONS) -> dict | None:
     """Handle one JSON-RPC message. Returns the response object, or None for notifications
-    and client responses (the HTTP layer answers those with 202 Accepted)."""
+    and client responses (the HTTP layer answers those with 202 Accepted).
+
+    The keyword arguments let another server (the local USB bridge, bridge/mcp_stdio.py)
+    reuse this protocol handling with its own tools."""
     if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
         return _error(None, -32600, "Invalid Request")
 
@@ -103,17 +107,17 @@ def handle_message(message, call_tool: Callable[[str, dict], dict]) -> dict | No
         return _result(msg_id, {
             "protocolVersion": _negotiate_version(params.get("protocolVersion")),
             "capabilities": {"tools": {"listChanged": False}},
-            "serverInfo": SERVER_INFO,
-            "instructions": INSTRUCTIONS,
+            "serverInfo": server_info,
+            "instructions": instructions,
         })
     if method == "ping":
         return _result(msg_id, {})
     if method == "tools/list":
-        return _result(msg_id, {"tools": TOOLS})
+        return _result(msg_id, {"tools": tools})
     if method == "tools/call":
         name = params.get("name")
         arguments = params.get("arguments") or {}
-        if name not in {t["name"] for t in TOOLS}:
+        if name not in {t["name"] for t in tools}:
             return _error(msg_id, -32602, f"Unknown tool: {name}")
         if not isinstance(arguments, dict):
             return _error(msg_id, -32602, "arguments must be an object")
