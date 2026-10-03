@@ -22,6 +22,7 @@ object BridgeProtocol {
     /** `shell` (adbd forwards as this uid) and `root` (`adb root`); every other peer is refused. */
     val ALLOWED_PEER_UIDS = setOf(2000, 0)
     val CAPABILITIES = listOf("device_status")
+    val PACKAGE_CAPABILITIES = listOf("packages.list", "packages.read", "packages.delete")
 
     private val BRIDGE_ID = Regex("^b_[0-9a-f]{32}$")
     private val PAIRING_CODE = Regex("^[0-9]{6}$")
@@ -72,6 +73,8 @@ class BridgeConnection(
     private val appVersion: String,
     private val random: SecureRandom = SecureRandom(),
     private val clock: () -> Instant = Instant::now,
+    private val packages: PackageRepository? = null,
+    private val onPackagesChanged: () -> Unit = {},
 ) {
     private var bridgeId: String? = null
     private var bridgeName: String = ""
@@ -105,13 +108,18 @@ class BridgeConnection(
     private fun dispatch(method: String, params: JSONObject): JSONObject {
         if (method == "bye") { closeRequested = true; return JSONObject() }
         if (method == "hello") return hello(params)
-        if (method !in KNOWN_METHODS) throw ProtocolError("UNKNOWN_METHOD", "Unknown method: $method")
+        if (method !in KNOWN_METHODS || (method in BridgeProtocol.PACKAGE_CAPABILITIES && packages == null)) {
+            throw ProtocolError("UNKNOWN_METHOD", "Unknown method: $method")
+        }
         val bridge = bridgeId ?: throw ProtocolError("HELLO_REQUIRED", "Send hello first")
         return when (method) {
             "pair_begin" -> pairBegin(bridge, params)
             "auth" -> auth(bridge, params)
             "device_status" -> { requireSession(bridge); deviceStatus() }
             "unpair" -> { requireSession(bridge); pairings.unpair(bridge); endSession(); JSONObject() }
+            "packages.list" -> { requireSession(bridge); listPackages(requireNotNull(packages)) }
+            "packages.read" -> { requireSession(bridge); readPackage(requireNotNull(packages), params) }
+            "packages.delete" -> { requireSession(bridge); deletePackage(requireNotNull(packages), params) }
             else -> throw ProtocolError("UNKNOWN_METHOD", "Unknown method: $method")
         }
     }
@@ -161,7 +169,7 @@ class BridgeConnection(
             .put("app_version", appVersion)
             .put("device", info.optJSONObject("device") ?: JSONObject())
             .put("webview_version", info.opt("webview_version") ?: JSONObject.NULL)
-            .put("capabilities", JSONArray(BridgeProtocol.CAPABILITIES))
+            .put("capabilities", JSONArray(BridgeProtocol.CAPABILITIES + if (packages != null) BridgeProtocol.PACKAGE_CAPABILITIES else emptyList()))
             .put("browser", JSONObject().put("state", "NOT_AVAILABLE"))
     }
 
@@ -180,10 +188,48 @@ class BridgeConnection(
 
     private fun endSession() { sessionId = null; sessionToken = null }
 
+    private fun listPackages(repository: PackageRepository): JSONObject {
+        val list = JSONArray()
+        repository.list().forEach { pkg ->
+            list.put(JSONObject().put("package_id", pkg.packageId).put("kind", pkg.kind).put("size", pkg.size)
+                .put("sha256", repository.sha256(pkg)).put("created_at", Instant.ofEpochMilli(pkg.createdAt).toString()))
+        }
+        return JSONObject().put("packages", list)
+    }
+
+    private fun findPackage(repository: PackageRepository, params: JSONObject): StoredPackage {
+        val id = params.opt("package_id") as? String ?: throw ProtocolError("BAD_REQUEST", "package_id is required")
+        return repository.find(id) ?: throw ProtocolError("PACKAGE_NOT_FOUND", "No finished package $id")
+    }
+
+    private fun readPackage(repository: PackageRepository, params: JSONObject): JSONObject {
+        val pkg = findPackage(repository, params)
+        val offset = (params.opt("offset") as? Number)?.toLong() ?: throw ProtocolError("BAD_REQUEST", "offset is required")
+        val length = (params.opt("length") as? Number)?.toInt() ?: throw ProtocolError("BAD_REQUEST", "length is required")
+        if (offset < 0 || length !in 1..PackageRepository.MAX_READ_BYTES) {
+            throw ProtocolError("BAD_REQUEST", "offset must be >= 0 and length 1..${PackageRepository.MAX_READ_BYTES}")
+        }
+        val bytes = repository.read(pkg, offset, length)
+        return JSONObject().put("offset", offset).put("data_base64", Base64.getEncoder().encodeToString(bytes))
+            .put("eof", offset + bytes.size >= pkg.size)
+    }
+
+    private fun deletePackage(repository: PackageRepository, params: JSONObject): JSONObject {
+        val pkg = findPackage(repository, params)
+        val sha256 = params.opt("sha256") as? String ?: throw ProtocolError("BAD_REQUEST", "sha256 is required")
+        try {
+            repository.delete(pkg, sha256)
+        } catch (e: PackageChangedException) {
+            throw ProtocolError("PACKAGE_CHANGED", "Package bytes do not match sha256; not deleted")
+        }
+        onPackagesChanged()
+        return JSONObject().put("deleted", true)
+    }
+
     private fun randomToken(bytes: Int): String =
         Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(bytes).also(random::nextBytes))
 
     private companion object {
-        val KNOWN_METHODS = setOf("pair_begin", "auth", "device_status", "unpair")
+        val KNOWN_METHODS = setOf("pair_begin", "auth", "device_status", "unpair") + BridgeProtocol.PACKAGE_CAPABILITIES
     }
 }

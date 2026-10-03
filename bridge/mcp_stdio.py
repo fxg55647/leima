@@ -11,7 +11,8 @@ import mcp_server
 from mcp_server import ToolError
 
 from .adb import Adb
-from .client import session
+from .archive import Archive
+from .client import list_packages, session, sync
 from .config import BridgeConfig
 from .errors import BridgeError
 
@@ -42,16 +43,73 @@ DEVICE_STATUS_TOOL = {
     "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
 }
 
-TOOLS = [DEVICE_STATUS_TOOL]
+_SERIAL = {"serial": {"type": "string", "description": "ADB serial of the phone; only needed when several are connected."}}
+
+PACKAGES_LIST_TOOL = {
+    "name": "packages_list",
+    "title": "List packages on the phone",
+    "description": (
+        "Lists finished evidence packages waiting on the phone: package_id, kind (photo, screenshot, "
+        "meeting), size, sha256 of the ZIP and creation time. Returns no package content."
+    ),
+    "inputSchema": {"type": "object", "properties": _SERIAL, "additionalProperties": False},
+    "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+}
+
+PACKAGES_SYNC_TOOL = {
+    "name": "packages_sync",
+    "title": "Move packages to the PC archive",
+    "description": (
+        "Copies every finished package from the phone to the PC archive, verifies the ZIP hash and "
+        "its manifest, stores it unchanged and only then deletes it from the phone. Packages that fail "
+        "verification stay on the phone and are reported as failed. Returns one result per package "
+        "with its archive path; no package content."
+    ),
+    "inputSchema": {"type": "object", "properties": _SERIAL, "additionalProperties": False},
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+}
+
+PACKAGE_VERIFY_TOOL = {
+    "name": "package_verify",
+    "title": "Re-verify an archived package",
+    "description": (
+        "Re-checks a package in the PC archive: its bytes still match the indexed sha256 and its "
+        "manifest hashes (and meeting signature) are valid. Proves integrity only, not origin, time "
+        "or truth of the content."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "properties": {"sha256": {"type": "string", "description": "Full sha256 of the ZIP or a unique prefix (6+ hex characters)."}},
+        "required": ["sha256"],
+        "additionalProperties": False,
+    },
+    "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+}
+
+TOOLS = [DEVICE_STATUS_TOOL, PACKAGES_LIST_TOOL, PACKAGES_SYNC_TOOL, PACKAGE_VERIFY_TOOL]
 
 
-def make_call_tool(adb_factory: Callable[[], Adb] = Adb, config_factory: Callable[[], BridgeConfig] = BridgeConfig):
+def make_call_tool(adb_factory: Callable[[], Adb] = Adb, config_factory: Callable[[], BridgeConfig] = BridgeConfig,
+                   archive_factory: Callable[[], Archive] = Archive):
     def call_tool(name: str, arguments: dict) -> dict:
         try:
             if name == "device_status":
                 with session(adb_factory(), config_factory(), arguments.get("serial")) as (device, client):
                     status = client.request("device_status")
                 return {"serial": device.serial, **status}
+            if name == "packages_list":
+                with session(adb_factory(), config_factory(), arguments.get("serial")) as (device, client):
+                    return {"serial": device.serial, "packages": list_packages(client)}
+            if name == "packages_sync":
+                archive = archive_factory()
+                with session(adb_factory(), config_factory(), arguments.get("serial")) as (device, client):
+                    results = sync(client, device, archive)
+                return {"serial": device.serial, "archive": str(archive.root), "results": results}
+            if name == "package_verify":
+                sha = arguments.get("sha256")
+                if not isinstance(sha, str):
+                    raise ToolError("sha256 is required")
+                return archive_factory().verify_entry(sha)
         except BridgeError as e:
             raise ToolError(str(e)) from e
         raise ToolError(f"Unknown tool: {name}")

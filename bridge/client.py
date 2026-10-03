@@ -1,4 +1,6 @@
 """Protocol v1 client (docs/RESEARCH_APPLIANCE_USB_PROTOCOL.md) and the USB session around it."""
+import base64
+import hashlib
 import json
 import secrets
 import socket
@@ -13,6 +15,7 @@ PROTOCOL_VERSION = 1
 MAX_LINE_BYTES = 1024 * 1024
 REQUEST_TIMEOUT_S = 15
 PAIRING_TIMEOUT_S = 130  # phone waits up to 120 s for the person to answer
+READ_CHUNK_BYTES = 256 * 1024  # phone maximum (PackageRepository.MAX_READ_BYTES)
 
 
 class PhoneClient:
@@ -129,3 +132,53 @@ def unpair(adb: Adb, config: BridgeConfig, serial: str | None) -> Device:
         client.request("unpair")
     config.forget(device.serial)
     return device
+
+
+def list_packages(client: PhoneClient) -> list[dict]:
+    try:
+        return client.request("packages.list")["packages"]
+    except BridgeError as e:
+        if e.code == "UNKNOWN_METHOD":
+            raise BridgeError("APP_TOO_OLD", "The Leima app on the phone does not support package transfer; update it.") from e
+        raise
+
+
+def read_package(client: PhoneClient, package: dict) -> bytes:
+    """Reads a package in chunks and checks size and sha256 against the listing."""
+    data = bytearray()
+    while True:
+        chunk = client.request("packages.read", {
+            "package_id": package["package_id"], "offset": len(data), "length": READ_CHUNK_BYTES,
+        })
+        if chunk["offset"] != len(data):
+            raise BridgeError("PACKAGE_TRANSFER_MISMATCH", f"Phone returned offset {chunk['offset']}, expected {len(data)}")
+        data += base64.b64decode(chunk["data_base64"])
+        if chunk["eof"]:
+            break
+        if len(data) > package["size"]:
+            raise BridgeError("PACKAGE_TRANSFER_MISMATCH", "Phone sent more bytes than listed")
+    if len(data) != package["size"] or hashlib.sha256(data).hexdigest() != package["sha256"]:
+        raise BridgeError("PACKAGE_TRANSFER_MISMATCH", f"{package['package_id']} did not arrive intact")
+    return bytes(data)
+
+
+def sync(client: PhoneClient, device: Device, archive, delete: bool = True,
+         progress: Callable[[dict], None] = lambda result: None) -> list[dict]:
+    """Moves every finished package to [archive]. The phone copy is deleted only after the ZIP is
+    verified and durably stored (or was already archived with the same sha256)."""
+    results = []
+    for package in list_packages(client):
+        result = {"package_id": package["package_id"], "kind": package["kind"], "sha256": package["sha256"]}
+        try:
+            row, existed = archive.store(read_package(client, package), device.model)
+            result.update(status="already_archived" if existed else "archived", path=row["path"])
+            if delete:
+                client.request("packages.delete", {"package_id": package["package_id"], "sha256": package["sha256"]})
+                result["deleted_from_phone"] = True
+        except BridgeError as e:
+            if e.code == "CONNECTION_LOST":
+                raise
+            result.update(status="failed", error=str(e))
+        results.append(result)
+        progress(result)
+    return results

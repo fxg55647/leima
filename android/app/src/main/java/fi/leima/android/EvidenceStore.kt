@@ -23,7 +23,7 @@ class EvidenceStore(private val context: Context) {
         prepareMetadata(metadata)
         val details = File(directory, "metadata.json").apply { writeText(metadata.toString(2), Charsets.UTF_8) }
         val manifest = File(directory, "manifest.json").apply {
-            writeText(JSONObject().put("schemaVersion", 1).put("algorithm", "SHA-256")
+            writeText(JSONObject().put("schemaVersion", 1).put("algorithm", "SHA-256").put("kind", kindOf(media))
                 .put("files", JSONObject().put(media.name, sha256(media)).put(details.name, sha256(details)))
                 .toString(2), Charsets.UTF_8)
         }
@@ -39,6 +39,12 @@ class EvidenceStore(private val context: Context) {
             }
         }
         return File(directory, "evidence.zip").also { check(temporary.renameTo(it)) }
+    }
+    /** Package kind for the shared envelope (docs/RESEARCH_APPLIANCE_PACKAGES.md). */
+    private fun kindOf(media: File): String = when (media.name) {
+        "photo.jpg" -> "photo"
+        "screenshot.png" -> "screenshot"
+        else -> error("Unknown media file ${media.name}")
     }
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")

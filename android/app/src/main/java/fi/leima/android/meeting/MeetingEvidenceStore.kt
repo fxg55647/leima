@@ -38,7 +38,7 @@ object MeetingEvidenceStore {
         val contentFiles = collectContentFiles(sessionDirectory)
         val manifestFiles = JSONObject()
         contentFiles.forEach { file -> manifestFiles.put(relativePath(sessionDirectory, file), sha256Hex(file)) }
-        val manifest = JSONObject().put("schemaVersion", SCHEMA_VERSION).put("algorithm", "SHA-256").put("files", manifestFiles)
+        val manifest = JSONObject().put("schemaVersion", SCHEMA_VERSION).put("algorithm", "SHA-256").put("kind", "meeting").put("files", manifestFiles)
         val manifestFile = File(sessionDirectory, "manifest.json").apply { writeText(manifest.toString(2), Charsets.UTF_8) }
         File(sessionDirectory, "manifest.sha256").writeText("${sha256Hex(manifestFile)}  manifest.json\n", Charsets.UTF_8)
 

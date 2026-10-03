@@ -224,7 +224,7 @@ def test_mcp_lists_bridge_tools_only(phone, config):
     ], make_call_tool(lambda: FakeAdb(phone), lambda: config))
     assert [r["id"] for r in responses] == [1, 2]
     assert responses[0]["result"]["serverInfo"]["name"] == "leima-bridge"
-    assert [t["name"] for t in responses[1]["result"]["tools"]] == ["device_status"]
+    assert [t["name"] for t in responses[1]["result"]["tools"]] == ["device_status", "packages_list", "packages_sync", "package_verify"]
 
 
 def test_mcp_device_status_success_and_error(phone, config):

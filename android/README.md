@@ -38,7 +38,8 @@ Sitä ei tallenneta versionhallintaan. APK syntyy `app/build/outputs/apk/debug/`
 Paketti sisältää `photo.jpg` tai `screenshot.png`, `metadata.json`, `manifest.json`
 ja `manifest.sha256`. Manifesti sitoo kuvan ja metatietojen täsmälliset tavut
 SHA-256-tarkistussummilla. `manifest.sha256` tarkistaa manifestin; se ei ole allekirjoitus.
-Paketti voidaan tarkistaa Pythonilla: `python tools/verify_package.py polku/pakettiin.zip`.
+Paketti voidaan tarkistaa Pythonilla: `python tools/verify_package.py polku/pakettiin.zip`
+(kuva-, kuvakaappaus- ja kuvausistuntopaketit; kuvausistunnon allekirjoitus vaatii `cryptography`-paketin).
 
 ### Kuvakaappauksen yksityisyys
 
@@ -65,8 +66,10 @@ vastaanottajan valinta ja palvelinlähetys ovat erillisiä tulevia vaiheita.
 **USB-ohjaus (ADB)** -kytkin avaa abstraktin socketin `fi.leima.android.bridge`, johon PC:n silta
 (`bridge/` repon juuressa) yhdistää `adb forward` -ohjauksella. TCP-porttia ei avata, ja vain
 `adbd`:n käyttäjätunnuksella (shell/root) tulevat yhteydet hyväksytään. PC paritetaan kerran
-puhelimen dialogissa koodin avulla; puhelin tallentaa vain tokenin tiivisteen. Vaiheessa A
-toteutettu metodi on `device_status`. Arkkitehtuuri ja protokolla:
+puhelimen dialogissa koodin avulla; puhelin tallentaa vain tokenin tiivisteen. Toteutetut metodit:
+`device_status` sekä valmiiden pakettien siirto (`packages.list/read/delete`). `python -m bridge sync`
+siirtää kuva-, kuvakaappaus- ja kuvausistuntopaketit PC:n arkistoon ja poistaa ne puhelimesta vasta
+tarkistetun tallennuksen jälkeen. Uusissa paketeissa manifestissa on `kind`-kenttä. Arkkitehtuuri ja protokolla:
 [`docs/RESEARCH_APPLIANCE_ARCHITECTURE.md`](../docs/RESEARCH_APPLIANCE_ARCHITECTURE.md).
 
 ## Rajat ja seuraavat vaiheet

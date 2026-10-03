@@ -1,6 +1,7 @@
 # Leima Research Appliance — arkkitehtuuri
 
-Tila: suunnitelma hyväksytty, vaihe A toteutettu (USB-silta, paritus, `device_status`).
+Tila: suunnitelma hyväksytty. Vaiheet A (USB-silta, paritus, `device_status`) ja D (pakettien
+siirto PC:lle ja arkisto) toteutettu.
 Muut vaiheet ovat tässä dokumentissa sopimuksena, eivät vielä koodina.
 
 Liittyvät dokumentit:
@@ -85,8 +86,8 @@ poistamiseen. MCP-työkalut eivät koskaan välitä mielivaltaisia komentoja ADB
 | Vaihe | Sisältö | Tila |
 |---|---|---|
 | A | ADB-laitevalinta, porttiohjaus, kättely, paritus, autentikointi, `device_status` | toteutettu |
-| D | Yhteinen pakettimanifesti, `capture_verify`, pakettien siirto PC:lle ja poisto puhelimesta | seuraava |
-| B | Selainohjaus: `browser_navigate`, `browser_observe`, `browser_click`, `browser_type`, `browser_back`, `browser_screenshot` | |
+| D | Yhteinen pakettimanifesti, `package_verify`, pakettien siirto PC:lle ja poisto puhelimesta | toteutettu |
+| B | Selainohjaus: `browser_navigate`, `browser_observe`, `browser_click`, `browser_type`, `browser_back`, `browser_screenshot` | seuraava |
 | C | Ihmiselle luovutus: tilakone ja puhelimen ohjauspaneeli | |
 | E | Vientikäytännöt (agent-readable / local-only), lokien rajaus, salaisuuksien peitto | |
 | F | Leima-liitos: uusi provenance `device_captured`, leimaus vain hasheista | |
@@ -170,7 +171,8 @@ hakenut lähdettä. Vaiheessa F lisätään arvo `device_captured` nykyisten `fe
 4. Parita kerran: `python -m bridge pair`. Hyväksy puhelimen dialogi vain, jos koodi on sama
    kuin PC:llä. Token tallentuu `%APPDATA%\Leima\bridge.json`:iin.
 5. Testaa: `python -m bridge status`.
-6. Claude Desktop (`%APPDATA%\Claude\claude_desktop_config.json`):
+6. Siirrä paketit: `python -m bridge sync` (ks. [`RESEARCH_APPLIANCE_PACKAGES.md`](RESEARCH_APPLIANCE_PACKAGES.md)).
+7. Claude Desktop (`%APPDATA%\Claude\claude_desktop_config.json`):
 
 ```json
 {
@@ -183,12 +185,15 @@ hakenut lähdettä. Vaiheessa F lisätään arvo `device_captured` nykyisten `fe
 }
 ```
 
+MCP-työkalut: `device_status`, `packages_list`, `packages_sync`, `package_verify`. Ne palauttavat
+vain metatietoja ja tiivisteitä, eivät pakettien sisältöä.
+
 Paritus tehdään aina CLI:llä, ei MCP-työkalulla: agentti ei voi parittaa itseään.
 Puhelimen **Poista PC-paritukset** -painike mitätöi kaikki tokenit; `python -m bridge unpair`
 poistaa vain tämän PC:n.
 
-Testit: `.venv\Scripts\python.exe -m pytest tests/test_bridge.py` ja
-`android\gradlew.bat :app:testDebugUnitTest` (`BridgeProtocolTest`). Laitteella ajettavaa
+Testit: `.venv\Scripts\python.exe -m pytest tests/test_bridge.py tests/test_bridge_packages.py` ja
+`android\gradlew.bat :app:testDebugUnitTest` (`BridgeProtocolTest`, `PackageTransferTest`). Laitteella ajettavaa
 päästä päähän -testiä ei ole automatisoitu.
 
 ## 8. Myöhemmät kokonaisuudet (eivät kuulu MVP:hen)

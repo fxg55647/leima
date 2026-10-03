@@ -1,6 +1,11 @@
 # Android-paketit ja PC:n arkisto
 
-Tila: sopimus vaiheelle D. Ei vielä toteutettu.
+Tila: vaihe D toteutettu (yhteinen kuori, siirto, arkisto). Laji `browser` on sopimus vaiheelle B;
+tarkistin hylkää sen, kunnes puhelin tuottaa sellaisia paketteja.
+
+Toteutus: `android/tools/verify_package.py` (tarkistin), `bridge/archive.py` (arkisto),
+`bridge/client.py` (`sync`), Android `bridge/PackageRepository.kt`. Testit: `tests/test_bridge_packages.py`,
+`PackageTransferTest.kt`.
 Arkkitehtuuri: [`RESEARCH_APPLIANCE_ARCHITECTURE.md`](RESEARCH_APPLIANCE_ARCHITECTURE.md).
 
 Palvelimen analyysileimat (`PACKAGE_FORMAT.md`, `stamp_format_version 2`) ovat eri formaatti
@@ -44,7 +49,7 @@ tavut. Uudelleenserialisointia ei tehdä koskaan.
 
 1. `packages.list` palauttaa jokaisesta valmiista paketista `package_id`, `kind`, `size`,
    `sha256` (koko ZIPin tavuista) ja `created_at`. Keskeneräiset (`.partial`) eivät näy.
-2. Silta lukee paketin paloina (`packages.read`), laskee ZIPin SHA-256:n ja vertaa listaukseen.
+2. Silta lukee paketin 256 KiB:n paloina (`packages.read`), laskee ZIPin SHA-256:n ja vertaa listaukseen.
 3. Silta ajaa kuoren ja lajin tarkistuksen ZIPille.
 4. Silta kirjoittaa ZIPin väliaikaiseen tiedostoon arkistoon, `fsync`:aa sen, nimeää sen
    lopulliseksi ja lisää rivin `index.jsonl`:ään.
@@ -73,11 +78,33 @@ evidence\
   todisteeseen.
 - `package.zip` on täsmälleen puhelimesta tulleet tavut. Arkistossa ZIPejä ei koskaan muokata
   eikä pureta paikoilleen.
-- `index.jsonl` on vain lisättävä loki, yksi JSON-rivi per arkistoitu paketti:
+- `index.jsonl` on vain lisättävä loki; jokaisesta arkistoidusta paketista yksi rivi:
 
 ```json
-{"sha256":"3f9a12c4…","kind":"browser","path":"browser/2026/10/2026-10-03_143012_example.org_3f9a12c4/package.zip","size":482113,"captured_at":"2026-10-03T14:30:12Z","domain":"example.org","device":"Pixel 7","pulled_at":"2026-10-03T15:02:44Z","verified":true,"tags":[]}
+{"event":"archived","sha256":"3f9a12c4…","kind":"screenshot","path":"screenshot/2026/10/2026-10-03_143012_example.org_3f9a12c4/package.zip","size":482113,"captured_at":"2026-10-03T14:30:12Z","domain":"example.org","device":"Pixel 7","pulled_at":"2026-10-03T15:02:44Z","verified":true}
 ```
 
-- Tapaus- tai projektiryhmittely tehdään `tags`-kentällä (`leima-bridge tag <sha256> <tagi>`
-  lisää uuden rivin), ei kansioilla, koska sama paketti voi kuulua useaan tapaukseen.
+- Tapaus- tai projektiryhmittely tehdään tageilla, ei kansioilla, koska sama paketti voi kuulua
+  useaan tapaukseen. `python -m bridge tag <sha256> <tagi>` lisää indeksiin erillisen rivin:
+
+```json
+{"event":"tag","sha256":"3f9a12c4…","tag":"case-42","at":"2026-10-03T15:10:00Z"}
+```
+
+Arkistointirivillä on `"event":"archived"`. Rivejä ei koskaan muokata eikä poisteta.
+
+## 4. Käyttö
+
+```text
+python -m bridge sync [--serial S] [--archive DIR] [--keep]   siirto + tarkistus + poisto puhelimesta
+python -m bridge verify <sha256>                              arkistoidun paketin uusintatarkistus
+python -m bridge tag <sha256> <tagi>
+python android\tools\verify_package.py polku\package.zip    itsenäinen tarkistus ilman siltaa
+```
+
+`--keep` jättää paketit puhelimeen. Sama siirto onnistuu MCP:n kautta (`packages_sync`), ja se
+poistaa puhelimen kopion samoin ehdoin. Sync on turvallista ajaa uudelleen: jo arkistoitu ZIP
+tunnistetaan sha256:sta.
+
+Tunnettu rajoitus: puhelimen Kuvausistunto-näkymän istuntolista päivittyy vasta, kun näkymä
+avataan uudelleen siirron jälkeen.

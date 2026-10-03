@@ -49,6 +49,9 @@ saa `id: null`.
 | `auth` | ei | Avaa istunto parituksessa saadulla tokenilla |
 | `device_status` | kyllä | Laitteen tiedot ja toteutetut ominaisuudet |
 | `unpair` | kyllä | Poistaa tämän sillan parituksen puhelimesta |
+| `packages.list` | kyllä | Valmiit paketit siirtoa varten |
+| `packages.read` | kyllä | Paketin tavut paloina |
+| `packages.delete` | kyllä | Poistaa paketin, jos tiiviste täsmää |
 | `bye` | ei | Lopettaa yhteyden siististi |
 
 Ennen `hello`-viestiä kaikki muut metodit palauttavat `HELLO_REQUIRED`.
@@ -110,7 +113,39 @@ katkaisee lisäksi avoimen yhteyden heti.
 ```
 
 `capabilities` listaa toteutetut metodit; silta ja agentti käyttävät sitä ominaisuuksien
-tunnistamiseen versionumeron sijaan. Vaihe A: `["device_status"]`.
+tunnistamiseen versionumeron sijaan. Nyt: `["device_status", "packages.list", "packages.read", "packages.delete"]`.
+
+### `packages.list`
+
+```json
+← {"id":5,"result":{"packages":[
+    {"package_id":"evidence:6f1c…","kind":"screenshot","size":482113,"sha256":"3f9a…","created_at":"2026-10-03T14:30:15Z"},
+    {"package_id":"meeting:0b2b…","kind":"meeting","size":2210544,"sha256":"9f3e…","created_at":"2026-10-03T08:52:01Z"}
+  ]}}
+```
+
+Vain valmiit ZIPit: `.partial`-tiedostot ja keskeneräiset kuvausistunnot eivät näy.
+`package_id` on muotoa `evidence:<hakemisto>` tai `meeting:<hakemisto>`; muut muodot ja
+polkuosat hylätään (`PACKAGE_NOT_FOUND`). `sha256` lasketaan koko ZIPin tavuista.
+
+### `packages.read`
+
+```json
+→ {"id":6,"method":"packages.read","params":{"package_id":"evidence:6f1c…","offset":0,"length":262144}}
+← {"id":6,"result":{"offset":0,"data_base64":"UEsDB…","eof":false}}
+```
+
+`length` on 1–262144 (256 KiB), jotta base64-vastaus mahtuu 1 MiB:n riviin.
+
+### `packages.delete`
+
+```json
+→ {"id":9,"method":"packages.delete","params":{"package_id":"evidence:6f1c…","sha256":"3f9a…"}}
+← {"id":9,"result":{"deleted":true}}
+```
+
+Puhelin laskee tiivisteen uudelleen ja poistaa paketin koko hakemiston vain, jos se täsmää;
+muuten `PACKAGE_CHANGED`. Silta kutsuu tätä vasta, kun ZIP on tarkistettu ja tallennettu PC:lle.
 
 ### `unpair`
 
@@ -132,12 +167,15 @@ saman laitteen tokenin.
 | `PAIRING_TIMEOUT` | Käyttäjä ei vastannut 120 sekunnissa |
 | `PAIRING_BUSY` | Toinen paritus on jo kesken |
 | `BUSY` | Puhelin palvelee jo toista yhteyttä |
+| `PACKAGE_NOT_FOUND` | Tuntematon tai keskeneräinen paketti |
+| `PACKAGE_CHANGED` | Paketin tavut eivät vastaa annettua sha256:ta; ei poistettu |
 | `INTERNAL` | Odottamaton virhe puhelimessa |
 
 Sillan omat (ei protokollan) virheet MCP-asiakkaalle: `ADB_NOT_FOUND`, `NO_DEVICE`,
 `MULTIPLE_DEVICES`, `DEVICE_UNAUTHORIZED` (USB-vianmääritystä ei hyväksytty puhelimella),
 `DEVICE_OFFLINE`, `APP_NOT_LISTENING` (sovellus ei käynnissä tai USB-ohjaus pois päältä),
-`NOT_PAIRED`, `CONNECTION_LOST`.
+`NOT_PAIRED`, `CONNECTION_LOST`, `APP_TOO_OLD`, `PACKAGE_TRANSFER_MISMATCH` (siirretyt tavut eivät
+vastaa listausta), `PACKAGE_INVALID` (paketti ei läpäise tarkistusta), `PACKAGE_MISSING`.
 
 ## 5. Versiointi ja laajennukset
 
@@ -147,7 +185,6 @@ jos olemassa olevan metodin merkitys muuttuu. Vaiheiden B–F metodit (suunnitel
 - B: `browser.navigate`, `browser.observe`, `browser.click`, `browser.type`, `browser.back`, `browser.screenshot`
   — muuttavat komennot kantavat `request_id`:n; `command_status(request_id)` katkoksen jälkeen.
 - C: `browser.request_human`, `browser.resume`, `browser.end_session`
-- D: `packages.list`, `packages.read(package_id, offset, length)`, `packages.delete(package_id, sha256)`
 
 Puhelimen sisäiset metodinimet ovat pisteellisiä; MCP-työkalut käyttävät alaviivoja
 (`browser_navigate` jne.).

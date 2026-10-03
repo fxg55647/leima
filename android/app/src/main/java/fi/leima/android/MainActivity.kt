@@ -33,6 +33,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.exifinterface.media.ExifInterface
 import fi.leima.android.bridge.BridgeConnection
 import fi.leima.android.bridge.BridgeServer
+import fi.leima.android.bridge.PackageRepository
 import fi.leima.android.bridge.PairingPrompt
 import fi.leima.android.bridge.PairingStore
 import fi.leima.android.meeting.MeetingScreen
@@ -102,8 +103,7 @@ class MainActivity : ComponentActivity() {
         pairings = PairingStore(File(filesDir, "bridge/pairings.json"))
         if (getPreferences(MODE_PRIVATE).getBoolean(PREF_BRIDGE, false)) switchBridge(true)
         cameraAllowed = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        lastPackage = File(filesDir, "evidence").listFiles()?.map { File(it, "evidence.zip") }
-            ?.filter { it.isFile }?.maxByOrNull { it.lastModified() }
+        refreshLastPackage()
         setContent {
             MaterialTheme {
                 Column(Modifier.fillMaxSize().systemBarsPadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -301,9 +301,18 @@ class MainActivity : ComponentActivity() {
         bridgeEnabled = false
         if (!enabled) { status = "USB-ohjaus pois päältä."; return }
         runCatching {
-            BridgeServer { BridgeConnection(pairings, pairingPrompt, ::bridgeDeviceInfo, BuildConfig.VERSION_NAME) }.also { it.start() }
+            val packages = PackageRepository(filesDir)
+            BridgeServer {
+                BridgeConnection(pairings, pairingPrompt, ::bridgeDeviceInfo, BuildConfig.VERSION_NAME,
+                    packages = packages, onPackagesChanged = { runOnUiThread { refreshLastPackage() } })
+            }.also { it.start() }
         }.fold({ bridge = it; bridgeEnabled = true; status = "USB-ohjaus päällä. Vain paritettu PC voi ohjata puhelinta." },
             { status = "USB-ohjauksen käynnistys epäonnistui: ${it.localizedMessage}" })
+    }
+    /** Latest finished photo/screenshot package; changes when the USB bridge moves packages to the PC. */
+    private fun refreshLastPackage() {
+        lastPackage = File(filesDir, "evidence").listFiles()?.map { File(it, "evidence.zip") }
+            ?.filter { it.isFile }?.maxByOrNull { it.lastModified() }
     }
     private fun bridgeDeviceInfo(): JSONObject = JSONObject()
         .put("device", JSONObject().put("manufacturer", Build.MANUFACTURER).put("model", Build.MODEL)
