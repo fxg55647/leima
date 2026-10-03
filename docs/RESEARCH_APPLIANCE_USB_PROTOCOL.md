@@ -212,6 +212,15 @@ Jokainen tilaa muuttava komento päättää voimassa olevan havainnon.
 havainnon. `device_status.browser` sisältää `control` (`READY`, `RUNNING`,
 `HUMAN_ACTION_REQUIRED`, `CANCELLED`, `EXPIRED`) ja avoimen `handoff`-olion.
 `browser.observe` palauttaa lisäksi `human_action_hints` (heuristiset vihjeet).
+
+### Vientikäytäntö
+
+Jokaisessa selainvastauksessa on `export_policy` (`AGENT_READABLE` tai `LOCAL_ONLY`) ja
+tarvittaessa `content_withheld: true` sekä `secrets_redacted: <n>`. *local-only*-tilassa
+`url` on pelkkä origin, `title` ja `visible_text` puuttuvat, ja elementeistä puuttuvat `name`,
+`value` ja `href`. `browser.screenshot` palauttaa silloin virheen `CONTENT_WITHHELD`.
+`device_status.browser.export_policy_setting` kertoo puhelimen asetuksen (`AUTO`,
+`AGENT_READABLE`, `LOCAL_ONLY`). Protokollassa ei ole metodia asetuksen muuttamiseen.
 Elementin kentät: `element_id`, `role`, `name`, `enabled`, `in_viewport`, linkeillä `href`,
 kentillä `input_type` ja `value` (enintään 200 merkkiä) tai salaisilla kentillä `sensitive: true`
 ja `has_value`, valintaruuduilla `checked`. Enintään 300 elementtiä ja 50 000 merkkiä tekstiä;
@@ -258,6 +267,7 @@ saman laitteen tokenin.
 | `NO_HANDOFF` | Annettua `handoff_id`:tä ei ole auki |
 | `SESSION_CANCELLED` | Ihminen keskeytti agentin; vain puhelimen Salli agentti palauttaa ohjauksen |
 | `HANDOFF_EXPIRED` | Luovutus vanheni vastaamatta; agentti pysäytetty kuten yllä |
+| `CONTENT_WITHHELD` | Sivu on *local-only*; sisältöä (kuvakaappausta) ei viedä |
 | `INTERNAL` | Odottamaton virhe puhelimessa |
 
 Sillan omat (ei protokollan) virheet MCP-asiakkaalle: `ADB_NOT_FOUND`, `NO_DEVICE`,

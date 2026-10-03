@@ -127,7 +127,12 @@ class BridgeConnection(
         }
     }
 
+    /** Every browser result passes the phone's export policy before it leaves the device. */
     private fun browserCommand(browser: BrowserController, method: String, params: JSONObject): JSONObject {
+        return browser.exportView(browserResult(browser, method, params))
+    }
+
+    private fun browserResult(browser: BrowserController, method: String, params: JSONObject): JSONObject {
         return when (method) {
             "browser.navigate" -> browser.navigate(params)
             "browser.observe" -> browser.observe()

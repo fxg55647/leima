@@ -35,7 +35,7 @@ data class Handoff(
         .put("completed_on_phone", completed)
 }
 
-data class ControlSnapshot(val state: ControlState, val sessionId: String, val handoff: Handoff?)
+data class ControlSnapshot(val state: ControlState, val sessionId: String, val handoff: Handoff?, val exportPolicy: ExportPolicy)
 
 /**
  * The phone's WebView as seen by [BrowserController]. Implementations block the calling (bridge)
@@ -81,7 +81,13 @@ class BrowserController(
     private val elapsedNanos: () -> Long = System::nanoTime,
     private val onActivity: (String) -> Unit = {},
     private val onControlChanged: (ControlSnapshot) -> Unit = {},
+    private val privateOrigins: PrivateOriginStore? = null,
+    initialExportPolicy: ExportPolicy = ExportPolicy.AUTO,
 ) {
+    /** Set by the person on the phone; the agent cannot change it. */
+    @Volatile var exportPolicy: ExportPolicy = initialExportPolicy
+        set(value) { field = value; changed() }
+
     @Volatile var sessionId = "bs_" + token(12)
         private set
     /**
@@ -109,8 +115,30 @@ class BrowserController(
             { JSONObject().put("state", "AVAILABLE").put("url", it.url) },
             { JSONObject().put("state", "NOT_AVAILABLE") },
         )
-        return base.put("session_id", snap.sessionId).put("control", snap.state.name)
+        val url = base.opt("url") as? String
+        val local = url != null && isLocalOnly(url)
+        return ExportFilter.apply(base.put("session_id", snap.sessionId).put("control", snap.state.name)
             .put("handoff", snap.handoff?.toJson() ?: JSONObject.NULL)
+            .put("export_policy_setting", exportPolicy.name), local)
+    }
+
+    /** Whether page content of [url] stays on the phone under the current setting. Safe on any thread. */
+    fun isLocalOnly(url: String): Boolean = when (exportPolicy) {
+        ExportPolicy.LOCAL_ONLY -> true
+        ExportPolicy.AGENT_READABLE -> false
+        ExportPolicy.AUTO -> privateOrigins?.contains(ExportFilter.originOf(url)) == true
+    }
+
+    /**
+     * Filters a browser result for export to the agent. Local-only applies if either the page the
+     * result describes or the page now shown is local-only.
+     */
+    fun exportView(result: JSONObject): JSONObject {
+        val current = runCatching { host.state().url }.getOrNull()
+        val described = (result.opt("url") as? String) ?: (result.optJSONObject("observation")?.opt("url") as? String)
+            ?: (result.optJSONObject("result")?.opt("url") as? String)
+        val local = listOfNotNull(current, described).any(::isLocalOnly) || exportPolicy == ExportPolicy.LOCAL_ONLY
+        return ExportFilter.apply(result, local)
     }
 
     fun snapshot(): ControlSnapshot = synchronized(control) {
@@ -120,7 +148,7 @@ class BrowserController(
             running.get() != null -> ControlState.RUNNING
             else -> ControlState.READY
         }
-        ControlSnapshot(state, sessionId, handoff)
+        ControlSnapshot(state, sessionId, handoff, exportPolicy)
     }
 
     fun observe(): JSONObject {
@@ -178,6 +206,9 @@ class BrowserController(
 
     fun screenshot(): JSONObject {
         ensureAgentAllowed()
+        if (exportPolicy == ExportPolicy.LOCAL_ONLY || isLocalOnly(host.state().url)) {
+            throw ProtocolError("CONTENT_WITHHELD", "This page is local-only on the phone; screenshots are not exported. browser_capture still stores it on the phone.")
+        }
         return screenshotNow()
     }
 
@@ -274,12 +305,18 @@ class BrowserController(
         changed()
     }
 
-    /** Phone: Jatka. */
-    fun personContinue() {
-        synchronized(control) {
-            handoff = handoff?.copy(completed = true) ?: return
+    /**
+     * Phone: Jatka. [pageUrl] is the page shown when the person pressed it: after a login, MFA or
+     * the person's own control its origin becomes local-only under [ExportPolicy.AUTO].
+     */
+    fun personContinue(pageUrl: String? = null) {
+        val reason = synchronized(control) {
+            val open = handoff ?: return
+            handoff = open.copy(completed = true)
             control.notifyAll()
+            open.reason
         }
+        if (reason in PRIVATE_AFTER && pageUrl != null) privateOrigins?.add(ExportFilter.originOf(pageUrl))
         changed()
     }
 
@@ -493,6 +530,8 @@ class BrowserController(
         const val MAX_RESUME_WAIT_S = 120L
         const val MAX_TASK_CHARS = 300
         val HANDOFF_REASONS = setOf("LOGIN", "MFA", "CAPTCHA", "CONFIRMATION", "OTHER")
+        /** Handoffs after which the page's origin is treated as logged in. */
+        private val PRIVATE_AFTER = setOf("LOGIN", "MFA", "PERSON_TOOK_CONTROL")
         val METHODS = listOf("browser.navigate", "browser.observe", "browser.click", "browser.type",
             "browser.back", "browser.screenshot", "browser.capture", "command_status",
             "browser.request_human", "browser.resume", "browser.end_session")

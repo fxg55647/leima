@@ -1,7 +1,7 @@
 # Leima Research Appliance — arkkitehtuuri
 
 Tila: suunnitelma hyväksytty. Vaiheet A (USB-silta, paritus, `device_status`), D (pakettien
-siirto PC:lle ja arkisto), B (selainohjaus ja selain-capture) ja C (ihmiselle luovutus) toteutettu.
+siirto PC:lle ja arkisto), B (selainohjaus ja selain-capture), C (ihmiselle luovutus) ja E (vientikäytännöt) toteutettu.
 Muut vaiheet ovat tässä dokumentissa sopimuksena, eivät vielä koodina.
 
 Liittyvät dokumentit:
@@ -91,8 +91,8 @@ poistamiseen. MCP-työkalut eivät koskaan välitä mielivaltaisia komentoja ADB
 | D | Yhteinen pakettimanifesti, `package_verify`, pakettien siirto PC:lle ja poisto puhelimesta | toteutettu |
 | B | Selainohjaus: `browser_navigate`, `browser_observe`, `browser_click`, `browser_type`, `browser_back`, `browser_screenshot`, `browser_capture` | toteutettu |
 | C | Ihmiselle luovutus: tilakone ja puhelimen ohjauspaneeli | toteutettu |
-| E | Vientikäytännöt (agent-readable / local-only), lokien rajaus, salaisuuksien peitto | seuraava |
-| F | Leima-liitos: uusi provenance `device_captured`, leimaus vain hasheista | |
+| E | Vientikäytännöt (agent-readable / local-only), lokien rajaus, salaisuuksien peitto | toteutettu |
+| F | Leima-liitos: uusi provenance `device_captured`, leimaus vain hasheista | seuraava |
 
 Järjestys poikkeaa alkuperäisestä A–F:stä: siirto PC:lle (D) tehdään heti A:n jälkeen, koska se
 käyttää samaa kanavaa ja hyödyttää heti myös nykyisiä kuva- ja meeting-paketteja.
@@ -147,8 +147,7 @@ saman `request_id`:n toistolle tallennetun lopputuloksen eikä tee toimintoa kah
 - **Saatavuus**: agentti voi käyttää selainta vain, kun Selain-välilehti on näkyvissä, sovellus
   on etualalla eikä ihminen ole kesken omaa tallennustaan (`BROWSER_UNAVAILABLE`). Puhelimen
   tilarivi näyttää, mitä agentti viimeksi teki.
-- **Vientikäytäntö**: vaiheessa B kaikki on *agent-readable*: `browser_observe` palauttaa sivun
-  tekstin MCP-asiakkaalle. *local-only*-tila tulee vaiheessa E.
+- **Vientikäytäntö**: mitä sivun sisältöä agentti saa, ratkaisee puhelimen asetus (luku 6).
 - **Kirjautuminen**: ihminen kirjautuu puhelimella itse luovutuksen aikana (ks. 4c).
 
 ## 4c. Ihmiselle luovutus (vaihe C)
@@ -206,18 +205,81 @@ Puhelimen capture ei koskaan saa provenance-arvoa `fetched_by_leima`, koska Leim
 hakenut lähdettä. Vaiheessa F lisätään arvo `device_captured` nykyisten `fetched_by_leima` ja
 `agent_supplied` rinnalle.
 
-## 6. Tietosuoja (vaihe E, periaatteet sovittu jo nyt)
+## 6. Tietosuoja ja vientikäytännöt (vaihe E)
 
-- **local-only** on oletus kirjautumista vaativille sivuille: MCP-vastauksiin ei palauteta
-  sivun tekstiä, DOM:ia eikä kuvia, vain sallittu metadata ja hashit.
-- **agent-readable**: teksti ja kuvat palautetaan MCP-asiakkaalle. Jos asiakas käyttää
-  pilvimallia (esim. Claude Desktop), sisältö siirtyy pilvipalveluun.
-- Evästeet, bearer-tokenit ja salasanakenttien arvot eivät koskaan päädy havaintoihin,
-  lokeihin eikä manifesteihin.
-- Paketit tallennetaan sovelluksen yksityiseen tallennustilaan; Androidin automaattinen
-  varmuuskopiointi on pois päältä (`allowBackup="false"`).
-- PC:n arkisto on repon alla `evidence/`-kansiossa, joka on gitignoroitu. Jos repo-kansio
-  synkronoituu pilveen (OneDrive tms.), paketit synkronoituvat mukana.
+Toteutus: Android `bridge/ExportPolicy.kt` (`ExportFilter`, `SecretScrubber`),
+`bridge/PrivateOriginStore.kt`, `BrowserController.exportView`; PC `bridge/mcp_stdio.py`
+(`enforce_local_only`). Testit: `ExportPolicyTest.kt`, `tests/test_bridge_browser.py`.
+
+### Kuka päättää
+
+Vientikäytännön valitsee **ihminen puhelimessa** (Selain → Tietosuoja). Agentilla ei ole työkalua
+sen muuttamiseen. Valinta tallentuu sovelluksen asetuksiin.
+
+| Asetus | Merkitys |
+|---|---|
+| **Automaattinen** (oletus) | Sivusto (origin), jolla ihminen on kirjautunut tai ottanut ohjauksen, on *local-only*; muut *agent-readable* |
+| **Agentti näkee sivujen sisällön** | Kaikki *agent-readable* |
+| **Sisältö jää aina puhelimeen** | Kaikki *local-only* |
+
+Automaattisessa tilassa sivusto merkitään yksityiseksi, kun luovutus syystä `LOGIN`, `MFA` tai
+"ihminen otti ohjauksen" päättyy Jatka-painikkeeseen; merkitään se sivu, joka on auki Jatkaa
+painettaessa. Merkinnät säilyvät puhelimessa (`files/bridge/private-origins.json`), koska WebViewn
+evästeet säilyvät myös istunnon ja sovelluksen uudelleenkäynnistyksen yli: agentti ei saa sisältöä
+takaisin aloittamalla uutta istuntoa. Vain ihminen poistaa merkinnät painikkeella **Unohda
+kirjautumiset**, joka samalla tyhjentää näkyvän sivun, välimuistin, historian, evästeet ja
+sivustojen tallennustilan. CAPTCHA- tai vahvistusluovutus ei merkitse sivustoa yksityiseksi.
+
+### Mitä lähtee puhelimesta
+
+Jokainen selainvastaus kulkee `ExportFilter`in läpi ennen kuin se lähtee puhelimesta, myös
+`command_status`-vastauksen ja `browser.resume`-havainnon sisäkkäiset tulokset. Vastauksessa on
+aina `export_policy`.
+
+| | *agent-readable* | *local-only* |
+|---|---|---|
+| URL | koko osoite, fragmentti pois, salaisen nimiset kyselyparametrit `REDACTED` | vain origin (`https://pankki.fi`) |
+| Otsikko, `visible_text` | kyllä, tunnistetut salaisuudet pyyhitty | ei (`content_withheld: true`) |
+| Elementit | id, rooli, nimi, arvo, linkki (pyyhitty) | vain id, rooli, tila (`enabled`, `in_viewport`, `input_type`, `sensitive`) |
+| Kuvakaappaus | peitetty PNG | ei (`CONTENT_WITHHELD`) |
+| Capture, siirto, hashit | kyllä | kyllä (paketti jää puhelimeen ja PC:n arkistoon, sisältö ei mene agentille) |
+
+*local-only*-tilassa sisältöä lukeva navigointi vaatii ihmisen; agentti voi silti klikata
+elementtejä tunnisteilla, tallentaa sivun ja siirtää paketin.
+
+Silta tekee saman rajauksen vielä kerran (`enforce_local_only`): jos puhelin merkitsee vastauksen
+*local-only*:ksi, sisältökentät poistetaan, vaikka vanhempi tai virheellinen sovellus lähettäisi niitä.
+
+`SecretScrubber` pyyhkii agentille menevästä tekstistä yksityiset avaimet (PEM), JWT:t,
+`Bearer`-tunnisteet, yleiset API-avaimet (`sk-…`, GitHub, Slack, Google) ja AWS-avaintunnisteet.
+Tunnistus perustuu malleihin eikä löydä kaikkia salaisuuksia; lukumäärä näkyy kentässä
+`secrets_redacted`. Salasana- ja kertakoodikenttien käsittely: ks. luku 4b.
+
+Huomioi: *agent-readable*-tilassa sisältö menee MCP-asiakkaalle ja pilvimallia käyttävän
+asiakkaan (esim. Claude Desktop) kautta sen palveluntarjoajalle. Myös URL, otsikko ja myöhemmin
+väite ja verdict voivat olla yksityistä tietoa.
+
+### Lokit
+
+- Android kirjaa (`Log`, tagi `LeimaBridge`) vain hylätyn yhteyden UID:n ja yhteysvirheiden
+  syyn. Pyyntöjä, vastauksia, URL-osoitteita, tokeneita tai sivun sisältöä ei kirjata.
+- Puhelimen tilarivi näyttää vain agentin toiminnon ja verkkotunnuksen.
+- Silta ei kirjoita lokia. CLI tulostaa vain laitteen tiedot, arkistopolut ja virhekoodit.
+- `index.jsonl` sisältää tiivisteen, lajin, polun, ajan, verkkotunnuksen ja laitemallin, ei sisältöä.
+- Evästeitä, `Authorization`-otsakkeita tai salasanoja ei lueta lainkaan.
+
+### Tallennus ja varmuuskopiot
+
+- Puhelimessa paketit ovat sovelluksen yksityisessä tallennustilassa. Android salaa sen
+  laitekohtaisesti (file-based encryption), mutta sovellus ei salaa paketteja erikseen.
+  Androidin automaattinen varmuuskopiointi on pois päältä (`allowBackup="false"`), joten paketit
+  eivät siirry Googlen varmuuskopioon.
+- Paritustiedot (vain token-tiivisteet) ja yksityisten sivustojen lista ovat samassa tilassa.
+- PC:llä arkisto `evidence/` on salaamaton ja gitignoroitu. Jos repo-kansio synkronoituu pilveen
+  (OneDrive tms.), paketit synkronoituvat mukana. `bridge.json` (paritustokenit) on
+  `%APPDATA%\Leima\`-kansiossa.
+- **Ennen arkaluonteista tuotantokäyttöä** tarvitaan pakettien sovellustason salaus puhelimessa
+  (Android Keystore) ja PC-arkiston salaus (esim. BitLocker tai salattu arkistokansio).
 
 ## 7. Käyttöönotto Windowsilla (vaihe A)
 

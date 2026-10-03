@@ -190,3 +190,24 @@ def test_handoff_tools_are_listed():
     assert tools["browser_request_human"]["inputSchema"]["properties"]["reason"]["enum"] == ["LOGIN", "MFA", "CAPTCHA", "CONFIRMATION", "OTHER"]
     assert tools["browser_resume"]["inputSchema"]["required"] == ["handoff_id"]
     assert "browser_end_session" in tools
+
+
+def test_bridge_strips_content_when_phone_says_local_only():
+    leaky = {"export_policy": "LOCAL_ONLY", "url": "https://bank.example", "visible_text": "Saldo", "title": "Tili",
+             "elements": [{"element_id": "el_1", "role": "link", "name": "Tiliote", "href": "https://bank.example/x"}],
+             "observation": {"visible_text": "nested"}}
+    out = mcp_stdio.enforce_local_only(leaky)
+    assert "Saldo" not in json.dumps(out) and "Tiliote" not in json.dumps(out) and "nested" not in json.dumps(out)
+    assert out["content_withheld"] and out["elements"] == [{"element_id": "el_1", "role": "link"}]
+    readable = {"export_policy": "AGENT_READABLE", "visible_text": "Uutinen"}
+    assert mcp_stdio.enforce_local_only(dict(readable)) == readable
+
+
+def test_local_only_screenshot_never_returns_an_image(monkeypatch):
+    answers = [{"export_policy": "LOCAL_ONLY", "url": "https://bank.example", "png_base64": "iVBOR"}]
+    monkeypatch.setattr(mcp_stdio, "session", lambda *a: sessions(ScriptedClient([], answers))())
+    response = _serve([{"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                        "params": {"name": "browser_screenshot", "arguments": {}}}],
+                      mcp_stdio.make_call_tool(lambda: None, lambda: None))[0]
+    assert response["result"]["isError"] and "CONTENT_WITHHELD" in response["result"]["content"][0]["text"]
+    assert "iVBOR" not in json.dumps(response)

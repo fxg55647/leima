@@ -30,6 +30,10 @@ INSTRUCTIONS = (
     "browser_request_human, tell the person what to do, then browser_resume with wait_s to continue "
     "after they press Jatka on the phone. The person can take control or stop the agent at any time; "
     "HUMAN_ACTION_PENDING, SESSION_CANCELLED and HANDOFF_EXPIRED mean the person is in charge. "
+    "The person also decides on the phone what page content you receive: every browser result carries "
+    "export_policy; under LOCAL_ONLY you get structure, the URL's origin and hashes but no text, names, "
+    "links or screenshots (content_withheld, CONTENT_WITHHELD). Do not try to work around it; ask the "
+    "person instead. "
     "browser_capture stores the page "
     "as an evidence package on the phone; packages_sync moves it to the PC archive. A capture is the "
     "phone's record of what it rendered, not the server's original response and not proof of truth."
@@ -177,6 +181,27 @@ BROWSER_TOOLS = [
 ]
 
 TOOLS = [DEVICE_STATUS_TOOL, PACKAGES_LIST_TOOL, PACKAGES_SYNC_TOOL, PACKAGE_VERIFY_TOOL, *BROWSER_TOOLS]
+
+_CONTENT_KEYS = ("visible_text", "title", "png_base64")
+_ELEMENT_CONTENT_KEYS = ("name", "value", "href")
+
+
+def enforce_local_only(result: dict) -> dict:
+    """Second line of defence behind the phone's own export filter: a result the phone marks
+    LOCAL_ONLY never carries page content to the MCP client, even from a buggy or older app."""
+    if result.get("export_policy") != "LOCAL_ONLY":
+        return result
+    for key in _CONTENT_KEYS:
+        if result.pop(key, None) is not None:
+            result["content_withheld"] = True
+    for element in result.get("elements") or []:
+        for key in _ELEMENT_CONTENT_KEYS:
+            element.pop(key, None)
+    for nested in ("observation", "result"):
+        if isinstance(result.get(nested), dict):
+            result[nested]["export_policy"] = "LOCAL_ONLY"
+            enforce_local_only(result[nested])
+    return result
 _BROWSER_TOOL_NAMES = {t["name"] for t in BROWSER_TOOLS}
 
 
@@ -199,9 +224,11 @@ def make_call_tool(adb_factory: Callable[[], Adb] = Adb, config_factory: Callabl
             if name in _BROWSER_TOOL_NAMES:
                 serial = arguments.get("serial")
                 params = {k: v for k, v in arguments.items() if k != "serial"}
-                result = run_command(lambda: session(adb_factory(), config_factory(), serial),
-                                     "browser." + name.removeprefix("browser_"), params)
+                result = enforce_local_only(run_command(lambda: session(adb_factory(), config_factory(), serial),
+                                                        "browser." + name.removeprefix("browser_"), params))
                 if name == "browser_screenshot":
+                    if "png_base64" not in result:
+                        raise ToolError("CONTENT_WITHHELD: this page is local-only on the phone")
                     image = result.pop("png_base64")
                     return ToolResult(result, [{"type": "image", "data": image, "mimeType": "image/png"}])
                 return result

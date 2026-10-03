@@ -11,7 +11,9 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.PixelCopy
+import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
@@ -35,10 +37,12 @@ import fi.leima.android.bridge.BridgeConnection
 import fi.leima.android.bridge.BrowserController
 import fi.leima.android.bridge.ControlSnapshot
 import fi.leima.android.bridge.ControlState
+import fi.leima.android.bridge.ExportPolicy
 import fi.leima.android.bridge.BridgeServer
 import fi.leima.android.bridge.PackageRepository
 import fi.leima.android.bridge.PairingPrompt
 import fi.leima.android.bridge.PairingStore
+import fi.leima.android.bridge.PrivateOriginStore
 import fi.leima.android.bridge.WebViewBrowserHost
 import fi.leima.android.meeting.MeetingScreen
 import org.json.JSONObject
@@ -68,6 +72,7 @@ class MainActivity : ComponentActivity() {
     private var pageFinished = false
     private var pendingScreenshot by mutableStateOf<PendingScreenshot?>(null)
     private lateinit var pairings: PairingStore
+    private lateinit var privateOrigins: PrivateOriginStore
     private val pairingPrompt = PairingPrompt()
     private var bridge: BridgeServer? = null
     private var browserControl by mutableStateOf<BrowserController?>(null)
@@ -109,6 +114,7 @@ class MainActivity : ComponentActivity() {
         recorder = SensorRecorder(this)
         store = EvidenceStore(this)
         pairings = PairingStore(File(filesDir, "bridge/pairings.json"))
+        privateOrigins = PrivateOriginStore(File(filesDir, "bridge/private-origins.json"))
         if (getPreferences(MODE_PRIVATE).getBoolean(PREF_BRIDGE, false)) switchBridge(true)
         cameraAllowed = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         refreshLastPackage()
@@ -223,7 +229,7 @@ class MainActivity : ComponentActivity() {
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (handoff?.completed != true) Button(onClick = agent::personContinue) { Text("Jatka") }
+                        if (handoff?.completed != true) Button(onClick = { agent.personContinue(web?.url) }) { Text("Jatka") }
                         OutlinedButton(onClick = agent::personCancel) { Text("Keskeytä agentti") }
                     }
                 }
@@ -240,6 +246,54 @@ class MainActivity : ComponentActivity() {
                 TextButton(onClick = agent::personTakeControl) { Text("Ota ohjaus") }
             }
         }
+        ExportPolicyPanel(agent, snap.exportPolicy)
+    }
+
+    /** Phase E: what page content the agent may receive. Only the person changes this. */
+    @Composable private fun ExportPolicyPanel(agent: BrowserController, policy: ExportPolicy) {
+        var open by remember { mutableStateOf(false) }
+        val localOnly = agent.isLocalOnly(address)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (localOnly) "Tämä sivu: sisältö jää puhelimeen." else "Tämä sivu: agentti näkee sisällön.",
+                style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { open = !open }) { Text(if (open) "Sulje" else "Tietosuoja") }
+        }
+        if (open) {
+            listOf(
+                ExportPolicy.AUTO to "Automaattinen: kirjautumisen jälkeen sivuston sisältö jää puhelimeen",
+                ExportPolicy.AGENT_READABLE to "Agentti näkee sivujen sisällön",
+                ExportPolicy.LOCAL_ONLY to "Sisältö jää aina puhelimeen",
+            ).forEach { (option, label) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = policy == option, onClick = { setExportPolicy(agent, option) })
+                    Text(label, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            TextButton(onClick = { forgetLogins() }) { Text("Unohda kirjautumiset (poistaa selaimen evästeet)") }
+        }
+    }
+
+    private fun savedExportPolicy(): ExportPolicy =
+        runCatching { ExportPolicy.valueOf(getPreferences(MODE_PRIVATE).getString(PREF_EXPORT, null)!!) }.getOrDefault(ExportPolicy.AUTO)
+
+    private fun setExportPolicy(agent: BrowserController, policy: ExportPolicy) {
+        getPreferences(MODE_PRIVATE).edit().putString(PREF_EXPORT, policy.name).apply()
+        agent.exportPolicy = policy
+    }
+
+    /**
+     * Logs the browser out everywhere: cookies, site storage, cache and history go, and so do the
+     * AUTO markers. The shown page is unloaded first, so a private page that is still on screen does
+     * not become agent-readable once its marker is gone.
+     */
+    private fun forgetLogins() {
+        web?.apply { loadUrl("about:blank"); clearHistory(); clearCache(true) }
+        CookieManager.getInstance().removeAllCookies(null)
+        WebStorage.getInstance().deleteAllData()
+        privateOrigins.clear()
+        status = "Kirjautumiset ja selaimen evästeet poistettu."
     }
 
     private fun handoffReasonLabel(reason: String) = when (reason) {
@@ -367,7 +421,9 @@ class MainActivity : ComponentActivity() {
             val packages = PackageRepository(filesDir)
             val browser = BrowserController(browserHost(), File(filesDir, "evidence"),
                 onActivity = { action -> runOnUiThread { status = "USB-agentti $action." } },
-                onControlChanged = { snap -> runOnUiThread { control = snap } })
+                onControlChanged = { snap -> runOnUiThread { control = snap } },
+                privateOrigins = privateOrigins,
+                initialExportPolicy = savedExportPolicy())
             browserControl = browser
             control = browser.snapshot()
             BridgeServer {
@@ -413,5 +469,8 @@ class MainActivity : ComponentActivity() {
     }
     override fun onDestroy() { bridge?.stop(); io.shutdown(); super.onDestroy() }
 
-    private companion object { const val PREF_BRIDGE = "usbBridgeEnabled" }
+    private companion object {
+        const val PREF_BRIDGE = "usbBridgeEnabled"
+        const val PREF_EXPORT = "agentExportPolicy"
+    }
 }

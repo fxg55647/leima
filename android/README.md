@@ -80,6 +80,10 @@ sovellus on taustalla. Salasana- ja kertakoodikentät täyttää aina ihminen.
 Selain-välilehden ohjauspaneelista ihminen voi milloin tahansa **ottaa ohjauksen**, vastata agentin
 avunpyyntöön (**Jatka**) tai **keskeyttää agentin**. Luovutuksen aikana agentti ei voi lukea eikä
 ohjata selainta. Keskeytyksen jälkeen agentti pääsee takaisin vain **Salli agentti** -painikkeella.
+
+**Tietosuoja**-valinnasta ihminen päättää, näkeekö agentti sivujen sisällön. Oletuksena
+(Automaattinen) sivuston sisältö jää puhelimeen sen jälkeen, kun ihminen on kirjautunut sinne.
+**Unohda kirjautumiset** poistaa merkinnät, evästeet, historian ja välimuistin.
 Arkkitehtuuri ja protokolla:
 [`docs/RESEARCH_APPLIANCE_ARCHITECTURE.md`](../docs/RESEARCH_APPLIANCE_ARCHITECTURE.md).
 
