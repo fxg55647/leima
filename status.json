@@ -1,18 +1,18 @@
 {
   "ok": true,
   "rapid_deploy_warning": false,
-  "deployment_ok": false,
+  "deployment_ok": true,
   "github_commit_unknown": false,
   "github_commit_http_status": 200,
-  "vercel_deployed_commit": "80dc180299c1099a1f41b39fc2a1866fb7b54afc",
-  "vercel_deploying": true,
-  "vercel_service_url": "https://leima-9l7cjrnry-teemu-lantta-s-projects.vercel.app",
-  "vercel_source_ok": true,
+  "vercel_deployed_commit": "4f0f51e7a93670b856ec3932dc37a252f4620716",
+  "vercel_deploying": false,
+  "vercel_service_url": "https://leima-3slcokaha-teemu-lantta-s-projects.vercel.app",
+  "vercel_source_ok": null,
   "vercel_source_mismatches": [],
   "review_ok": true,
   "review_consecutive_failures": 0,
   "review_stuck": false,
-  "deploying_commit_ok": true,
+  "deploying_commit_ok": false,
   "expected_commit": "4f0f51e7a93670b856ec3932dc37a252f4620716",
   "review_conclusion": "success",
   "cron_fresh": true,
@@ -24,12 +24,12 @@
     "scanned_deploys": 20,
     "last_mismatch_at": null,
     "last_mismatch_commit": null,
-    "clean_since": "2026-06-04T01:54:17.105000+00:00",
-    "deploys_last_hour": 0
+    "clean_since": "2026-06-04T01:57:53.927000+00:00",
+    "deploys_last_hour": 1
   },
   "repo": "fxg55647/leima",
   "branch": "main",
-  "checked_at": "2026-10-03 22:03:34 UTC",
+  "checked_at": "2026-10-03 22:05:37 UTC",
   "monitor_files": {
     ".github/workflows/tread.yml": "84fcea4afdff876494d9577bd76d69fa75e2dce2deb966050139c73eb70e95c0",
     ".github/workflows/monthly-audit.yml": "05b3b6d6a2c1ff304e3815b6bafce8496a842283da855f14b46ac821e88d79b3",
@@ -40,6 +40,6 @@
     "code_review.py": "0e95520a00329f097d238fccfca6b15825ce8fd36110698175a1fce220bb27be",
     "POLICY.example.md": "6d90f6c32317783a5e5976a754d57d68935179113090b71b0bc03658e812006e"
   },
-  "actions_run_id": "37157116791",
-  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/37157116791"
+  "actions_run_id": "37157229382",
+  "actions_run_url": "https://github.com/fxg55647/leima/actions/runs/37157229382"
 }
