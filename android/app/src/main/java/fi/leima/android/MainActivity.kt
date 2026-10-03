@@ -33,6 +33,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.exifinterface.media.ExifInterface
 import fi.leima.android.bridge.BridgeConnection
 import fi.leima.android.bridge.BrowserController
+import fi.leima.android.bridge.ControlSnapshot
+import fi.leima.android.bridge.ControlState
 import fi.leima.android.bridge.BridgeServer
 import fi.leima.android.bridge.PackageRepository
 import fi.leima.android.bridge.PairingPrompt
@@ -43,6 +45,7 @@ import org.json.JSONObject
 import java.io.File
 import java.time.Instant
 import java.util.concurrent.Executors
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private lateinit var recorder: SensorRecorder
@@ -67,6 +70,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var pairings: PairingStore
     private val pairingPrompt = PairingPrompt()
     private var bridge: BridgeServer? = null
+    private var browserControl by mutableStateOf<BrowserController?>(null)
+    private var control by mutableStateOf<ControlSnapshot?>(null)
     private var bridgeEnabled by mutableStateOf(false)
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         cameraAllowed = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -137,6 +142,9 @@ class MainActivity : ComponentActivity() {
                                 if (safeUrl(candidate)) web?.loadUrl(candidate) else status = "Anna kelvollinen HTTPS-osoite."
                             }) { Text("Avaa") }
                         }
+                        val agent = browserControl
+                        val snap = control
+                        if (agent != null && snap != null) AgentControlPanel(agent, snap)
                     }
                     if (meetingMode) {
                         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -191,6 +199,55 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** Phase C handoff panel: who controls the browser, and the person's Jatka / Keskeytä / Ota ohjaus. */
+    @Composable private fun AgentControlPanel(agent: BrowserController, snap: ControlSnapshot) {
+        val handoff = snap.handoff
+        LaunchedEffect(handoff?.id, handoff?.completed) {
+            while (handoff != null && !handoff.completed) { delay(5_000); agent.refreshExpiry() }
+        }
+        when (snap.state) {
+            ControlState.HUMAN_ACTION_REQUIRED -> Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (handoff?.requestedBy == "agent") {
+                        Text("Agentti pyytää apuasi: ${handoffReasonLabel(handoff.reason)}", style = MaterialTheme.typography.titleSmall)
+                        // Agent-written text: shown as a quote so it is not mistaken for the app's own instruction.
+                        if (handoff.task.isNotBlank()) Text("Agentin viesti: “${handoff.task}”", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Text("Sinulla on selaimen ohjaus.", style = MaterialTheme.typography.titleSmall)
+                    }
+                    Text(
+                        if (handoff?.completed == true) "Odotetaan, että agentti jatkaa."
+                        else "Agentti ei voi lukea eikä ohjata selainta ennen kuin painat Jatka.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (handoff?.completed != true) Button(onClick = agent::personContinue) { Text("Jatka") }
+                        OutlinedButton(onClick = agent::personCancel) { Text("Keskeytä agentti") }
+                    }
+                }
+            }
+            ControlState.CANCELLED, ControlState.EXPIRED -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (snap.state == ControlState.CANCELLED) "Agentin ohjaus keskeytetty." else "Avunpyyntö vanheni; agentin ohjaus pysäytetty.",
+                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = agent::personAllowAgain) { Text("Salli agentti") }
+            }
+            else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("USB-agentti voi ohjata selainta.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                TextButton(onClick = agent::personTakeControl) { Text("Ota ohjaus") }
+            }
+        }
+    }
+
+    private fun handoffReasonLabel(reason: String) = when (reason) {
+        "LOGIN" -> "kirjautuminen"
+        "MFA" -> "vahva tunnistautuminen"
+        "CAPTCHA" -> "CAPTCHA-tarkistus"
+        "CONFIRMATION" -> "vahvistus"
+        else -> "muu toimenpide"
     }
 
     @Composable private fun BrowserSurface() {
@@ -303,11 +360,16 @@ class MainActivity : ComponentActivity() {
         bridge?.stop()
         bridge = null
         bridgeEnabled = false
+        browserControl = null
+        control = null
         if (!enabled) { status = "USB-ohjaus pois päältä."; return }
         runCatching {
             val packages = PackageRepository(filesDir)
             val browser = BrowserController(browserHost(), File(filesDir, "evidence"),
-                onActivity = { action -> runOnUiThread { status = "USB-agentti $action." } })
+                onActivity = { action -> runOnUiThread { status = "USB-agentti $action." } },
+                onControlChanged = { snap -> runOnUiThread { control = snap } })
+            browserControl = browser
+            control = browser.snapshot()
             BridgeServer {
                 BridgeConnection(pairings, pairingPrompt, ::bridgeDeviceInfo, BuildConfig.VERSION_NAME,
                     packages = packages, onPackagesChanged = { runOnUiThread { refreshLastPackage() } }, browser = browser)

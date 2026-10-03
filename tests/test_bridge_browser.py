@@ -158,3 +158,35 @@ def test_browser_packages_verify_and_archive(tmp_path):
 def test_inconsistent_browser_packages_are_rejected(data):
     with pytest.raises(ValueError):
         verify(io.BytesIO(data))
+
+
+class TimeoutRecorder:
+    def __init__(self):
+        self.calls = []
+
+    def request(self, method, params=None, timeout=None):
+        self.calls.append((method, dict(params or {}), timeout))
+        return {"ok": True}
+
+
+def test_handoff_commands_use_request_id_and_long_wait():
+    rec = TimeoutRecorder()
+
+    @contextmanager
+    def open_session():
+        yield Device("S", "device"), rec
+
+    run_command(open_session, "browser.request_human", {"reason": "LOGIN", "task": "Kirjaudu"})
+    run_command(open_session, "browser.resume", {"handoff_id": "ho_1", "wait_s": 120})
+    run_command(open_session, "browser.end_session")
+    (m1, p1, _), (m2, p2, t2), (m3, p3, _) = rec.calls
+    assert m1 == "browser.request_human" and p1["request_id"].startswith("r_")
+    assert m2 == "browser.resume" and "request_id" not in p2 and t2 >= 120 + 30
+    assert m3 == "browser.end_session" and p3 == {}
+
+
+def test_handoff_tools_are_listed():
+    tools = {t["name"]: t for t in mcp_stdio.TOOLS}
+    assert tools["browser_request_human"]["inputSchema"]["properties"]["reason"]["enum"] == ["LOGIN", "MFA", "CAPTCHA", "CONFIRMATION", "OTHER"]
+    assert tools["browser_resume"]["inputSchema"]["required"] == ["handoff_id"]
+    assert "browser_end_session" in tools

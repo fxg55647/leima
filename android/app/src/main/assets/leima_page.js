@@ -130,6 +130,26 @@
     if (shadowHosts) limitations.push({ code: "SHADOW_DOM", count: shadowHosts, detail: "Shadow DOM content was not traversed" });
   }
 
+  // Heuristics only: they can miss a challenge or flag one that is not there. They never start a
+  // handoff by themselves; the agent decides whether to call browser.request_human.
+  function humanActionHints() {
+    var hints = [];
+    var captcha = document.querySelector(
+      "iframe[src*='recaptcha'],iframe[src*='hcaptcha'],iframe[src*='challenges.cloudflare.com']," +
+      ".g-recaptcha,.h-captcha,.cf-turnstile,[data-sitekey]");
+    if (captcha) hints.push({ code: "CAPTCHA", detail: "A CAPTCHA widget seems to be present" });
+    var anyVisible = function (selector) {
+      return Array.prototype.some.call(document.querySelectorAll(selector), isVisible);
+    };
+    if (anyVisible("input[autocomplete~='one-time-code']")) {
+      hints.push({ code: "ONE_TIME_CODE", detail: "A one-time-code field is visible (MFA)" });
+    }
+    if (anyVisible("input[type=password]")) {
+      hints.push({ code: "LOGIN_FORM", detail: "A password field is visible" });
+    }
+    return hints;
+  }
+
   function observe() {
     var limitations = [];
     var elements = [], refs = new Map();
@@ -158,7 +178,8 @@
       ready_state: document.readyState,
       visible_text: truncated ? text.slice(0, MAX_TEXT) : text,
       elements: elements,
-      limitations: limitations
+      limitations: limitations,
+      human_action_hints: humanActionHints()
     };
   }
 

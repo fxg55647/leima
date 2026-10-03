@@ -1,7 +1,7 @@
 # Leima Research Appliance — arkkitehtuuri
 
 Tila: suunnitelma hyväksytty. Vaiheet A (USB-silta, paritus, `device_status`), D (pakettien
-siirto PC:lle ja arkisto) ja B (selainohjaus ja selain-capture) toteutettu.
+siirto PC:lle ja arkisto), B (selainohjaus ja selain-capture) ja C (ihmiselle luovutus) toteutettu.
 Muut vaiheet ovat tässä dokumentissa sopimuksena, eivät vielä koodina.
 
 Liittyvät dokumentit:
@@ -50,7 +50,7 @@ Claude Desktop / muu paikallinen MCP-asiakas
     ├── BrowserController   selainistunto, havainnot, toistosuoja, capture (puhdas JVM)
     ├── WebViewBrowserHost  WebView-kutsut pääsäikeessä, PixelCopy + peitot
     ├── assets/leima_page.js  ainoa sivulle ajettava skripti (havainto, klikkaus, kirjoitus, DOM)
-    ├── ohjauspaneeli       (vaihe C)
+    ├── ohjauspaneeli       MainActivity.AgentControlPanel: Jatka / Keskeytä / Ota ohjaus / Salli agentti
     └── EvidenceStore & MeetingEvidenceStore   paikalliset paketit
 ```
 
@@ -90,8 +90,8 @@ poistamiseen. MCP-työkalut eivät koskaan välitä mielivaltaisia komentoja ADB
 | A | ADB-laitevalinta, porttiohjaus, kättely, paritus, autentikointi, `device_status` | toteutettu |
 | D | Yhteinen pakettimanifesti, `package_verify`, pakettien siirto PC:lle ja poisto puhelimesta | toteutettu |
 | B | Selainohjaus: `browser_navigate`, `browser_observe`, `browser_click`, `browser_type`, `browser_back`, `browser_screenshot`, `browser_capture` | toteutettu |
-| C | Ihmiselle luovutus: tilakone ja puhelimen ohjauspaneeli | seuraava |
-| E | Vientikäytännöt (agent-readable / local-only), lokien rajaus, salaisuuksien peitto | |
+| C | Ihmiselle luovutus: tilakone ja puhelimen ohjauspaneeli | toteutettu |
+| E | Vientikäytännöt (agent-readable / local-only), lokien rajaus, salaisuuksien peitto | seuraava |
 | F | Leima-liitos: uusi provenance `device_captured`, leimaus vain hasheista | |
 
 Järjestys poikkeaa alkuperäisestä A–F:stä: siirto PC:lle (D) tehdään heti A:n jälkeen, koska se
@@ -149,8 +149,37 @@ saman `request_id`:n toistolle tallennetun lopputuloksen eikä tee toimintoa kah
   tilarivi näyttää, mitä agentti viimeksi teki.
 - **Vientikäytäntö**: vaiheessa B kaikki on *agent-readable*: `browser_observe` palauttaa sivun
   tekstin MCP-asiakkaalle. *local-only*-tila tulee vaiheessa E.
-- **Kirjautuminen**: ihminen kirjautuu puhelimella itse. Hallittu luovutus (agentin komennot
-  estetty, Jatka/Keskeytä-painikkeet) tulee vaiheessa C.
+- **Kirjautuminen**: ihminen kirjautuu puhelimella itse luovutuksen aikana (ks. 4c).
+
+## 4c. Ihmiselle luovutus (vaihe C)
+
+```text
+                 agentti: browser_request_human        puhelin: Jatka      agentti: browser_resume
+READY ── RUNNING ─────────────────────────────▶ HUMAN_ACTION_REQUIRED ──────────────────────▶ READY
+  │        ▲ (tilaa muuttava komento käynnissä)      │   ▲
+  └────────┘                                         │   └── puhelin: Ota ohjaus (milloin tahansa)
+                                                     ├── puhelin: Keskeytä agentti ─▶ CANCELLED
+                                                     └── aikaraja ilman vastausta ──▶ EXPIRED
+CANCELLED / EXPIRED ── puhelin: Salli agentti ─▶ READY (uusi session_id)
+```
+
+- Luovutuksen aikana **kaikki** agentin selainkomennot estetään (`HUMAN_ACTION_PENDING`), myös
+  lukevat (`observe`, `screenshot`), koska ihminen voi juuri silloin syöttää salaisuuksia. Vain
+  `command_status`, `browser.resume` ja `browser.end_session` ovat sallittuja. Jo tallennetun
+  `request_id`:n lopputulos palautetaan silti (se ei koske sivuun).
+- Vain puhelimen **Jatka** päättää luovutuksen. Sen jälkeen agentin on kutsuttava `browser.resume`,
+  joka palauttaa saman istunnon ja uuden havainnon. `wait_s` (0–120 s) odottaa Jatka-painallusta.
+- **Keskeytä agentti** ja vanhentunut luovutus (oletus 10 min, enintään 30 min) pysäyttävät
+  agentin, kunnes ihminen painaa puhelimessa **Salli agentti**. Agentti ei voi palauttaa itseään.
+- **Ota ohjaus** avaa luovutuksen ihmisen aloitteesta milloin tahansa. Jo käynnissä olevaa
+  komentoa (esim. sivun latausta) ei keskeytetä, mutta seuraava estetään.
+- Agentin `task`-teksti näytetään puhelimessa lainauksena ("Agentin viesti: …"), jotta sitä ei
+  sekoiteta sovelluksen omaan ohjeeseen.
+- `browser.observe` palauttaa `human_action_hints` (`CAPTCHA`, `LOGIN_FORM`, `ONE_TIME_CODE`).
+  Ne ovat heuristiikkaa: tunnistus voi jäädä huomaamatta tai osua väärin, eivätkä ne aloita
+  luovutusta itse.
+- Lukitus: ohjaustilan muutokset eivät odota käynnissä olevaa selainkomentoa, joten Jatka,
+  Keskeytä ja Ota ohjaus vastaavat heti myös sivun latautuessa.
 
 ## 5. Todisteen merkitys ja rajat
 
@@ -217,7 +246,8 @@ hakenut lähdettä. Vaiheessa F lisätään arvo `device_captured` nykyisten `fe
 MCP-työkalut: `device_status`, `packages_list`, `packages_sync`, `package_verify` (vain
 metatietoja ja tiivisteitä) sekä selaintyökalut `browser_navigate`, `browser_observe`,
 `browser_click`, `browser_type`, `browser_back`, `browser_screenshot` (palauttaa kuvan) ja
-`browser_capture`. `browser_observe` ja `browser_screenshot` palauttavat sivun sisältöä
+`browser_capture`, sekä luovutuksen `browser_request_human`, `browser_resume` ja
+`browser_end_session`. `browser_observe` ja `browser_screenshot` palauttavat sivun sisältöä
 MCP-asiakkaalle.
 
 Paritus tehdään aina CLI:llä, ei MCP-työkalulla: agentti ei voi parittaa itseään.
@@ -226,7 +256,7 @@ poistaa vain tämän PC:n.
 
 Testit: `.venv\Scripts\python.exe -m pytest tests/test_bridge.py tests/test_bridge_packages.py` ja
 `android\gradlew.bat :app:testDebugUnitTest` (`BridgeProtocolTest`, `PackageTransferTest`,
-`BrowserControllerTest`). Sivuskripti ajetaan Chromiumissa: `pytest -m browser tests/browser/test_leima_page_js.py`.
+`BrowserControllerTest`, `HandoffTest`). Sivuskripti ajetaan Chromiumissa: `pytest -m browser tests/browser/test_leima_page_js.py`.
 Python: myös `tests/test_bridge_browser.py`. Laitteella ajettavaa
 päästä päähän -testiä ei ole automatisoitu.
 

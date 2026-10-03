@@ -186,7 +186,8 @@ def sync(client: PhoneClient, device: Device, archive, delete: bool = True,
 
 # Phone-side work (page load, capture) can take longer than an ordinary request.
 SLOW_METHOD_TIMEOUT_S = 60
-MUTATING_BROWSER_METHODS = {"browser.navigate", "browser.click", "browser.type", "browser.back", "browser.capture"}
+MUTATING_BROWSER_METHODS = {"browser.navigate", "browser.click", "browser.type", "browser.back", "browser.capture",
+                            "browser.request_human"}
 
 
 def run_command(open_session: Callable, method: str, params: dict | None = None) -> dict:
@@ -195,6 +196,9 @@ def run_command(open_session: Callable, method: str, params: dict | None = None)
     command (a repeated click or form submit could do harm)."""
     params = dict(params or {})
     timeout = SLOW_METHOD_TIMEOUT_S if method in MUTATING_BROWSER_METHODS or method == "browser.screenshot" else REQUEST_TIMEOUT_S
+    if method == "browser.resume":
+        # The phone holds the request open for up to wait_s seconds waiting for Jatka.
+        timeout = SLOW_METHOD_TIMEOUT_S + int(params.get("wait_s") or 0)
     if method not in MUTATING_BROWSER_METHODS:
         with open_session() as (_device, client):
             return client.request(method, params, timeout=timeout)

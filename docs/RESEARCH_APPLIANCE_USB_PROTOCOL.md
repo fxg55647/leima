@@ -60,6 +60,9 @@ saa `id: null`.
 | `browser.screenshot` | kyllä | Peitetty PNG näkyvästä selainalueesta |
 | `browser.capture` | kyllä | Tallentaa sivun `browser`-pakettina (tilaa muuttava) |
 | `command_status` | kyllä | Tilaa muuttavan komennon lopputulos `request_id`:llä |
+| `browser.request_human` | kyllä | Luovuttaa ohjauksen ihmiselle (tilaa muuttava) |
+| `browser.resume` | kyllä | Ottaa ohjauksen takaisin Jatka-painalluksen jälkeen |
+| `browser.end_session` | kyllä | Lopettaa agentin selainistunnon |
 | `bye` | ei | Lopettaa yhteyden siististi |
 
 Ennen `hello`-viestiä kaikki muut metodit palauttavat `HELLO_REQUIRED`.
@@ -188,6 +191,27 @@ Jokainen tilaa muuttava komento päättää voimassa olevan havainnon.
 ```
 
 `command_status.state`: `done` (mukana `result` tai `error`), `running` tai `unknown`.
+
+### Luovutus
+
+```json
+→ {"id":20,"method":"browser.request_human","params":{"reason":"LOGIN","task":"Kirjaudu pankkiin","timeout_s":600,"request_id":"r_9"}}
+← {"id":20,"result":{"state":"HUMAN_ACTION_REQUIRED","handoff":{"handoff_id":"ho_…","reason":"LOGIN","task":"Kirjaudu pankkiin",
+    "requested_by":"agent","created_at":"…","expires_at":"…","completed_on_phone":false}}}
+
+→ {"id":21,"method":"browser.resume","params":{"handoff_id":"ho_…","wait_s":120}}
+← {"id":21,"result":{"state":"READY","handoff_id":"ho_…","observation":{…browser.observe…}}}
+
+→ {"id":22,"method":"browser.end_session","params":{}}
+← {"id":22,"result":{"ended_session_id":"bs_old","session_id":"bs_new"}}
+```
+
+`reason`: `LOGIN`, `MFA`, `CAPTCHA`, `CONFIRMATION`, `OTHER` (ihmisen omassa luovutuksessa
+`PERSON_TOOK_CONTROL`). `task` enintään 300 merkkiä, `timeout_s` 30–1800 (oletus 600).
+`browser.resume` on toistettavissa: saman, juuri jatketun `handoff_id`:n uusi kutsu palauttaa uuden
+havainnon. `device_status.browser` sisältää `control` (`READY`, `RUNNING`,
+`HUMAN_ACTION_REQUIRED`, `CANCELLED`, `EXPIRED`) ja avoimen `handoff`-olion.
+`browser.observe` palauttaa lisäksi `human_action_hints` (heuristiset vihjeet).
 Elementin kentät: `element_id`, `role`, `name`, `enabled`, `in_viewport`, linkeillä `href`,
 kentillä `input_type` ja `value` (enintään 200 merkkiä) tai salaisilla kentillä `sensitive: true`
 ja `has_value`, valintaruuduilla `checked`. Enintään 300 elementtiä ja 50 000 merkkiä tekstiä;
@@ -229,6 +253,11 @@ saman laitteen tokenin.
 | `SCREENSHOT_FAILED` | PixelCopy epäonnistui |
 | `SCRIPT_ERROR` | Sivuskripti ei palauttanut tulosta |
 | `COMMAND_IN_PROGRESS` | Toinen selainkomento on kesken |
+| `HUMAN_ACTION_PENDING` | Ihmisellä on ohjaus; odota Jatka-painallusta ja kutsu `browser.resume` |
+| `HUMAN_NOT_DONE` | Jatka-painiketta ei ole painettu (`wait_s` kului loppuun) |
+| `NO_HANDOFF` | Annettua `handoff_id`:tä ei ole auki |
+| `SESSION_CANCELLED` | Ihminen keskeytti agentin; vain puhelimen Salli agentti palauttaa ohjauksen |
+| `HANDOFF_EXPIRED` | Luovutus vanheni vastaamatta; agentti pysäytetty kuten yllä |
 | `INTERNAL` | Odottamaton virhe puhelimessa |
 
 Sillan omat (ei protokollan) virheet MCP-asiakkaalle: `ADB_NOT_FOUND`, `NO_DEVICE`,
@@ -243,7 +272,6 @@ vastaa listausta), `PACKAGE_INVALID` (paketti ei läpäise tarkistusta), `PACKAG
 Uudet metodit lisätään versioon 1 ja ilmoitetaan `capabilities`-listassa. Versio nostetaan vain,
 jos olemassa olevan metodin merkitys muuttuu. Vaiheiden C–F metodit (suunniteltu, ei toteutettu):
 
-- C: `browser.request_human`, `browser.resume`, `browser.end_session`
 
 Puhelimen sisäiset metodinimet ovat pisteellisiä; MCP-työkalut käyttävät alaviivoja
 (`browser_navigate` jne.).

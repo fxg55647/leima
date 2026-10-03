@@ -17,6 +17,26 @@ data class MaskRect(val x: Double, val y: Double, val width: Double, val height:
 
 data class Screenshot(val png: ByteArray, val width: Int, val height: Int)
 
+/** Who controls the phone browser (docs/RESEARCH_APPLIANCE_ARCHITECTURE.md, phase C). */
+enum class ControlState { READY, RUNNING, HUMAN_ACTION_REQUIRED, CANCELLED, EXPIRED }
+
+/** A handoff to the person. [requestedBy] is `agent` or `person`; [completed] is set by the phone's Jatka. */
+data class Handoff(
+    val id: String,
+    val reason: String,
+    val task: String,
+    val requestedBy: String,
+    val createdAt: Instant,
+    val expiresAt: Instant,
+    val completed: Boolean = false,
+) {
+    fun toJson(): JSONObject = JSONObject().put("handoff_id", id).put("reason", reason).put("task", task)
+        .put("requested_by", requestedBy).put("created_at", createdAt.toString()).put("expires_at", expiresAt.toString())
+        .put("completed_on_phone", completed)
+}
+
+data class ControlSnapshot(val state: ControlState, val sessionId: String, val handoff: Handoff?)
+
 /**
  * The phone's WebView as seen by [BrowserController]. Implementations block the calling (bridge)
  * thread and do the WebView work on the main thread. Every method throws [ProtocolError] with
@@ -49,6 +69,9 @@ interface BrowserHost {
  *   older one is `STALE_OBSERVATION`, never a click on some other element.
  * - State-changing commands carry a `request_id`; a repeated id returns the stored outcome instead of
  *   acting twice, and `command_status` reports it after a USB drop.
+ * - Handoff (phase C): while a handoff is open every agent browser command except `command_status`,
+ *   `browser.resume` and `browser.end_session` is refused. Only the phone's Jatka completes it; Keskeytä
+ *   (or expiry) stops agent control until the person allows it again on the phone.
  */
 class BrowserController(
     private val host: BrowserHost,
@@ -57,10 +80,22 @@ class BrowserController(
     private val clock: () -> Instant = Instant::now,
     private val elapsedNanos: () -> Long = System::nanoTime,
     private val onActivity: (String) -> Unit = {},
+    private val onControlChanged: (ControlSnapshot) -> Unit = {},
 ) {
-    val sessionId = "bs_" + token(12)
+    @Volatile var sessionId = "bs_" + token(12)
+        private set
+    /**
+     * Guards [handoff], [stopped], [lastResumedHandoff]; waited on by [resume]. Lock order is
+     * [lock] then [control]; code holding [control] never takes [lock], so the phone UI thread is never
+     * blocked by a running browser command.
+     */
+    private val control = Object()
+    private var handoff: Handoff? = null
+    private var stopped: ControlState? = null
+    private var lastResumedHandoff: String? = null
     private val lock = Any()
-    private var observationId: String? = null
+    /** Volatile, not guarded by [lock]: the phone UI thread clears it without waiting for a running command. */
+    @Volatile private var observationId: String? = null
     private var observationGeneration = -1
     private var lastRequestedUrl: String? = null
     private val running = AtomicReference<String?>(null)
@@ -68,12 +103,32 @@ class BrowserController(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, JSONObject>?) = size > MAX_OUTCOMES
     }
 
-    fun status(): JSONObject = runCatching { host.state() }.fold(
-        { JSONObject().put("state", "AVAILABLE").put("session_id", sessionId).put("url", it.url) },
-        { JSONObject().put("state", "NOT_AVAILABLE").put("session_id", sessionId) },
-    )
+    fun status(): JSONObject {
+        val snap = snapshot()
+        val base = runCatching { host.state() }.fold(
+            { JSONObject().put("state", "AVAILABLE").put("url", it.url) },
+            { JSONObject().put("state", "NOT_AVAILABLE") },
+        )
+        return base.put("session_id", snap.sessionId).put("control", snap.state.name)
+            .put("handoff", snap.handoff?.toJson() ?: JSONObject.NULL)
+    }
 
-    fun observe(): JSONObject = synchronized(lock) {
+    fun snapshot(): ControlSnapshot = synchronized(control) {
+        expireIfDue()
+        val state = stopped ?: when {
+            handoff != null -> ControlState.HUMAN_ACTION_REQUIRED
+            running.get() != null -> ControlState.RUNNING
+            else -> ControlState.READY
+        }
+        ControlSnapshot(state, sessionId, handoff)
+    }
+
+    fun observe(): JSONObject {
+        ensureAgentAllowed()
+        return observeNow()
+    }
+
+    private fun observeNow(): JSONObject = synchronized(lock) {
         val state = host.state()
         val id = "obs_" + token(9)
         val page = pageCommand("observe", JSONObject().put("observation_id", id))
@@ -86,6 +141,7 @@ class BrowserController(
             .put("visible_text", page.optString("visible_text"))
             .put("elements", page.optJSONArray("elements") ?: JSONArray())
             .put("limitations", page.optJSONArray("limitations") ?: JSONArray())
+            .put("human_action_hints", page.optJSONArray("human_action_hints") ?: JSONArray())
     }
 
     fun navigate(params: JSONObject): JSONObject = mutating(params) {
@@ -120,7 +176,12 @@ class BrowserController(
         pageResult(state)
     }
 
-    fun screenshot(): JSONObject = synchronized(lock) {
+    fun screenshot(): JSONObject {
+        ensureAgentAllowed()
+        return screenshotNow()
+    }
+
+    private fun screenshotNow(): JSONObject = synchronized(lock) {
         val state = host.state()
         val shot = maskedScreenshot()
         onActivity("otti kuvakaappauksen")
@@ -129,6 +190,158 @@ class BrowserController(
     }
 
     fun capture(params: JSONObject): JSONObject = mutating(params) { captureNow() }
+
+    // ---- handoff (phase C) ----------------------------------------------------------------------
+
+    /** Agent asks the person to act on the phone. Blocks further agent commands until resumed. */
+    fun requestHuman(params: JSONObject): JSONObject = mutating(params) {
+        val reason = params.opt("reason") as? String
+        if (reason !in HANDOFF_REASONS) throw ProtocolError("BAD_REQUEST", "reason must be one of $HANDOFF_REASONS")
+        val task = (params.opt("task") as? String)?.trim().orEmpty()
+        if (task.length > MAX_TASK_CHARS) throw ProtocolError("BAD_REQUEST", "task is limited to $MAX_TASK_CHARS characters")
+        val timeout = params.optLong("timeout_s", DEFAULT_HANDOFF_S)
+        if (timeout !in 30..MAX_HANDOFF_S) throw ProtocolError("BAD_REQUEST", "timeout_s must be 30..$MAX_HANDOFF_S")
+        val opened = synchronized(control) {
+            ensureAgentAllowedLocked()
+            val now = clock()
+            Handoff("ho_" + token(9), reason!!, task, "agent", now, now.plusSeconds(timeout)).also { handoff = it }
+        }
+        onActivity("pyytää apuasi")
+        changed()
+        JSONObject().put("state", ControlState.HUMAN_ACTION_REQUIRED.name).put("handoff", opened.toJson())
+    }
+
+    /**
+     * Returns control to the agent after the person pressed Jatka, with a fresh observation. Waits up
+     * to `wait_s` seconds for Jatka. Repeating it for the handoff that was just resumed is harmless.
+     */
+    fun resume(params: JSONObject): JSONObject {
+        val id = params.opt("handoff_id") as? String ?: throw ProtocolError("BAD_REQUEST", "handoff_id is required")
+        val waitS = params.optLong("wait_s", 0)
+        if (waitS !in 0..MAX_RESUME_WAIT_S) throw ProtocolError("BAD_REQUEST", "wait_s must be 0..$MAX_RESUME_WAIT_S")
+        val deadline = System.nanoTime() + waitS * 1_000_000_000
+        synchronized(control) {
+            while (true) {
+                expireIfDue()
+                stoppedError()?.let { throw it }
+                val open = handoff
+                if (open == null) {
+                    if (lastResumedHandoff == id) break
+                    throw ProtocolError("NO_HANDOFF", "There is no open handoff $id")
+                }
+                if (open.id != id) throw ProtocolError("NO_HANDOFF", "The open handoff is ${open.id}, not $id")
+                if (open.completed) {
+                    handoff = null
+                    lastResumedHandoff = id
+                    break
+                }
+                val remainingMs = (deadline - System.nanoTime()) / 1_000_000
+                if (remainingMs <= 0) {
+                    throw ProtocolError("HUMAN_NOT_DONE", "The person has not pressed Jatka on the phone yet")
+                }
+                control.wait(minOf(remainingMs, 1_000))
+            }
+        }
+        changed()
+        onActivity("jatkaa")
+        return JSONObject().put("state", ControlState.READY.name).put("handoff_id", id).put("observation", observeNow())
+    }
+
+    /** Ends the agent's browser session: new session id, observation and stored outcomes dropped. */
+    fun endSession(): JSONObject {
+        val ended = synchronized(control) {
+            val old = sessionId
+            handoff = null
+            sessionId = "bs_" + token(12)
+            observationId = null
+            synchronized(outcomes) { outcomes.clear() }
+            control.notifyAll()
+            old
+        }
+        onActivity("lopetti selainistunnon")
+        changed()
+        return JSONObject().put("ended_session_id", ended).put("session_id", sessionId)
+    }
+
+    /** Phone: the person takes control at any time. */
+    fun personTakeControl() {
+        synchronized(control) {
+            if (stopped != null || handoff != null) return
+            val now = clock()
+            handoff = Handoff("ho_" + token(9), "PERSON_TOOK_CONTROL", "", "person", now, now.plusSeconds(MAX_HANDOFF_S))
+            observationId = null
+        }
+        changed()
+    }
+
+    /** Phone: Jatka. */
+    fun personContinue() {
+        synchronized(control) {
+            handoff = handoff?.copy(completed = true) ?: return
+            control.notifyAll()
+        }
+        changed()
+    }
+
+    /** Phone: Keskeytä. Stops agent control until [personAllowAgain]. */
+    fun personCancel() {
+        synchronized(control) {
+            stopped = ControlState.CANCELLED
+            handoff = null
+            observationId = null
+            control.notifyAll()
+        }
+        changed()
+    }
+
+    /** Phone: let the agent in again after Keskeytä or expiry; starts a new browser session. */
+    fun personAllowAgain() {
+        synchronized(control) {
+            if (stopped == null) return
+            stopped = null
+            sessionId = "bs_" + token(12)
+            synchronized(outcomes) { outcomes.clear() }
+        }
+        changed()
+    }
+
+    /** Phone UI calls this periodically so an expired handoff shows as expired. */
+    fun refreshExpiry() { if (synchronized(control) { expireIfDue() }) changed() }
+
+    private fun expireIfDue(): Boolean {
+        val open = handoff ?: return false
+        if (open.completed || clock().isBefore(open.expiresAt)) return false
+        handoff = null
+        stopped = ControlState.EXPIRED
+        observationId = null
+        control.notifyAll()
+        return true
+    }
+
+    private fun stoppedError(): ProtocolError? = when (stopped) {
+        ControlState.CANCELLED -> ProtocolError("SESSION_CANCELLED", "The person stopped agent control on the phone; they must allow it again there")
+        ControlState.EXPIRED -> ProtocolError("HANDOFF_EXPIRED", "The handoff expired without an answer; the person must allow agent control again on the phone")
+        else -> null
+    }
+
+    private fun ensureAgentAllowed() {
+        var expired = false
+        try {
+            synchronized(control) { expired = expireIfDue(); ensureAgentAllowedLocked() }
+        } finally {
+            if (expired) changed()
+        }
+    }
+
+    private fun ensureAgentAllowedLocked() {
+        stoppedError()?.let { throw it }
+        handoff?.let { open ->
+            val next = if (open.completed) "call browser.resume with handoff_id ${open.id}" else "wait for the person to press Jatka, then call browser.resume"
+            throw ProtocolError("HUMAN_ACTION_PENDING", "The person is in control on the phone (${open.reason}); $next")
+        }
+    }
+
+    private fun changed() { onControlChanged(snapshot()) }
 
     fun commandStatus(params: JSONObject): JSONObject {
         val id = requestId(params)
@@ -142,6 +355,7 @@ class BrowserController(
     private fun mutating(params: JSONObject, action: () -> JSONObject): JSONObject {
         val id = requestId(params)
         synchronized(outcomes) { outcomes[id] }?.let { return replay(it) }
+        ensureAgentAllowed()
         if (!running.compareAndSet(null, id)) {
             throw ProtocolError("COMMAND_IN_PROGRESS", "Another browser command (${running.get()}) is still running")
         }
@@ -274,8 +488,14 @@ class BrowserController(
         const val SCRIPT_TIMEOUT_MS = 10_000L
         const val MAX_TYPE_CHARS = 2000
         const val MAX_OUTCOMES = 64
+        const val DEFAULT_HANDOFF_S = 600L
+        const val MAX_HANDOFF_S = 1800L
+        const val MAX_RESUME_WAIT_S = 120L
+        const val MAX_TASK_CHARS = 300
+        val HANDOFF_REASONS = setOf("LOGIN", "MFA", "CAPTCHA", "CONFIRMATION", "OTHER")
         val METHODS = listOf("browser.navigate", "browser.observe", "browser.click", "browser.type",
-            "browser.back", "browser.screenshot", "browser.capture", "command_status")
+            "browser.back", "browser.screenshot", "browser.capture", "command_status",
+            "browser.request_human", "browser.resume", "browser.end_session")
         private val REQUEST_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val SECRET_PARAM = Regex("(token|key|secret|pass|session|auth|code|sig|jwt|otp|nonce|state)", RegexOption.IGNORE_CASE)
 

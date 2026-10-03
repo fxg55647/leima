@@ -75,7 +75,12 @@ Paritettu agentti voi myös ohjata Selain-välilehteä (`browser.*`): avata http
 sivun tekstin ja elementit, klikata, kirjoittaa tavallisiin tekstikenttiin, ottaa peitetyn
 kuvakaappauksen ja tallentaa sivun `browser`-pakettina. Sivulle ajettava skripti on
 `app/src/main/assets/leima_page.js`. Agentti ei pääse selaimeen, kun jokin muu välilehti on auki tai
-sovellus on taustalla. Salasana- ja kertakoodikentät täyttää aina ihminen. Arkkitehtuuri ja protokolla:
+sovellus on taustalla. Salasana- ja kertakoodikentät täyttää aina ihminen.
+
+Selain-välilehden ohjauspaneelista ihminen voi milloin tahansa **ottaa ohjauksen**, vastata agentin
+avunpyyntöön (**Jatka**) tai **keskeyttää agentin**. Luovutuksen aikana agentti ei voi lukea eikä
+ohjata selainta. Keskeytyksen jälkeen agentti pääsee takaisin vain **Salli agentti** -painikkeella.
+Arkkitehtuuri ja protokolla:
 [`docs/RESEARCH_APPLIANCE_ARCHITECTURE.md`](../docs/RESEARCH_APPLIANCE_ARCHITECTURE.md).
 
 ## Rajat ja seuraavat vaiheet

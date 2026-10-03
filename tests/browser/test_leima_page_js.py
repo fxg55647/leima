@@ -115,3 +115,12 @@ def test_dom_snapshot_redacts_secrets(page):
 def test_element_store_is_not_enumerable(page):
     run(page, "observe", observation_id="obs_1")
     assert page.evaluate(f"Object.keys(window).includes('{KEY}')") is False
+
+
+def test_human_action_hints(page):
+    hints = {h["code"] for h in run(page, "observe", observation_id="obs_1")["human_action_hints"]}
+    assert hints == {"LOGIN_FORM", "ONE_TIME_CODE"}
+    page.set_content('<div class="g-recaptcha" data-sitekey="x"></div><p>Plain page</p>')
+    assert [h["code"] for h in run(page, "observe", observation_id="obs_2")["human_action_hints"]] == ["CAPTCHA"]
+    page.set_content("<p>Nothing to do</p>")
+    assert run(page, "observe", observation_id="obs_3")["human_action_hints"] == []

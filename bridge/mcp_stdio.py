@@ -25,7 +25,12 @@ INSTRUCTIONS = (
     "on the PC and phone (python -m bridge pair), never by the agent. Browser workflow: browser_navigate, "
     "browser_observe, then act with browser_click/browser_type using the ids of the LATEST observation; "
     "every action ends that observation, so observe again before the next action. Password and "
-    "one-time-code fields are for the person to fill in on the phone. browser_capture stores the page "
+    "one-time-code fields are for the person to fill in on the phone: when login, MFA, a CAPTCHA or an "
+    "approval needs the person (human_action_hints in an observation are heuristic clues), call "
+    "browser_request_human, tell the person what to do, then browser_resume with wait_s to continue "
+    "after they press Jatka on the phone. The person can take control or stop the agent at any time; "
+    "HUMAN_ACTION_PENDING, SESSION_CANCELLED and HANDOFF_EXPIRED mean the person is in charge. "
+    "browser_capture stores the page "
     "as an evidence package on the phone; packages_sync moves it to the PC archive. A capture is the "
     "phone's record of what it rendered, not the server's original response and not proof of truth."
 )
@@ -151,6 +156,24 @@ BROWSER_TOOLS = [
                   "Stores the current page on the phone as an evidence package (DOM serialization, visible text, "
                   "element list, masked screenshot, metadata, SHA-256 manifest). Returns package_id, sha256 and "
                   "capture_status (partial lists what is missing). Returns no page content."),
+    _browser_tool("browser_request_human", "Hand control to the person",
+                  "Asks the person to act on the phone (log in, MFA, CAPTCHA, approve something). Until they press "
+                  "Jatka on the phone every other browser tool fails with HUMAN_ACTION_PENDING. Returns handoff_id. "
+                  "The task text is shown on the phone as a quote from the agent.",
+                  {"reason": {"type": "string", "enum": ["LOGIN", "MFA", "CAPTCHA", "CONFIRMATION", "OTHER"]},
+                   "task": {"type": "string", "description": "What the person should do, at most 300 characters."},
+                   "timeout_s": {"type": "integer", "minimum": 30, "maximum": 1800, "default": 600,
+                                 "description": "After this the handoff expires and agent control stops until the person allows it again."}},
+                  ["reason"]),
+    _browser_tool("browser_resume", "Continue after the person is done",
+                  "Takes control back after the person pressed Jatka on the phone, and returns a fresh observation. "
+                  "With wait_s it waits up to that many seconds for Jatka; otherwise HUMAN_NOT_DONE.",
+                  {"handoff_id": {"type": "string"},
+                   "wait_s": {"type": "integer", "minimum": 0, "maximum": 120, "default": 0}},
+                  ["handoff_id"]),
+    _browser_tool("browser_end_session", "End the browser session",
+                  "Ends the agent's browser session on the phone: a new session_id, no open handoff, all "
+                  "observations invalid. The page stays open on the phone."),
 ]
 
 TOOLS = [DEVICE_STATUS_TOOL, PACKAGES_LIST_TOOL, PACKAGES_SYNC_TOOL, PACKAGE_VERIFY_TOOL, *BROWSER_TOOLS]
