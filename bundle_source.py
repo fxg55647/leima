@@ -35,6 +35,7 @@ LEIMA_FILES = {
     "requirements.txt",
     "main.py",
     "neutral_witness.py",
+    "device_capture.py",
     "notary.py",
     "upload_validator.py",
     "monthly_audit.py",

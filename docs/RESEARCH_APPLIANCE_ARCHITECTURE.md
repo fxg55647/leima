@@ -1,8 +1,8 @@
 # Leima Research Appliance — arkkitehtuuri
 
 Tila: suunnitelma hyväksytty. Vaiheet A (USB-silta, paritus, `device_status`), D (pakettien
-siirto PC:lle ja arkisto), B (selainohjaus ja selain-capture), C (ihmiselle luovutus) ja E (vientikäytännöt) toteutettu.
-Muut vaiheet ovat tässä dokumentissa sopimuksena, eivät vielä koodina.
+siirto PC:lle ja arkisto), B (selainohjaus ja selain-capture), C (ihmiselle luovutus), E (vientikäytännöt) ja F (Leima-liitos)
+toteutettu. Luvussa 8 ovat MVP:n jälkeiset kokonaisuudet.
 
 Liittyvät dokumentit:
 
@@ -92,7 +92,7 @@ poistamiseen. MCP-työkalut eivät koskaan välitä mielivaltaisia komentoja ADB
 | B | Selainohjaus: `browser_navigate`, `browser_observe`, `browser_click`, `browser_type`, `browser_back`, `browser_screenshot`, `browser_capture` | toteutettu |
 | C | Ihmiselle luovutus: tilakone ja puhelimen ohjauspaneeli | toteutettu |
 | E | Vientikäytännöt (agent-readable / local-only), lokien rajaus, salaisuuksien peitto | toteutettu |
-| F | Leima-liitos: uusi provenance `device_captured`, leimaus vain hasheista | seuraava |
+| F | Leima-liitos: uusi provenance `device_captured`, leimaus vain hasheista | toteutettu |
 
 Järjestys poikkeaa alkuperäisestä A–F:stä: siirto PC:lle (D) tehdään heti A:n jälkeen, koska se
 käyttää samaa kanavaa ja hyödyttää heti myös nykyisiä kuva- ja meeting-paketteja.
@@ -214,8 +214,8 @@ Nämä pätevät kaikkiin vaiheisiin ja näkyvät myös käyttäjälle:
 3. Tiivisteiden ja arvion ulkoinen leimaus (Arweave, vain hashit).
 
 Puhelimen capture ei koskaan saa provenance-arvoa `fetched_by_leima`, koska Leiman palvelin ei
-hakenut lähdettä. Vaiheessa F lisätään arvo `device_captured` nykyisten `fetched_by_leima` ja
-`agent_supplied` rinnalle.
+hakenut lähdettä. Sen arvo on `device_captured` (luku 6b) nykyisten `fetched_by_leima` ja
+`agent_supplied` rinnalla.
 
 ## 6. Tietosuoja ja vientikäytännöt (vaihe E)
 
@@ -293,6 +293,50 @@ väite ja verdict voivat olla yksityistä tietoa.
 - **Ennen arkaluonteista tuotantokäyttöä** tarvitaan pakettien sovellustason salaus puhelimessa
   (Android Keystore) ja PC-arkiston salaus (esim. BitLocker tai salattu arkistokansio).
 
+## 6b. Leima-liitos (vaihe F)
+
+Toteutus: `device_capture.py` ja `POST /api/stamp/device-capture` (`main.py`), lähdetyyppi
+`device_capture` (`neutral_witness.py`), silta `bridge/leima_api.py` ja `Archive.record_stamp`.
+Testit: `tests/test_device_capture.py`, `tests/test_bridge_stamp.py`.
+
+```text
+PC-arkisto (browser-paketti)
+   │ python -m bridge stamp <sha256> --claim …   (ihminen; näyttää mitä lähtee, kysyy vahvistuksen)
+   │ MCP capture_stamp                            (agentti; vain AGENT_READABLE-capturet)
+   ▼
+POST /api/stamp/device-capture  (claim, cited_passage, package)
+   ├── device_capture.parse: sama tarkistin kuin puhelimella/PC:llä, vain kind=browser
+   ├── AI-arvio näkyvästä tekstistä; lähdetyyppi device_capture ("ei Leiman hakema, laitteen ilmoittama")
+   ├── lähdetiedosto = koko capture-ZIP  →  evidence.input_hash = paketin sha256 arkistossa
+   └── Arweave: vain stamp-manifesti (tiedostonimet + SHA-256 + aikaleima + commit)
+   ▼
+stamp-<tx>.json paketin viereen arkistossa + index.jsonl-rivi "stamped"
+```
+
+Tulos (`LeimaCitationVerdict`) pitää kolme kerrosta erillään ja kertoo aina:
+
+| Kysymys | Kenttä |
+|---|---|
+| Kuka hankki aineiston ja miten | `source.provenance = device_captured`, `source.acquired_by`, `source.capture.method` |
+| Mitkä tavut tiivistettiin | `evidence.input_hash` = capture-ZIPin SHA-256 (`evidence.input_is`), `source.capture.manifest_sha256` |
+| Mikä arvioi | `verdict.nature = ai_assessment`, `verdict.model` |
+| Tallennusverkko | `evidence.storage.network` (`arweave-mainnet-via-irys` / `irys-devnet`), `permanent` |
+| Lähetyksen ja vahvistuksen tila | `evidence.storage.status = submitted`, `confirmation = not_checked` |
+| Todisteen rajat | `limits`, `source.capture.clock.verified = false` |
+
+- Kehitysverkon (`IRYS_NETWORK=devnet`) leimaa ei esitetä pysyvänä: `permanent: false` ja
+  huomautus. Leima ei odota eikä tarkista Arweave-vahvistusta, joten tila on aina `submitted`.
+- `evidence.storage` lisättiin myös `stamp_citation`-vastaukseen.
+- **Vienti on aina erillinen ja tietoinen toiminto.** Leimaus lähettää capturen sisällön Leiman
+  palvelimelle ja sen AI-palveluntarjoajalle. Agentin työkalu `capture_stamp` hyväksyy vain
+  capturet, joiden metatiedoissa `exportPolicy = AGENT_READABLE` (puhelin kirjaa sen capture-hetkellä);
+  muut, myös vanhat ilman kenttää, vaativat ihmisen CLI-komennon. Palvelin ei tiedä, kuka
+  lähetyksen teki, joten raja on sillassa.
+- Arweaveen ei lisätty uusia kenttiä: tietue on sama tiivistemanifesti kuin muissa leimoissa,
+  lähdetiedoston nimenä `source.zip`.
+- Kokoraja on 4 Mt (Vercelin pyyntökoon alla). Suurempi capture hylätään ennen lähetystä
+  (`PACKAGE_TOO_LARGE`).
+
 ## 7. Käyttöönotto Windowsilla (vaihe A)
 
 1. Asenna Android platform-tools (tulee Android Studion mukana). Silta etsii `adb.exe`:n
@@ -317,12 +361,15 @@ väite ja verdict voivat olla yksityistä tietoa.
 }
 ```
 
+Leimaus: `python -m bridge stamp <sha256> --claim "…"` (palvelin `LEIMA_URL`, oletus
+`https://leima.io`).
+
 MCP-työkalut: `device_status`, `packages_list`, `packages_sync`, `package_verify` (vain
 metatietoja ja tiivisteitä) sekä selaintyökalut `browser_navigate`, `browser_observe`,
 `browser_click`, `browser_type`, `browser_back`, `browser_screenshot` (palauttaa kuvan) ja
 `browser_capture`, sekä luovutuksen `browser_request_human`, `browser_resume` ja
-`browser_end_session`. `browser_observe` ja `browser_screenshot` palauttavat sivun sisältöä
-MCP-asiakkaalle.
+`browser_end_session` sekä `capture_stamp` (luku 6b). `browser_observe` ja `browser_screenshot`
+palauttavat sivun sisältöä MCP-asiakkaalle.
 
 Paritus tehdään aina CLI:llä, ei MCP-työkalulla: agentti ei voi parittaa itseään.
 Puhelimen **Poista PC-paritukset** -painike mitätöi kaikki tokenit; `python -m bridge unpair`

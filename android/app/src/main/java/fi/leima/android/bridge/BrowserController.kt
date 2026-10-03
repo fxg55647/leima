@@ -538,6 +538,9 @@ class BrowserController(
             .put("appVersion", environment.opt("appVersion")).put("webViewVersion", environment.opt("webViewVersion"))
             .put("device", environment.optJSONObject("device") ?: JSONObject())
             .put("browserSession", sessionId)
+            // Effective export policy for this page when captured: the bridge only lets the agent send
+            // AGENT_READABLE captures to Leima for stamping; anything else needs the person.
+            .put("exportPolicy", if (exportPolicy == ExportPolicy.LOCAL_ONLY || isLocalOnly(state.url)) "LOCAL_ONLY" else "AGENT_READABLE")
             .put("captureMethod", JSONObject()
                 .put("dom.html", "Serialization of the live DOM (attributes, not typed field values); not the original HTTP response")
                 .put("visible-text.txt", "document.body.innerText")

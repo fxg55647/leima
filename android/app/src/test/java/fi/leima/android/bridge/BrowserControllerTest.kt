@@ -176,6 +176,7 @@ class BrowserControllerTest {
             assertEquals("https://example.org/a?token=REDACTED&q=kissa", metadata.getString("url"))
             assertEquals(2, metadata.getJSONObject("redactions").getInt("urlParameters"))
             assertFalse(metadata.getJSONObject("clock").getBoolean("verified"))
+            assertEquals("AGENT_READABLE", metadata.getString("exportPolicy"))
             assertEquals("example.org", metadata.getJSONObject("certificate").getJSONObject("issuedTo").getString("cn"))
         }
         assertFalse(File(pkg.file.parentFile, "evidence.zip.partial").exists())

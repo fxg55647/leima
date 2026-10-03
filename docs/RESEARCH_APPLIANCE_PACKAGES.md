@@ -44,6 +44,7 @@ tunnistetaan sisällöstä, joten niitä ei tarvitse muuntaa:
 `browser`-paketin `metadata.json` (Android `BrowserController.captureNow`): `kind`, `captureStatus`,
 `missing`, `requestedAt`, `completedAt`, `durationMs`, `clock` (`device_wall_clock`, ei varmennettu),
 `url` ja `requestedUrl` (fragmentti pois, salaisen nimiset kyselyparametrit `REDACTED`), `title`,
+`exportPolicy` (capture-hetken vientikäytäntö sivulle: `AGENT_READABLE` / `LOCAL_ONLY`),
 `certificate` (lehtivarmenne, ei ketjua), `appVersion`, `webViewVersion`, `device`, `browserSession`,
 `captureMethod` (tiedostoittain), `redactions`, `timing` ja `scope`. `dom.html` on DOM:n
 sarjallistus (attribuutit, ei kirjoitettuja kenttäarvoja), ei palvelimen alkuperäinen vastaus.
@@ -106,7 +107,15 @@ Arkistointirivillä on `"event":"archived"`. Korjausrivi:
 {"event":"repaired","sha256":"3f9a12c4…","path":"screenshot/…/package.zip","reason":"hash_mismatch","at":"2026-10-04T09:00:00Z"}
 ```
 
-`reason` on `hash_mismatch` tai `missing`. Rivejä ei koskaan muokata eikä poisteta.
+`reason` on `hash_mismatch` tai `missing`. Leimausrivi (`python -m bridge stamp`, vaihe F) osoittaa
+paketin viereen tallennettuun Leiman vastaukseen `stamp-<tx>.json`:
+
+```json
+{"event":"stamped","sha256":"3f9a12c4…","stamp_file":"browser/…/stamp-<tx>.json","arweave_tx":"…","arweave_url":"…",
+ "network":"arweave-mainnet-via-irys","permanent":true,"provenance":"device_captured","verdict_category":"Supported","at":"…"}
+```
+
+Rivejä ei koskaan muokata eikä poisteta.
 
 ## 4. Käyttö
 

@@ -2,7 +2,8 @@
 
 ZIP bytes are stored exactly as received and never modified. index.jsonl is append-only:
 `archived` rows describe stored packages, `repaired` rows record a damaged or missing archive
-copy rewritten from verified phone bytes, `tag` rows attach tags to them.
+copy rewritten from verified phone bytes, `tag` rows attach tags to them, `stamped` rows point to
+Leima's stamp result stored beside the package.
 """
 import hashlib
 import io
@@ -147,6 +148,29 @@ class Archive:
         info = _verify_bytes(data)
         return {"sha256": row["sha256"], "kind": info["kind"], "path": str(path), "valid": True,
                 "limits": "Integrity relative to the package manifest only; device, time and content are not authenticated."}
+
+    def record_stamp(self, row: dict, result: dict) -> dict:
+        """Stores Leima's full answer as stamp-<tx>.json beside the unchanged package.zip and
+        indexes it. The package bytes are never touched."""
+        evidence = result.get("evidence", {})
+        storage = evidence.get("storage", {})
+        tx = re.sub(r"[^A-Za-z0-9_-]", "", str(evidence.get("arweave_tx") or "unknown"))[:80]
+        stamp_path = Path(row["path"]).parent / f"stamp-{tx}.json"
+        _write_atomic(self.root / stamp_path, json.dumps(result, indent=2, ensure_ascii=False).encode("utf-8"))
+        entry = {
+            "event": "stamped",
+            "sha256": row["sha256"],
+            "stamp_file": stamp_path.as_posix(),
+            "arweave_tx": evidence.get("arweave_tx"),
+            "arweave_url": evidence.get("arweave_url"),
+            "network": storage.get("network"),
+            "permanent": storage.get("permanent"),
+            "provenance": result.get("source", {}).get("provenance"),
+            "verdict_category": result.get("verdict", {}).get("category"),
+            "at": _now(),
+        }
+        self._append(entry)
+        return entry
 
     def _append(self, row: dict) -> None:
         self.root.mkdir(parents=True, exist_ok=True)

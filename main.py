@@ -47,6 +47,7 @@ import email_eml
 from fpdf import FPDF
 from irys_sdk import Builder
 from irys_sdk.bundle.tags import from_dict as tags_from_dict
+import device_capture
 import evidence_package
 import mcp_server
 import historical_email_anchor
@@ -2999,6 +3000,97 @@ async def api_stamp(body: StampRequest):
     })
 
 
+# ── Phone browser captures (Research Appliance phase F) ──────────────────────────────
+# The source is a `kind: browser` package captured by the Leima Android app. Leima did not fetch
+# it, so provenance is `device_captured`. The whole capture ZIP is the stamped source file:
+# evidence.input_hash equals the package's SHA-256 in the phone's and PC archive's records.
+# Like /api/stamp, the request is the user's explicit export of the capture to Leima (and to the
+# AI provider); only the hash manifest goes to Arweave.
+
+DEVICE_CAPTURE_MAX_BYTES = 4 * 1024 * 1024  # under Vercel's request body limit
+
+
+@app.post("/api/stamp/device-capture")
+async def api_stamp_device_capture(
+    claim: str = Form(...),
+    package: UploadFile = File(...),
+    cited_passage: str = Form(""),
+):
+    claim = claim.strip()
+    cited_passage = cited_passage.strip()
+    if not claim:
+        return JSONResponse({"error": "claim is required"}, status_code=400)
+    if len(claim) > MCP_CLAIM_MAX_CHARS:
+        return JSONResponse({"error": f"claim is too long (max {MCP_CLAIM_MAX_CHARS} characters)"}, status_code=400)
+    if len(cited_passage) > MCP_CITED_PASSAGE_MAX_CHARS:
+        return JSONResponse({"error": f"cited_passage is too long (max {MCP_CITED_PASSAGE_MAX_CHARS} characters)"},
+                            status_code=400)
+    raw = await package.read(DEVICE_CAPTURE_MAX_BYTES + 1)
+    await package.close()
+    if len(raw) > DEVICE_CAPTURE_MAX_BYTES:
+        return JSONResponse({"error": f"Package too large (max {DEVICE_CAPTURE_MAX_BYTES // 1024 // 1024} MB)"},
+                            status_code=413)
+    try:
+        capture = device_capture.parse(raw)
+    except device_capture.DeviceCaptureError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+    question = claim
+    if cited_passage:
+        question = (f"{claim}\n\nCited passage (check that it appears in the source and "
+                    f"supports the claim): \"{cited_passage}\"")
+    source_context = {
+        "type": "device_capture",
+        "domain": urlparse(capture.url).netloc or "unknown",
+        "captured_at": capture.metadata.get("requestedAt"),
+    }
+    contents = [device_capture.analysis_text(capture), question]
+    try:
+        result = _run_analysis(question, contents, raw, "device-capture.zip",
+                               source_ext="zip", source_mime="application/zip", source_context=source_context)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"Analysis failed: {e}"}, status_code=500)
+
+    session_id = result["session_id"]
+    try:
+        entry = _ensure_stamped(session_id)
+    except Exception as e:
+        return JSONResponse({"error": f"Arweave upload failed: {e}"}, status_code=502)
+    stamp = entry["manifest"]["stamp"]
+    source = device_capture.source_block(capture)
+    captured_day = (source["captured_at"] or result["timestamp"])[:10]
+    citation = (f"{source['title'] or source['url'] or 'Phone capture'}. {source['url'] or ''} "
+                f"(captured on a phone {captured_day}). Leima stamp: {stamp['url']}").replace("  ", " ")
+    return JSONResponse({
+        "type": "LeimaCitationVerdict",
+        "schema_version": "0.1",
+        "claim": claim,
+        "source": {**source, "cited_passage": cited_passage or None},
+        "verdict": {
+            "nature": "ai_assessment",
+            "category": result["verdict_category"],
+            "summary": result["summary_verdict"],
+            "passes": [{"label": label, "text": text} for label, text in result["passes"]],
+            "model": MODEL,
+            "timestamp": result["timestamp"],
+        },
+        "evidence": {
+            "nature": "hash_commitment",
+            "input_hash": result["input_hash"],
+            "input_is": "SHA-256 of the capture ZIP (source.zip in the stamp package)",
+            "verdict_hash": result["verdict_hash"],
+            "arweave_tx": stamp["tx_id"],
+            "arweave_url": stamp["url"],
+            "package_url": f"{LEIMA_URL}/download/{session_id}/package.zip",
+            "storage": _storage_info(),
+        },
+        "limits": device_capture.LIMITS,
+        "citation": citation,
+    })
+
+
 # ── MCP (agent connectors, e.g. ChatGPT) ─────────────────────────────────────────────
 # Same analysis + stamping pipeline as /api/stamp, exposed as an MCP tool. Unlike
 # /api/stamp this endpoint is closed by default: it only answers when LEIMA_MCP_KEYS
@@ -3127,8 +3219,24 @@ def _stamp_citation(arguments: dict) -> dict:
             "arweave_tx": stamp["tx_id"],
             "arweave_url": stamp["url"],
             "package_url": f"{LEIMA_URL}/download/{session_id}/package.zip",
+            "storage": _storage_info(),
         },
         "citation": citation,
+    }
+
+
+def _storage_info() -> dict:
+    """Where the stamp record went and how far it got. Uploads are reported as submitted: Leima
+    does not wait for or check Arweave confirmation. A devnet stamp is never a permanent record."""
+    permanent = IRYS_NETWORK != "devnet"
+    return {
+        "network": "arweave-mainnet-via-irys" if permanent else "irys-devnet",
+        "permanent": permanent,
+        "gateway": IRYS_GATEWAY,
+        "content": "Hash manifest only (file names, SHA-256 hashes, timestamp, commit); no source or verdict text",
+        "status": "submitted",
+        "confirmation": "not_checked",
+        **({} if permanent else {"note": "Development network: data may be deleted. Not a production stamp."}),
     }
 
 

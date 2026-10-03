@@ -161,6 +161,15 @@ def _source_block(source_context: dict | None) -> str:
             "Assess only whether its content supports or contradicts the claim — do not speculate about origin. "
             "Do not draw conclusions about truth value beyond what the image itself shows."
         )
+    elif t == "device_capture":
+        domain = source_context.get("domain", "unknown")
+        return (
+            f"Source type: Web page captured on a person's phone with the Leima Android app, reportedly from {domain}. "
+            "Leima did not fetch this page: the URL, time and page text come from the phone and are not "
+            "independently verified, and the text is the phone's rendering, not the server's original response. "
+            "Assess whether the captured content supports or contradicts the claim. You may weigh the reported "
+            "domain's credibility, but state that the origin is device-reported."
+        )
     elif t in ("web", "pdf_url"):
         domain = source_context.get("domain", "unknown")
         label = "Web page" if t == "web" else "PDF document"

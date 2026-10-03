@@ -7,6 +7,7 @@
     python -m bridge sync [--serial S] [--archive DIR] [--keep]   move packages to the PC archive
     python -m bridge verify <sha256>    re-verify an archived package
     python -m bridge tag <sha256> <tag>
+    python -m bridge stamp <sha256> --claim TEXT [--passage TEXT] [--yes]   send a capture to Leima
     python -m bridge mcp                MCP server over stdio (Claude Desktop)
 """
 import argparse
@@ -22,6 +23,7 @@ from bridge.archive import Archive  # noqa: E402
 from bridge.client import pair, session, sync, unpair  # noqa: E402
 from bridge.config import BridgeConfig  # noqa: E402
 from bridge.errors import BridgeError  # noqa: E402
+from bridge.leima_api import capture_metadata, leima_url, stamp_archived  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,6 +43,12 @@ def main(argv: list[str] | None = None) -> int:
     tag_cmd.add_argument("sha256")
     tag_cmd.add_argument("tag")
     tag_cmd.add_argument("--archive")
+    stamp_cmd = commands.add_parser("stamp", help="lähetä arkistoitu selain-capture Leimaan arvioitavaksi ja leimattavaksi")
+    stamp_cmd.add_argument("sha256")
+    stamp_cmd.add_argument("--claim", required=True, help="väite, jota lähde tukee tai ei tue")
+    stamp_cmd.add_argument("--passage", default="", help="lainattu kohta (valinnainen)")
+    stamp_cmd.add_argument("--archive")
+    stamp_cmd.add_argument("--yes", action="store_true", help="älä kysy vahvistusta")
     commands.add_parser("mcp", help="MCP-palvelin stdio:n yli")
     args = parser.parse_args(argv)
     # MCP messages must be UTF-8 whatever the Windows console code page is.
@@ -54,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
+        if args.command == "stamp":
+            return stamp_command(args)
         if args.command in ("verify", "tag"):
             archive = Archive(args.archive)
             if args.command == "verify":
@@ -108,6 +118,38 @@ def main(argv: list[str] | None = None) -> int:
     except BridgeError as e:
         print(f"Virhe {e.code}: {e.message}", file=sys.stderr)
         return 1
+
+
+def stamp_command(args) -> int:
+    """Person-initiated export of a capture to Leima: shows what leaves the PC and asks first."""
+    archive = Archive(args.archive)
+    row = archive.find(args.sha256)
+    meta = capture_metadata((archive.root / row["path"]).read_bytes()) if row["kind"] == "browser" else {}
+    print(f"Lähetetään Leimaan ({leima_url()}):")
+    print(f"  paketti   {row['path']} ({row['size'] // 1024} kt), sha256 {row['sha256'][:16]}…")
+    print(f"  sivu      {meta.get('url') or '-'}  {meta.get('title') or ''}")
+    print(f"  tallennettu {meta.get('requestedAt') or '-'} puhelimen kellon mukaan; vientikäytäntö {meta.get('exportPolicy') or 'ei tiedossa'}")
+    print("Leiman palvelin ja sen AI-palveluntarjoaja saavat paketin sisällön (sivun teksti, DOM, kuvakaappaus).")
+    print("Arweaveen tallentuu vain tiivistemanifesti.")
+    if not args.yes and input("Lähetetäänkö? [k/E] ").strip().lower() not in ("k", "kyllä", "y", "yes"):
+        print("Peruttu. Mitään ei lähetetty.")
+        return 1
+    result = stamp_archived(archive, row["sha256"], args.claim, args.passage)
+    source, verdict, evidence = result["source"], result["verdict"], result["evidence"]
+    storage = evidence.get("storage", {})
+    print()
+    print(f"Hankinta   {source['provenance']}: {source.get('acquired_by')}")
+    print(f"AI-arvio   {verdict['category']} ({verdict['model']}): {verdict['summary']}")
+    print(f"Leima      {evidence['arweave_url']}")
+    print(f"           verkko {storage.get('network')}, {'pysyvä' if storage.get('permanent') else 'EI pysyvä'}, "
+          f"tila {storage.get('status')}, vahvistus {storage.get('confirmation')}")
+    if storage.get("note"):
+        print(f"           {storage['note']}")
+    print("Rajat:")
+    for limit in result.get("limits", []):
+        print(f"  - {limit}")
+    print(f"Tulos tallennettu arkistoon paketin viereen ({archive.root}).")
+    return 0
 
 
 if __name__ == "__main__":

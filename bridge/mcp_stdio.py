@@ -15,6 +15,7 @@ from .adb import Adb
 from .archive import Archive
 from .client import SLOW_METHOD_TIMEOUT_S, list_packages, read_screenshot, run_command, session, sync
 from .config import BridgeConfig
+from .leima_api import stamp_archived
 from .errors import BridgeError
 
 SERVER_INFO = {"name": "leima-bridge", "title": "Leima Research Appliance (USB phone)", "version": "0.1.0"}
@@ -181,7 +182,32 @@ BROWSER_TOOLS = [
                   "observations invalid. The page stays open on the phone."),
 ]
 
-TOOLS = [DEVICE_STATUS_TOOL, PACKAGES_LIST_TOOL, PACKAGES_SYNC_TOOL, PACKAGE_VERIFY_TOOL, *BROWSER_TOOLS]
+CAPTURE_STAMP_TOOL = {
+    "name": "capture_stamp",
+    "title": "Stamp an archived capture in Leima",
+    "description": (
+        "Sends a browser capture from the PC archive to Leima: an AI verdict on whether it supports the "
+        "claim plus a hash stamp on Arweave. This exports the capture's content (page text, DOM, "
+        "screenshot) to Leima and its AI provider, so it only works for captures that were agent-readable "
+        "on the phone; local-only captures fail with CONTENT_WITHHELD and must be sent by the person "
+        "(python -m bridge stamp). The result keeps three layers apart: source (provenance "
+        "device_captured, how it was acquired), verdict (AI assessment, not proof) and evidence (hash "
+        "commitment, storage network and status), plus limits. Report all of them. Takes 20-90 seconds."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "sha256": {"type": "string", "description": "sha256 (or unique prefix) of an archived browser capture."},
+            "claim": {"type": "string", "description": "The statement the source should support, at most 2000 characters."},
+            "cited_passage": {"type": "string", "description": "Optional exact passage being cited."},
+        },
+        "required": ["sha256", "claim"],
+        "additionalProperties": False,
+    },
+    "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+}
+
+TOOLS = [DEVICE_STATUS_TOOL, PACKAGES_LIST_TOOL, PACKAGES_SYNC_TOOL, PACKAGE_VERIFY_TOOL, *BROWSER_TOOLS, CAPTURE_STAMP_TOOL]
 
 _CONTENT_KEYS = ("visible_text", "title", "screenshot_id")
 _ELEMENT_CONTENT_KEYS = ("name", "value", "href")
@@ -236,6 +262,12 @@ def make_call_tool(adb_factory: Callable[[], Adb] = Adb, config_factory: Callabl
                 params = {k: v for k, v in arguments.items() if k != "serial"}
                 return enforce_local_only(run_command(lambda: session(adb_factory(), config_factory(), serial),
                                                       "browser." + name.removeprefix("browser_"), params))
+            if name == "capture_stamp":
+                sha, claim = arguments.get("sha256"), arguments.get("claim")
+                if not isinstance(sha, str) or not isinstance(claim, str) or not claim.strip():
+                    raise ToolError("sha256 and claim are required")
+                return stamp_archived(archive_factory(), sha, claim.strip(), str(arguments.get("cited_passage") or ""),
+                                      by_agent=True)
             if name == "package_verify":
                 sha = arguments.get("sha256")
                 if not isinstance(sha, str):

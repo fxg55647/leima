@@ -41,13 +41,25 @@ Vastaus pitää kaksikerrosmallin kerrokset erillään:
   "claim": "...",
   "source":   { "url", "final_url", "title", "fetched_at", "provenance", "cited_passage" },
   "verdict":  { "nature": "ai_assessment", "category", "summary", "passes", "model", "timestamp" },
-  "evidence": { "nature": "hash_commitment", "input_hash", "verdict_hash", "arweave_tx", "arweave_url", "package_url" },
+  "evidence": { "nature": "hash_commitment", "input_hash", "verdict_hash", "arweave_tx", "arweave_url", "package_url",
+                "storage": { "network", "permanent", "gateway", "content", "status": "submitted", "confirmation": "not_checked" } },
   "citation": "Title. URL (accessed YYYY-MM-DD). Leima stamp: https://gateway.irys.xyz/<tx>"
 }
 ```
 
 Rakenne on valittu niin, että siitä tulee suoraan W3C VC:n `credentialSubject`
 (ks. `docs/todo/W3C_VC_MIGRATION_PLAN.md`). Arweaveen menee edelleen vain hash-tietue.
+
+`evidence.storage` kertoo tallennusverkon: `irys-devnet` on aina `permanent: false`. Leima ei
+tarkista Arweave-vahvistusta, joten `status` on `submitted`.
+
+## Puhelimen capturet (`POST /api/stamp/device-capture`)
+
+Research Appliance -puhelimen `browser`-paketti voidaan leimata samalla putkella (multipart:
+`claim`, valinnainen `cited_passage`, `package`). Vastaus on sama `LeimaCitationVerdict`, mutta
+`source.provenance` on `device_captured`, `source.capture` kertoo paketin tiivisteet ja
+hankintatavan, ja lisäksi on `limits`. Lähdetiedosto on koko ZIP, joten `input_hash` on paketin
+sha256. Ks. `docs/RESEARCH_APPLIANCE_ARCHITECTURE.md` luku 6b. Reitti on avoin kuten `/api/stamp`.
 
 ## Avoimet asiat
 
