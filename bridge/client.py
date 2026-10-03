@@ -165,13 +165,13 @@ def read_package(client: PhoneClient, package: dict) -> bytes:
 def sync(client: PhoneClient, device: Device, archive, delete: bool = True,
          progress: Callable[[dict], None] = lambda result: None) -> list[dict]:
     """Moves every finished package to [archive]. The phone copy is deleted only after the ZIP is
-    verified and durably stored (or was already archived with the same sha256)."""
+    verified and durably stored, or the archived copy was re-hashed and found intact (or repaired)."""
     results = []
     for package in list_packages(client):
         result = {"package_id": package["package_id"], "kind": package["kind"], "sha256": package["sha256"]}
         try:
-            row, existed = archive.store(read_package(client, package), device.model)
-            result.update(status="already_archived" if existed else "archived", path=row["path"])
+            row, status = archive.store(read_package(client, package), device.model)
+            result.update(status=status, path=row["path"])
             if delete:
                 client.request("packages.delete", {"package_id": package["package_id"], "sha256": package["sha256"]})
                 result["deleted_from_phone"] = True

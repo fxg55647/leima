@@ -1,7 +1,8 @@
 """PC archive of phone packages (docs/RESEARCH_APPLIANCE_PACKAGES.md section 3).
 
 ZIP bytes are stored exactly as received and never modified. index.jsonl is append-only:
-`archived` rows describe stored packages, `tag` rows attach tags to them.
+`archived` rows describe stored packages, `repaired` rows record a damaged or missing archive
+copy rewritten from verified phone bytes, `tag` rows attach tags to them.
 """
 import hashlib
 import io
@@ -38,6 +39,24 @@ def _parse_time(value) -> datetime | None:
     return parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _write_atomic(target: Path, data: bytes) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    partial = target.with_name(target.name + ".partial")
+    with open(partial, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(partial, target)
+
+
 def _verify_bytes(data: bytes) -> dict:
     try:
         return verify(io.BytesIO(data))
@@ -66,13 +85,22 @@ class Archive:
             raise BridgeError("PACKAGE_NOT_FOUND", f"No unique archived package for {sha_prefix!r} (give at least 6 hex characters)")
         return matches[0]
 
-    def store(self, data: bytes, device: str = "") -> tuple[dict, bool]:
-        """Verifies and stores package bytes. Returns (index row, already_archived)."""
+    def store(self, data: bytes, device: str = "") -> tuple[dict, str]:
+        """Verifies and stores package bytes. Returns (index row, status) where status is
+        "archived" (new), "already_archived" (the archived copy still hashes to the same sha256)
+        or "repaired" (the archived copy was missing or damaged and was rewritten from [data]).
+        Only after this returns may the phone copy be deleted."""
         sha = hashlib.sha256(data).hexdigest()
-        existing = self.archived().get(sha)
-        if existing and (self.root / existing["path"]).is_file():
-            return existing, True
         info = _verify_bytes(data)
+        existing = self.archived().get(sha)
+        if existing:
+            target = self.root / existing["path"]
+            if target.is_file() and _sha256_file(target) == sha:
+                return existing, "already_archived"
+            reason = "hash_mismatch" if target.is_file() else "missing"
+            _write_atomic(target, data)
+            self._append({"event": "repaired", "sha256": sha, "path": existing["path"], "reason": reason, "at": _now()})
+            return existing, "repaired"
         details = info["details"]
         captured = _parse_time(details.get("requestedAt") or details.get("startedAtUtc"))
         domain = (urlsplit(details["url"]).hostname or "") if isinstance(details.get("url"), str) else ""
@@ -80,14 +108,7 @@ class Archive:
         when = captured or datetime.now(timezone.utc)
         folder = "_".join(p for p in (when.strftime("%Y-%m-%d_%H%M%S"), domain, sha[:8]) if p)
         relative = Path(info["kind"]) / when.strftime("%Y") / when.strftime("%m") / folder / "package.zip"
-        target = self.root / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        partial = target.with_name("package.zip.partial")
-        with open(partial, "wb") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(partial, target)
+        _write_atomic(self.root / relative, data)
         row = {
             "event": "archived",
             "sha256": sha,
@@ -101,7 +122,7 @@ class Archive:
             "verified": True,
         }
         self._append(row)
-        return row, False
+        return row, "archived"
 
     def tag(self, sha_prefix: str, tag: str) -> dict:
         tag = tag.strip()

@@ -57,7 +57,10 @@ tavut. Uudelleenserialisointia ei tehdä koskaan.
    vain, jos tiiviste täsmää edelleen.
 
 Jos jokin vaihe epäonnistuu, paketti jää puhelimeen ja virhe raportoidaan. Jos sama ZIP
-(sama sha256) on jo arkistossa, kopiota ei tehdä; puhelimen kopio poistetaan.
+(sama sha256) on jo indeksissä, silta laskee arkistokopion tiivisteen uudelleen ennen puhelimen
+kopion poistoa. Ehjä kopio jätetään sellaisenaan (`already_archived`). Puuttuva tai vioittunut
+kopio kirjoitetaan uudelleen puhelimelta tulleista, tarkistetuista tavuista (`repaired`), ja
+indeksiin lisätään `repaired`-rivi.
 
 ## 3. PC:n arkisto
 
@@ -91,7 +94,13 @@ evidence\
 {"event":"tag","sha256":"3f9a12c4…","tag":"case-42","at":"2026-10-03T15:10:00Z"}
 ```
 
-Arkistointirivillä on `"event":"archived"`. Rivejä ei koskaan muokata eikä poisteta.
+Arkistointirivillä on `"event":"archived"`. Korjausrivi:
+
+```json
+{"event":"repaired","sha256":"3f9a12c4…","path":"screenshot/…/package.zip","reason":"hash_mismatch","at":"2026-10-04T09:00:00Z"}
+```
+
+`reason` on `hash_mismatch` tai `missing`. Rivejä ei koskaan muokata eikä poisteta.
 
 ## 4. Käyttö
 
@@ -103,7 +112,8 @@ python android\tools\verify_package.py polku\package.zip    itsenäinen tarkistu
 ```
 
 `--keep` jättää paketit puhelimeen. Sama siirto onnistuu MCP:n kautta (`packages_sync`), ja se
-poistaa puhelimen kopion samoin ehdoin. Sync on turvallista ajaa uudelleen: jo arkistoitu ZIP
+poistaa puhelimen kopion samoin ehdoin. Työkalu on merkitty poistavaksi (`destructiveHint: true`),
+ja `keep_on_phone: true` jättää paketit puhelimeen. Sync on turvallista ajaa uudelleen: jo arkistoitu ZIP
 tunnistetaan sha256:sta.
 
 Tunnettu rajoitus: puhelimen Kuvausistunto-näkymän istuntolista päivittyy vasta, kun näkymä

@@ -84,7 +84,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps({"serial": device.serial, **client.request("device_status")}, indent=2, ensure_ascii=False))
         elif args.command == "sync":
             archive = Archive(args.archive)
-            labels = {"archived": "arkistoitu", "already_archived": "oli jo arkistossa", "failed": "EPÄONNISTUI"}
+            labels = {"archived": "arkistoitu", "already_archived": "oli jo arkistossa",
+                      "repaired": "PC-kopio korjattu", "failed": "EPÄONNISTUI"}
 
             def show(result):
                 line = f"{labels[result['status']]:<18} {result['kind']:<10} {result['package_id']}"

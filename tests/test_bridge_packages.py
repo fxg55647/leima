@@ -81,16 +81,16 @@ def test_verifier_rejects_tampered_and_unsafe(data):
 def test_archive_stores_unchanged_bytes_in_kind_date_folders(tmp_path):
     archive = Archive(tmp_path)
     data = photo_package(metadata={"requestedAt": "2026-10-03T10:15:00Z", "url": "https://Pankki.fi/tili"}, kind="screenshot")
-    row, existed = archive.store(data, "Pixel 7")
+    row, status = archive.store(data, "Pixel 7")
     sha = hashlib.sha256(data).hexdigest()
-    assert not existed
+    assert status == "archived"
     assert row["path"] == f"screenshot/2026/10/2026-10-03_101500_pankki.fi_{sha[:8]}/package.zip"
     assert (tmp_path / row["path"]).read_bytes() == data
     assert row["domain"] == "pankki.fi" and row["captured_at"] == "2026-10-03T10:15:00Z" and row["verified"]
     assert not list(tmp_path.rglob("*.partial"))
 
-    again, existed = archive.store(data, "Pixel 7")
-    assert existed and again["path"] == row["path"]
+    again, status = archive.store(data, "Pixel 7")
+    assert status == "already_archived" and again["path"] == row["path"]
     assert len(archive.rows()) == 1
 
 
@@ -173,6 +173,61 @@ def test_sync_keep_leaves_phone_untouched_and_rerun_is_idempotent(tmp_path):
     assert sync(phone, Device("S", "device"), archive)[0]["status"] == "already_archived"
     assert phone.deleted == ["evidence:a"]
     assert len(archive.rows()) == 1
+
+
+@pytest.mark.parametrize("damage", ["corrupt", "missing"])
+def test_resync_repairs_damaged_archive_copy_before_deleting_phone_copy(tmp_path, damage):
+    data = photo_package()
+    archive = Archive(tmp_path)
+    phone = FakePackagePhone({"evidence:a": data})
+    sync(phone, Device("S", "device"), archive, delete=False)
+    path = tmp_path / archive.rows()[0]["path"]
+    if damage == "corrupt":
+        path.write_bytes(b"bit rot")
+    else:
+        path.unlink()
+
+    result = sync(phone, Device("S", "device"), archive)[0]
+    assert result["status"] == "repaired" and result["deleted_from_phone"]
+    assert path.read_bytes() == data
+    repaired = [r for r in archive.rows() if r["event"] == "repaired"]
+    assert len(repaired) == 1 and repaired[0]["reason"] == ("hash_mismatch" if damage == "corrupt" else "missing")
+    assert archive.verify_entry(result["sha256"])["valid"]
+
+
+def test_resync_never_deletes_when_phone_copy_is_invalid_even_if_archived(tmp_path):
+    # Same sha256 cannot differ in content, but an invalid package must never count as archived.
+    archive = Archive(tmp_path)
+    phone = FakePackagePhone({"evidence:b": photo_package(tamper=True)})
+    assert sync(phone, Device("S", "device"), archive)[0]["status"] == "failed"
+    assert phone.deleted == []
+
+
+def test_mcp_sync_is_destructive_and_can_keep_packages(tmp_path, monkeypatch):
+    from bridge import mcp_stdio
+    tool = next(t for t in mcp_stdio.TOOLS if t["name"] == "packages_sync")
+    assert tool["annotations"]["destructiveHint"] is True
+    assert tool["inputSchema"]["properties"]["keep_on_phone"]["type"] == "boolean"
+
+    phone = FakePackagePhone({"evidence:a": photo_package()})
+    archive = Archive(tmp_path)
+
+    class FakeSession:
+        def __init__(self, *args):
+            pass
+
+        def __enter__(self):
+            return Device("S", "device"), phone
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(mcp_stdio, "session", FakeSession)
+    call_tool = mcp_stdio.make_call_tool(lambda: None, lambda: None, lambda: archive)
+    kept = call_tool("packages_sync", {"keep_on_phone": True})
+    assert kept["results"][0]["status"] == "archived" and phone.deleted == []
+    moved = call_tool("packages_sync", {})
+    assert moved["results"][0]["deleted_from_phone"] and phone.deleted == ["evidence:a"]
 
 
 def test_mcp_package_verify_tool(tmp_path):

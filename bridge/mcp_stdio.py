@@ -61,12 +61,23 @@ PACKAGES_SYNC_TOOL = {
     "title": "Move packages to the PC archive",
     "description": (
         "Copies every finished package from the phone to the PC archive, verifies the ZIP hash and "
-        "its manifest, stores it unchanged and only then deletes it from the phone. Packages that fail "
-        "verification stay on the phone and are reported as failed. Returns one result per package "
-        "with its archive path; no package content."
+        "its manifest, stores it unchanged and then DELETES it from the phone unless keep_on_phone is "
+        "true. Packages that fail verification stay on the phone and are reported as failed. Returns "
+        "one result per package with its archive path; no package content."
     ),
-    "inputSchema": {"type": "object", "properties": _SERIAL, "additionalProperties": False},
-    "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            **_SERIAL,
+            "keep_on_phone": {
+                "type": "boolean",
+                "default": False,
+                "description": "true copies to the archive but leaves every package on the phone.",
+            },
+        },
+        "additionalProperties": False,
+    },
+    "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": False},
 }
 
 PACKAGE_VERIFY_TOOL = {
@@ -103,7 +114,7 @@ def make_call_tool(adb_factory: Callable[[], Adb] = Adb, config_factory: Callabl
             if name == "packages_sync":
                 archive = archive_factory()
                 with session(adb_factory(), config_factory(), arguments.get("serial")) as (device, client):
-                    results = sync(client, device, archive)
+                    results = sync(client, device, archive, delete=not arguments.get("keep_on_phone", False))
                 return {"serial": device.serial, "archive": str(archive.root), "results": results}
             if name == "package_verify":
                 sha = arguments.get("sha256")
