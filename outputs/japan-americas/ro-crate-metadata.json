@@ -64,7 +64,7 @@
       "@type": "File",
       "name": "research.json",
       "encodingFormat": "application/json",
-      "sha256": "13a6601ffd9d144f486924ffa40702ce0a0fd630c6a2445ea541af959a92700a"
+      "sha256": "721a2a41dcd6ada3bf037ffc3cc5ffb7afdef3c7ef2093a6b0373c9172ea62ae"
     },
     {
       "@id": "article.md",

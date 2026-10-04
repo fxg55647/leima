@@ -216,7 +216,8 @@ def web_view(data):
 
 
 def build(input_path, output):
-    raw = input_path.read_bytes()
+    # Git may check out CRLF on Windows. Publish the same LF bytes on every host.
+    raw = input_path.read_bytes().replace(b'\r\n', b'\n')
     data = json.loads(raw)
     validate(data)
     if output.resolve() == input_path.parent.resolve() or output.resolve() in input_path.resolve().parents:
