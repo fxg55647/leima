@@ -12,7 +12,7 @@ eikä käynnistä agentteja tai automaattista yhdistämistä.
 > ohjeet ja research/README.md. Tarkista väitteiden lähdeperusta, menetelmä,
 > vaihtoehtoiset selitykset ja epävarmuudet. Erota lähteistetty vastanäyttö,
 > päättelykritiikki ja avoin tarkistuskysymys. Kirjaa vain perusteltuja huomautuksia;
-> jos niitä ei löydy, raportoi tarkastettu laajuus luomatta keinotekoista kritiikkiä.
+> Lisää arvio reviews-listaan myös ilman huomautuksia; älä luo keinotekoista kritiikkiä.
 > Lisää huomautukset criticisms-listaan uusilla pysyvillä ID:illä. Säilytä aiemmat
 > huomautukset ja vastaukset. Jätä uuden kritiikin ratkaisu avoimeksi. Älä muuta
 > tutkimusväitteitä tai päätä oman kritiikkisi hyväksymisestä. Merkitse lukematta
@@ -62,7 +62,36 @@ kohdat, lähteet tai ajot; `limitations` ilmoittaa jäljelle jääneet rajat. Va
 taso huomautuksen perustan mukaan: yhden laskennan toisto ei tarkoita koko
 tutkimuksen toistamista. Vanhoista tietueista puuttuva kenttä näkyy muodossa
 "ei kirjattu". Älä täydennä sitä oletuksilla. Jos työssä ei löydy huomautuksia,
-kirjaa taso, laajuus ja rajat PR:n tai issuen raporttiin.
+kirjaa taso, laajuus ja rajat myös erilliseen arviointitietueeseen.
+
+## Arviointitietue myös ilman huomautuksia
+
+Lisää reviews-listaan yksi tietue kutakin arvioitua kohdetta kohti. Esimerkki on
+täytettävä pohja: commit ja tiiviste on laskettava tarkastetusta lähtötilasta.
+
+```json
+{
+  "id": "R1",
+  "target": {"kind": "claim", "id": "C1"},
+  "date": "2026-10-04",
+  "author": {"kind": "agent", "name": "Arvioija", "model": "tuntematon"},
+  "reviewed_version": "Tarkastetun tutkimuksen versio",
+  "reviewed_commit": "Täysi 40 merkin Git-commit-SHA",
+  "reviewed_target_sha256": "Kohteen tiiviste tarkastetusta syötteestä",
+  "verification": {"level": "report", "scope": "C1:n raporttiteksti", "limitations": "Lähteitä ei luettu"},
+  "outcome": "no_findings",
+  "summary": "Ei huomautuksia tässä rajatussa raportin tarkastuksessa.",
+  "criticisms": []
+}
+```
+
+`findings` vaatii vähintään yhden saman kohteen kritiikki-ID:n; `no_findings`
+vaatii tyhjän listan. `inconclusive` kertoo, ettei tarkastuksesta saatu ratkaisevaa
+tulosta. Kaikki tulokset vaativat tarkastuksen laajuuden ja rajat. Älä lisää
+esimerkkitietuetta toteutuneeksi arvioinniksi. Commitin muoto validoidaan paikallisesti;
+sen olemassaoloa tai arvioinnin toteutumista rakentaja ei tarkista GitHubista.
+Päivä on tarkastuksen päivä. Muuttunut kohde näytetään needs_reassessment-tilassa;
+älä päivitä vanhaa tiivistettä ilman uutta tarkastusta. Uusi arvio saa uuden ID:n.
 
 Laske tiiviste **tarkastetusta syötteestä** ennen kohteen muuttamista:
 

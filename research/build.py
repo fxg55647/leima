@@ -54,6 +54,27 @@ def verification_text(review):
             f"Laajuus: {record['scope']} · Rajat: {record['limitations']}")
 
 
+def assessment_state(data, record):
+    return ('needs_reassessment' if review_fingerprint(data, record['target']) !=
+            record['reviewed_target_sha256'] else 'current')
+
+
+def assessment_lines(data):
+    lines = []
+    if data.get('reviews'):
+        lines = ['', '## Kirjatut arvioinnit',
+                 'Huomautusten puuttuminen rajatussa tarkastuksessa ei todista väitettä oikeaksi.']
+    labels = {'no_findings': 'Ei huomautuksia tarkastetussa laajuudessa',
+              'findings': 'Huomautuksia', 'inconclusive': 'Tarkastus jäi avoimeksi'}
+    for r in data.get('reviews', []):
+        lines += ['', f"### {r['id']} · {r['target']['id']} · {assessment_state(data, r)}",
+                  labels[r['outcome']], r['summary'], verification_text(r),
+                  f"Arvioija: {r['author']['name']} · Malli: {r['author'].get('model') or 'ei kirjattu'}",
+                  f"Päivä: {r['date']} · Versio: {r['reviewed_version']} · Commit: {r['reviewed_commit']}",
+                  f"Huomautukset: {', '.join(r['criticisms']) or 'ei kirjattuja'}"]
+    return lines
+
+
 def review_lines(data, audit=False):
     reviews = data.get('criticisms', [])
     if not reviews:
@@ -183,6 +204,45 @@ def validate(data):
             raise ValueError('Unknown criticism target') from e
 
 
+    assessments = data.get('reviews', [])
+    if not isinstance(assessments, list):
+        raise ValueError('reviews must be a list')
+    criticism_map = {r['id']: r for r in reviews}
+    for r in assessments:
+        ident = r.get('id', '')
+        if not isinstance(ident, str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]*', ident) or ident in ids:
+            raise ValueError('Invalid review ID')
+        ids.add(ident)
+        for key in ('summary', 'reviewed_version'):
+            if not isinstance(r.get(key), str) or not r[key].strip():
+                raise ValueError('Review needs summary and version')
+        if not isinstance(r.get('reviewed_commit'), str) or not re.fullmatch(r'[0-9a-f]{40}', r['reviewed_commit']):
+            raise ValueError('Review needs a full Git commit SHA')
+        if not isinstance(r.get('date'), str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', r['date']):
+            raise ValueError('Review needs ISO date')
+        try:
+            from datetime import date
+            date.fromisoformat(r['date'])
+            review_fingerprint(data, r['target'])
+        except (KeyError, TypeError, ValueError) as e:
+            raise ValueError('Invalid review date or target') from e
+        if not isinstance(r.get('reviewed_target_sha256'), str) or not re.fullmatch(r'[0-9a-f]{64}', r['reviewed_target_sha256']):
+            raise ValueError('Review needs target hash')
+        author = r.get('author')
+        if not isinstance(author, dict) or not isinstance(author.get('name'), str) or not author['name'].strip() or author.get('kind') not in ('human', 'agent'):
+            raise ValueError('Review needs author')
+        if author['kind'] == 'agent' and (not isinstance(author.get('model'), str) or not author['model'].strip()):
+            raise ValueError('Review needs model or explicit unknown')
+        verification = r.get('verification')
+        if not isinstance(verification, dict) or verification.get('level') not in ('report', 'source_check', 'rerun') or any(not isinstance(verification.get(k), str) or not verification[k].strip() for k in ('scope', 'limitations')):
+            raise ValueError('Review needs verification scope and limitations')
+        links = r.get('criticisms')
+        if not isinstance(links, list) or any(not isinstance(k, str) or k not in criticism_map for k in links):
+            raise ValueError('Unknown review criticism')
+        if len(set(links)) != len(links) or any(criticism_map[k]['target'] != r['target'] for k in links):
+            raise ValueError('Review criticism must match target and be unique')
+        if r.get('outcome') not in ('no_findings', 'findings', 'inconclusive') or (r['outcome'] == 'no_findings' and links) or (r['outcome'] == 'findings' and not links):
+            raise ValueError('Review outcome conflicts with criticism links')
     validate_activities(data, ids)
 
 
@@ -265,6 +325,7 @@ def text_view(data, audit=False):
         lines += ["", "## Työmäärä ja kustannukset", "Kirjatut tapahtumat: " + str(len(data.get('work_log', []))),
                   "Tyhjä loki tarkoittaa puuttuvaa mittausta, ei nollakustannusta."]
     lines += review_lines(data, audit)
+    lines += assessment_lines(data)
     if audit:
         lines += activity_lines(data)
     return "\n".join(lines) + "\n"
@@ -280,6 +341,7 @@ def web_view(data):
             evidence.append(f'<p><b>{esc(edge["relation"])}</b> — {esc(edge["rationale"])}</p><blockquote>{esc(s["quote"])}</blockquote><p><a href="{esc(s["url"], quote=True)}">{esc(s["title"])}</a> · {esc(s["locator"])}</p><p>{esc(s["criticism"])}</p>')
         cards.append(f'<article id="{claim["id"]}"><small>{claim["id"]} · {esc(claim["status"])}</small><h2>{esc(claim["text"])}</h2><p>{esc(claim["uncertainty"])}</p><details><summary>Avaa perustelut ja lähteet</summary>{"".join(evidence)}</details></article>')
     activities_html = '<section id="activities"><h2>Työvaiheet ja ihmisen päätökset</h2><pre>' + esc('\n'.join(activity_lines(data))) + '</pre></section>' if data.get('activities') else ''
+    activities_html += '<section id="reviews"><pre>' + esc('\n'.join(assessment_lines(data))) + '</pre></section>' if data.get('reviews') else ''
     scenes = []
     for scene in data.get("game", {}).get("scenes", []):
         choices = ''.join(f'<details><summary>{esc(c["label"])}</summary><p>{esc(c["consequence"])}</p><p>Oletus: {esc(c["assumption"])}</p><a href="#{c["claim"]}">Tutkimusperusta: {c["claim"]}</a></details>' for c in scene["choices"])
@@ -325,6 +387,14 @@ def build(input_path, output):
         graph.append({'@id': '#' + r['id'], '@type': 'Comment', 'text': r['text'],
                       'about': {'@id': 'research.json' if r['target']['kind'] == 'method' else '#' + r['target']['id']},
                       'description': review_state(data, r) + ': ' + r['basis'] + '\n' + verification_text(r), 'isPartOf': {'@id': 'research.json'}})
+    for r in data.get('reviews', []):
+        graph[1]['mentions'].append({'@id': '#' + r['id']})
+        graph.append({'@id': '#' + r['id'], '@type': 'CreativeWork', 'name': 'Arviointi ' + r['id'],
+                      'text': r['summary'], 'dateCreated': r['date'],
+                      'about': {'@id': 'research.json' if r['target']['kind'] == 'method' else '#' + r['target']['id']},
+                      'description': '\n'.join(assessment_lines(dict(data, reviews=[r]))),
+                      'citation': [{'@id': '#' + k} for k in r['criticisms']],
+                      'isPartOf': {'@id': 'research.json'}})
     def ref(ident):
         return {'@id': ident if ident == 'research.json' else '#' + ident}
     for actor in data.get('actors', []):

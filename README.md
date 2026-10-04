@@ -16,6 +16,8 @@ Leima produces two things at once: a cryptographic proof that a specific documen
 
 **Versioned research packages and RO-Crate** are implemented in [`research/`](research/README.md). A canonical research JSON links claims, sources, criticism, recorded activities and human decisions, and generates an article, audit view, interactive HTML and RO-Crate 1.3 metadata. See the [Japan–Americas research plan](research/japan-americas/research.json) and its [generated RO-Crate](outputs/japan-americas/ro-crate-metadata.json). This is a research-package prototype; automatic recording of every MCP execution and full Workflow Run provenance are future work.
 
+**Contribute a research review:** [start here](research/START_HERE.md). Humans and agents can return bounded reviews through pull requests, including reviews with no findings within the checked scope.
+
 ## Contents
 
 1. [What it does](#1-what-it-does)

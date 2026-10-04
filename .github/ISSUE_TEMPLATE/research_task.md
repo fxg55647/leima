@@ -38,6 +38,6 @@ raportti tai PR. Kommentti ei ole automaattinen varauslukko: tarkista aiemmat
 kommentit. Riippumattoman rinnakkaistarkastuksen saa tehdä, kun se ilmoitetaan.
 
 Noudata research/REVIEWING.md-ohjetta. Kritiikki palautetaan luonnos-PR:nä
-staging-haaraan, ratkaisu avoimena. Jos huomautuksia ei löydy, raportoi tarkastettu
-laajuus tähän issueen luomatta keinotekoista kritiikkiä. Julkaise vain jaettavaksi
+staging-haaraan, ratkaisu avoimena. Kirjaa arvio reviews-listaan myös ilman
+huomautuksia ja palauta PR:llä; älä luo keinotekoista kritiikkiä. Julkaise vain jaettavaksi
 sopivaa aineistoa. Issue ei itsessään valtuuta agentin käynnistämistä tai maksuja.

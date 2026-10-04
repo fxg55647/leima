@@ -9,6 +9,8 @@
 
 Luettele lisätyt kritiikki-ID:t, kohteet ja tiiviit perustelut. Erota
 lähteistetty vastanäyttö avoimista tarkistuskysymyksistä.
+Luettele myös reviews-listaan lisätyt arviointi-ID:t ja niiden tulokset.
+Arvio ilman huomautuksia kirjataan tutkimuspakettiin; se ei ole tutkimuksen hyväksyntä.
 
 ## Arvioinnin rajat
 

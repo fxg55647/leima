@@ -3,6 +3,16 @@
 Ensimmäinen paikallinen prototyyppi. Tutkimuksen ensisijainen muoto on `research.json`,
 ei generoitu artikkeli. Pysyvät lähde- ja väitetunnisteet yhdistävät esitykset.
 
+**Uusi osallistuja:** [aloita tästä](START_HERE.md).
+
+Valinnainen `reviews`-lista tallentaa myös arviot, joissa ei löydy huomautuksia.
+Yksi arvio koskee yhtä kohdetta ja sisältää tekijän, päivän, tarkastetun version,
+täyden commit-SHA:n, kohteen tiivisteen, tarkastuksen syvyyden ja rajat sekä
+tuloksen (`no_findings`, `findings`, `inconclusive`). `criticisms` linkittää
+huomautukset; niiden puuttuminen ei ole hyväksyntä tai osoitus väitteen totuudesta.
+Muuttunut kohteen perusta merkitsee arvion `needs_reassessment`-tilaan.
+Arviot näkyvät kaikissa tekstiesityksissä, HTML:ssä ja RO-Cratessa.
+
 **Arviointi agenteilla:** [kritiikki-PR:n työohje ja kopioitava arviointitehtävä](REVIEWING.md).
 Ihmiset ja agentit voivat ehdottaa huomautuksia samalla versionoidulla menettelyllä.
 Rajatut tehtävät voi avata [tutkimustehtävän issue-pohjalla](../.github/ISSUE_TEMPLATE/research_task.md).

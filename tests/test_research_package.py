@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from research.build import build, validate, web_view, review_fingerprint, review_state, text_view
+from research.build import build, validate, web_view, review_fingerprint, review_state, text_view, assessment_state
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "research/example/research.json"
 
@@ -76,6 +76,88 @@ def reviewed_sample():
               'resolution': {'status': 'accepted', 'rationale': 'Quote checked', 'changes': 'Wording retained'}}
     data['criticisms'] = [review]
     return data, review
+
+
+def assessed_sample():
+    data = sample()
+    target = {'kind': 'claim', 'id': 'C1'}
+    record = {'id': 'R1', 'target': target, 'date': '2026-10-04',
+              'author': {'kind': 'agent', 'name': 'Test reviewer', 'model': 'unknown'},
+              'reviewed_version': data['version'], 'reviewed_commit': 'a' * 40,
+              'reviewed_target_sha256': review_fingerprint(data, target),
+              'verification': {'level': 'report', 'scope': '<C1 report>', 'limitations': 'Sources not read'},
+              'outcome': 'no_findings', 'summary': 'No issues within scope', 'criticisms': []}
+    data['reviews'] = [record]
+    return data, record
+
+
+def test_no_findings_review_is_exported_without_invented_criticism(tmp_path):
+    data, record = assessed_sample()
+    validate(data)
+    assert not data.get('criticisms')
+    path = tmp_path / 'research.json'
+    path.write_text(json.dumps(data), encoding='utf-8')
+    files = build(path, tmp_path / 'out')
+    assert files == build(path, tmp_path / 'again')
+    for name in ('article.md', 'audit.md', 'ro-crate-metadata.json'):
+        assert b'No issues within scope' in files[name]
+        assert b'Sources not read' in files[name]
+        assert record['reviewed_commit'].encode() in files[name]
+    assert b'&lt;C1 report&gt;' in files['index.html']
+    assert b'<C1 report>' not in files['index.html']
+    graph = {e['@id']: e for e in json.loads(files['ro-crate-metadata.json'])['@graph']}
+    assert graph['#R1']['about'] == {'@id': '#C1'}
+    assert graph['#R1']['citation'] == []
+
+
+def test_review_basis_change_preserves_original_result():
+    data, record = assessed_sample()
+    assert assessment_state(data, record) == 'current'
+    data['claims'][1]['text'] += ' unrelated'
+    assert assessment_state(data, record) == 'current'
+    data['sources'][0]['quote'] += ' changed'
+    validate(data)
+    assert assessment_state(data, record) == 'needs_reassessment'
+    assert record['outcome'] == 'no_findings'
+    assert 'needs_reassessment' in text_view(data)
+    assert 'needs_reassessment' in web_view(data)
+
+
+@pytest.mark.parametrize('field,value', [
+    ('id', 'C1'), ('date', '2026-02-30'), ('reviewed_commit', 'abc'),
+    ('reviewed_target_sha256', 'abc'), ('verification', None), ('outcome', 'approved'),
+    ('outcome', 'findings'), ('criticisms', ['missing']), ('summary', ''),
+    ('target', {'kind': 'claim', 'id': 'missing'}),
+    ('author', {'kind': 'agent', 'name': 'Agent'})])
+def test_invalid_review_is_rejected(field, value):
+    data, record = assessed_sample()
+    record[field] = value
+    with pytest.raises(ValueError):
+        validate(data)
+
+
+def test_findings_require_matching_criticism_and_no_findings_rejects_it():
+    data, record = assessed_sample()
+    _, criticism = reviewed_sample()
+    data['criticisms'] = [criticism]
+    record.update(outcome='findings', criticisms=['K1'])
+    validate(data)
+    record['outcome'] = 'no_findings'
+    with pytest.raises(ValueError):
+        validate(data)
+    record['outcome'] = 'findings'
+    criticism['target'] = {'kind': 'claim', 'id': 'C2'}
+    with pytest.raises(ValueError):
+        validate(data)
+
+
+def test_inconclusive_review_and_legacy_package_remain_valid():
+    data, record = assessed_sample()
+    record['outcome'] = 'inconclusive'
+    validate(data)
+    assert 'Tarkastus jäi avoimeksi' in text_view(data)
+    validate(sample())
+    assert '## Kirjatut arvioinnit' not in text_view(sample())
 
 
 @pytest.mark.parametrize('level', ['report', 'source_check', 'rerun'])
