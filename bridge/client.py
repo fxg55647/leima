@@ -143,20 +143,38 @@ def list_packages(client: PhoneClient) -> list[dict]:
         raise
 
 
+def _decode_chunk(chunk: dict, offset: int, size: int, code: str) -> tuple[bytes, bool]:
+    """Reject malformed or non-progressing responses before requesting another chunk."""
+    if (not isinstance(chunk, dict) or type(chunk.get("offset")) is not int
+            or chunk["offset"] != offset or type(chunk.get("eof")) is not bool
+            or not isinstance(chunk.get("data_base64"), str)):
+        raise BridgeError(code, "Phone returned an invalid transfer chunk")
+    try:
+        piece = base64.b64decode(chunk["data_base64"], validate=True)
+    except ValueError as e:
+        raise BridgeError(code, "Phone returned invalid Base64 transfer data") from e
+    end = offset + len(piece)
+    if len(piece) > READ_CHUNK_BYTES or end > size:
+        raise BridgeError(code, "Phone sent more bytes than requested or listed")
+    if chunk["eof"] != (end == size) or (not piece and not chunk["eof"]):
+        raise BridgeError(code, "Phone transfer made no progress or reported an inconsistent end")
+    return piece, chunk["eof"]
+
+
 def read_package(client: PhoneClient, package: dict) -> bytes:
     """Reads a package in chunks and checks size and sha256 against the listing."""
+    size = package["size"]
+    if type(size) is not int or size <= 0:
+        raise BridgeError("PACKAGE_TRANSFER_MISMATCH", f"Unexpected package size {size}")
     data = bytearray()
     while True:
         chunk = client.request("packages.read", {
             "package_id": package["package_id"], "offset": len(data), "length": READ_CHUNK_BYTES,
         })
-        if chunk["offset"] != len(data):
-            raise BridgeError("PACKAGE_TRANSFER_MISMATCH", f"Phone returned offset {chunk['offset']}, expected {len(data)}")
-        data += base64.b64decode(chunk["data_base64"])
-        if chunk["eof"]:
+        piece, eof = _decode_chunk(chunk, len(data), size, "PACKAGE_TRANSFER_MISMATCH")
+        data += piece
+        if eof:
             break
-        if len(data) > package["size"]:
-            raise BridgeError("PACKAGE_TRANSFER_MISMATCH", "Phone sent more bytes than listed")
     if len(data) != package["size"] or hashlib.sha256(data).hexdigest() != package["sha256"]:
         raise BridgeError("PACKAGE_TRANSFER_MISMATCH", f"{package['package_id']} did not arrive intact")
     return bytes(data)
@@ -232,17 +250,16 @@ MAX_SCREENSHOT_BYTES = 32 * 1024 * 1024
 def read_screenshot(client: PhoneClient, meta: dict) -> bytes:
     """Reads a screenshot the phone stored with browser.screenshot, checking size and sha256."""
     size = meta["size"]
-    if not 0 < size <= MAX_SCREENSHOT_BYTES:
+    if type(size) is not int or not 0 < size <= MAX_SCREENSHOT_BYTES:
         raise BridgeError("SCREENSHOT_FAILED", f"Unexpected screenshot size {size}")
     data = bytearray()
     while True:
         chunk = client.request("browser.screenshot_read", {
             "screenshot_id": meta["screenshot_id"], "offset": len(data), "length": READ_CHUNK_BYTES,
         })
-        if chunk["offset"] != len(data):
-            raise BridgeError("SCREENSHOT_FAILED", f"Phone returned offset {chunk['offset']}, expected {len(data)}")
-        data += base64.b64decode(chunk["data_base64"])
-        if chunk["eof"] or len(data) > size:
+        piece, eof = _decode_chunk(chunk, len(data), size, "SCREENSHOT_FAILED")
+        data += piece
+        if eof:
             break
     if len(data) != size or hashlib.sha256(data).hexdigest() != meta["sha256"]:
         raise BridgeError("SCREENSHOT_FAILED", "Screenshot did not arrive intact")
