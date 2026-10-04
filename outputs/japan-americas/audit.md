@@ -1,5 +1,5 @@
 # Japanista Amerikkaan ennen vuotta 1492?
-Versio 0.2.0 · 2026-10-04
+Versio 0.3.0 · 2026-10-04
 
 Tutkimuskysymys: Mitä näyttöä on Japanin saaristosta Amerikkaan ennen vuotta 1492 tapahtuneesta ajelehtimisesta, ja kuinka hyvin se erottaa mahdollisuuden toteutuneesta kontaktista?
 
@@ -55,3 +55,21 @@ Vastaus: Ei vielä vastausta
 Kirjattu ratkaisu: open — avoin
 Vaikutukset: Ei kirjattuja muutoksia
 Lähteet: Tarkistuskysymys, ei lähteistetty vastanäyttö
+
+## Työvaiheet ja ihmisen päätökset
+
+### W1 · 2026-10-04 · human_decision
+Kirjattiin keskustelussa valittu tutkimusaihe: Japanista Amerikkaan ajelehtineet ihmiset ennen vuotta 1492.
+Perustelu: Tekijä ehdotti aihetta omaan tutkielmaansa. Päivä on kirjauksen päivä; alkuperäisen päätöksen tarkkaa ajankohtaa ei ole tallennettu.
+Tekijä: Tutkimuksen tekijä · Malli: ei kirjattu · Versio: ei kirjattu
+Työkalu: ei kirjattu · Versio: ei kirjattu
+Syötteet: ei kirjattu
+Tulokset: research.json
+
+### W2 · 2026-10-04 · research
+Kirjattiin alustavan suunnitelman avoimet hypoteesit ja tarkistuskysymykset.
+Perustelu: Erotetaan ajelehtimisen mahdollisuus toteutuneesta kontaktista sekä Jōmon–Valdivia-hypoteesi Pohjois-Amerikan ajelehtimisestä. Tämä on suunnittelua, ei kokotekstien analyysi. Päivä on kirjauksen päivä.
+Tekijä: ChatGPT / tutkimusavustaja · Malli: ei kirjattu · Versio: ei kirjattu
+Työkalu: ei kirjattu · Versio: ei kirjattu
+Syötteet: S1, S2, S3
+Tulokset: C1, C2, K1, K2, K3

@@ -1,5 +1,5 @@
 # Japanista Amerikkaan ennen vuotta 1492?
-Versio 0.2.0 · 2026-10-04
+Versio 0.3.0 · 2026-10-04
 
 Tutkimuskysymys: Mitä näyttöä on Japanin saaristosta Amerikkaan ennen vuotta 1492 tapahtuneesta ajelehtimisesta, ja kuinka hyvin se erottaa mahdollisuuden toteutuneesta kontaktista?
 

@@ -80,3 +80,22 @@ metadatan julkaisukelpoisuutta, ei kokotekstin lisenssiä tai vapaata saatavuutt
 - RO-Crate-profiili ja riippumaton validointi.
 - Lähteistetty simulaatio/peli, jonka oletukset ovat erillisiä tutkimustuloksista.
 - Leima-integraatio release-manifestille; rakentaja ei kutsu leimauspalvelua.
+
+## Työvaiheet ja ihmisen päätökset
+
+Valinnaiset `actors` ja `activities` täydentävät mallia taaksepäin yhteensopivasti.
+Tekijällä on `id`, `kind` (`human`/`agent`), `name` sekä valinnaiset `model` ja
+`version` (null tarkoittaa kirjaamatonta). Tapahtumalla on `id`, `kind`
+(`research`/`human_decision`), `date` (ISO-päivä), `actor`, `description`,
+`rationale`, `inputs`, `outputs` sekä valinnainen `tool` (`name`, `version`).
+Syötteet ja tulokset viittaavat lähteiden, väitteiden, leimojen tai kritiikkien
+ID:ihin tai tiedostoon `research.json`. Ihmisen päätös vaatii ihmistekijän.
+Työkalutunnisteiden `tool-`-alku on varattu rakentajalle.
+
+Työvaiheet näkyvät audit.md:ssä ja HTML-näkymässä. RO-Crate kuvaa tekijät
+Person/SoftwareApplication-olioina ja työvaiheet CreateAction/ChooseAction-olioina,
+joiden agent, object, result ja instrument linkittävät tekijän, syötteet,
+tulokset ja mahdollisen työkalun. Tämä ei vielä ole Workflow Run -profiili.
+Kirjaukset ovat tekijöiden ilmoittamia; rakentaja ei kerää MCP-kutsuja eikä
+varmenna tapahtuma-aikoja. Kirjaa jälkikäteen lisätyn tapahtuman ajoituksen
+rajoitus perusteluun. Työmäärä- ja kustannusmittaukset pysyvät erillisessä work_logissa.

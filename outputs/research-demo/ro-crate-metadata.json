@@ -115,6 +115,15 @@
       "isPartOf": {
         "@id": "research.json"
       }
+    },
+    {
+      "@id": "#L1",
+      "@type": "CreativeWork",
+      "name": "Suomen virallisia kieliä ovat suomi ja ruotsi",
+      "url": "https://devnet.irys.xyz/HCvnSNnTw1MtUJ9VWgEwPB4USChfy6wxZP8nQkkWpfQY",
+      "isBasedOn": {
+        "@id": "#S1"
+      }
     }
   ]
 }

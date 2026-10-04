@@ -17,7 +17,7 @@
       "name": "Japanista Amerikkaan ennen vuotta 1492?",
       "description": "Tutkimussuunnitelma. Erotetaan Pohjois-Amerikan ajelehtiminen Ecuadorin Jōmon–Valdivia-hypoteesista. Tarkastellaan kronologiaa, alusten ja miehistön selviytymistä, arkeologista kontekstia sekä vaihtoehtoisia selityksiä. Esihistoriallisista yhteisöistä käytetään aikakauteen sopivia nimityksiä. Lähteet ovat alustavia lukukohteita; koko tekstejä ei ole vielä analysoitu.",
       "datePublished": "2026-10-04",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "hasPart": [
         {
           "@id": "research.json"
@@ -56,6 +56,18 @@
         },
         {
           "@id": "#K3"
+        },
+        {
+          "@id": "#P1"
+        },
+        {
+          "@id": "#A1"
+        },
+        {
+          "@id": "#W1"
+        },
+        {
+          "@id": "#W2"
         }
       ]
     },
@@ -64,14 +76,14 @@
       "@type": "File",
       "name": "research.json",
       "encodingFormat": "application/json",
-      "sha256": "721a2a41dcd6ada3bf037ffc3cc5ffb7afdef3c7ef2093a6b0373c9172ea62ae"
+      "sha256": "677a1f55f89d4956b70187a8e5d1e1d571735d8886bac62fdab897df8e382203"
     },
     {
       "@id": "article.md",
       "@type": "File",
       "name": "article.md",
       "encodingFormat": "text/markdown",
-      "sha256": "494625ce170d2019b9b8d285ae95e0d2f33f1ce44e1442a78d8e412c110d8151",
+      "sha256": "f473ffadfb3ddbb7da65d7e01e45c83dfdb26bf2a5ec57adf28526bd638e6047",
       "isBasedOn": {
         "@id": "research.json"
       }
@@ -81,7 +93,7 @@
       "@type": "File",
       "name": "audit.md",
       "encodingFormat": "text/markdown",
-      "sha256": "53cbdb8aaa1f269dc37ad1fd758bb93fbd744fad5ca230f874210d62c2173786",
+      "sha256": "379b7049cdd60727e19ee1da1793efb77e666a5aee981fc2dece2578f5d898bf",
       "isBasedOn": {
         "@id": "research.json"
       }
@@ -91,7 +103,7 @@
       "@type": "File",
       "name": "index.html",
       "encodingFormat": "text/html",
-      "sha256": "fb0e6b214adc5bd5e5df93f6208e4d8d681284c8b1297bfd5d3b5eedc9b05190",
+      "sha256": "c301ee6b5ee96e69aa9454febba58f7437a78d855deeaa9562e59b49b63aed7d",
       "isBasedOn": {
         "@id": "research.json"
       }
@@ -171,6 +183,76 @@
       "description": "open: Vertaa piirteiden yhdistelmiä, ajoituksia ja paikallista kehitystä; samankaltaisuus ei yksin ratkaise selitystä.",
       "isPartOf": {
         "@id": "research.json"
+      }
+    },
+    {
+      "@id": "#P1",
+      "@type": "Person",
+      "name": "Tutkimuksen tekijä"
+    },
+    {
+      "@id": "#A1",
+      "@type": "SoftwareApplication",
+      "name": "ChatGPT / tutkimusavustaja"
+    },
+    {
+      "@id": "#W1",
+      "@type": "ChooseAction",
+      "name": "Kirjattiin keskustelussa valittu tutkimusaihe: Japanista Amerikkaan ajelehtineet ihmiset ennen vuotta 1492.",
+      "description": "Tekijä ehdotti aihetta omaan tutkielmaansa. Päivä on kirjauksen päivä; alkuperäisen päätöksen tarkkaa ajankohtaa ei ole tallennettu.",
+      "dateCreated": "2026-10-04",
+      "agent": {
+        "@id": "#P1"
+      },
+      "object": [],
+      "result": [
+        {
+          "@id": "research.json"
+        }
+      ],
+      "actionStatus": {
+        "@id": "http://schema.org/CompletedActionStatus"
+      }
+    },
+    {
+      "@id": "#W2",
+      "@type": "CreateAction",
+      "name": "Kirjattiin alustavan suunnitelman avoimet hypoteesit ja tarkistuskysymykset.",
+      "description": "Erotetaan ajelehtimisen mahdollisuus toteutuneesta kontaktista sekä Jōmon–Valdivia-hypoteesi Pohjois-Amerikan ajelehtimisestä. Tämä on suunnittelua, ei kokotekstien analyysi. Päivä on kirjauksen päivä.",
+      "dateCreated": "2026-10-04",
+      "agent": {
+        "@id": "#A1"
+      },
+      "object": [
+        {
+          "@id": "#S1"
+        },
+        {
+          "@id": "#S2"
+        },
+        {
+          "@id": "#S3"
+        }
+      ],
+      "result": [
+        {
+          "@id": "#C1"
+        },
+        {
+          "@id": "#C2"
+        },
+        {
+          "@id": "#K1"
+        },
+        {
+          "@id": "#K2"
+        },
+        {
+          "@id": "#K3"
+        }
+      ],
+      "actionStatus": {
+        "@id": "http://schema.org/CompletedActionStatus"
       }
     }
   ]

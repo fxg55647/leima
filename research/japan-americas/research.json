@@ -1,7 +1,7 @@
 {
   "schema_version": "0.1",
   "id": "japan-americas-drift",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "title": "Japanista Amerikkaan ennen vuotta 1492?",
   "date": "2026-10-04",
   "question": "Mitä näyttöä on Japanin saaristosta Amerikkaan ennen vuotta 1492 tapahtuneesta ajelehtimisesta, ja kuinka hyvin se erottaa mahdollisuuden toteutuneesta kontaktista?",
@@ -138,6 +138,58 @@
         "rationale": "",
         "changes": ""
       }
+    }
+  ],
+  "actors": [
+    {
+      "id": "P1",
+      "kind": "human",
+      "name": "Tutkimuksen tekijä",
+      "model": null,
+      "version": null
+    },
+    {
+      "id": "A1",
+      "kind": "agent",
+      "name": "ChatGPT / tutkimusavustaja",
+      "model": null,
+      "version": null
+    }
+  ],
+  "activities": [
+    {
+      "id": "W1",
+      "kind": "human_decision",
+      "date": "2026-10-04",
+      "actor": "P1",
+      "description": "Kirjattiin keskustelussa valittu tutkimusaihe: Japanista Amerikkaan ajelehtineet ihmiset ennen vuotta 1492.",
+      "rationale": "Tekijä ehdotti aihetta omaan tutkielmaansa. Päivä on kirjauksen päivä; alkuperäisen päätöksen tarkkaa ajankohtaa ei ole tallennettu.",
+      "inputs": [],
+      "outputs": [
+        "research.json"
+      ],
+      "tool": null
+    },
+    {
+      "id": "W2",
+      "kind": "research",
+      "date": "2026-10-04",
+      "actor": "A1",
+      "description": "Kirjattiin alustavan suunnitelman avoimet hypoteesit ja tarkistuskysymykset.",
+      "rationale": "Erotetaan ajelehtimisen mahdollisuus toteutuneesta kontaktista sekä Jōmon–Valdivia-hypoteesi Pohjois-Amerikan ajelehtimisestä. Tämä on suunnittelua, ei kokotekstien analyysi. Päivä on kirjauksen päivä.",
+      "inputs": [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      "outputs": [
+        "C1",
+        "C2",
+        "K1",
+        "K2",
+        "K3"
+      ],
+      "tool": null
     }
   ]
 }

@@ -166,6 +166,66 @@ def validate(data):
             raise ValueError('Unknown criticism target') from e
 
 
+    validate_activities(data, ids)
+
+
+def validate_activities(data, existing):
+    actors, activities = data.get('actors', []), data.get('activities', [])
+    if not isinstance(actors, list) or not isinstance(activities, list):
+        raise ValueError('actors and activities must be lists')
+    ids = set(existing)
+    if any(i.startswith('tool-') for i in ids):
+        raise ValueError('tool- prefix is reserved')
+    for item in actors + activities:
+        ident = item.get('id', '')
+        if not isinstance(ident, str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]*', ident) or ident in ids or ident.startswith('tool-'):
+            raise ValueError('Invalid/duplicate provenance ID')
+        ids.add(ident)
+    actor_map = {a['id']: a for a in actors}
+    for actor in actors:
+        if actor.get('kind') not in ('human', 'agent') or not isinstance(actor.get('name'), str) or not actor['name'].strip():
+            raise ValueError('Actor needs name and kind')
+        for key in ('model', 'version'):
+            if actor.get(key) is not None and not isinstance(actor[key], str):
+                raise ValueError('Actor model/version must be text or null')
+    artifacts = set(existing) | {'research.json'}
+    from datetime import date
+    for a in activities:
+        if a.get('kind') not in ('research', 'human_decision') or a.get('actor') not in actor_map:
+            raise ValueError('Activity needs known actor and kind')
+        if a['kind'] == 'human_decision' and actor_map[a['actor']]['kind'] != 'human':
+            raise ValueError('Human decision requires human actor')
+        for key in ('date', 'description', 'rationale'):
+            if not isinstance(a.get(key), str) or not a[key].strip():
+                raise ValueError('Activity needs date, description and rationale')
+        try:
+            date.fromisoformat(a['date'])
+        except ValueError as e:
+            raise ValueError('Activity date must be ISO date') from e
+        for key in ('inputs', 'outputs'):
+            if not isinstance(a.get(key), list) or any(not isinstance(ref, str) or ref not in artifacts for ref in a[key]):
+                raise ValueError('Unknown activity input/output')
+        tool = a.get('tool')
+        if tool is not None and (not isinstance(tool, dict) or not isinstance(tool.get('name'), str) or not tool['name'].strip() or (tool.get('version') is not None and not isinstance(tool['version'], str))):
+            raise ValueError('Tool needs name and optional version')
+
+
+def activity_lines(data):
+    if not data.get('activities'):
+        return []
+    actors = {a['id']: a for a in data['actors']}
+    lines = ['', '## Työvaiheet ja ihmisen päätökset']
+    for a in data['activities']:
+        actor, tool = actors[a['actor']], a.get('tool') or {}
+        lines += ['', f"### {a['id']} · {a['date']} · {a['kind']}", a['description'],
+                  f"Perustelu: {a['rationale']}",
+                  f"Tekijä: {actor['name']} · Malli: {actor.get('model') or 'ei kirjattu'} · Versio: {actor.get('version') or 'ei kirjattu'}",
+                  f"Työkalu: {tool.get('name') or 'ei kirjattu'} · Versio: {tool.get('version') or 'ei kirjattu'}",
+                  f"Syötteet: {', '.join(a['inputs']) or 'ei kirjattu'}",
+                  f"Tulokset: {', '.join(a['outputs']) or 'ei kirjattu'}"]
+    return lines
+
+
 def text_view(data, audit=False):
     lines = [f"# {data['title']}", f"Versio {data['version']} · {data['date']}",
              "", f"Tutkimuskysymys: {data['question']}", "", data["method"]]
@@ -188,6 +248,8 @@ def text_view(data, audit=False):
         lines += ["", "## Työmäärä ja kustannukset", "Kirjatut tapahtumat: " + str(len(data.get('work_log', []))),
                   "Tyhjä loki tarkoittaa puuttuvaa mittausta, ei nollakustannusta."]
     lines += review_lines(data, audit)
+    if audit:
+        lines += activity_lines(data)
     return "\n".join(lines) + "\n"
 
 
@@ -200,6 +262,7 @@ def web_view(data):
             s = next(s for s in data["sources"] if s["id"] == edge["source"])
             evidence.append(f'<p><b>{esc(edge["relation"])}</b> — {esc(edge["rationale"])}</p><blockquote>{esc(s["quote"])}</blockquote><p><a href="{esc(s["url"], quote=True)}">{esc(s["title"])}</a> · {esc(s["locator"])}</p><p>{esc(s["criticism"])}</p>')
         cards.append(f'<article id="{claim["id"]}"><small>{claim["id"]} · {esc(claim["status"])}</small><h2>{esc(claim["text"])}</h2><p>{esc(claim["uncertainty"])}</p><details><summary>Avaa perustelut ja lähteet</summary>{"".join(evidence)}</details></article>')
+    activities_html = '<section id="activities"><h2>Työvaiheet ja ihmisen päätökset</h2><pre>' + esc('\n'.join(activity_lines(data))) + '</pre></section>' if data.get('activities') else ''
     scenes = []
     for scene in data.get("game", {}).get("scenes", []):
         choices = ''.join(f'<details><summary>{esc(c["label"])}</summary><p>{esc(c["consequence"])}</p><p>Oletus: {esc(c["assumption"])}</p><a href="#{c["claim"]}">Tutkimusperusta: {c["claim"]}</a></details>' for c in scene["choices"])
@@ -212,7 +275,7 @@ def web_view(data):
 <style>body{{font:18px/1.65 system-ui;background:#f3f0e8;color:#183329;max-width:900px;margin:auto;padding:32px}}h1{{font-size:2.3em;line-height:1.15}}article{{background:white;padding:25px;margin:20px 0;border-radius:16px}}summary,a{{cursor:pointer;color:#215f4a}}blockquote{{border-left:3px solid #b88842;padding-left:18px}}small{{color:#64736b}}nav a{{margin-right:20px}}</style>
 <header><small>LEIMA RESEARCH · {esc(data['version'])}</small><h1>{esc(data['title'])}</h1><p>{esc(data['question'])}</p><p>{esc(data['method'])}</p></header>
 <nav><a href="#research">Tutkimus</a><a href="#game">Pelattava tulkinta</a><a href="audit.md">Tarkastajan näkymä</a><a href="ro-crate-metadata.json">RO-Crate</a></nav>
-<main id="research">{''.join(cards)}<section id="criticism"><h2>Vahvimmat vastaväitteet ja avoimet tarkistukset</h2>{''.join(reviews) or '<p>Ei kirjattuja kritiikkejä. Tämä ei tarkoita, että tutkimus olisi tarkastettu.</p>'}</section><section id="game"><h2>Pelattava tulkinta</h2><p>{esc(data.get('game',{}).get('disclaimer','Ei pelimallia.'))}</p>{''.join(scenes)}</section></main></html>'''
+<main id="research">{''.join(cards)}{activities_html}<section id="criticism"><h2>Vahvimmat vastaväitteet ja avoimet tarkistukset</h2>{''.join(reviews) or '<p>Ei kirjattuja kritiikkejä. Tämä ei tarkoita, että tutkimus olisi tarkastettu.</p>'}</section><section id="game"><h2>Pelattava tulkinta</h2><p>{esc(data.get('game',{}).get('disclaimer','Ei pelimallia.'))}</p>{''.join(scenes)}</section></main></html>'''
 
 
 def build(input_path, output):
@@ -238,11 +301,37 @@ def build(input_path, output):
         graph.append({"@id": "#" + source["id"], "@type": "CreativeWork", "name": source["title"], "url": source["url"], "description": source["locator"] + ": " + source["quote"]})
     for claim in data["claims"]:
         graph.append({"@id": "#" + claim["id"], "@type": "CreativeWork", "text": claim["text"], "description": claim["status"] + ": " + claim["uncertainty"], "citation": [{"@id": "#" + e["source"]} for e in claim.get("evidence", [])], "isPartOf": {"@id": "research.json"}})
+    for stamp in data['stamps']:
+        graph.append({'@id': '#' + stamp['id'], '@type': 'CreativeWork', 'name': stamp['claim_text'], 'url': stamp['url'], 'isBasedOn': {'@id': '#' + stamp['source']}})
     for r in data.get('criticisms', []):
         graph[1]['mentions'].append({'@id': '#' + r['id']})
         graph.append({'@id': '#' + r['id'], '@type': 'Comment', 'text': r['text'],
                       'about': {'@id': 'research.json' if r['target']['kind'] == 'method' else '#' + r['target']['id']},
                       'description': review_state(data, r) + ': ' + r['basis'], 'isPartOf': {'@id': 'research.json'}})
+    def ref(ident):
+        return {'@id': ident if ident == 'research.json' else '#' + ident}
+    for actor in data.get('actors', []):
+        entity = {'@id': '#' + actor['id'], '@type': 'Person' if actor['kind'] == 'human' else 'SoftwareApplication', 'name': actor['name']}
+        if actor.get('version'):
+            entity['softwareVersion' if actor['kind'] == 'agent' else 'description'] = actor['version']
+        if actor.get('model'):
+            entity['description'] = 'Model: ' + actor['model']
+        graph.append(entity)
+        graph[1]['mentions'].append(ref(actor['id']))
+    for a in data.get('activities', []):
+        entity = {'@id': '#' + a['id'], '@type': 'ChooseAction' if a['kind'] == 'human_decision' else 'CreateAction',
+                  'name': a['description'], 'description': a['rationale'], 'dateCreated': a['date'],
+                  'agent': ref(a['actor']), 'object': [ref(i) for i in a['inputs']],
+                  'result': [ref(i) for i in a['outputs']], 'actionStatus': {'@id': 'http://schema.org/CompletedActionStatus'}}
+        if a.get('tool'):
+            tool_id = '#tool-' + a['id']
+            tool = {'@id': tool_id, '@type': 'SoftwareApplication', 'name': a['tool']['name']}
+            if a['tool'].get('version'):
+                tool['softwareVersion'] = a['tool']['version']
+            graph.append(tool)
+            entity['instrument'] = {'@id': tool_id}
+        graph.append(entity)
+        graph[1]['mentions'].append(ref(a['id']))
     files["ro-crate-metadata.json"] = (json.dumps({"@context": "https://w3id.org/ro/crate/1.3/context", "@graph": graph}, ensure_ascii=False, indent=2) + '\n').encode()
     # This external envelope avoids hashing a manifest containing its own hash or stamp.
     files["release-manifest.json"] = (json.dumps({"schema_version": "0.1", "research_version": data["version"], "files": {name: digest(content) for name, content in files.items()}}, indent=2) + '\n').encode()

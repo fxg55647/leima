@@ -1,11 +1,11 @@
 {
   "schema_version": "0.1",
-  "research_version": "0.2.0",
+  "research_version": "0.3.0",
   "files": {
-    "research.json": "721a2a41dcd6ada3bf037ffc3cc5ffb7afdef3c7ef2093a6b0373c9172ea62ae",
-    "article.md": "494625ce170d2019b9b8d285ae95e0d2f33f1ce44e1442a78d8e412c110d8151",
-    "audit.md": "53cbdb8aaa1f269dc37ad1fd758bb93fbd744fad5ca230f874210d62c2173786",
-    "index.html": "fb0e6b214adc5bd5e5df93f6208e4d8d681284c8b1297bfd5d3b5eedc9b05190",
-    "ro-crate-metadata.json": "ad961d40a10d167fdac0098582f3a0d55db363358bb4ccfa3aa5632156f6f137"
+    "research.json": "677a1f55f89d4956b70187a8e5d1e1d571735d8886bac62fdab897df8e382203",
+    "article.md": "f473ffadfb3ddbb7da65d7e01e45c83dfdb26bf2a5ec57adf28526bd638e6047",
+    "audit.md": "379b7049cdd60727e19ee1da1793efb77e666a5aee981fc2dece2578f5d898bf",
+    "index.html": "c301ee6b5ee96e69aa9454febba58f7437a78d855deeaa9562e59b49b63aed7d",
+    "ro-crate-metadata.json": "d977805266f2ba1e8f9f0bbf7eea37e8f041b4450e98d54850c624fdc4b84d27"
   }
 }

@@ -114,3 +114,53 @@ def test_invalid_criticism_is_rejected(change):
         review['id'] = 'C1'
     with pytest.raises(ValueError):
         validate(data)
+
+
+def activity_sample():
+    data = sample()
+    data['actors'] = [{'id': 'P1', 'kind': 'human', 'name': '<Reviewer>'}]
+    data['activities'] = [{'id': 'W1', 'kind': 'human_decision', 'actor': 'P1',
+                           'date': '2026-10-04', 'description': '<Decision>', 'rationale': 'Scope chosen',
+                           'inputs': ['S1'], 'outputs': ['C1'],
+                           'tool': {'name': 'Editor', 'version': '1'}}]
+    return data
+
+
+@pytest.mark.parametrize('change', ['actor', 'input', 'output', 'human', 'date', 'duplicate', 'tool'])
+def test_invalid_activity_rejected(change):
+    data = activity_sample()
+    activity = data['activities'][0]
+    if change == 'actor':
+        activity['actor'] = 'missing'
+    elif change in ('input', 'output'):
+        activity[change + 's'] = ['missing']
+    elif change == 'human':
+        data['actors'][0]['kind'] = 'agent'
+    elif change == 'date':
+        activity['date'] = 'yesterday'
+    elif change == 'duplicate':
+        activity['id'] = 'C1'
+    else:
+        activity['tool']['version'] = 7
+    with pytest.raises(ValueError):
+        validate(data)
+
+
+def test_activity_graph_and_rendering(tmp_path):
+    data = activity_sample()
+    validate(data)
+    assert '<Decision>' not in web_view(data)
+    assert '&lt;Decision&gt;' in web_view(data)
+    assert 'Scope chosen' in text_view(data, True)
+    path = tmp_path / 'input.json'
+    path.write_text(json.dumps(data), encoding='utf-8')
+    first = build(path, tmp_path / 'a')
+    assert first == build(path, tmp_path / 'b')
+    graph = {e['@id']: e for e in json.loads(first['ro-crate-metadata.json'])['@graph']}
+    activity = graph['#W1']
+    assert activity['@type'] == 'ChooseAction'
+    assert activity['agent'] == {'@id': '#P1'}
+    assert activity['object'] == [{'@id': '#S1'}]
+    assert activity['result'] == [{'@id': '#C1'}]
+    assert graph[activity['instrument']['@id']]['softwareVersion'] == '1'
+    assert graph['#P1']['@type'] == 'Person'
