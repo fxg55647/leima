@@ -3,6 +3,9 @@
 Ensimmäinen paikallinen prototyyppi. Tutkimuksen ensisijainen muoto on `research.json`,
 ei generoitu artikkeli. Pysyvät lähde- ja väitetunnisteet yhdistävät esitykset.
 
+**Arviointi agenteilla:** [kritiikki-PR:n työohje ja kopioitava arviointitehtävä](REVIEWING.md).
+Ihmiset ja agentit voivat ehdottaa huomautuksia samalla versionoidulla menettelyllä.
+
 ## Käyttö
 
 ```powershell
