@@ -1,0 +1,30 @@
+name: Research package
+on:
+  push:
+    paths: ['research/**', 'tests/test_research_package.py', '.github/workflows/research-package.yml']
+  pull_request:
+    paths: ['research/**', 'tests/test_research_package.py', '.github/workflows/research-package.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate and build research views
+        run: |
+          python -m research.build research/example/research.json --out outputs/research-demo
+          python -m research.build research/japan-americas/research.json --out outputs/japan-americas
+      - name: Test validation and reproducibility
+        run: |
+          python -m pip install pytest requests
+          python -m pytest tests/test_research_package.py -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-${{ github.sha }}
+          path: outputs/
+          if-no-files-found: error

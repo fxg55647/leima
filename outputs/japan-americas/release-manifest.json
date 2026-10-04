@@ -1,0 +1,11 @@
+{
+  "schema_version": "0.1",
+  "research_version": "0.2.0",
+  "files": {
+    "research.json": "13a6601ffd9d144f486924ffa40702ce0a0fd630c6a2445ea541af959a92700a",
+    "article.md": "494625ce170d2019b9b8d285ae95e0d2f33f1ce44e1442a78d8e412c110d8151",
+    "audit.md": "53cbdb8aaa1f269dc37ad1fd758bb93fbd744fad5ca230f874210d62c2173786",
+    "index.html": "fb0e6b214adc5bd5e5df93f6208e4d8d681284c8b1297bfd5d3b5eedc9b05190",
+    "ro-crate-metadata.json": "5c5d5c38597a822ee963243ca986f518df64706ecdbdc3a050f8b9e4ec2a59da"
+  }
+}

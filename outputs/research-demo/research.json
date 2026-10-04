@@ -1,0 +1,66 @@
+{
+  "schema_version": "0.1",
+  "id": "leima-research-demo",
+  "version": "0.1.0",
+  "title": "Suomen kansalliskielet – tutkimuspaketin demonstraatio",
+  "date": "2026-10-04",
+  "question": "Mitä perustuslaki sanoo Suomen kielistä?",
+  "method": "Ensisijaisen säädöslähteen sanamuodon tarkastelu. Tämä on tekninen demonstraatio, ei historiantutkielma.",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Suomen perustuslaki 731/1999",
+      "url": "https://www.finlex.fi/fi/lainsaadanto/1999/731",
+      "access": "public",
+      "locator": "17 §, 1 momentti",
+      "quote": "Suomen kansalliskielet ovat suomi ja ruotsi.",
+      "criticism": "Lähde määrittelee kansalliskielet. Se ei yksin osoita kaikkia käytännön kielioloja.",
+      "capture_sha256": null
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "text": "Perustuslaki määrittelee suomen ja ruotsin Suomen kansalliskieliksi.",
+      "status": "supported",
+      "uncertainty": "Koskee säädöksen sanamuotoa; ei väitettä kielten käytön yhtäläisyydestä.",
+      "depends_on": [],
+      "evidence": [{"source": "S1", "relation": "FOR", "rationale": "Suora lainaus vastaa väitettä."}]
+    },
+    {
+      "id": "C2",
+      "text": "Ilmaisu viralliset kielet on tämän lainkohdan tulkinta, ei sen täsmällinen sanamuoto.",
+      "status": "interpretation",
+      "uncertainty": "Termin käyttö muissa lähteissä on tutkittava erikseen.",
+      "depends_on": ["C1"],
+      "evidence": [{"source": "S1", "relation": "CONTEXT", "rationale": "Lainkohta käyttää termiä kansalliskielet."}]
+    }
+  ],
+  "stamps": [
+    {
+      "id": "L1",
+      "source": "S1",
+      "claim_text": "Suomen virallisia kieliä ovat suomi ja ruotsi",
+      "assessment": "Strongly matches",
+      "network": "irys-devnet",
+      "permanent": false,
+      "confirmation": "not_checked",
+      "input_hash": "6cfb94badbe4ae8e3950ff55e25e8d4f956cadc9c3682d71f72f0eaecd599296",
+      "url": "https://devnet.irys.xyz/HCvnSNnTw1MtUJ9VWgEwPB4USChfy6wxZP8nQkkWpfQY",
+      "note": "Aiemman keskustelun MCP-tulos; kohteena alkuperäinen claim_text, ei C1 tai C2. Input_hash ei ole tämän paketin tai Finlex-sivun capture-tiiviste. Tietuetta ei ole tässä rakennusajossa haettu uudelleen."
+    }
+  ],
+  "work_log": [],
+  "game": {
+    "title": "Johtopäätös pelattavana",
+    "disclaimer": "Tekninen yhden kohtauksen demo. Valinnat visualisoivat tutkijan tulkintaa; peli ei ole historiallinen simulaatio.",
+    "scenes": [{
+      "id": "G1",
+      "text": "Valitse näkökulma siihen, miten lainkohta esitetään lukijalle.",
+      "choices": [
+        {"label": "Näytä täsmällinen sanamuoto", "claim": "C1", "consequence": "Esitys käyttää kansalliskieli-termiä ja näyttää suoran lähdekohdan.", "assumption": "Pedagoginen esitysvalinta, ei uusi historiallinen päätelmä."},
+        {"label": "Tutki terminologian tulkintaa", "claim": "C2", "consequence": "Esitys tuo näkyviin viralliset kielet -ilmauksen ja lain sanamuodon eron.", "assumption": "Pedagoginen esitysvalinta, ei vaihtoehtohistorian malli."}
+      ]
+    }]
+  }
+}

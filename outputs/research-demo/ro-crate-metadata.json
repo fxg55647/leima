@@ -1,0 +1,120 @@
+{
+  "@context": "https://w3id.org/ro/crate/1.3/context",
+  "@graph": [
+    {
+      "@id": "ro-crate-metadata.json",
+      "@type": "CreativeWork",
+      "about": {
+        "@id": "./"
+      },
+      "conformsTo": {
+        "@id": "https://w3id.org/ro/crate/1.3"
+      }
+    },
+    {
+      "@id": "./",
+      "@type": "Dataset",
+      "name": "Suomen kansalliskielet – tutkimuspaketin demonstraatio",
+      "description": "Ensisijaisen säädöslähteen sanamuodon tarkastelu. Tämä on tekninen demonstraatio, ei historiantutkielma.",
+      "datePublished": "2026-10-04",
+      "version": "0.1.0",
+      "hasPart": [
+        {
+          "@id": "research.json"
+        },
+        {
+          "@id": "article.md"
+        },
+        {
+          "@id": "audit.md"
+        },
+        {
+          "@id": "index.html"
+        }
+      ],
+      "mentions": [
+        {
+          "@id": "#C1"
+        },
+        {
+          "@id": "#C2"
+        },
+        {
+          "@id": "#S1"
+        }
+      ]
+    },
+    {
+      "@id": "research.json",
+      "@type": "File",
+      "name": "research.json",
+      "encodingFormat": "application/json",
+      "sha256": "d17bfbd9fb5e40d41f8c08fff23f783e133e493d35fec925c5628ba97230cfdb"
+    },
+    {
+      "@id": "article.md",
+      "@type": "File",
+      "name": "article.md",
+      "encodingFormat": "text/markdown",
+      "sha256": "9c1d5922164ac88a9c7730dec20d61c641cf9a2721b40f29dd2e871e67033153",
+      "isBasedOn": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "audit.md",
+      "@type": "File",
+      "name": "audit.md",
+      "encodingFormat": "text/markdown",
+      "sha256": "cd0be6c63f1b2a856fd67c4e82cb0d02755f501a012f0c61c485afae48e6241b",
+      "isBasedOn": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "index.html",
+      "@type": "File",
+      "name": "index.html",
+      "encodingFormat": "text/html",
+      "sha256": "bb5ce4b71c2d65d938b90a32a9e4d4490011cff0f9360830685f278d28356ac0",
+      "isBasedOn": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "#S1",
+      "@type": "CreativeWork",
+      "name": "Suomen perustuslaki 731/1999",
+      "url": "https://www.finlex.fi/fi/lainsaadanto/1999/731",
+      "description": "17 §, 1 momentti: Suomen kansalliskielet ovat suomi ja ruotsi."
+    },
+    {
+      "@id": "#C1",
+      "@type": "CreativeWork",
+      "text": "Perustuslaki määrittelee suomen ja ruotsin Suomen kansalliskieliksi.",
+      "description": "supported: Koskee säädöksen sanamuotoa; ei väitettä kielten käytön yhtäläisyydestä.",
+      "citation": [
+        {
+          "@id": "#S1"
+        }
+      ],
+      "isPartOf": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "#C2",
+      "@type": "CreativeWork",
+      "text": "Ilmaisu viralliset kielet on tämän lainkohdan tulkinta, ei sen täsmällinen sanamuoto.",
+      "description": "interpretation: Termin käyttö muissa lähteissä on tutkittava erikseen.",
+      "citation": [
+        {
+          "@id": "#S1"
+        }
+      ],
+      "isPartOf": {
+        "@id": "research.json"
+      }
+    }
+  ]
+}

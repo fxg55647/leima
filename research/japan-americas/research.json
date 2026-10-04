@@ -1,0 +1,143 @@
+{
+  "schema_version": "0.1",
+  "id": "japan-americas-drift",
+  "version": "0.2.0",
+  "title": "Japanista Amerikkaan ennen vuotta 1492?",
+  "date": "2026-10-04",
+  "question": "Mitä näyttöä on Japanin saaristosta Amerikkaan ennen vuotta 1492 tapahtuneesta ajelehtimisesta, ja kuinka hyvin se erottaa mahdollisuuden toteutuneesta kontaktista?",
+  "method": "Tutkimussuunnitelma. Erotetaan Pohjois-Amerikan ajelehtiminen Ecuadorin Jōmon–Valdivia-hypoteesista. Tarkastellaan kronologiaa, alusten ja miehistön selviytymistä, arkeologista kontekstia sekä vaihtoehtoisia selityksiä. Esihistoriallisista yhteisöistä käytetään aikakauteen sopivia nimityksiä. Lähteet ovat alustavia lukukohteita; koko tekstejä ei ole vielä analysoitu.",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Meggers, Evans ja Estrada (1965): Early Formative Period of Coastal Ecuador",
+      "url": "https://repository.si.edu/items/32559f29-eb9f-4cab-a1ca-6f713cf898ff",
+      "access": "public",
+      "locator": "Tarkka kohta selvitetään kokotekstistä",
+      "quote": "",
+      "criticism": "Historiallinen kontaktihypoteesin perusteos. Julkaisun olemassaolo ei vahvista hypoteesia. Digitaalinen lähdepaketti ja kohtaviitteet puuttuvat.",
+      "capture_sha256": null
+    },
+    {
+      "id": "S2",
+      "title": "Valdivia, Jomon Fishermen, and the Nature of the North Pacific (1978)",
+      "url": "https://www.cambridge.org/core/journals/american-antiquity/article/abs/valdivia-jomon-fishermen-and-the-nature-of-the-north-pacific-some-nautical-problems-with-meggers-evans-and-estradas-1965-transoceanic-contact-thesis/54C9F901857B9D517565B900D0D76FDC",
+      "access": "public",
+      "locator": "American Antiquity 43(3); kokoteksti hankittava",
+      "quote": "",
+      "criticism": "Julkinen bibliografinen sivu; kokotekstin saatavuus voi olla rajattu. Tutki merimatkaa koskeva kritiikki ennen evidenssisuhteiden lisäämistä.",
+      "capture_sha256": null
+    },
+    {
+      "id": "S3",
+      "title": "Modelling pre-historic transoceanic crossings into the Americas",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0277379105003215",
+      "access": "public",
+      "locator": "Bibliografinen sivu; kokoteksti hankittava",
+      "quote": "",
+      "criticism": "Simulaation oletukset, lähtöpaikat, aikakausi, alukset ja selviytymisrajat tarkistettava. Mahdollinen reitti ei itsessään osoita toteutunutta matkaa.",
+      "capture_sha256": null
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "text": "Japanin saaristosta lähteneitä ihmisiä päätyi ajelehtimalla Amerikkaan ennen vuotta 1492.",
+      "status": "open",
+      "uncertainty": "Tutkimushypoteesi, ei vahvistettu johtopäätös. Paikka, ajoitus ja aineiston todistusvoima ovat avoinna.",
+      "depends_on": [],
+      "evidence": []
+    },
+    {
+      "id": "C2",
+      "text": "Jōmon–Valdivia-keramiikan yhtäläisyydet selittyvät Tyynenmeren ylittävällä kontaktilla.",
+      "status": "open",
+      "uncertainty": "Erillinen hypoteesi. Vertailtava riippumatonta kehitystä, ajoituksia ja valikoivaa piirrevertailua; ei rinnasteta automaattisesti Pohjois-Amerikkaan ajelehtimiseen.",
+      "depends_on": [],
+      "evidence": []
+    }
+  ],
+  "stamps": [],
+  "work_log": [],
+  "game": {
+    "title": "Tuleva ajelehtimismalli",
+    "disclaimer": "Pelimallia ei ole vielä tehty. Virtaukset, lähtötilanteet ja selviytymisrajat tarvitsevat lähteet. Simuloitu perillepääsy ei osoita historiallista kontaktia.",
+    "scenes": []
+  },
+  "criticisms": [
+    {
+      "id": "K1",
+      "target": {
+        "kind": "claim",
+        "id": "C1"
+      },
+      "type": "reasoning",
+      "priority": 1,
+      "text": "Milloin ajelehtimisen mahdollisuus muuttuu näytöksi toteutuneesta kontaktista?",
+      "basis": "Reittimalli voi osoittaa mahdollisuuden. Toteutunut kontakti tarvitsee siitä riippumatonta ajoitettua aineistoa.",
+      "author": {
+        "name": "ChatGPT / tutkimuksen alustavat tarkistuskysymykset",
+        "kind": "agent",
+        "model": "GPT-6"
+      },
+      "reviewed_version": "0.2.0",
+      "reviewed_target_sha256": "b6f9512953f2cc61ab088f56339205cfe863542cb2860e6f8462b757879af378",
+      "sources": [],
+      "response": "",
+      "resolution": {
+        "status": "open",
+        "rationale": "",
+        "changes": ""
+      }
+    },
+    {
+      "id": "K2",
+      "target": {
+        "kind": "claim",
+        "id": "C1"
+      },
+      "type": "missing_evidence",
+      "priority": 1,
+      "text": "Millä edellytyksillä sorvin puuttuminen olisi merkityksellistä vastanäyttöä?",
+      "basis": "Selvitä ensin teknologian ajoitus lähtöalueella, tulijoiden osaaminen, integraatio ja jälkien säilyminen. Sorvin puuttuminen Amerikassa on tässä tarkistettava oletus.",
+      "author": {
+        "name": "ChatGPT / tutkimuksen alustavat tarkistuskysymykset",
+        "kind": "agent",
+        "model": "GPT-6"
+      },
+      "reviewed_version": "0.2.0",
+      "reviewed_target_sha256": "b6f9512953f2cc61ab088f56339205cfe863542cb2860e6f8462b757879af378",
+      "sources": [],
+      "response": "",
+      "resolution": {
+        "status": "open",
+        "rationale": "",
+        "changes": ""
+      }
+    },
+    {
+      "id": "K3",
+      "target": {
+        "kind": "claim",
+        "id": "C2"
+      },
+      "type": "alternative",
+      "priority": 1,
+      "text": "Mitkä havainnot erottavat teknologiansiirron itsenäisestä keksimisestä?",
+      "basis": "Vertaa piirteiden yhdistelmiä, ajoituksia ja paikallista kehitystä; samankaltaisuus ei yksin ratkaise selitystä.",
+      "author": {
+        "name": "ChatGPT / tutkimuksen alustavat tarkistuskysymykset",
+        "kind": "agent",
+        "model": "GPT-6"
+      },
+      "reviewed_version": "0.2.0",
+      "reviewed_target_sha256": "c6c0e8b95996c56cefcc11fe2739a99d2bf8bedfd15c7ff77de40c1483c31d27",
+      "sources": [],
+      "response": "",
+      "resolution": {
+        "status": "open",
+        "rationale": "",
+        "changes": ""
+      }
+    }
+  ]
+}

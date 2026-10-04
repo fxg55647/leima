@@ -1,0 +1,177 @@
+{
+  "@context": "https://w3id.org/ro/crate/1.3/context",
+  "@graph": [
+    {
+      "@id": "ro-crate-metadata.json",
+      "@type": "CreativeWork",
+      "about": {
+        "@id": "./"
+      },
+      "conformsTo": {
+        "@id": "https://w3id.org/ro/crate/1.3"
+      }
+    },
+    {
+      "@id": "./",
+      "@type": "Dataset",
+      "name": "Japanista Amerikkaan ennen vuotta 1492?",
+      "description": "Tutkimussuunnitelma. Erotetaan Pohjois-Amerikan ajelehtiminen Ecuadorin Jōmon–Valdivia-hypoteesista. Tarkastellaan kronologiaa, alusten ja miehistön selviytymistä, arkeologista kontekstia sekä vaihtoehtoisia selityksiä. Esihistoriallisista yhteisöistä käytetään aikakauteen sopivia nimityksiä. Lähteet ovat alustavia lukukohteita; koko tekstejä ei ole vielä analysoitu.",
+      "datePublished": "2026-10-04",
+      "version": "0.2.0",
+      "hasPart": [
+        {
+          "@id": "research.json"
+        },
+        {
+          "@id": "article.md"
+        },
+        {
+          "@id": "audit.md"
+        },
+        {
+          "@id": "index.html"
+        }
+      ],
+      "mentions": [
+        {
+          "@id": "#C1"
+        },
+        {
+          "@id": "#C2"
+        },
+        {
+          "@id": "#S1"
+        },
+        {
+          "@id": "#S2"
+        },
+        {
+          "@id": "#S3"
+        },
+        {
+          "@id": "#K1"
+        },
+        {
+          "@id": "#K2"
+        },
+        {
+          "@id": "#K3"
+        }
+      ]
+    },
+    {
+      "@id": "research.json",
+      "@type": "File",
+      "name": "research.json",
+      "encodingFormat": "application/json",
+      "sha256": "13a6601ffd9d144f486924ffa40702ce0a0fd630c6a2445ea541af959a92700a"
+    },
+    {
+      "@id": "article.md",
+      "@type": "File",
+      "name": "article.md",
+      "encodingFormat": "text/markdown",
+      "sha256": "494625ce170d2019b9b8d285ae95e0d2f33f1ce44e1442a78d8e412c110d8151",
+      "isBasedOn": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "audit.md",
+      "@type": "File",
+      "name": "audit.md",
+      "encodingFormat": "text/markdown",
+      "sha256": "53cbdb8aaa1f269dc37ad1fd758bb93fbd744fad5ca230f874210d62c2173786",
+      "isBasedOn": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "index.html",
+      "@type": "File",
+      "name": "index.html",
+      "encodingFormat": "text/html",
+      "sha256": "fb0e6b214adc5bd5e5df93f6208e4d8d681284c8b1297bfd5d3b5eedc9b05190",
+      "isBasedOn": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "#S1",
+      "@type": "CreativeWork",
+      "name": "Meggers, Evans ja Estrada (1965): Early Formative Period of Coastal Ecuador",
+      "url": "https://repository.si.edu/items/32559f29-eb9f-4cab-a1ca-6f713cf898ff",
+      "description": "Tarkka kohta selvitetään kokotekstistä: "
+    },
+    {
+      "@id": "#S2",
+      "@type": "CreativeWork",
+      "name": "Valdivia, Jomon Fishermen, and the Nature of the North Pacific (1978)",
+      "url": "https://www.cambridge.org/core/journals/american-antiquity/article/abs/valdivia-jomon-fishermen-and-the-nature-of-the-north-pacific-some-nautical-problems-with-meggers-evans-and-estradas-1965-transoceanic-contact-thesis/54C9F901857B9D517565B900D0D76FDC",
+      "description": "American Antiquity 43(3); kokoteksti hankittava: "
+    },
+    {
+      "@id": "#S3",
+      "@type": "CreativeWork",
+      "name": "Modelling pre-historic transoceanic crossings into the Americas",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0277379105003215",
+      "description": "Bibliografinen sivu; kokoteksti hankittava: "
+    },
+    {
+      "@id": "#C1",
+      "@type": "CreativeWork",
+      "text": "Japanin saaristosta lähteneitä ihmisiä päätyi ajelehtimalla Amerikkaan ennen vuotta 1492.",
+      "description": "open: Tutkimushypoteesi, ei vahvistettu johtopäätös. Paikka, ajoitus ja aineiston todistusvoima ovat avoinna.",
+      "citation": [],
+      "isPartOf": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "#C2",
+      "@type": "CreativeWork",
+      "text": "Jōmon–Valdivia-keramiikan yhtäläisyydet selittyvät Tyynenmeren ylittävällä kontaktilla.",
+      "description": "open: Erillinen hypoteesi. Vertailtava riippumatonta kehitystä, ajoituksia ja valikoivaa piirrevertailua; ei rinnasteta automaattisesti Pohjois-Amerikkaan ajelehtimiseen.",
+      "citation": [],
+      "isPartOf": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "#K1",
+      "@type": "Comment",
+      "text": "Milloin ajelehtimisen mahdollisuus muuttuu näytöksi toteutuneesta kontaktista?",
+      "about": {
+        "@id": "#C1"
+      },
+      "description": "open: Reittimalli voi osoittaa mahdollisuuden. Toteutunut kontakti tarvitsee siitä riippumatonta ajoitettua aineistoa.",
+      "isPartOf": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "#K2",
+      "@type": "Comment",
+      "text": "Millä edellytyksillä sorvin puuttuminen olisi merkityksellistä vastanäyttöä?",
+      "about": {
+        "@id": "#C1"
+      },
+      "description": "open: Selvitä ensin teknologian ajoitus lähtöalueella, tulijoiden osaaminen, integraatio ja jälkien säilyminen. Sorvin puuttuminen Amerikassa on tässä tarkistettava oletus.",
+      "isPartOf": {
+        "@id": "research.json"
+      }
+    },
+    {
+      "@id": "#K3",
+      "@type": "Comment",
+      "text": "Mitkä havainnot erottavat teknologiansiirron itsenäisestä keksimisestä?",
+      "about": {
+        "@id": "#C2"
+      },
+      "description": "open: Vertaa piirteiden yhdistelmiä, ajoituksia ja paikallista kehitystä; samankaltaisuus ei yksin ratkaise selitystä.",
+      "isPartOf": {
+        "@id": "research.json"
+      }
+    }
+  ]
+}
