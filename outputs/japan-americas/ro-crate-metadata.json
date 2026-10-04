@@ -83,7 +83,7 @@
       "@type": "File",
       "name": "article.md",
       "encodingFormat": "text/markdown",
-      "sha256": "f473ffadfb3ddbb7da65d7e01e45c83dfdb26bf2a5ec57adf28526bd638e6047",
+      "sha256": "0c6f0452405b49c6974700e2be759461be1e6a780b8f12babe9922d93fd398f1",
       "isBasedOn": {
         "@id": "research.json"
       }
@@ -93,7 +93,7 @@
       "@type": "File",
       "name": "audit.md",
       "encodingFormat": "text/markdown",
-      "sha256": "379b7049cdd60727e19ee1da1793efb77e666a5aee981fc2dece2578f5d898bf",
+      "sha256": "8f823b1efeb2c3679302696b0ab74d089f4b69251f889a40b5a1ef791f3ed38c",
       "isBasedOn": {
         "@id": "research.json"
       }
@@ -103,7 +103,7 @@
       "@type": "File",
       "name": "index.html",
       "encodingFormat": "text/html",
-      "sha256": "c301ee6b5ee96e69aa9454febba58f7437a78d855deeaa9562e59b49b63aed7d",
+      "sha256": "ce45c3060286c1480b4b3aed8587d28df7f7e3955a79bade65c28efe76250b5d",
       "isBasedOn": {
         "@id": "research.json"
       }
@@ -156,7 +156,7 @@
       "about": {
         "@id": "#C1"
       },
-      "description": "open: Reittimalli voi osoittaa mahdollisuuden. Toteutunut kontakti tarvitsee siitä riippumatonta ajoitettua aineistoa.",
+      "description": "open: Reittimalli voi osoittaa mahdollisuuden. Toteutunut kontakti tarvitsee siitä riippumatonta ajoitettua aineistoa.\nTarkastuksen syvyys: ei kirjattu",
       "isPartOf": {
         "@id": "research.json"
       }
@@ -168,7 +168,7 @@
       "about": {
         "@id": "#C1"
       },
-      "description": "open: Selvitä ensin teknologian ajoitus lähtöalueella, tulijoiden osaaminen, integraatio ja jälkien säilyminen. Sorvin puuttuminen Amerikassa on tässä tarkistettava oletus.",
+      "description": "open: Selvitä ensin teknologian ajoitus lähtöalueella, tulijoiden osaaminen, integraatio ja jälkien säilyminen. Sorvin puuttuminen Amerikassa on tässä tarkistettava oletus.\nTarkastuksen syvyys: ei kirjattu",
       "isPartOf": {
         "@id": "research.json"
       }
@@ -180,7 +180,7 @@
       "about": {
         "@id": "#C2"
       },
-      "description": "open: Vertaa piirteiden yhdistelmiä, ajoituksia ja paikallista kehitystä; samankaltaisuus ei yksin ratkaise selitystä.",
+      "description": "open: Vertaa piirteiden yhdistelmiä, ajoituksia ja paikallista kehitystä; samankaltaisuus ei yksin ratkaise selitystä.\nTarkastuksen syvyys: ei kirjattu",
       "isPartOf": {
         "@id": "research.json"
       }

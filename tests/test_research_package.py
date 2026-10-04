@@ -78,6 +78,40 @@ def reviewed_sample():
     return data, review
 
 
+@pytest.mark.parametrize('level', ['report', 'source_check', 'rerun'])
+def test_verification_scope_survives_exports_and_is_escaped(tmp_path, level):
+    data, review = reviewed_sample()
+    review['verification'] = {'level': level, 'scope': '<Checked S1>',
+                             'limitations': 'C2 remains unchecked'}
+    validate(data)
+    path = tmp_path / 'research.json'
+    path.write_text(json.dumps(data), encoding='utf-8')
+    result = build(path, tmp_path / 'out')
+    for name in ('article.md', 'audit.md', 'ro-crate-metadata.json'):
+        assert b'<Checked S1>' in result[name]
+        assert b'C2 remains unchecked' in result[name]
+    assert b'&lt;Checked S1&gt;' in result['index.html']
+    assert b'<Checked S1>' not in result['index.html']
+    assert review_state(data, review) == 'accepted'
+
+
+def test_missing_verification_is_explicit_not_assumed():
+    data, _ = reviewed_sample()
+    validate(data)
+    assert 'Tarkastuksen syvyys: ei kirjattu' in text_view(data, True)
+    assert 'Tarkastuksen syvyys: ei kirjattu' in web_view(data)
+
+
+@pytest.mark.parametrize('record', [None, {}, {'level': 'verified'},
+    {'level': 'report', 'scope': '', 'limitations': 'Unknown'},
+    {'level': 'source_check', 'scope': 'S1', 'limitations': ''}])
+def test_invalid_verification_is_rejected(record):
+    data, review = reviewed_sample()
+    review['verification'] = record
+    with pytest.raises(ValueError):
+        validate(data)
+
+
 @pytest.mark.parametrize('change', ['claim', 'source', 'method'])
 def test_changed_basis_reopens_review_without_erasing_decision(change):
     data, review = reviewed_sample()

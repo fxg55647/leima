@@ -22,6 +22,9 @@ eikä käynnistä agentteja tai automaattista yhdistämistä.
 
 ## Kirjaus
 
+Rajattuun työhön käytä GitHubin `Tutkimustehtävä`-issue-pohjaa. Se sitoo tehtävän
+commitiin, kohteeseen, rajaukseen ja valmistumiskriteereihin. Linkitä issue PR:ään.
+
 Luo oma haara, esimerkiksi `codex/review-japan-americas-c1`. Jos sinulla on
 jo muutoksia, käytä erillistä checkoutia tai worktreetä. Älä sisällytä muiden työtä.
 
@@ -39,6 +42,7 @@ Uuden kritiikin kentät:
   "reviewed_version": "Tarkastetun tutkimuksen version arvo",
   "reviewed_target_sha256": "Laske alla olevalla komennolla",
   "sources": [],
+  "verification": {"level": "report", "scope": "Luetut raportin kohdat", "limitations": "Lähteiden kokotekstejä ei tarkistettu"},
   "response": "",
   "resolution": {"status": "open", "rationale": "", "changes": ""}
 }
@@ -50,6 +54,15 @@ lähdetunnisteita, ei URL-osoitteita. Lisää tarvittavat uudet julkaisukelpoise
 lähdemetadatat sources-listaan; linkitä tarkka kohta ja erota oma tulkinta lainauksesta.
 Muut kohteet ovat `source` ja `method` (jälkimmäisen ID on `method`).
 Tyypit: `source_error`, `reasoning`, `missing_evidence`, `alternative`, `sensitivity`.
+
+`verification` kuvaa toteutunutta tarkastusta, ei aiottua työtä tai väitteen
+totuusastetta. Tasot: `report` (raportin luku), `source_check` (lähdekohtien
+tarkistus), `rerun` (laskennan tai kokeen toisto). `scope` yksilöi tarkastetut
+kohdat, lähteet tai ajot; `limitations` ilmoittaa jäljelle jääneet rajat. Valitse
+taso huomautuksen perustan mukaan: yhden laskennan toisto ei tarkoita koko
+tutkimuksen toistamista. Vanhoista tietueista puuttuva kenttä näkyy muodossa
+"ei kirjattu". Älä täydennä sitä oletuksilla. Jos työssä ei löydy huomautuksia,
+kirjaa taso, laajuus ja rajat PR:n tai issuen raporttiin.
 
 Laske tiiviste **tarkastetusta syötteestä** ennen kohteen muuttamista:
 

@@ -12,6 +12,9 @@ lähteistetty vastanäyttö avoimista tarkistuskysymyksistä.
 
 ## Arvioinnin rajat
 
+Toteutunut tarkastustaso: report / source_check / rerun.
+Kirjaa taso, laajuus ja rajat myös kunkin uuden kritiikin verification-kenttään.
+
 Mitä lähteitä todella luit? Mitä jäi lukematta tai testaamatta?
 
 ## Tarkistukset

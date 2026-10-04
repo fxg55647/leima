@@ -26,6 +26,7 @@ Tyhjä loki tarkoittaa puuttuvaa mittausta, ei nollakustannusta.
 ### K1 · C1 · open
 Milloin ajelehtimisen mahdollisuus muuttuu näytöksi toteutuneesta kontaktista?
 Perustelu: Reittimalli voi osoittaa mahdollisuuden. Toteutunut kontakti tarvitsee siitä riippumatonta ajoitettua aineistoa.
+Tarkastuksen syvyys: ei kirjattu
 Tyyppi: reasoning · Prioriteetti: 1
 Tekijä: ChatGPT / tutkimuksen alustavat tarkistuskysymykset (agent) · Malli: GPT-6
 Arvioitu tutkimusversio: 0.2.0
@@ -37,6 +38,7 @@ Lähteet: Tarkistuskysymys, ei lähteistetty vastanäyttö
 ### K2 · C1 · open
 Millä edellytyksillä sorvin puuttuminen olisi merkityksellistä vastanäyttöä?
 Perustelu: Selvitä ensin teknologian ajoitus lähtöalueella, tulijoiden osaaminen, integraatio ja jälkien säilyminen. Sorvin puuttuminen Amerikassa on tässä tarkistettava oletus.
+Tarkastuksen syvyys: ei kirjattu
 Tyyppi: missing_evidence · Prioriteetti: 1
 Tekijä: ChatGPT / tutkimuksen alustavat tarkistuskysymykset (agent) · Malli: GPT-6
 Arvioitu tutkimusversio: 0.2.0
@@ -48,6 +50,7 @@ Lähteet: Tarkistuskysymys, ei lähteistetty vastanäyttö
 ### K3 · C2 · open
 Mitkä havainnot erottavat teknologiansiirron itsenäisestä keksimisestä?
 Perustelu: Vertaa piirteiden yhdistelmiä, ajoituksia ja paikallista kehitystä; samankaltaisuus ei yksin ratkaise selitystä.
+Tarkastuksen syvyys: ei kirjattu
 Tyyppi: alternative · Prioriteetti: 1
 Tekijä: ChatGPT / tutkimuksen alustavat tarkistuskysymykset (agent) · Malli: GPT-6
 Arvioitu tutkimusversio: 0.2.0

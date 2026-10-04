@@ -44,6 +44,16 @@ def review_state(data, review):
     return review['resolution']['status']
 
 
+def verification_text(review):
+    record = review.get('verification')
+    if record is None:
+        return 'Tarkastuksen syvyys: ei kirjattu'
+    labels = {'report': 'raportin luku', 'source_check': 'lähdekohtien tarkistus',
+              'rerun': 'laskennan tai kokeen toisto'}
+    return (f"Tarkastuksen syvyys: {labels[record['level']]} · "
+            f"Laajuus: {record['scope']} · Rajat: {record['limitations']}")
+
+
 def review_lines(data, audit=False):
     reviews = data.get('criticisms', [])
     if not reviews:
@@ -51,7 +61,7 @@ def review_lines(data, audit=False):
     lines = ['', '## Kritiikki ja vastaukset']
     for r in sorted(reviews, key=lambda r: (r['priority'], r['id'])):
         lines += ['', f"### {r['id']} · {r['target']['id']} · {review_state(data, r)}",
-                  r['text'], f"Perustelu: {r['basis']}"]
+                  r['text'], f"Perustelu: {r['basis']}", verification_text(r)]
         if audit:
             lines += [f"Tyyppi: {r['type']} · Prioriteetti: {r['priority']}",
                       f"Tekijä: {r['author']['name']} ({r['author']['kind']}) · Malli: {r['author'].get('model') or 'ei'}",
@@ -149,6 +159,13 @@ def validate(data):
             raise ValueError('Criticism needs an identified author/model')
         if not isinstance(r.get('response'), str):
             raise ValueError('Response must be a string, possibly empty')
+        if 'verification' in r:
+            verification = r['verification']
+            if not isinstance(verification, dict) or verification.get('level') not in ('report', 'source_check', 'rerun'):
+                raise ValueError('Invalid verification level')
+            for key in ('scope', 'limitations'):
+                if not isinstance(verification.get(key), str) or not verification[key].strip():
+                    raise ValueError('Verification needs explicit scope and limitations')
         resolution = r.get('resolution', {})
         if resolution.get('status') not in ('open', 'accepted', 'partly_accepted', 'rejected'):
             raise ValueError('Invalid resolution status')
@@ -270,7 +287,7 @@ def web_view(data):
     reviews = []
     for r in sorted(data.get('criticisms', []), key=lambda r: (r['priority'], r['id'])):
         target = r['target']['id']
-        reviews.append(f'<article id="{r["id"]}"><small>{r["id"]} · {esc(target)} · {review_state(data,r)}</small><h3>{esc(r["text"])}</h3><p>{esc(r["basis"])}</p><details><summary>Vastaus ja ratkaisuhistoria</summary><p>Tekijä: {esc(r["author"]["name"])} · {esc(r["author"].get("model", ""))}</p><p>Arvioitu versio: {esc(r["reviewed_version"])}</p><p>Vastaus: {esc(r["response"] or "Ei vielä vastausta")}</p><p>Kirjattu ratkaisu: {esc(r["resolution"]["status"])} · {esc(r["resolution"]["rationale"])}</p><p>Vaikutukset: {esc(r["resolution"]["changes"] or "Ei kirjattuja muutoksia")}</p></details></article>')
+        reviews.append(f'<article id="{r["id"]}"><small>{r["id"]} · {esc(target)} · {review_state(data,r)}</small><h3>{esc(r["text"])}</h3><p>{esc(r["basis"])}</p><p>{esc(verification_text(r))}</p><details><summary>Vastaus ja ratkaisuhistoria</summary><p>Tekijä: {esc(r["author"]["name"])} · {esc(r["author"].get("model", ""))}</p><p>Arvioitu versio: {esc(r["reviewed_version"])}</p><p>Vastaus: {esc(r["response"] or "Ei vielä vastausta")}</p><p>Kirjattu ratkaisu: {esc(r["resolution"]["status"])} · {esc(r["resolution"]["rationale"])}</p><p>Vaikutukset: {esc(r["resolution"]["changes"] or "Ei kirjattuja muutoksia")}</p></details></article>')
     return f'''<!doctype html><html lang="fi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{esc(data['title'])}</title>
 <style>body{{font:18px/1.65 system-ui;background:#f3f0e8;color:#183329;max-width:900px;margin:auto;padding:32px}}h1{{font-size:2.3em;line-height:1.15}}article{{background:white;padding:25px;margin:20px 0;border-radius:16px}}summary,a{{cursor:pointer;color:#215f4a}}blockquote{{border-left:3px solid #b88842;padding-left:18px}}small{{color:#64736b}}nav a{{margin-right:20px}}</style>
 <header><small>LEIMA RESEARCH · {esc(data['version'])}</small><h1>{esc(data['title'])}</h1><p>{esc(data['question'])}</p><p>{esc(data['method'])}</p></header>
@@ -307,7 +324,7 @@ def build(input_path, output):
         graph[1]['mentions'].append({'@id': '#' + r['id']})
         graph.append({'@id': '#' + r['id'], '@type': 'Comment', 'text': r['text'],
                       'about': {'@id': 'research.json' if r['target']['kind'] == 'method' else '#' + r['target']['id']},
-                      'description': review_state(data, r) + ': ' + r['basis'], 'isPartOf': {'@id': 'research.json'}})
+                      'description': review_state(data, r) + ': ' + r['basis'] + '\n' + verification_text(r), 'isPartOf': {'@id': 'research.json'}})
     def ref(ident):
         return {'@id': ident if ident == 'research.json' else '#' + ident}
     for actor in data.get('actors', []):

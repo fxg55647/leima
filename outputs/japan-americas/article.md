@@ -18,14 +18,17 @@ Epävarmuus: Erillinen hypoteesi. Vertailtava riippumatonta kehitystä, ajoituks
 ### K1 · C1 · open
 Milloin ajelehtimisen mahdollisuus muuttuu näytöksi toteutuneesta kontaktista?
 Perustelu: Reittimalli voi osoittaa mahdollisuuden. Toteutunut kontakti tarvitsee siitä riippumatonta ajoitettua aineistoa.
+Tarkastuksen syvyys: ei kirjattu
 Vastaus: Avoin tarkistuskysymys.
 
 ### K2 · C1 · open
 Millä edellytyksillä sorvin puuttuminen olisi merkityksellistä vastanäyttöä?
 Perustelu: Selvitä ensin teknologian ajoitus lähtöalueella, tulijoiden osaaminen, integraatio ja jälkien säilyminen. Sorvin puuttuminen Amerikassa on tässä tarkistettava oletus.
+Tarkastuksen syvyys: ei kirjattu
 Vastaus: Avoin tarkistuskysymys.
 
 ### K3 · C2 · open
 Mitkä havainnot erottavat teknologiansiirron itsenäisestä keksimisestä?
 Perustelu: Vertaa piirteiden yhdistelmiä, ajoituksia ja paikallista kehitystä; samankaltaisuus ei yksin ratkaise selitystä.
+Tarkastuksen syvyys: ei kirjattu
 Vastaus: Avoin tarkistuskysymys.

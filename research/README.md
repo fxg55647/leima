@@ -5,6 +5,10 @@ ei generoitu artikkeli. Pysyvät lähde- ja väitetunnisteet yhdistävät esityk
 
 **Arviointi agenteilla:** [kritiikki-PR:n työohje ja kopioitava arviointitehtävä](REVIEWING.md).
 Ihmiset ja agentit voivat ehdottaa huomautuksia samalla versionoidulla menettelyllä.
+Rajatut tehtävät voi avata [tutkimustehtävän issue-pohjalla](../.github/ISSUE_TEMPLATE/research_task.md).
+Kritiikin valinnainen `verification` kirjaa toteutuneen tarkastustason
+(`report`, `source_check`, `rerun`), laajuuden ja rajat. Puuttuva tieto näytetään
+kirjaamattomana; taso ei ole väitteen totuusarvio.
 
 ## Käyttö
 
