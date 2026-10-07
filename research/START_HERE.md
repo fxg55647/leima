@@ -3,6 +3,11 @@
 Tutkimuksen ensisijainen aineisto on research.json. Generoitu artikkeli on yksi
 esitys siitä. Lue repositorion ohjeet ja [tietomallin ohje](README.md) ennen muutoksia.
 
+**Haluatko tarjota itse luodun Leima-todistepaketin?** Noudata
+[todistepaketin PR-ohjetta](EVIDENCE_CONTRIBUTIONS.md). Voit ehdottaa myös
+pakettia, jonka alkuperäislähteeseen muilla ei ole pääsyä. Paketin eheys,
+arvion lukeminen ja lähteen tarkastus kirjataan erikseen.
+
 ## Valitse tutkimus ja rajattu tehtävä
 
 - [Japanilaiset ajelehtijat Amerikassa ennen vuotta 1492](japan-americas/research.json):

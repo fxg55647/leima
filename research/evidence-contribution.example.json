@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "REPLACE_WITH_UNIQUE_ID",
+  "research_file": "research/REPLACE/research.json",
+  "base_commit": "REPLACE_WITH_FULL_COMMIT_SHA",
+  "claim_id": "REPLACE_WITH_CLAIM_ID",
+  "source_id": "REPLACE_WITH_SOURCE_ID",
+  "submitted_by": "REPLACE_WITH_NAME",
+  "submitted_at": "REPLACE_WITH_ISO_DATE",
+  "stamped_claim": "REPLACE_WITH_EXACT_ORIGINAL_CLAIM",
+  "source": {
+    "title": "REPLACE_WITH_SOURCE_TITLE",
+    "url": null,
+    "locator": "REPLACE_WITH_PAGE_SECTION_OR_OTHER_EXACT_LOCATION",
+    "access": "unknown",
+    "access_note": "REPLACE_WITH_DESCRIPTION_OF_SOURCE_AVAILABILITY"
+  },
+  "package": {
+    "sha256": "REPLACE_WITH_ZIP_SHA256",
+    "delivery": "on_request",
+    "location": null,
+    "access": "unknown",
+    "access_note": "REPLACE_WITH_DESCRIPTION_OF_PACKAGE_AVAILABILITY",
+    "stamp_record_url": null
+  },
+  "reviews": [
+    {
+      "reviewer": null,
+      "date": null,
+      "package_integrity": {"status": "not_checked", "scope": "", "limitations": ""},
+      "assessment_review": {"status": "not_checked", "scope": "", "limitations": ""},
+      "original_source": {"status": "not_checked", "scope": "", "limitations": ""}
+    }
+  ]
+}
