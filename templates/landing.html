@@ -1,129 +1,96 @@
 {% extends "base.html" %}
-
-{% block title %}Leima — permanent digital notary{% endblock %}
-
+{% block language %}en{% endblock %}
+{% block title %}Leima — When “trust me, bro” isn’t enough.{% endblock %}
+{% block header_tagline %}Collect evidence. Seal it. Let others check.{% endblock %}
+{% block footer_tagline %}Evidence, packed and sealed.<br>Keep the record. Let others check.{% endblock %}
 {% block extra_style %}
-    .landing { width: 100%; max-width: 920px; padding: 3rem 1.5rem 1.5rem; }
-
-    .hero {
-      display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-      gap: 3rem; align-items: center; margin-bottom: 4rem;
-    }
-    @media (max-width: 720px) { .hero { grid-template-columns: 1fr; gap: 2rem; margin-bottom: 3rem; } }
-    .hero-kicker { color: var(--blue-deep); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.7rem; font-weight: 700; margin-bottom: 0.9rem; }
-    .hero-headline {
-      font-family: 'Playfair Display', Georgia, serif; font-size: clamp(1.7rem, 3.2vw, 2.35rem);
-      line-height: 1.18; font-weight: 700; color: var(--text); max-width: 20ch; margin-bottom: 1.1rem;
-    }
-    .hero-sub { font-size: 1rem; line-height: 1.65; color: var(--text-muted); max-width: 52ch; margin-bottom: 1.6rem; }
-    .hero-example { background: var(--surface-input); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; box-shadow: 0 10px 30px rgba(20, 50, 80, 0.07); }
-    .example-label { color: var(--text-faint); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.45rem; }
-    .example-question { font-size: 0.92rem; line-height: 1.5; color: var(--text); margin-bottom: 1rem; }
-    .example-result { border-left: 3px solid #2e8b57; padding-left: 0.8rem; margin-bottom: 1rem; }
-    .example-result strong { display: block; color: #267348; font-size: 0.92rem; margin-bottom: 0.25rem; }
-    .example-result span { color: var(--text-muted); font-size: 0.82rem; line-height: 1.5; }
-    .example-meta { border-top: 1px solid var(--border); padding-top: 0.8rem; color: var(--text-faint); font: 0.7rem/1.5 "SF Mono", Consolas, monospace; }
-
-    .section-heading { font-family: 'Playfair Display', Georgia, serif; font-size: 1.55rem; font-weight: 700; color: var(--text); margin-bottom: 0.55rem; }
-    .section-intro { color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; max-width: 58ch; margin-bottom: 1.35rem; }
-    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 4rem; }
-    @media (max-width: 620px) { .steps { grid-template-columns: 1fr; } }
-    .step { border-top: 2px solid var(--blue-deep); padding-top: 0.8rem; }
-    .step-number { color: var(--blue-deep); font: 700 0.75rem "SF Mono", Consolas, monospace; margin-bottom: 0.45rem; }
-    .step-title { color: var(--text); font-weight: 600; font-size: 0.95rem; margin-bottom: 0.35rem; }
-    .step-body { color: var(--text-muted); font-size: 0.84rem; line-height: 1.55; }
-    .usecases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 4rem; }
-    @media (max-width: 720px) { .usecases { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 480px) { .usecases { grid-template-columns: 1fr; } }
-    .usecase { border: 1px solid var(--border); border-radius: 6px; padding: 1rem; background: var(--surface-input); }
-    .usecase-title { color: var(--text); font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem; }
-    .usecase-body { color: var(--text-muted); font-size: 0.8rem; line-height: 1.5; }
-    .trust-note { border-left: 3px solid #c0392b; padding: 0.15rem 0 0.15rem 1rem; color: var(--text-muted); font-size: 0.86rem; line-height: 1.6; max-width: 64ch; margin-bottom: 2.5rem; }
-    .trust-note strong { color: var(--text); }
-
-    .cta-row { padding-bottom: 0.5rem; }
-    .cta-btn {
-      display: inline-block;
-      background: var(--blue-deep); color: #fff;
-      border: 1px solid var(--blue-deep);
-      border-radius: 4px;
-      padding: 0.75rem 1.5rem;
-      font-size: 0.85rem; font-weight: 500;
-      font-family: 'Spectral', Georgia, serif;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      text-decoration: none;
-      transition: background 0.15s, color 0.15s;
-    }
-    .cta-btn:hover { background: #123a63; }
-    .cta-note { font-size: 0.8rem; color: var(--text-faint); margin-top: 0.75rem; max-width: 46ch; line-height: 1.5; }
+.col-frame { max-width: 1080px; }
+header, .tabs-wrap { max-width: 960px; }
+.landing { width: 100%; padding: 4rem 3rem 3rem; }
+.landing section { margin-bottom: 4rem; scroll-margin-top: 1.5rem; }
+.landing h1, .landing h2, .landing h3 { font-family: 'Playfair Display', Georgia, serif; }
+.landing h1 { font-size: clamp(2.5rem, 5vw, 4rem); line-height: 1.1; letter-spacing: -.035em; margin: .8rem 0 1.25rem; }
+.landing h2 { font-size: clamp(1.65rem, 3vw, 2.2rem); line-height: 1.2; margin-bottom: 1rem; }
+.landing h3 { font-size: 1.22rem; line-height: 1.3; margin-bottom: .8rem; }
+.landing p { line-height: 1.65; }
+.landing a { color: var(--blue-deep); text-underline-offset: 4px; }
+.landing a:focus-visible, .landing summary:focus-visible { outline: 3px solid var(--blue-mid); outline-offset: 5px; }
+.eyebrow { color: var(--blue-deep); font: 700 .7rem/1.5 Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }
+.hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 3rem; align-items: center; }
+.hero-lead { font-size: 1.22rem; margin-bottom: .85rem; }
+.muted { color: var(--text-muted); }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem 1.4rem; margin-top: 1.6rem; }
+.landing .button { display: inline-block; background: var(--blue-deep); color: white; padding: .8rem 1.1rem; border-radius: 4px; text-decoration: none; }
+.landing .button:hover { background: #123a63; }
+.package { background: #f0f4f7; border: 1px solid var(--border); border-top: 5px solid var(--blue-deep); padding: 1.5rem; border-radius: 4px; box-shadow: 8px 8px 0 #e7edf2; }
+.package h2 { font-size: 1.45rem; margin-top: .75rem; }
+.package-row { padding: .8rem 0; border-bottom: 1px solid var(--border); }
+.package-row strong { display: block; font-size: .95rem; }
+.package-row span { font-size: .87rem; color: var(--text-muted); }
+.package-note { font-size: .8rem; color: var(--text-muted); margin-top: 1rem; }
+.section-intro { max-width: 650px; margin-bottom: 1.8rem; color: var(--text-muted); }
+.usecases { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.usecase { border: 1px solid var(--border); border-radius: 5px; padding: 1.5rem; }
+.usecase .eyebrow { display: block; margin-bottom: 1rem; }
+.usecase p { color: var(--text-muted); font-size: .95rem; }
+.usecase .context { font-size: .83rem; margin-top: .8rem; }
+.usecase a { display: inline-block; margin-top: 1rem; font-size: .9rem; }
+.steps { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1.5rem; margin-top: 2rem; }
+.step { border-top: 2px solid var(--blue-deep); padding-top: 1rem; }
+.step h3 { margin-top: .6rem; }
+.step p { color: var(--text-muted); font-size: .95rem; }
+.example { background: var(--surface-input); padding: 2rem; border-radius: 5px; }
+.example details { border-top: 1px solid var(--border); padding: 1rem 0; }
+.example summary { cursor: pointer; font-weight: 600; }
+.example details p { margin-top: .8rem; color: var(--text-muted); }
+.example blockquote { border-left: 3px solid var(--blue-deep); padding-left: 1rem; margin-top: .8rem; line-height: 1.65; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.closing { border-top: 1px solid var(--border); padding-top: 2rem; }
+.small { font-size: .82rem; color: var(--text-muted); margin-top: 1rem; max-width: 700px; }
+@media(max-width:760px) { .landing { padding: 2.5rem 1.5rem; } .hero { grid-template-columns: 1fr; gap: 2rem; } .steps { grid-template-columns: 1fr; } }
+@media(max-width:520px) { .usecases,.split { grid-template-columns: 1fr; } .landing { padding: 2rem 1rem; } .example { padding: 1.2rem; } }
 {% endblock %}
-
 {% block tabs_nav %}
-    <div class="tabs-wrap">
-      <div class="tabs">
-        <a href="/app" class="tab-btn">Text</a>
-        <a href="/app#claim" class="tab-btn">Claim only</a>
-        <a href="/app#web" class="tab-btn">Web</a>
-        <a href="/app#image" class="tab-btn">Image</a>
-        <a href="/app#email" class="tab-btn">Email</a>
-        <a href="/app#github" class="tab-btn">GitHub</a>
-        <a href="/app#bundle" class="tab-btn">Bundle</a>
-      </div>
-      <div class="tabs-scroll-hint" id="tabs-scroll-hint">›</div>
-    </div>
+<nav class="tabs-wrap" aria-label="Explore Leima"><div class="tabs">
+<a class="tab-btn" href="#usecases">Use cases</a><a class="tab-btn" href="#how-it-works">How it works</a><a class="tab-btn" href="#example">Example</a><a class="tab-btn" href="/app">Open Leima</a>
+</div></nav>
 {% endblock %}
-
 {% block main_content %}
 <div class="landing">
-
-  <div class="hero">
-    <div>
-      <p class="hero-kicker">A clearer record of what was said</p>
-      <p class="hero-headline">Find out what a document actually proves.</p>
-      <p class="hero-sub">Upload a PDF, email, image, webpage or GitHub project. Leima analyses it against your question and creates a timestamped report that can be checked later.</p>
-      <div class="cta-row">
-        <a href="/app" class="cta-btn">Try Leima</a>
-        <p class="cta-note">Free to try. No account required.</p>
-      </div>
-    </div>
-
-    <div class="hero-example">
-      <div class="example-label">Example report</div>
-      <div class="example-question"><strong>Question:</strong> Did the supplier promise delivery within 14 days?</div>
-      <div class="example-result"><strong>Supported by the source</strong><span>The promise appears in section 4.2 of the uploaded agreement.</span></div>
-      <div class="example-meta">STAMPED 2026-09-18 · VERIFY ANYTIME</div>
-    </div>
-  </div>
-
-  <p class="section-heading">How it works</p>
-  <p class="section-intro">Turn a source and a question into a result you can understand, share and verify.</p>
-  <div class="steps">
-    <div class="step"><div class="step-number">01</div><div class="step-title">Add a source</div><div class="step-body">Upload a document, paste text, add a URL, email, image or GitHub repository.</div></div>
-    <div class="step"><div class="step-number">02</div><div class="step-title">Ask a question</div><div class="step-body">Tell Leima what you need to establish, compare or check in the source.</div></div>
-    <div class="step"><div class="step-number">03</div><div class="step-title">Get a sealed report</div><div class="step-body">See what the source supports, what it does not, and when the analysis was made.</div></div>
-  </div>
-
-  <p class="section-heading">What can you use it for?</p>
-  <p class="section-intro">Start with the source you already have. Leima is useful anywhere the exact contents and timing of a record matter.</p>
-  <div class="usecases">
-    <div class="usecase"><div class="usecase-title">Contracts</div><div class="usecase-body">Find what an agreement actually promises and where it is unclear.</div></div>
-    <div class="usecase"><div class="usecase-title">Emails</div><div class="usecase-body">Clarify what was agreed and what a message said at the time.</div></div>
-    <div class="usecase"><div class="usecase-title">Invoices & receipts</div><div class="usecase-body">Compare a receipt, order, delivery record or other documents.</div></div>
-    <div class="usecase"><div class="usecase-title">Web pages</div><div class="usecase-body">Record what a page showed when it mattered.</div></div>
-    <div class="usecase"><div class="usecase-title">Images & scans</div><div class="usecase-body">Analyse photographed or scanned evidence and preserve its fingerprint.</div></div>
-    <div class="usecase"><div class="usecase-title">GitHub</div><div class="usecase-body">Understand what a repository or code change actually does.</div></div>
-  </div>
-
-  <div class="trust-note"><strong>What Leima does — and does not — prove:</strong> Leima shows what a source contains and what the analysis supports. It does not decide who is legally right, or guarantee that the original source was truthful.</div>
-
-  <div class="cta-row">
-    <a href="/app" class="cta-btn">Analyse a source</a>
-    <p class="cta-note">The original document is processed and then discarded. Only the cryptographic fingerprint, verdict and timestamp are sealed. <a href="/validate">Validate a record</a>.</p>
-  </div>
-
+<section class="hero" aria-labelledby="hero-title">
+<div><p class="eyebrow">Evidence, packed and sealed</p>
+<h1 id="hero-title">When “trust me, bro” isn’t enough.</h1>
+<p class="hero-lead">Collect evidence. Seal it permanently. Let others check.</p>
+<p class="muted">Keep the sources, original files and observations behind your claims together in a verifiable evidence package.</p>
+<div class="actions"><a class="button" href="/app">Start with a source</a><a href="#example">Explore an example →</a></div></div>
+<aside class="package" aria-label="Illustrative evidence package">
+<p class="eyebrow">Inside an evidence package</p><h2>More than your word.</h2>
+<div class="package-row"><strong>The claim</strong><span>What you want to substantiate.</span></div>
+<div class="package-row"><strong>The original material</strong><span>Sources, files and observations.</span></div>
+<div class="package-row"><strong>The context</strong><span>Available origin and collection details.</span></div>
+<div class="package-row"><strong>The seal</strong><span>A record to check the files against.</span></div>
+<p class="package-note">Keep the package. Share the evidence. Let others inspect it.</p>
+</aside></section>
+<section id="usecases" aria-labelledby="uses-title"><p class="eyebrow">What you can build evidence for</p><h2 id="uses-title">Give your claims something to stand on.</h2>
+<div class="usecases">
+<article class="usecase"><span class="eyebrow">01 / Sources</span><h3>Verifiable source citations</h3><p>Connect a claim to its source and the exact passage you rely on. Preserve the source alongside the citation so others can inspect the evidence.</p><p class="context">For research, journalism, reports and AI-generated answers.</p><a href="#example">Explore a source citation →</a></article>
+<article class="usecase"><span class="eyebrow">02 / Origins</span><h3>Art provenance</h3><p>Give your work a documented history. Collect sketches, original files and records of its creation as evidence of where it came from.</p><p class="context">For artists, collectors and anyone documenting a work’s origins.</p><a href="/app#bundle">Work with an evidence bundle →</a></article>
+<article class="usecase"><span class="eyebrow">03 / People</span><h3>Evidence of human work</h3><p>Show the process behind the result. Preserve drafts, work in progress and supporting observations as evidence of your contribution.</p><p class="context">For creators and students. Evidence of a process helps reviewers assess human involvement; it does not certify the absence of AI.</p><a href="/app#bundle">Bring your supporting evidence →</a></article>
+<article class="usecase"><span class="eyebrow">04 / Capture</span><h3>Photos, video &amp; sensor evidence</h3><p>Build a record around visual evidence, with GPS location, motion, orientation and other available sensor data providing context for the capture.</p><p class="context">The Android prototype currently collects photos, optional GPS and sensor logs. Video capture is not offered in this workflow yet.</p><a href="https://github.com/fxg55647/leima/blob/main/MOBILE_APP.md">Explore the field capture prototype →</a></article>
+<article class="usecase"><span class="eyebrow">05 / The web</span><h3>Web evidence</h3><p>Preserve what a website showed. Keep captured content, its source URL and available collection details so others can examine the material behind your claim.</p><p class="context">For published promises, public statements and content that may change.</p><a href="/app#web">Start with a webpage →</a></article>
+<article class="usecase"><span class="eyebrow">06 / Correspondence</span><h3>Email provenance</h3><p>Preserve original emails with their authentication results. Let others inspect the message and the available evidence of its sending domain and signed content.</p><p class="context">For agreements, commitments and correspondence you may need to substantiate.</p><a href="/app#email">Check an original email →</a></article>
+</div></section>
+<section id="how-it-works" aria-labelledby="how-title"><p class="eyebrow">A shipping container for evidence</p><h2 id="how-title">Collect. Seal. Let others check.</h2><p class="section-intro">Bring your claim and supporting material together. A permanent seal makes later changes to the sealed files detectable.</p>
+<div class="steps"><div class="step"><span class="eyebrow">01</span><h3>Collect</h3><p>Add a source and state your claim. Bring related evidence together using the bundle workflow.</p></div><div class="step"><span class="eyebrow">02</span><h3>Seal</h3><p>Download the source and assessment in a package whose file fingerprints are committed to a permanent record.</p></div><div class="step"><span class="eyebrow">03</span><h3>Share &amp; check</h3><p>Keep your package and give others a copy. They can inspect its contents and verify them against the seal.</p></div></div></section>
+<section id="example" class="example" aria-labelledby="example-title"><p class="eyebrow">Illustrative example / Source citation</p><h2 id="example-title">A source you can actually inspect.</h2><p class="section-intro">A citation should let the reader follow the claim back to the evidence. Open each part of this fictional example.</p>
+<details open><summary>The claim and its source</summary><p><strong>Claim:</strong> “The product reduces every customer’s energy consumption by 18%.”</p><blockquote>“Participating customers in the pilot reduced their energy consumption by an average of 18%.”</blockquote><p>Example source: a fictional pilot report. A real package would include the source material and its recorded provenance.</p></details>
+<details><summary>What the evidence supports</summary><p>The passage reports an average among pilot participants. It does not establish the same reduction for every customer. A narrower claim would be: “Pilot participants reduced their energy consumption by an average of 18%.”</p></details>
+<details><summary>What the seal lets you check</summary><p>For a real sealed package, the verifier compares the files with the permanently recorded fingerprints. That checks whether the material matches the sealed version. Readers can separately assess whether the source and interpretation are convincing.</p></details>
+<p class="small">This example explains the workflow; it is not a stamped report.</p></section>
+<section class="split" aria-label="Interpretation and AI citations"><div><h2>Preserve the evidence. Leave room for judgment.</h2><p class="muted">People and AI tools can examine the same material, challenge conclusions and make their own assessments. The strength of a claim depends on the evidence, its origin and how it was collected.</p></div><div><h2>AI answers need source citations too.</h2><p class="muted">Give AI-generated claims an inspectable foundation. Keep the source alongside an assessment of whether it supports the claim, so readers can review the evidence themselves.</p><div class="actions"><a href="/app">Check a claim against a source →</a></div></div></section>
+<section class="closing"><h2>Keep your evidence in your hands.</h2><p class="muted">Download your package. Store it where you choose. Share it when you need to back up your words.</p><div class="actions"><a class="button" href="/app">Start with a source</a><a href="/validate">Verify an existing package →</a></div><p class="small">Keep your downloaded package safe. The permanent seal records cryptographic fingerprints; it does not store your original files.</p></section>
 </div>
 {% endblock %}
-
 {% block footer_cols %}
     <div class="footer-col footer-col-readme">
       <span class="footer-col-title">About</span>

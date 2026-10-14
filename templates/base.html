@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fi">
+<html lang="{% block language %}fi{% endblock %}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -272,7 +272,7 @@
         <span class="logo-domain">leima.io</span>
       </a>
       <div>
-        <p style="font-size: 0.95rem; font-weight: 500;">AI evaluation of documents — forever sealed on Arweave</p>
+        <p style="font-size: 0.95rem; font-weight: 500;">{% block header_tagline %}AI evaluation of documents — forever sealed on Arweave{% endblock %}</p>
         <p style="font-size: 0.8rem; color: var(--text-faint);">Business · Finance · Research</p>
       </div>
       <a href="/validate" class="validate-btn"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:0.3em"><path d="M20 6L9 17l-5-5"/></svg>Validate</a>
@@ -292,7 +292,7 @@
         <span class="footer-logo">LEIMA</span>
         <span class="footer-domain">leima.io</span>
       </div>
-      <p>Permanent digital notary.<br>Documents verified by AI and sealed on Arweave.</p>
+      <p>{% block footer_tagline %}Permanent digital notary.<br>Documents verified by AI and sealed on Arweave.{% endblock %}</p>
     </div>
     {% block footer_cols %}{% endblock %}
   </div>
