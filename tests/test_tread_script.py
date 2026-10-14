@@ -13,6 +13,7 @@ SHA = 'a' * 40
 @pytest.mark.parametrize('scenario,expected', [
     ('healthy', True), ('mismatch', False), ('deploying', True),
     ('github_down', None), ('stale_cron', False), ('disabled_workflow', False),
+    ('production_behind_previews', True),
 ])
 def test_scheduled_status(monkeypatch, tmp_path, scenario, expected):
     monkeypatch.chdir(tmp_path)
@@ -30,6 +31,14 @@ def test_scheduled_status(monkeypatch, tmp_path, scenario, expected):
                 deployments.insert(0, {'state': 'BUILDING', 'meta': {
                     'githubCommitSha': SHA, 'githubOrg': 'fxg55647',
                     'githubRepo': 'leima', 'githubCommitRef': 'main'}})
+            if scenario == 'production_behind_previews':
+                # more staging previews since the last production deploy than the "latest" list holds
+                deployments = [{'state': 'READY', 'target': None, 'meta': {'githubCommitSha': 'c'*40}}
+                               for _ in range(10)] + deployments
+            if 'target=production' in url:
+                deployments = [d for d in deployments if d['state'] == 'READY' and d.get('target') == 'production'][:1]
+            else:
+                deployments = deployments[:10]
             body = {'deployments': deployments}
         elif '/commits/main' in url:
             text = SHA

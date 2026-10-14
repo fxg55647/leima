@@ -59,31 +59,39 @@ def vercel_state():
     if not VERCEL_TOKEN or not VERCEL_PROJECT_ID:
         return None, False, None, None, None, []
     headers = {"Authorization": f"Bearer {VERCEL_TOKEN}"}
-    params = f"projectId={VERCEL_PROJECT_ID}&limit=10"
+    params = f"projectId={VERCEL_PROJECT_ID}"
     if VERCEL_TEAM_ID:
         params += f"&teamId={VERCEL_TEAM_ID}"
+
+    # Newest deployments of any target: is a build in progress right now?
     resp = requests.get(
-        f"https://api.vercel.com/v6/deployments?{params}",
+        f"https://api.vercel.com/v6/deployments?{params}&limit=10",
         headers=headers,
         timeout=10,
     )
     resp.raise_for_status()
     deployments = resp.json().get("deployments", [])
-    if not deployments:
-        return None, False, None, None, None, []
-    first = deployments[0]
+    first = deployments[0] if deployments else {}
     deploying = first.get("state") in _VERCEL_BUILDING
     deploying_meta = first.get("meta") or {}
     deploying_commit = deploying_meta.get("githubCommitSha") if deploying else None
     source_ok, source_mismatches = validate_deployment_source(deploying_meta) if deploying else (None, [])
+
+    # The live production deployment, asked for directly: preview (staging) deployments made since
+    # the last production deploy must not push it out of a "latest N" window.
+    resp = requests.get(
+        f"https://api.vercel.com/v6/deployments?{params}&target=production&state=READY&limit=1",
+        headers=headers,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    production = resp.json().get("deployments", [])
     live_commit = None
     service_url = None
-    for d in deployments:
-        if d.get("state") == "READY" and d.get("target") == "production":
-            live_commit = (d.get("meta") or {}).get("githubCommitSha")
-            if d.get("url"):
-                service_url = f"https://{d['url']}"
-            break
+    if production:
+        live_commit = (production[0].get("meta") or {}).get("githubCommitSha")
+        if production[0].get("url"):
+            service_url = f"https://{production[0]['url']}"
     return live_commit, deploying, deploying_commit, service_url, source_ok, source_mismatches
 
 
