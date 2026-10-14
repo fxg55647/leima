@@ -4,19 +4,17 @@
 {% block header_tagline %}Collect evidence. Seal it. Let others check.{% endblock %}
 {% block footer_tagline %}Evidence, packed and sealed.<br>Keep the record. Let others check.{% endblock %}
 {% block extra_style %}
-.col-frame { max-width: 1080px; }
-header, .tabs-wrap { max-width: 960px; }
-.landing { width: 100%; padding: 4rem 3rem 3rem; }
+.landing { width: 100%; padding: 3rem 1.5rem 1.5rem; }
 .landing section { margin-bottom: 4rem; scroll-margin-top: 1.5rem; }
 .landing h1, .landing h2, .landing h3 { font-family: 'Playfair Display', Georgia, serif; }
-.landing h1 { font-size: clamp(2.5rem, 5vw, 4rem); line-height: 1.1; letter-spacing: -.035em; margin: .8rem 0 1.25rem; }
+.landing h1 { font-size: clamp(2rem, 4vw, 2.8rem); line-height: 1.1; letter-spacing: -.035em; margin: .8rem 0 1.25rem; }
 .landing h2 { font-size: clamp(1.65rem, 3vw, 2.2rem); line-height: 1.2; margin-bottom: 1rem; }
 .landing h3 { font-size: 1.22rem; line-height: 1.3; margin-bottom: .8rem; }
 .landing p { line-height: 1.65; }
 .landing a { color: var(--blue-deep); text-underline-offset: 4px; }
 .landing a:focus-visible, .landing summary:focus-visible { outline: 3px solid var(--blue-mid); outline-offset: 5px; }
 .eyebrow { color: var(--blue-deep); font: 700 .7rem/1.5 Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }
-.hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 3rem; align-items: center; }
+.hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1.5rem; align-items: center; }
 .hero-lead { font-size: 1.22rem; margin-bottom: .85rem; }
 .muted { color: var(--text-muted); }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem 1.4rem; margin-top: 1.6rem; }
@@ -51,9 +49,18 @@ header, .tabs-wrap { max-width: 960px; }
 @media(max-width:520px) { .usecases,.split { grid-template-columns: 1fr; } .landing { padding: 2rem 1rem; } .example { padding: 1.2rem; } }
 {% endblock %}
 {% block tabs_nav %}
-<nav class="tabs-wrap" aria-label="Explore Leima"><div class="tabs">
-<a class="tab-btn" href="#usecases">Use cases</a><a class="tab-btn" href="#how-it-works">How it works</a><a class="tab-btn" href="#example">Example</a><a class="tab-btn" href="/app">Open Leima</a>
-</div></nav>
+    <div class="tabs-wrap">
+      <div class="tabs">
+        <a href="/app" class="tab-btn">Text</a>
+        <a href="/app#claim" class="tab-btn">Claim only</a>
+        <a href="/app#web" class="tab-btn">Web</a>
+        <a href="/app#image" class="tab-btn">Image</a>
+        <a href="/app#email" class="tab-btn">Email</a>
+        <a href="/app#github" class="tab-btn">GitHub</a>
+        <a href="/app#bundle" class="tab-btn">Bundle</a>
+      </div>
+      <div class="tabs-scroll-hint" id="tabs-scroll-hint">›</div>
+    </div>
 {% endblock %}
 {% block main_content %}
 <div class="landing">
