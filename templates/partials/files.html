@@ -6,7 +6,7 @@
   </div>
 
   <div class="irys-row">
-    <span class="irys-label">Stamp record on Arweave</span>
+    <span class="irys-label">{% if test_network %}Stamp record on test network · not permanent{% else %}Stamp record on Arweave{% endif %}</span>
     <a class="irys-link" href="{{ irys_url }}" target="_blank">{{ irys_tx }}</a>
   </div>
 </div>

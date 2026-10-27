@@ -376,6 +376,7 @@ templates = Jinja2Templates(directory="templates")
 templates.env.filters["b64encode"] = lambda s: base64.b64encode(s.encode("utf-8")).decode("ascii") if isinstance(s, str) else base64.b64encode(s).decode("ascii")
 templates.env.globals["deploy_sha"] = os.getenv("VERCEL_GIT_COMMIT_SHA", "")[:7]
 _MD_ALLOWED_TAGS = ["p", "strong", "em", "ul", "ol", "li", "blockquote", "code", "pre", "br", "h1", "h2", "h3"]
+templates.env.globals["test_network"] = IRYS_NETWORK == "devnet"
 templates.env.filters["md"] = lambda text: bleach.clean(
     _md.markdown(text or "", extensions=["nl2br"]),
     tags=_MD_ALLOWED_TAGS, strip=True
@@ -1868,7 +1869,7 @@ async def download_package(session_id: str):
     return Response(
         content=data,
         media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename=leima-{session_id[:8]}.zip"},
+        headers={"Content-Disposition": f"attachment; filename=leima-{'TEST-' if IRYS_NETWORK == 'devnet' else ''}{session_id[:8]}.zip"},
     )
 
 

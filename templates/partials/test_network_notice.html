@@ -1,0 +1,63 @@
+<dialog id="test-network-notice" class="tn-dialog" aria-labelledby="tn-title">
+  <h2 id="tn-title">Preview: test network</h2>
+  <p>Leima is in public testing. Your package is sealed on a test network, so the seal is <strong>not permanent</strong> and will eventually disappear.</p>
+  <p>The package itself works normally and you can verify it while the test seal remains. Don't rely on it as lasting evidence yet.</p>
+  <div class="tn-actions">
+    <button type="button" class="tn-cancel" value="cancel">Cancel</button>
+    <button type="button" class="tn-continue" value="continue">Continue</button>
+  </div>
+</dialog>
+
+<style>
+  .tn-dialog {
+    max-width: 28rem;
+    width: calc(100% - 2rem);
+    margin: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    background: var(--surface);
+    color: var(--text);
+  }
+  .tn-dialog::backdrop { background: rgba(15, 28, 46, 0.45); }
+  .tn-dialog h2 { font-size: 1.1rem; margin-bottom: 0.75rem; }
+  .tn-dialog p { font-size: 0.95rem; line-height: 1.5; margin-bottom: 0.75rem; }
+  .tn-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+  .tn-actions button {
+    border-radius: 6px;
+    padding: 0.45rem 1.1rem;
+    font-size: 0.875rem;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .tn-cancel { background: #fff; color: var(--text-muted); border: 1px solid var(--border); }
+  .tn-continue { background: #0d6efd; color: #fff; border: none; }
+  .tn-continue:hover { background: #0b5ed7; }
+</style>
+
+<script>
+  // Stamping on the test network: ask once per browser session before the first seal is written.
+  (() => {
+    const KEY = 'leima-test-network-ack';
+    const dialog = document.getElementById('test-network-notice');
+    const acked = () => { try { return sessionStorage.getItem(KEY) === '1'; } catch { return false; } };
+    let pending = null;
+
+    document.body.addEventListener('htmx:confirm', (evt) => {
+      if (!evt.detail.elt.hasAttribute('data-test-network-notice') || acked()) return;
+      evt.preventDefault();
+      pending = evt.detail;
+      dialog.showModal();
+    });
+
+    dialog.querySelector('.tn-continue').addEventListener('click', () => {
+      try { sessionStorage.setItem(KEY, '1'); } catch {}
+      dialog.close();
+      if (pending) pending.issueRequest(true);
+      pending = null;
+    });
+    dialog.querySelector('.tn-cancel').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => { pending = null; });
+  })();
+</script>

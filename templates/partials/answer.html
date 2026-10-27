@@ -90,6 +90,7 @@
   <div id="gen-wrap-{{ session_id }}">
     <div class="download-row">
       <button class="generate-btn"
+        {% if test_network %}data-test-network-notice{% endif %}
         hx-post="/files/{{ session_id }}"
         hx-target="#files-{{ session_id }}"
         hx-swap="innerHTML"

@@ -566,5 +566,7 @@
 
 {% block extra_scripts %}{% endblock %}
 
+{% if test_network %}{% include "partials/test_network_notice.html" %}{% endif %}
+
 </body>
 </html>
