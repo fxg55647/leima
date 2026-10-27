@@ -62,6 +62,11 @@ import logging as _logging
 _logging.basicConfig(level=_logging.WARNING)
 for _noisy in ("uvicorn.access", "uvicorn.error", "httpx", "httpcore", "google"):
     _logging.getLogger(_noisy).setLevel(_logging.ERROR)
+_log = _logging.getLogger("leima")
+
+
+def _is_ai_quota_error(e: Exception) -> bool:
+    return getattr(e, "code", None) in (402, 429) or "RESOURCE_EXHAUSTED" in str(e)
 
 
 def _patch_urllib3_ssrf_guard():
@@ -2822,7 +2827,11 @@ async def ask(
                                source_index_bytes=source_index_bytes)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
-    except Exception:
+    except Exception as e:
+        _log.exception("/ask analysis failed (tab=%s)", active_tab)
+        if _is_ai_quota_error(e):
+            return HTMLResponse('<div class="error">The AI analysis service is temporarily unavailable. '
+                                'Please try again later.</div>')
         return HTMLResponse('<div class="error">Analysis failed. Please try again.</div>')
 
     if active_tab == "image" and c2pa_info:
@@ -3313,6 +3322,7 @@ async def api_code_review(body: CodeReviewRequest):
     try:
         cr = analyse_code_review(bundled, rules_text, repo, commit_sha)
     except Exception:
+        _log.exception("/api/code-review analysis failed")
         return JSONResponse({"error": "Analysis failed"}, status_code=500)
 
     manifest = {
