@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,7 +25,9 @@ jobs:
           cache: pip
 
       - name: Install regression test dependencies
+        timeout-minutes: 15
         run: |
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/99-retries
           python -m pip install -r requirements-dev.txt
           python -m playwright install --with-deps chromium
 
