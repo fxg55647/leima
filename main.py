@@ -2264,6 +2264,25 @@ def build_verdict_json_export(question: str, passes: list[tuple[str, str]], time
 PDF_URL_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
+def _fetch_image_from_url(url: str, max_bytes: int) -> tuple[bytes, str, str]:
+    """Returns (image_bytes, mime, url_ext). Raises ValueError with a user-facing message."""
+    _check_ssrf(url)
+    resp, _ = _safe_get(url, timeout=20, stream=True)
+    resp.raise_for_status()
+    ct = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+    url_ext = url.rsplit(".", 1)[-1].lower() if "." in url else ""
+    mime = ct if ct in _IMAGE_MIMES.values() else _IMAGE_MIMES.get(url_ext)
+    if not mime:
+        raise ValueError("URL does not point to a supported image format.")
+    chunks, total = [], 0
+    for chunk in resp.iter_content(chunk_size=65536):
+        total += len(chunk)
+        if total > max_bytes:
+            raise ValueError("Image too large (max 20 MB).")
+        chunks.append(chunk)
+    return b"".join(chunks), mime, url_ext
+
+
 def _fetch_pdf_from_url(url: str) -> tuple[bytes, str]:
     _check_ssrf(url)
     parsed = urlparse(url)
@@ -2415,21 +2434,8 @@ async def ask(
     if active_tab == "image":
         if image_url.strip():
             try:
-                _check_ssrf(image_url.strip())
-                resp, _ = _safe_get(image_url.strip(), timeout=20, stream=True)
-                resp.raise_for_status()
-                ct = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
-                url_ext = image_url.strip().rsplit(".", 1)[-1].lower() if "." in image_url else ""
-                mime = ct if ct in _IMAGE_MIMES.values() else _IMAGE_MIMES.get(url_ext)
-                if not mime:
-                    return HTMLResponse('<div class="error">URL does not point to a supported image format.</div>')
-                chunks, total = [], 0
-                for chunk in resp.iter_content(chunk_size=65536):
-                    total += len(chunk)
-                    if total > MAX_UPLOAD_BYTES:
-                        return HTMLResponse('<div class="error">Image too large (max 20 MB).</div>')
-                    chunks.append(chunk)
-                input_bytes = b"".join(chunks)
+                input_bytes, mime, url_ext = await run_in_threadpool(
+                    _fetch_image_from_url, image_url.strip(), MAX_UPLOAD_BYTES)
             except ValueError as e:
                 return HTMLResponse(f'<div class="error">{e}</div>')
             except Exception as e:
@@ -2466,7 +2472,7 @@ async def ask(
     elif active_tab == "pdf":
         if pdf_url.strip():
             try:
-                input_bytes, input_label = _fetch_pdf_from_url(pdf_url.strip())
+                input_bytes, input_label = await run_in_threadpool(_fetch_pdf_from_url, pdf_url.strip())
             except Exception as e:
                 return HTMLResponse(f'<div class="error">URL error: {e}</div>')
             parsed = urlparse(pdf_url.strip())
@@ -2508,7 +2514,8 @@ async def ask(
         if not web_url.strip():
             return HTMLResponse('<div class="error">Please enter a URL.</div>')
         try:
-            input_bytes, page_text, fetched_url, fetched_at, raw_html = _fetch_webpage(web_url.strip())
+            input_bytes, page_text, fetched_url, fetched_at, raw_html = await run_in_threadpool(
+                _fetch_webpage, web_url.strip())
         except Exception as e:
             return HTMLResponse(f'<div class="error">URL error: {e}</div>')
         _, source_index_bytes = _build_source_index(web_url.strip(), fetched_url, raw_html, fetched_at)
@@ -2561,8 +2568,8 @@ async def ask(
             if not rules_url.strip():
                 return HTMLResponse('<div class="error">Enter a rules URL for code review.</div>')
             try:
-                _check_ssrf(rules_url.strip())
-                rules_resp, _ = _safe_get(rules_url.strip(), timeout=15)
+                await run_in_threadpool(_check_ssrf, rules_url.strip())
+                rules_resp, _ = await run_in_threadpool(_safe_get, rules_url.strip(), timeout=15)
                 rules_text = rules_resp.text
             except Exception as e:
                 return HTMLResponse(f'<div class="error">Could not fetch rules: {e}</div>')
@@ -2885,8 +2892,9 @@ async def check_correspondence(
         return HTMLResponse('<p class="corr-error">No URL in source-index.json.</p>')
 
     try:
-        _check_ssrf(target_url)
-        resp, final_url = _safe_get(target_url, timeout=20, headers={"User-Agent": "Leima/1.0"})
+        await run_in_threadpool(_check_ssrf, target_url)
+        resp, final_url = await run_in_threadpool(
+            _safe_get, target_url, timeout=20, headers={"User-Agent": "Leima/1.0"})
         resp.raise_for_status()
         current_html = resp.text
         current_chars_preview = len(current_html)
@@ -2956,7 +2964,7 @@ async def api_stamp(body: StampRequest):
             input_label = "api-upload.pdf"
             contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
         elif body.source_type == "pdf_url":
-            input_bytes, input_label = _fetch_pdf_from_url(body.source.strip())
+            input_bytes, input_label = await run_in_threadpool(_fetch_pdf_from_url, body.source.strip())
             contents.append(types.Part.from_bytes(data=input_bytes, mime_type="application/pdf"))
         elif body.source_type == "text":
             if not body.source.strip():
@@ -3283,8 +3291,8 @@ async def api_code_review(body: CodeReviewRequest):
         return JSONResponse({"error": "rules_url is required"}, status_code=400)
 
     try:
-        _check_ssrf(body.rules_url.strip())
-        rules_resp, _ = _safe_get(body.rules_url.strip(), timeout=15)
+        await run_in_threadpool(_check_ssrf, body.rules_url.strip())
+        rules_resp, _ = await run_in_threadpool(_safe_get, body.rules_url.strip(), timeout=15)
         rules_text = rules_resp.text
     except Exception as e:
         return JSONResponse({"error": f"Could not fetch rules: {e}"}, status_code=400)
