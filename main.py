@@ -1830,7 +1830,7 @@ async def files(request: Request, session_id: str):
         return Response(status_code=404)
 
     try:
-        entry = _ensure_stamped(session_id)
+        entry = await run_in_threadpool(_ensure_stamped, session_id)
     except HTTPException as e:
         return Response(status_code=e.status_code)
     except Exception as e:
@@ -2580,7 +2580,7 @@ async def ask(
             except Exception as e:
                 return HTMLResponse(f'<div class="error">Could not fetch rules: {e}</div>')
             try:
-                cr = analyse_code_review(bundled, rules_text, gh_repo, commit_sha)
+                cr = await run_in_threadpool(analyse_code_review, bundled, rules_text, gh_repo, commit_sha)
             except Exception:
                 return HTMLResponse('<div class="error">Code review analysis failed. Please try again.</div>')
             manifest_cr = {
@@ -2812,7 +2812,7 @@ async def ask(
     verdict_prefix = "Document (with evaluation)" if assess_credibility == "1" else "Document"
 
     if use_web_search == "1" and question.strip():
-        web_ctx, web_queries = _fetch_web_context(question)
+        web_ctx, web_queries = await run_in_threadpool(_fetch_web_context, question)
         if web_ctx:
             contents.append(f"Web search context:\n{web_ctx}")
             if source_context is None:
@@ -2822,10 +2822,10 @@ async def ask(
                 source_context["web_search_queries"] = web_queries
 
     try:
-        result = _run_analysis(question, contents, input_bytes, input_label,
-                               source_ext, source_mime,
-                               source_context, verdict_prefix,
-                               source_index_bytes=source_index_bytes)
+        result = await run_in_threadpool(_run_analysis, question, contents, input_bytes, input_label,
+                                         source_ext, source_mime,
+                                         source_context, verdict_prefix,
+                                         source_index_bytes=source_index_bytes)
     except ValueError as e:
         return HTMLResponse(f'<div class="error">{e}</div>')
     except Exception as e:
@@ -2990,7 +2990,7 @@ async def api_stamp(body: StampRequest):
     contents.append(claim)
 
     try:
-        result = _run_analysis(claim, contents, input_bytes, input_label)
+        result = await run_in_threadpool(_run_analysis, claim, contents, input_bytes, input_label)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
     except Exception as e:
@@ -2998,7 +2998,7 @@ async def api_stamp(body: StampRequest):
 
     session_id = result["session_id"]
     try:
-        entry = _ensure_stamped(session_id)
+        entry = await run_in_threadpool(_ensure_stamped, session_id)
     except Exception as e:
         return JSONResponse({"error": f"Arweave upload failed: {e}"}, status_code=502)
 
@@ -3064,8 +3064,9 @@ async def api_stamp_device_capture(
     }
     contents = [device_capture.analysis_text(capture), question]
     try:
-        result = _run_analysis(question, contents, raw, "device-capture.zip",
-                               source_ext="zip", source_mime="application/zip", source_context=source_context)
+        result = await run_in_threadpool(_run_analysis, question, contents, raw, "device-capture.zip",
+                                         source_ext="zip", source_mime="application/zip",
+                                         source_context=source_context)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
     except Exception as e:
@@ -3073,7 +3074,7 @@ async def api_stamp_device_capture(
 
     session_id = result["session_id"]
     try:
-        entry = _ensure_stamped(session_id)
+        entry = await run_in_threadpool(_ensure_stamped, session_id)
     except Exception as e:
         return JSONResponse({"error": f"Arweave upload failed: {e}"}, status_code=502)
     stamp = entry["manifest"]["stamp"]
@@ -3321,7 +3322,7 @@ async def api_code_review(body: CodeReviewRequest):
     )
 
     try:
-        cr = analyse_code_review(bundled, rules_text, repo, commit_sha)
+        cr = await run_in_threadpool(analyse_code_review, bundled, rules_text, repo, commit_sha)
     except Exception:
         _log.exception("/api/code-review analysis failed")
         return JSONResponse({"error": "Analysis failed"}, status_code=500)
