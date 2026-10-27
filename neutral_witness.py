@@ -8,9 +8,11 @@ instructions are given to the model without reading the rest of the codebase.
 """
 
 import os
+import random
+import time
 from datetime import datetime
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
 MODEL = "gemini-3.1-flash-lite"
 
@@ -24,6 +26,24 @@ def _get_client() -> genai.Client:
             http_options={"timeout": 120_000},
         )
     return _client
+
+# Transient Gemini errors ("high demand" 503, rate limit 429, internal 500) are
+# retried briefly. Anything else — notably 402 (credits exhausted) — fails at
+# once. Delays stay small because the whole analysis runs inside a Vercel
+# function with a hard time limit.
+_RETRYABLE_CODES = {429, 500, 503}
+_RETRY_DELAYS = (1.0, 3.0)  # seconds before attempt 2 and 3
+_RETRY_JITTER = 0.5
+
+def _generate(client: genai.Client, **kwargs):
+    """Call client.models.generate_content, retrying transient API errors."""
+    for attempt in range(len(_RETRY_DELAYS) + 1):
+        try:
+            return client.models.generate_content(**kwargs)
+        except errors.APIError as e:
+            if e.code not in _RETRYABLE_CODES or attempt == len(_RETRY_DELAYS):
+                raise
+            time.sleep(_RETRY_DELAYS[attempt] + random.uniform(0, _RETRY_JITTER))
 
 _SCOPE = """Leima is a tool for economic activity, scientific work, and the verification of factual claims. It is not a law enforcement tool, does not serve state authorities, and is not designed for resolving disputes between parties.
 
@@ -413,7 +433,7 @@ OVERALL: VIOLATION — <one sentence summary>
 
 {bundle}
 """
-    resp = client.models.generate_content(
+    resp = _generate(client,
         model=MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(temperature=0),
@@ -447,7 +467,7 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
     pass_prompts = _build_pass_prompts(source_context, question)
     passes = []
     for i, (prompt, label) in enumerate(zip(pass_prompts, PASS_LABELS)):
-        resp = client.models.generate_content(
+        resp = _generate(client,
             model=MODEL,
             contents=contents,
             config=types.GenerateContentConfig(system_instruction=prompt),
@@ -458,7 +478,7 @@ def analyse(question: str, contents: list, source_context: dict | None = None) -
         passes.append((label, text))
 
     synth = _synthesis_prompt(question, passes[0][1], passes[1][1], source_context)
-    synth_resp = client.models.generate_content(
+    synth_resp = _generate(client,
         model=MODEL,
         contents=contents,
         config=types.GenerateContentConfig(system_instruction=synth),
